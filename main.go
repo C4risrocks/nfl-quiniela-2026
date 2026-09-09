@@ -183,6 +183,7 @@ func main() {
 		player.Get("/picks", picksHandler.ShowPicks)
 		player.Post("/picks/save", picksHandler.SavePick)
 		player.Post("/picks/save-score", picksHandler.SaveScore)
+		player.Post("/picks/save-all", picksHandler.SaveAll)
 		player.Get("/picks/community/{gameId}", picksHandler.CommunityPicks)
 
 		// Profile & Preferences

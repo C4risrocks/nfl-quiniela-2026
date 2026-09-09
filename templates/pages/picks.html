@@ -29,7 +29,7 @@
             </p>
         </div>
 
-        <!-- Week Dropdown Selector -->
+        <!-- Week Dropdown Selector & Header Submit Button -->
         <div class="flex items-center space-x-2.5">
             <span class="text-xs font-mono text-zinc-400 uppercase tracking-wider">Jornada:</span>
             <select id="week-select" 
@@ -41,6 +41,13 @@
                     </option>
                 {{end}}
             </select>
+            {{if and .Games (not .IsFullWeekLocked)}}
+                <button type="button" 
+                        onclick="document.getElementById('picks-form').submit()"
+                        class="hidden sm:inline-flex items-center px-4 py-2 rounded-xl bg-white text-black font-extrabold text-xs hover:bg-zinc-200 transition-colors shadow-sm cursor-pointer">
+                    <i class="fa-solid fa-paper-plane mr-1.5"></i> Enviar
+                </button>
+            {{end}}
         </div>
     </div>
 
@@ -93,19 +100,46 @@
         </div>
     </div>
 
-    <!-- Games Grid with Real-time SSE Live Refresh -->
+    {{if .JustSaved}}
+        <div x-data x-init="$nextTick(() => $dispatch('show-toast', {message: '¡Tus pronósticos se han guardado exitosamente!', type: 'success'}))"></div>
+    {{end}}
+
+    <!-- Games Form and Grid -->
     {{if .Games}}
-        <div hx-ext="sse" sse-connect="/events/live"
-             class="grid grid-cols-1 lg:grid-cols-2 gap-3.5"
-             hx-trigger="sse:week-updated"
-             hx-get="/picks?week={{.SelectedWeek.WeekNumber}}"
-             hx-select=".grid.grid-cols-1.lg\:grid-cols-2"
-             hx-target="this"
-             hx-swap="outerHTML">
-            {{range .Games}}
-                {{template "game_card.html" (dict "Game" . "CurrentTime" $.CurrentTime "FormattedKickoff" (formatDate .KickoffTime) "LockMode" $.LockMode "FirstKickoff" $.FirstKickoff)}}
+        <form id="picks-form" method="POST" action="/picks/save-all" class="space-y-4">
+            <input type="hidden" name="week_id" value="{{.SelectedWeek.ID}}">
+
+            <div id="games-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+                {{range .Games}}
+                    {{template "game_card.html" (dict "Game" . "CurrentTime" $.CurrentTime "FormattedKickoff" (formatDate .KickoffTime) "LockMode" $.LockMode "FirstKickoff" $.FirstKickoff)}}
+                {{end}}
+            </div>
+
+            <!-- Sticky Bottom Submission Bar -->
+            {{if not .IsFullWeekLocked}}
+                <div class="sticky bottom-4 z-30 p-4 rounded-2xl bg-[#0e0e0e]/95 backdrop-blur-md border border-zinc-800 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div class="flex items-center space-x-3 w-full sm:w-auto">
+                        <div class="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-amber-400 text-sm">
+                            <i class="fa-solid fa-football"></i>
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-white">Tus Pronósticos de {{.SelectedWeek.Name}}</div>
+                            <div class="text-[11px] text-zinc-400">
+                                <span id="picked-games-count" class="font-mono font-bold text-emerald-400">{{.PicksCount}}</span> de {{len .Games}} partidos seleccionados
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3 w-full sm:w-auto">
+                        <button type="submit" 
+                                id="submit-picks-btn"
+                                class="w-full sm:w-auto px-6 py-2.5 bg-white text-black hover:bg-zinc-200 font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
+                            <i class="fa-solid fa-paper-plane text-black"></i>
+                            <span>Enviar Pronósticos</span>
+                        </button>
+                    </div>
+                </div>
             {{end}}
-        </div>
+        </form>
     {{else}}
         <div class="vercel-card text-center py-16 px-4 rounded-2xl">
             <div class="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto text-zinc-500 text-lg mb-3">
@@ -124,4 +158,19 @@
     {{end}}
 
 </div>
+
+<script>
+function updatePicksCounter() {
+    const inputs = document.querySelectorAll('input[name^="picked_team_"]');
+    let count = 0;
+    inputs.forEach(input => {
+        if (input.value && input.value.trim() !== '') {
+            count++;
+        }
+    });
+    const counter = document.getElementById('picked-games-count');
+    if (counter) counter.innerText = count;
+}
+document.addEventListener('DOMContentLoaded', updatePicksCounter);
+</script>
 {{end}}

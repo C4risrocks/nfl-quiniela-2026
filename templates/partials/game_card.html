@@ -4,8 +4,24 @@
 {{$awayPicked := and $pick ($pick.IsPickedTeam .Game.AwayTeamID)}}
 
 <div id="game-card-{{.Game.ID}}" 
+     x-data="{ 
+         pickedTeam: '{{if $pick}}{{if $pick.PickedTeamID}}{{$pick.PickedTeamID}}{{end}}{{end}}',
+         selectTeam(id) {
+             if ({{$locked}}) return;
+             this.pickedTeam = (this.pickedTeam == id) ? '' : id;
+             const inp = document.getElementById('pick-input-{{.Game.ID}}');
+             if (inp) inp.value = this.pickedTeam;
+             if (typeof updatePicksCounter === 'function') updatePicksCounter();
+         }
+     }"
      class="vercel-card rounded-2xl p-4 sm:p-5 relative transition-all duration-150 shadow-sm {{if .Game.IsTiebreaker}}ring-1 ring-amber-500/30 bg-gradient-to-b from-amber-500/5 via-transparent to-transparent{{end}}">
     
+    <input type="hidden" 
+           name="picked_team_{{.Game.ID}}" 
+           id="pick-input-{{.Game.ID}}" 
+           :value="pickedTeam" 
+           value="{{if $pick}}{{if $pick.PickedTeamID}}{{$pick.PickedTeamID}}{{end}}{{end}}">
+
     <!-- Header Slot: Kickoff schedule, Status Badge & Tiebreaker Tag -->
     <div class="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-[#222222] text-xs">
         <div class="flex items-center space-x-2">
@@ -52,13 +68,10 @@
         <!-- Away Team Selector (5 cols) -->
         <div class="col-span-5">
             <button type="button"
-                    {{if not $locked}}
-                    hx-post="/picks/save"
-                    hx-vals='{"game_id": "{{.Game.ID}}", "picked_team_id": "{{.Game.AwayTeamID}}"}'
-                    hx-target="#game-card-{{.Game.ID}}"
-                    hx-swap="outerHTML"
-                    {{end}}
-                    class="w-full text-left p-3 rounded-xl border transition-all relative group {{if $awayPicked}}bg-zinc-900 border-white/40 ring-1 ring-white/20 shadow-md{{else}}bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60{{end}} {{if $locked}}cursor-default{{else}}cursor-pointer hover:scale-[1.01]{{end}}">
+                    @click="selectTeam('{{.Game.AwayTeamID}}')"
+                    {{if $locked}}disabled{{end}}
+                    :class="pickedTeam == '{{.Game.AwayTeamID}}' ? 'bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60'"
+                    class="w-full text-left p-3 rounded-xl border transition-all relative group {{if $awayPicked}}bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md{{else}}bg-zinc-950/60 border-[#222222]{{end}} {{if $locked}}cursor-default opacity-80{{else}}cursor-pointer hover:scale-[1.01]{{end}}">
                 
                 <div class="flex items-center space-x-3">
                     <img src="{{.Game.AwayTeam.LogoURL}}" alt="{{.Game.AwayTeam.Code}}" class="w-9 h-9 sm:w-11 sm:h-11 object-contain drop-shadow" loading="lazy">
@@ -71,11 +84,11 @@
                     </div>
                 </div>
 
-                {{if $awayPicked}}
-                    <div class="absolute top-2 right-2 flex items-center justify-center w-4 h-4 rounded-full bg-white text-black shadow">
-                        <i class="fa-solid fa-check text-[10px] font-black"></i>
-                    </div>
-                {{end}}
+                <div x-show="pickedTeam == '{{.Game.AwayTeamID}}'" 
+                     {{if not $awayPicked}}x-cloak{{end}}
+                     class="absolute top-2 right-2 flex items-center justify-center w-4 h-4 rounded-full bg-white text-black shadow">
+                    <i class="fa-solid fa-check text-[10px] font-black"></i>
+                </div>
 
                 {{if or (eq .Game.Status "in_progress") (eq .Game.Status "final")}}
                     <div class="mt-2 pt-1.5 border-t border-zinc-800/80 flex items-center justify-between text-xs">
@@ -94,13 +107,10 @@
         <!-- Home Team Selector (5 cols) -->
         <div class="col-span-5">
             <button type="button"
-                    {{if not $locked}}
-                    hx-post="/picks/save"
-                    hx-vals='{"game_id": "{{.Game.ID}}", "picked_team_id": "{{.Game.HomeTeamID}}"}'
-                    hx-target="#game-card-{{.Game.ID}}"
-                    hx-swap="outerHTML"
-                    {{end}}
-                    class="w-full text-right p-3 rounded-xl border transition-all relative group {{if $homePicked}}bg-zinc-900 border-white/40 ring-1 ring-white/20 shadow-md{{else}}bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60{{end}} {{if $locked}}cursor-default{{else}}cursor-pointer hover:scale-[1.01]{{end}}">
+                    @click="selectTeam('{{.Game.HomeTeamID}}')"
+                    {{if $locked}}disabled{{end}}
+                    :class="pickedTeam == '{{.Game.HomeTeamID}}' ? 'bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60'"
+                    class="w-full text-right p-3 rounded-xl border transition-all relative group {{if $homePicked}}bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md{{else}}bg-zinc-950/60 border-[#222222]{{end}} {{if $locked}}cursor-default opacity-80{{else}}cursor-pointer hover:scale-[1.01]{{end}}">
                 
                 <div class="flex items-center justify-end space-x-3 space-x-reverse">
                     <img src="{{.Game.HomeTeam.LogoURL}}" alt="{{.Game.HomeTeam.Code}}" class="w-9 h-9 sm:w-11 sm:h-11 object-contain drop-shadow" loading="lazy">
@@ -113,11 +123,11 @@
                     </div>
                 </div>
 
-                {{if $homePicked}}
-                    <div class="absolute top-2 left-2 flex items-center justify-center w-4 h-4 rounded-full bg-white text-black shadow">
-                        <i class="fa-solid fa-check text-[10px] font-black"></i>
-                    </div>
-                {{end}}
+                <div x-show="pickedTeam == '{{.Game.HomeTeamID}}'" 
+                     {{if not $homePicked}}x-cloak{{end}}
+                     class="absolute top-2 left-2 flex items-center justify-center w-4 h-4 rounded-full bg-white text-black shadow">
+                    <i class="fa-solid fa-check text-[10px] font-black"></i>
+                </div>
 
                 {{if or (eq .Game.Status "in_progress") (eq .Game.Status "final")}}
                     <div class="mt-2 pt-1.5 border-t border-zinc-800/80 flex items-center justify-between text-xs">
@@ -129,19 +139,20 @@
         </div>
     </div>
 
-    <!-- Score Prediction Form (Extra Points & Tiebreaker) -->
+    <!-- Score Prediction Inputs (Extra Points & Tiebreaker) -->
     <div class="mt-3 pt-3 border-t border-[#1f1f1f] bg-black/40 rounded-xl p-3 border border-[#1a1a1a]">
-        <form hx-post="/picks/save-score"
-              hx-target="#game-card-{{.Game.ID}}"
-              hx-swap="outerHTML"
-              hx-trigger="change delay:400ms"
-              class="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            
-            <input type="hidden" name="game_id" value="{{.Game.ID}}">
-
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <div class="flex items-center space-x-2 text-zinc-400">
                 <i class="fa-solid fa-calculator text-zinc-500"></i>
-                <span class="font-medium text-[11px]">Pronóstico de Marcador (Puntos extra & desempate):</span>
+                <span class="font-medium text-[11px]">
+                    {{if .Game.IsTiebreaker}}
+                        <span class="text-amber-300 font-semibold flex items-center">
+                            <i class="fa-solid fa-star text-[9px] mr-1 text-amber-400"></i> Marcador Desempate MNF:
+                        </span>
+                    {{else}}
+                        Pronóstico de Marcador:
+                    {{end}}
+                </span>
             </div>
 
             <div class="flex items-center space-x-2.5">
@@ -149,13 +160,13 @@
                 <div class="flex items-center space-x-1.5">
                     <span class="font-mono font-bold text-xs text-zinc-300">{{.Game.AwayTeam.Code}}</span>
                     <input type="number" 
-                           name="away_score" 
+                           name="away_score_{{.Game.ID}}" 
                            min="0" 
                            max="99"
                            value="{{if $pick}}{{$pick.AwayScoreStr}}{{end}}"
                            placeholder="--" 
                            {{if $locked}}disabled{{end}}
-                           class="w-12 py-1 px-1.5 text-center font-mono font-bold text-xs bg-zinc-900 border border-zinc-700/80 rounded-lg text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white disabled:opacity-40 disabled:bg-zinc-950">
+                           class="w-12 py-1.5 px-2 text-center font-mono font-bold text-xs bg-zinc-900 border border-zinc-700/80 rounded-lg text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white disabled:opacity-40 disabled:bg-zinc-950">
                 </div>
 
                 <span class="text-zinc-600 font-bold">-</span>
@@ -163,17 +174,17 @@
                 <!-- Home Score Input -->
                 <div class="flex items-center space-x-1.5">
                     <input type="number" 
-                           name="home_score" 
+                           name="home_score_{{.Game.ID}}" 
                            min="0" 
                            max="99"
                            value="{{if $pick}}{{$pick.HomeScoreStr}}{{end}}"
                            placeholder="--" 
                            {{if $locked}}disabled{{end}}
-                           class="w-12 py-1 px-1.5 text-center font-mono font-bold text-xs bg-zinc-900 border border-zinc-700/80 rounded-lg text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white disabled:opacity-40 disabled:bg-zinc-950">
+                           class="w-12 py-1.5 px-2 text-center font-mono font-bold text-xs bg-zinc-900 border border-zinc-700/80 rounded-lg text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white disabled:opacity-40 disabled:bg-zinc-950">
                     <span class="font-mono font-bold text-xs text-zinc-300">{{.Game.HomeTeam.Code}}</span>
                 </div>
             </div>
-        </form>
+        </div>
     </div>
 
     <!-- Game Final Points Banner -->

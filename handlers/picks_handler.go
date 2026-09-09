@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -121,6 +123,7 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 		"LockMode":         scoringCfg.LockMode,
 		"FirstKickoff":     firstKickoff,
 		"IsFullWeekLocked": isFullWeekLocked,
+		"JustSaved":        r.URL.Query().Get("saved") == "1",
 	})
 }
 
@@ -256,6 +259,83 @@ func (h *PicksHandler) SaveScore(w http.ResponseWriter, r *http.Request) {
 		"LockMode":         scoringCfg.LockMode,
 		"FirstKickoff":     firstKickoff,
 	})
+}
+
+// SaveAll saves all submitted picks and predicted scores for a week at once
+func (h *PicksHandler) SaveAll(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromContext(r.Context())
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	weekID, err := strconv.ParseInt(r.FormValue("week_id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid week_id", http.StatusBadRequest)
+		return
+	}
+
+	week, err := h.repo.GetWeekByID(weekID)
+	if err != nil || week == nil {
+		http.Error(w, "Week not found", http.StatusNotFound)
+		return
+	}
+
+	scoringCfg, _ := h.repo.GetScoringConfig()
+	weekGames, err := h.repo.ListGamesByWeek(weekID)
+	if err != nil {
+		http.Error(w, "Error listing games", http.StatusInternalServerError)
+		return
+	}
+	firstKickoff := findFirstKickoff(weekGames)
+	now := time.Now()
+
+	savedCount := 0
+	for _, game := range weekGames {
+		if game.IsGameOrWeekLocked(now, scoringCfg.LockMode, firstKickoff) {
+			continue
+		}
+
+		var pickedTeamID *int64
+		if teamStr := strings.TrimSpace(r.FormValue(fmt.Sprintf("picked_team_%d", game.ID))); teamStr != "" {
+			if tid, err := strconv.ParseInt(teamStr, 10, 64); err == nil {
+				pickedTeamID = &tid
+			}
+		}
+
+		var homeScore, awayScore *int
+		if hsStr := strings.TrimSpace(r.FormValue(fmt.Sprintf("home_score_%d", game.ID))); hsStr != "" {
+			if hs, err := strconv.Atoi(hsStr); err == nil && hs >= 0 {
+				homeScore = &hs
+			}
+		}
+		if asStr := strings.TrimSpace(r.FormValue(fmt.Sprintf("away_score_%d", game.ID))); asStr != "" {
+			if as, err := strconv.Atoi(asStr); err == nil && as >= 0 {
+				awayScore = &as
+			}
+		}
+
+		if pickedTeamID != nil || homeScore != nil || awayScore != nil {
+			_, err := h.repo.SavePick(user.ID, game.ID, pickedTeamID, homeScore, awayScore)
+			if err == nil {
+				savedCount++
+			}
+		}
+	}
+
+	redirectURL := fmt.Sprintf("/picks?week=%d&saved=1", week.WeekNumber)
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", redirectURL)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
 
 func (h *PicksHandler) CommunityPicks(w http.ResponseWriter, r *http.Request) {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -209,6 +210,88 @@ func TestPicksSaveAndLockEnforcement(t *testing.T) {
 	picksHandler.SavePick(rrSundayPerGame, reqSundayPerGame)
 	if rrSundayPerGame.Code != http.StatusOK {
 		t.Errorf("Expected 200 OK under per_game lock for future Sunday game, got %d", rrSundayPerGame.Code)
+	}
+}
+
+func TestPicksSaveAll(t *testing.T) {
+	repo, authService, _, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	subTemplatesFS, _ := fs.Sub(os.DirFS(".."), "templates")
+	renderer := NewRenderer(subTemplatesFS)
+	picksHandler := NewPicksHandler(repo, renderer, nil, 2026)
+
+	user, _ := authService.Register("picker_batch", "batch@test.com", "pass123")
+	season, _ := repo.GetActiveSeason(2026)
+	week, _ := repo.GetWeekByNumber(season.ID, 1)
+	kc, _ := repo.GetTeamByCode("KC")
+	bal, _ := repo.GetTeamByCode("BAL")
+
+	g1, _ := repo.CreateManualGame(&db.Game{
+		WeekID:       week.ID,
+		HomeTeamID:   kc.ID,
+		AwayTeamID:   bal.ID,
+		KickoffTime:  time.Now().Add(24 * time.Hour),
+		Status:       "scheduled",
+		StatusDetail: "Sun 1:00 PM",
+	})
+	g2, _ := repo.CreateManualGame(&db.Game{
+		WeekID:       week.ID,
+		HomeTeamID:   bal.ID,
+		AwayTeamID:   kc.ID,
+		KickoffTime:  time.Now().Add(30 * time.Hour),
+		Status:       "scheduled",
+		StatusDetail: "Sun 4:25 PM",
+	})
+
+	form := url.Values{}
+	form.Set("week_id", strconvFormat(week.ID))
+	form.Set(fmt.Sprintf("picked_team_%d", g1.ID), strconvFormat(kc.ID))
+	form.Set(fmt.Sprintf("away_score_%d", g1.ID), "21")
+	form.Set(fmt.Sprintf("home_score_%d", g1.ID), "28")
+
+	form.Set(fmt.Sprintf("picked_team_%d", g2.ID), strconvFormat(bal.ID))
+	form.Set(fmt.Sprintf("away_score_%d", g2.ID), "17")
+	form.Set(fmt.Sprintf("home_score_%d", g2.ID), "24")
+
+	req := httptest.NewRequest(http.MethodPost, "/picks/save-all", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(injectUser(req.Context(), user))
+	rr := httptest.NewRecorder()
+
+	picksHandler.SaveAll(rr, req)
+
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("Expected redirect status 303 SeeOther, got %d", rr.Code)
+	}
+
+	// Verify both picks and predicted scores in database
+	p1, err := repo.GetUserPickForGame(user.ID, g1.ID)
+	if err != nil || p1 == nil {
+		t.Fatalf("Pick 1 not saved: %v", err)
+	}
+	if *p1.PickedTeamID != kc.ID {
+		t.Errorf("Expected pick 1 to be KC, got %d", *p1.PickedTeamID)
+	}
+	if p1.PredictedAwayScore == nil || *p1.PredictedAwayScore != 21 {
+		t.Errorf("Expected away score 21, got %v", p1.PredictedAwayScore)
+	}
+	if p1.PredictedHomeScore == nil || *p1.PredictedHomeScore != 28 {
+		t.Errorf("Expected home score 28, got %v", p1.PredictedHomeScore)
+	}
+
+	p2, err := repo.GetUserPickForGame(user.ID, g2.ID)
+	if err != nil || p2 == nil {
+		t.Fatalf("Pick 2 not saved: %v", err)
+	}
+	if *p2.PickedTeamID != bal.ID {
+		t.Errorf("Expected pick 2 to be BAL, got %d", *p2.PickedTeamID)
+	}
+	if p2.PredictedAwayScore == nil || *p2.PredictedAwayScore != 17 {
+		t.Errorf("Expected away score 17, got %v", p2.PredictedAwayScore)
+	}
+	if p2.PredictedHomeScore == nil || *p2.PredictedHomeScore != 24 {
+		t.Errorf("Expected home score 24, got %v", p2.PredictedHomeScore)
 	}
 }
 
