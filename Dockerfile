@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 # Build single static binary with stripped debug symbols for minimum footprint
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /build/server .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /build/server .
 
 # Production Runtime Stage
 FROM alpine:3.21

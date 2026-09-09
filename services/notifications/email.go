@@ -150,7 +150,7 @@ func (s *EmailSender) SendKickoffReminder(user *db.User, week *db.Week, kickoff 
 		defer client.Quit()
 
 		if auth != nil {
-			if err := client.Auth(auth); err != nil {
+			if err := client.Auth(tlsAuthWrapper{auth}); err != nil {
 				return fmt.Errorf("smtp auth: %w", err)
 			}
 		}
@@ -178,4 +178,15 @@ func (s *EmailSender) SendKickoffReminder(user *db.User, week *db.Week, kickoff 
 
 	log.Printf("[Email] Sent reminder successfully to %s (%s).", user.Username, user.Email)
 	return nil
+}
+
+// tlsAuthWrapper wraps smtp.Auth to force the TLS flag to true when authenticating over implicit TLS (port 465)
+type tlsAuthWrapper struct {
+	smtp.Auth
+}
+
+func (a tlsAuthWrapper) Start(server *smtp.ServerInfo) (string, []byte, error) {
+	s := *server
+	s.TLS = true
+	return a.Auth.Start(&s)
 }
