@@ -692,3 +692,53 @@ func parseTimeSafe(tStr string) time.Time {
 	}
 	return time.Now()
 }
+
+// ----------------------------------------------------
+// Notifications & Reminders
+// ----------------------------------------------------
+
+func (r *Repository) GetUsersWithPendingPicks(weekID int64) ([]*User, error) {
+	query := `
+	SELECT u.id, u.username, u.email, u.password_hash, u.role, u.created_at
+	FROM users u
+	WHERE (
+		SELECT COUNT(*) FROM picks p 
+		JOIN games g ON p.game_id = g.id 
+		WHERE p.user_id = u.id AND g.week_id = ? AND p.picked_team_id IS NOT NULL
+	) < (
+		SELECT COUNT(*) FROM games WHERE week_id = ?
+	)
+	AND (SELECT COUNT(*) FROM games WHERE week_id = ?) > 0
+	ORDER BY u.username ASC`
+
+	rows, err := r.db.Query(query, weekID, weekID, weekID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*User
+	for rows.Next() {
+		var u User
+		var createdAtStr string
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &createdAtStr); err != nil {
+			return nil, err
+		}
+		u.CreatedAt = parseTimeSafe(createdAtStr)
+		users = append(users, &u)
+	}
+	return users, nil
+}
+
+func (r *Repository) HasUserReceivedReminder(userID, weekID int64, reminderType string) (bool, error) {
+	var count int
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM notification_logs WHERE user_id = ? AND week_id = ? AND reminder_type = ?`, userID, weekID, reminderType).Scan(&count)
+	return count > 0, err
+}
+
+func (r *Repository) LogReminderSent(userID, weekID int64, reminderType string) error {
+	query := `INSERT INTO notification_logs (user_id, week_id, reminder_type, sent_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
+	_, err := r.db.Exec(query, userID, weekID, reminderType)
+	return err
+}
+

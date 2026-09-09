@@ -65,10 +65,12 @@
         </div>
     </div>
 
-    <!-- Dynamic Leaderboard Table -->
+    <!-- Dynamic Leaderboard Table with Real-time SSE Live Refresh -->
     <div id="leaderboard-container" 
+         hx-ext="sse"
+         sse-connect="/events/live"
          hx-get="/leaderboard/table?mode={{.ViewMode}}&week={{.SelectedWeek.WeekNumber}}"
-         hx-trigger="every 60s"
+         hx-trigger="sse:leaderboard-updated, every 60s"
          hx-swap="innerHTML">
         {{template "leaderboard_table.html" (dict "Leaderboard" .Leaderboard "CurrentUser" .User)}}
     </div>

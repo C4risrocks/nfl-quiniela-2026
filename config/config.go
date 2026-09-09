@@ -19,6 +19,13 @@ type Config struct {
 	ESPNSyncIntervalMins int
 	CurrentSeasonYear    int
 	EnableBackgroundSync bool
+	SMTPHost             string
+	SMTPPort             int
+	SMTPUser             string
+	SMTPPass             string
+	SMTPFrom             string
+	AppBaseURL           string
+	EnableReminders      bool
 }
 
 func LoadConfig() *Config {
@@ -37,6 +44,14 @@ func LoadConfig() *Config {
 	seasonYear := getEnvAsInt("CURRENT_SEASON_YEAR", 2026)
 	bgSync := getEnvAsBool("ENABLE_BACKGROUND_SYNC", true)
 
+	smtpHost := getEnv("SMTP_HOST", "")
+	smtpPort := getEnvAsInt("SMTP_PORT", 587)
+	smtpUser := getEnv("SMTP_USER", "")
+	smtpPass := getEnv("SMTP_PASS", "")
+	smtpFrom := getEnv("SMTP_FROM", "quiniela@nfl2026.app")
+	appBaseURL := getEnv("APP_BASE_URL", "http://localhost:8080")
+	enableReminders := getEnvAsBool("ENABLE_REMINDERS", true)
+
 	return &Config{
 		Port:                 port,
 		DBType:               dbType,
@@ -49,6 +64,13 @@ func LoadConfig() *Config {
 		ESPNSyncIntervalMins: syncInterval,
 		CurrentSeasonYear:    seasonYear,
 		EnableBackgroundSync: bgSync,
+		SMTPHost:             smtpHost,
+		SMTPPort:             smtpPort,
+		SMTPUser:             smtpUser,
+		SMTPPass:             smtpPass,
+		SMTPFrom:             smtpFrom,
+		AppBaseURL:           appBaseURL,
+		EnableReminders:      enableReminders,
 	}
 }
 

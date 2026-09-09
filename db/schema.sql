@@ -103,3 +103,14 @@ CREATE INDEX IF NOT EXISTS idx_games_kickoff ON games(kickoff_time);
 CREATE INDEX IF NOT EXISTS idx_picks_user_id ON picks(user_id);
 CREATE INDEX IF NOT EXISTS idx_picks_game_id ON picks(game_id);
 CREATE INDEX IF NOT EXISTS idx_leaderboard_week ON weekly_leaderboard(week_id, rank);
+
+CREATE TABLE IF NOT EXISTS notification_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    week_id INTEGER NOT NULL REFERENCES weeks(id) ON DELETE CASCADE,
+    reminder_type TEXT NOT NULL,
+    sent_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, week_id, reminder_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_week ON notification_logs(user_id, week_id);

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"nfl-quiniela-2026/db"
+	"nfl-quiniela-2026/services/events"
 )
 
 type ScoreCalculator interface {
@@ -18,14 +19,16 @@ type Syncer struct {
 	client     *Client
 	repo       *db.Repository
 	calculator ScoreCalculator
+	broker     *events.Broker
 	seasonYear int
 }
 
-func NewSyncer(client *Client, repo *db.Repository, calculator ScoreCalculator, seasonYear int) *Syncer {
+func NewSyncer(client *Client, repo *db.Repository, calculator ScoreCalculator, broker *events.Broker, seasonYear int) *Syncer {
 	return &Syncer{
 		client:     client,
 		repo:       repo,
 		calculator: calculator,
+		broker:     broker,
 		seasonYear: seasonYear,
 	}
 }
@@ -104,6 +107,15 @@ func (s *Syncer) SyncWeek(weekNum int) (int, error) {
 		if err := s.calculator.CalculateWeekScores(week.ID); err != nil {
 			log.Printf("[Syncer] Error calculating week %d scores: %v", weekNum, err)
 		}
+	}
+
+	// Broadcast real-time SSE updates
+	if s.broker != nil && len(syncedGames) > 0 {
+		for _, g := range syncedGames {
+			s.broker.Broadcast(fmt.Sprintf("game-%d", g.ID), fmt.Sprintf(`{"game_id": %d, "status": "%s"}`, g.ID, g.Status))
+		}
+		s.broker.Broadcast("week-updated", fmt.Sprintf(`{"week_num": %d}`, weekNum))
+		s.broker.BroadcastLeaderboardUpdate()
 	}
 
 	log.Printf("[Syncer] Successfully synced %d games for Week %d.", len(syncedGames), weekNum)

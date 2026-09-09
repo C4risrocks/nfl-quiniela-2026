@@ -9,24 +9,38 @@ import (
 	"nfl-quiniela-2026/db"
 	"nfl-quiniela-2026/services/auth"
 	"nfl-quiniela-2026/services/espn"
+	"nfl-quiniela-2026/services/events"
+	"nfl-quiniela-2026/services/notifications"
 	"nfl-quiniela-2026/services/scoring"
 )
 
 type AdminHandler struct {
-	repo       *db.Repository
-	renderer   *Renderer
-	syncer     *espn.Syncer
-	calculator *scoring.Calculator
-	seasonYear int
+	repo           *db.Repository
+	renderer       *Renderer
+	syncer         *espn.Syncer
+	calculator     *scoring.Calculator
+	broker         *events.Broker
+	reminderWorker *notifications.ReminderWorker
+	seasonYear     int
 }
 
-func NewAdminHandler(repo *db.Repository, renderer *Renderer, syncer *espn.Syncer, calculator *scoring.Calculator, seasonYear int) *AdminHandler {
+func NewAdminHandler(
+	repo *db.Repository,
+	renderer *Renderer,
+	syncer *espn.Syncer,
+	calculator *scoring.Calculator,
+	broker *events.Broker,
+	reminderWorker *notifications.ReminderWorker,
+	seasonYear int,
+) *AdminHandler {
 	return &AdminHandler{
-		repo:       repo,
-		renderer:   renderer,
-		syncer:     syncer,
-		calculator: calculator,
-		seasonYear: seasonYear,
+		repo:           repo,
+		renderer:       renderer,
+		syncer:         syncer,
+		calculator:     calculator,
+		broker:         broker,
+		reminderWorker: reminderWorker,
+		seasonYear:     seasonYear,
 	}
 }
 
@@ -60,6 +74,7 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 	games, _ := h.repo.ListGamesByWeek(selectedWeek.ID)
 	users, _ := h.repo.ListUsers()
 	scoringCfg, _ := h.repo.GetScoringConfig()
+	pendingUsers, _ := h.repo.GetUsersWithPendingPicks(selectedWeek.ID)
 
 	h.renderer.RenderPage(w, "admin.html", map[string]interface{}{
 		"ActiveNav":     "admin",
@@ -69,6 +84,8 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 		"Games":         games,
 		"Users":         users,
 		"ScoringConfig": scoringCfg,
+		"PendingUsers":  pendingUsers,
+		"PendingCount":  len(pendingUsers),
 	})
 }
 
@@ -191,6 +208,12 @@ func (h *AdminHandler) SaveGameScore(w http.ResponseWriter, r *http.Request) {
 	// Recalculate leaderboard for this week
 	_ = h.calculator.CalculateWeekScores(game.WeekID)
 
+	if h.broker != nil {
+		h.broker.Broadcast(fmt.Sprintf("game-%d", gameID), fmt.Sprintf(`{"game_id": %d, "status": "%s"}`, gameID, status))
+		h.broker.Broadcast("week-updated", fmt.Sprintf(`{"week_id": %d}`, game.WeekID))
+		h.broker.BroadcastLeaderboardUpdate()
+	}
+
 	updatedGame, _ := h.repo.GetGameByID(gameID)
 	h.renderer.RenderPartial(w, "admin_game_row.html", map[string]interface{}{
 		"Game":             updatedGame,
@@ -220,6 +243,11 @@ func (h *AdminHandler) ToggleGameLock(w http.ResponseWriter, r *http.Request) {
 	if err := h.repo.ToggleGameLock(gameID, newLockState); err != nil {
 		http.Error(w, "Error toggling lock", http.StatusInternalServerError)
 		return
+	}
+
+	if h.broker != nil {
+		h.broker.Broadcast(fmt.Sprintf("game-%d", gameID), fmt.Sprintf(`{"game_id": %d, "locked": %v}`, gameID, newLockState))
+		h.broker.Broadcast("week-updated", fmt.Sprintf(`{"week_id": %d}`, game.WeekID))
 	}
 
 	updatedGame, _ := h.repo.GetGameByID(gameID)
@@ -256,11 +284,46 @@ func (h *AdminHandler) ToggleTiebreaker(w http.ResponseWriter, r *http.Request) 
 	// Recalculate leaderboard
 	_ = h.calculator.CalculateWeekScores(game.WeekID)
 
+	if h.broker != nil {
+		h.broker.Broadcast(fmt.Sprintf("game-%d", gameID), fmt.Sprintf(`{"game_id": %d, "tiebreaker": %v}`, gameID, newTiebreakerState))
+		h.broker.BroadcastLeaderboardUpdate()
+	}
+
 	updatedGame, _ := h.repo.GetGameByID(gameID)
 	h.renderer.RenderPartial(w, "admin_game_row.html", map[string]interface{}{
 		"Game":             updatedGame,
 		"FormattedKickoff": h.formatKickoff(updatedGame.KickoffTime),
 	})
+}
+
+func (h *AdminHandler) SendReminders(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	weekID, err := strconv.ParseInt(r.FormValue("week_id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid week id", http.StatusBadRequest)
+		return
+	}
+
+	if h.reminderWorker == nil {
+		http.Error(w, "Servicio de notificaciones no disponible", http.StatusInternalServerError)
+		return
+	}
+
+	count, err := h.reminderWorker.SendManualReminders(weekID)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `<div class="p-2 rounded bg-red-500/10 border border-red-500/20 text-red-300 text-xs">Error: %v</div>`, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, `<div class="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center space-x-1.5"><i class="fa-solid fa-circle-check"></i><span>¡Éxito! Se enviaron <strong>%d</strong> recordatorios a jugadores con picks pendientes.</span></div>`, count)
 }
 
 func (h *AdminHandler) formatKickoff(t time.Time) string {

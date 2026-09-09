@@ -15,6 +15,8 @@ import (
 	"nfl-quiniela-2026/db"
 	"nfl-quiniela-2026/services/auth"
 	"nfl-quiniela-2026/services/espn"
+	"nfl-quiniela-2026/services/events"
+	"nfl-quiniela-2026/services/notifications"
 	"nfl-quiniela-2026/services/scoring"
 )
 
@@ -217,9 +219,12 @@ func TestAdminSettingsAndRecalculate(t *testing.T) {
 	subTemplatesFS, _ := fs.Sub(os.DirFS(".."), "templates")
 	renderer := NewRenderer(subTemplatesFS)
 	espnClient := espn.NewClient()
-	syncer := espn.NewSyncer(espnClient, repo, calculator, 2026)
+	broker := events.NewBroker()
+	sender := notifications.NewEmailSender("", 587, "", "", "test@test.com", "http://localhost:8080")
+	reminderWorker := notifications.NewReminderWorker(repo, sender, 2026)
+	syncer := espn.NewSyncer(espnClient, repo, calculator, broker, 2026)
 
-	adminHandler := NewAdminHandler(repo, renderer, syncer, calculator, 2026)
+	adminHandler := NewAdminHandler(repo, renderer, syncer, calculator, broker, reminderWorker, 2026)
 
 	form := url.Values{}
 	form.Set("scoring_mode", "pure_tiebreaker")
@@ -241,6 +246,65 @@ func TestAdminSettingsAndRecalculate(t *testing.T) {
 	cfg, _ := repo.GetScoringConfig()
 	if cfg.ScoringMode != "pure_tiebreaker" || cfg.WinnerPoints != 1 || cfg.LockMode != "full_week" {
 		t.Errorf("Expected pure_tiebreaker with 1 winner point and full_week lock, got %+v", cfg)
+	}
+}
+
+func TestSendRemindersEndpoint(t *testing.T) {
+	repo, _, renderer, calculator, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	broker := events.NewBroker()
+	sender := notifications.NewEmailSender("", 587, "", "", "test@test.com", "http://localhost:8080")
+	reminderWorker := notifications.NewReminderWorker(repo, sender, 2026)
+	espnClient := espn.NewClient()
+	syncer := espn.NewSyncer(espnClient, repo, calculator, broker, 2026)
+	adminHandler := NewAdminHandler(repo, renderer, syncer, calculator, broker, reminderWorker, 2026)
+
+	season, _ := repo.GetActiveSeason(2026)
+	week, _ := repo.GetWeekByNumber(season.ID, 1)
+
+	form := url.Values{}
+	form.Set("week_id", strconvFormat(week.ID))
+
+	req := httptest.NewRequest(http.MethodPost, "/admin/reminders/send", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	adminHandler.SendReminders(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected status 200 OK, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "Éxito") {
+		t.Errorf("Expected success HTML response, got: %s", rr.Body.String())
+	}
+}
+
+func TestLiveEventsSSE(t *testing.T) {
+	broker := events.NewBroker()
+	eventsHandler := NewEventsHandler(broker)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	req := httptest.NewRequest(http.MethodGet, "/events/live", nil).WithContext(ctx)
+	rr := httptest.NewRecorder()
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		broker.Broadcast("game-updated", `{"test": true}`)
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	eventsHandler.StreamLiveEvents(rr, req)
+
+	output := rr.Body.String()
+	if !strings.Contains(output, "event: connected") {
+		t.Errorf("Expected output to contain 'event: connected', got: %s", output)
+	}
+	if !strings.Contains(output, "event: game-updated") {
+		t.Errorf("Expected output to contain 'event: game-updated', got: %s", output)
 	}
 }
 

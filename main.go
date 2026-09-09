@@ -20,6 +20,8 @@ import (
 	"nfl-quiniela-2026/handlers"
 	"nfl-quiniela-2026/services/auth"
 	"nfl-quiniela-2026/services/espn"
+	"nfl-quiniela-2026/services/events"
+	"nfl-quiniela-2026/services/notifications"
 	"nfl-quiniela-2026/services/scoring"
 )
 
@@ -58,18 +60,29 @@ func main() {
 		log.Printf("Warning: Seed database error: %v", err)
 	}
 
-	// 4. Core Services
+	// 4. Core Services & Real-time Event Broker
 	authService := auth.NewAuthService(repo, cfg.SessionSecret)
 	calculator := scoring.NewCalculator(repo)
+	broker := events.NewBroker()
 	espnClient := espn.NewClient()
-	syncer := espn.NewSyncer(espnClient, repo, calculator, cfg.CurrentSeasonYear)
+	syncer := espn.NewSyncer(espnClient, repo, calculator, broker, cfg.CurrentSeasonYear)
 
-	// 5. Background Sync & Initial Week 1 Sync
+	// Notifications & Reminder Worker
+	emailSender := notifications.NewEmailSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom, cfg.AppBaseURL)
+	reminderWorker := notifications.NewReminderWorker(repo, emailSender, cfg.CurrentSeasonYear)
+
+	// 5. Background Tasks (Sync, Heartbeat, Reminders)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	broker.StartHeartbeat(ctx, 25*time.Second)
+
 	if cfg.EnableBackgroundSync {
 		syncer.StartBackgroundSync(ctx, time.Duration(cfg.ESPNSyncIntervalMins)*time.Minute)
+	}
+
+	if cfg.EnableReminders {
+		reminderWorker.Start(ctx, 15*time.Minute)
 	}
 
 	// Trigger initial sync for Week 1
@@ -94,7 +107,8 @@ func main() {
 	picksHandler := handlers.NewPicksHandler(repo, renderer, syncer, cfg.CurrentSeasonYear)
 	leaderboardHandler := handlers.NewLeaderboardHandler(repo, renderer, cfg.CurrentSeasonYear)
 	rulesHandler := handlers.NewRulesHandler(repo, renderer)
-	adminHandler := handlers.NewAdminHandler(repo, renderer, syncer, calculator, cfg.CurrentSeasonYear)
+	adminHandler := handlers.NewAdminHandler(repo, renderer, syncer, calculator, broker, reminderWorker, cfg.CurrentSeasonYear)
+	eventsHandler := handlers.NewEventsHandler(broker)
 
 	// 8. Router Setup
 	r := chi.NewRouter()
@@ -146,6 +160,7 @@ func main() {
 	r.Get("/rules", rulesHandler.ShowRules)
 	r.Get("/leaderboard", leaderboardHandler.ShowLeaderboard)
 	r.Get("/leaderboard/table", leaderboardHandler.LeaderboardTable)
+	r.Get("/events/live", eventsHandler.StreamLiveEvents)
 
 	// Authenticated Player Routes
 	r.Group(func(player chi.Router) {
@@ -168,6 +183,7 @@ func main() {
 		admin.Post("/admin/games/save-score", adminHandler.SaveGameScore)
 		admin.Post("/admin/games/toggle-lock", adminHandler.ToggleGameLock)
 		admin.Post("/admin/games/toggle-tiebreaker", adminHandler.ToggleTiebreaker)
+		admin.Post("/admin/reminders/send", adminHandler.SendReminders)
 	})
 
 	// 9. HTTP Server & Graceful Shutdown

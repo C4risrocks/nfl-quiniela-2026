@@ -75,9 +75,15 @@
         </div>
     </div>
 
-    <!-- Games Grid -->
+    <!-- Games Grid with Real-time SSE Live Refresh -->
     {{if .Games}}
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+        <div hx-ext="sse" sse-connect="/events/live"
+             class="grid grid-cols-1 lg:grid-cols-2 gap-3.5"
+             hx-trigger="sse:week-updated"
+             hx-get="/picks?week={{.SelectedWeek.WeekNumber}}"
+             hx-select=".grid.grid-cols-1.lg\:grid-cols-2"
+             hx-target="this"
+             hx-swap="outerHTML">
             {{range .Games}}
                 {{template "game_card.html" (dict "Game" . "CurrentTime" $.CurrentTime "FormattedKickoff" (formatDate .KickoffTime) "LockMode" $.LockMode "FirstKickoff" $.FirstKickoff)}}
             {{end}}

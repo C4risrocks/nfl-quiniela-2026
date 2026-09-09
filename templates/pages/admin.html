@@ -38,6 +38,11 @@
                     class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
                 <i class="fa-solid fa-users mr-1.5"></i> Jugadores
             </button>
+            <button @click="activeTab = 'reminders'" 
+                    :class="activeTab === 'reminders' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
+                <i class="fa-solid fa-envelope mr-1.5"></i> Recordatorios
+            </button>
         </div>
     </div>
 
@@ -303,6 +308,95 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <!-- TAB 4: Email Reminders -->
+    <div x-show="activeTab === 'reminders'" x-cloak class="space-y-6">
+        <div class="vercel-card p-6 rounded-2xl">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-base font-bold text-white mb-1 flex items-center">
+                        <i class="fa-solid fa-envelope text-zinc-400 mr-2"></i>
+                        Recordatorios de Kickoff ({{.SelectedWeek.Name}})
+                    </h2>
+                    <p class="text-xs text-zinc-400">
+                        Envía alertas por correo a los jugadores que aún tienen pronósticos incompletos antes de que comiencen los partidos.
+                    </p>
+                </div>
+
+                <select onchange="window.location.href = '/admin?week=' + this.value"
+                        class="bg-zinc-900 border border-zinc-700 text-white text-xs font-semibold rounded-xl px-3 py-1.5 focus:ring-1 focus:ring-white">
+                    {{range .Weeks}}
+                        <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
+                            {{.Name}}
+                        </option>
+                    {{end}}
+                </select>
+            </div>
+
+            <!-- Reminder Metric Stats -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+                <div class="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800">
+                    <div class="text-[11px] font-mono text-zinc-500 uppercase tracking-wider">Total Jugadores</div>
+                    <div class="text-xl font-bold font-mono text-white mt-1">{{len .Users}}</div>
+                </div>
+
+                <div class="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800">
+                    <div class="text-[11px] font-mono text-zinc-500 uppercase tracking-wider">Picks Pendientes</div>
+                    <div class="text-xl font-bold font-mono text-amber-400 mt-1">{{.PendingCount}} <span class="text-xs text-zinc-500 font-normal">jugadores</span></div>
+                </div>
+
+                <div class="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800 flex flex-col justify-center">
+                    <form hx-post="/admin/reminders/send"
+                          hx-target="#reminder-result"
+                          hx-swap="innerHTML">
+                        <input type="hidden" name="week_id" value="{{.SelectedWeek.ID}}">
+                        <button type="submit" 
+                                class="w-full py-2 px-3 rounded-lg bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-colors shadow-sm flex items-center justify-center">
+                            <i class="fa-solid fa-paper-plane mr-1.5"></i> Enviar Recordatorio Ahora
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="reminder-result" class="mb-6"></div>
+
+            <!-- List of Pending Users -->
+            <h3 class="text-xs font-bold font-mono text-zinc-400 uppercase tracking-wider mb-2">Jugadores que aún no completan {{.SelectedWeek.Name}}:</h3>
+            <div class="overflow-x-auto rounded-xl border border-[#222222]">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="border-b border-[#1f1f1f] bg-black/40 text-zinc-500 font-mono text-[11px] uppercase tracking-wider">
+                            <th class="py-2.5 px-3">Usuario</th>
+                            <th class="py-2.5 px-3">Correo</th>
+                            <th class="py-2.5 px-3 text-center">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-[#1a1a1a] text-zinc-300">
+                        {{if .PendingUsers}}
+                            {{range .PendingUsers}}
+                                <tr class="hover:bg-zinc-900/30">
+                                    <td class="py-2.5 px-3 font-semibold text-white">{{.Username}}</td>
+                                    <td class="py-2.5 px-3 text-zinc-400">{{.Email}}</td>
+                                    <td class="py-2.5 px-3 text-center">
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                                            Pendiente
+                                        </span>
+                                    </td>
+                                </tr>
+                            {{end}}
+                        {{else}}
+                            <tr>
+                                <td colspan="3" class="py-6 text-center text-zinc-500">
+                                    <i class="fa-solid fa-circle-check text-emerald-400 mr-1.5"></i> ¡Todos los jugadores han completado sus pronósticos para esta jornada!
+                                </td>
+                            </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+
         </div>
     </div>
 
