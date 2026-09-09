@@ -106,7 +106,7 @@ func MapESPNEventToGame(event *ESPNEvent, weekID int64, teamMap map[string]*db.T
 		return nil, fmt.Errorf("unknown away team code: %s", awayCode)
 	}
 
-	kickoffTime, err := time.Parse(time.RFC3339, event.Date)
+	kickoffTime, err := ParseKickoffTime(event.Date)
 	if err != nil {
 		kickoffTime = time.Now()
 	}
@@ -147,4 +147,23 @@ func MapESPNEventToGame(event *ESPNEvent, weekID int64, teamMap map[string]*db.T
 		Status:       status,
 		StatusDetail: statusDetail,
 	}, nil
+}
+
+// ParseKickoffTime parses ISO8601 strings from ESPN which may omit seconds (e.g. 2026-09-10T00:20Z)
+func ParseKickoffTime(dateStr string) (time.Time, error) {
+	formats := []string{
+		"2006-01-02T15:04Z",
+		"2006-01-02T15:04:05Z",
+		time.RFC3339,
+		"2006-01-02T15:04:05Z07:00",
+		"2006-01-02 15:04:05",
+		"2006-01-02 15:04",
+		"2006-01-02",
+	}
+	for _, layout := range formats {
+		if t, err := time.Parse(layout, dateStr); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unable to parse kickoff date: %s", dateStr)
 }

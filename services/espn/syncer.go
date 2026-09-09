@@ -80,6 +80,11 @@ func (s *Syncer) SyncWeek(weekNum int) (int, error) {
 		syncedGames = append(syncedGames, game)
 	}
 
+	// If we successfully synced games from ESPN, purge any leftover dummy seed games
+	if len(syncedGames) > 0 {
+		_ = s.repo.DeletePlaceholderSeedGames(week.ID)
+	}
+
 	// Auto-designate the latest game (usually Monday Night Football) as Tiebreaker if not already set
 	if len(syncedGames) > 0 {
 		games, _ := s.repo.ListGamesByWeek(week.ID)

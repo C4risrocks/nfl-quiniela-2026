@@ -95,3 +95,26 @@ func TestNormalizeTeamCode(t *testing.T) {
 		t.Errorf("Expected KC, got %s", NormalizeTeamCode("KC"))
 	}
 }
+
+func TestParseKickoffTime(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected string
+	}{
+		{"2026-09-10T00:20Z", "2026-09-10T00:20:00Z"},
+		{"2026-09-10T00:20:00Z", "2026-09-10T00:20:00Z"},
+		{"2026-09-13T17:00:00Z", "2026-09-13T17:00:00Z"},
+		{"2026-09-13 17:00:00", "2026-09-13T17:00:00Z"},
+	}
+
+	for _, c := range cases {
+		parsed, err := ParseKickoffTime(c.input)
+		if err != nil {
+			t.Fatalf("Failed to parse %s: %v", c.input, err)
+		}
+		if parsed.UTC().Format(time.RFC3339) != c.expected {
+			t.Errorf("For input %s, expected %s, got %s", c.input, c.expected, parsed.UTC().Format(time.RFC3339))
+		}
+	}
+}
+

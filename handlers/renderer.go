@@ -17,7 +17,17 @@ var (
 		"Jan": "Ene", "Feb": "Feb", "Mar": "Mar", "Apr": "Abr", "May": "May", "Jun": "Jun",
 		"Jul": "Jul", "Aug": "Ago", "Sep": "Sep", "Oct": "Oct", "Nov": "Nov", "Dec": "Dic",
 	}
+	CDMXLocation *time.Location
 )
+
+func init() {
+	loc, err := time.LoadLocation("America/Mexico_City")
+	if err == nil {
+		CDMXLocation = loc
+	} else {
+		CDMXLocation = time.FixedZone("CST", -6*3600)
+	}
+}
 
 type Renderer struct {
 	templatesFS fs.FS
@@ -67,6 +77,9 @@ func (r *Renderer) FuncMap() template.FuncMap {
 			if t.IsZero() {
 				return "--"
 			}
+			if CDMXLocation != nil {
+				t = t.In(CDMXLocation)
+			}
 			// Localize to standard display format e.g. "Dom, 8 Sep - 1:00 PM"
 			dayAbbr := spanishDays[t.Format("Mon")]
 			monthAbbr := spanishMonths[t.Format("Jan")]
@@ -77,6 +90,9 @@ func (r *Renderer) FuncMap() template.FuncMap {
 		"formatShortDate": func(t time.Time) string {
 			if t.IsZero() {
 				return "--"
+			}
+			if CDMXLocation != nil {
+				t = t.In(CDMXLocation)
 			}
 			return t.Format("02/01/2006 15:04")
 		},

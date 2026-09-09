@@ -443,6 +443,12 @@ func (r *Repository) SetGameTiebreaker(gameID int64, isTiebreaker bool) error {
 	return err
 }
 
+func (r *Repository) DeletePlaceholderSeedGames(weekID int64) error {
+	query := `DELETE FROM games WHERE week_id = ? AND espn_game_id LIKE 'seed-%'`
+	_, err := r.db.Exec(query, weekID)
+	return err
+}
+
 // ----------------------------------------------------
 // Picks
 // ----------------------------------------------------
@@ -680,6 +686,9 @@ func (r *Repository) GetSeasonLeaderboard(seasonID int64) ([]*LeaderboardEntry, 
 func parseTimeSafe(tStr string) time.Time {
 	formats := []string{
 		"2006-01-02 15:04:05",
+		"2006-01-02 15:04",
+		"2006-01-02T15:04Z",
+		"2006-01-02T15:04:05Z",
 		time.RFC3339,
 		"2006-01-02T15:04:05Z07:00",
 		"2006-01-02 15:04:05-07:00",
