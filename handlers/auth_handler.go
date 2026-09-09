@@ -104,11 +104,12 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	// Dispatch email verification link in background via Gmail SMTP / Mock
 	if h.emailSender != nil && token != "" {
-		go func(u *db.User, tok string) {
-			if err := h.emailSender.SendVerificationEmail(u, tok); err != nil {
+		baseURL := getBaseURLFromRequest(r, h.emailSender.BaseURL())
+		go func(u *db.User, tok, bURL string) {
+			if err := h.emailSender.SendVerificationEmail(u, tok, bURL); err != nil {
 				log.Printf("[Auth] Error sending verification email to %s: %v", u.Email, err)
 			}
-		}(user, token)
+		}(user, token, baseURL)
 	}
 
 	h.authService.SetSessionCookie(w, user.ID)
@@ -173,9 +174,10 @@ func (h *AuthHandler) HandleResendVerification(w http.ResponseWriter, r *http.Re
 	}
 
 	if h.emailSender != nil {
-		go func(u *db.User, tok string) {
-			_ = h.emailSender.SendVerificationEmail(u, tok)
-		}(freshUser, token)
+		baseURL := getBaseURLFromRequest(r, h.emailSender.BaseURL())
+		go func(u *db.User, tok, bURL string) {
+			_ = h.emailSender.SendVerificationEmail(u, tok, bURL)
+		}(freshUser, token, baseURL)
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -200,9 +202,10 @@ func (h *AuthHandler) HandleForgotPassword(w http.ResponseWriter, r *http.Reques
 
 	user, err := h.repo.SetPasswordResetToken(email, token, expiresAt)
 	if err == nil && user != nil && h.emailSender != nil {
-		go func(u *db.User, tok string) {
-			_ = h.emailSender.SendPasswordResetEmail(u, tok)
-		}(user, token)
+		baseURL := getBaseURLFromRequest(r, h.emailSender.BaseURL())
+		go func(u *db.User, tok, bURL string) {
+			_ = h.emailSender.SendPasswordResetEmail(u, tok, bURL)
+		}(user, token, baseURL)
 	}
 
 	// Always show neutral success message for security (prevent email discovery)
@@ -284,5 +287,36 @@ func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request
 func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	h.authService.ClearSessionCookie(w)
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}
+
+// getBaseURLFromRequest detects the true public base URL from HTTP headers (Traefik/Dokploy reverse proxy)
+// with automatic fallback to the configured defaultBaseURL.
+func getBaseURLFromRequest(r *http.Request, defaultBaseURL string) string {
+	proto := "http"
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" || r.Header.Get("X-Forwarded-Ssl") == "on" {
+		proto = "https"
+	}
+
+	host := r.Header.Get("X-Forwarded-Host")
+	if host == "" {
+		host = r.Host
+	}
+
+	// 1. If incoming request comes from a real domain or public IP, use it directly
+	if host != "" && !strings.HasPrefix(host, "localhost") && !strings.HasPrefix(host, "127.0.0.1") {
+		return fmt.Sprintf("%s://%s", proto, host)
+	}
+
+	// 2. If defaultBaseURL is explicitly configured to a real domain, use it
+	if defaultBaseURL != "" && !strings.Contains(defaultBaseURL, "localhost") && !strings.Contains(defaultBaseURL, "127.0.0.1") {
+		return strings.TrimRight(defaultBaseURL, "/")
+	}
+
+	// 3. Fallback to host from request (e.g. localhost during dev)
+	if host != "" {
+		return fmt.Sprintf("%s://%s", proto, host)
+	}
+
+	return strings.TrimRight(defaultBaseURL, "/")
 }
 

@@ -33,6 +33,10 @@ func NewEmailSender(host string, port int, username, password, from, appBaseURL 
 	}
 }
 
+func (s *EmailSender) BaseURL() string {
+	return s.appBaseURL
+}
+
 const emailTemplateHTML = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -189,9 +193,14 @@ func (s *EmailSender) SendKickoffReminder(user *db.User, week *db.Week, kickoff 
 }
 
 // SendVerificationEmail sends an email confirmation link upon signup or resend request
-func (s *EmailSender) SendVerificationEmail(user *db.User, token string) error {
+func (s *EmailSender) SendVerificationEmail(user *db.User, token string, customBaseURL ...string) error {
 	subject := "🏈 Confirma tu correo para NFL Quiniela 2026"
-	verifyURL := fmt.Sprintf("%s/verify-email?token=%s", s.appBaseURL, token)
+	baseURL := s.appBaseURL
+	if len(customBaseURL) > 0 && customBaseURL[0] != "" {
+		baseURL = customBaseURL[0]
+	}
+	baseURL = strings.TrimRight(baseURL, "/")
+	verifyURL := fmt.Sprintf("%s/verify-email?token=%s", baseURL, token)
 
 	data := struct {
 		Username  string
@@ -215,9 +224,14 @@ func (s *EmailSender) SendVerificationEmail(user *db.User, token string) error {
 }
 
 // SendPasswordResetEmail sends a secure password reset link valid for 60 minutes
-func (s *EmailSender) SendPasswordResetEmail(user *db.User, token string) error {
+func (s *EmailSender) SendPasswordResetEmail(user *db.User, token string, customBaseURL ...string) error {
 	subject := "🔒 Restablece tu contraseña - NFL Quiniela 2026"
-	resetURL := fmt.Sprintf("%s/reset-password?token=%s", s.appBaseURL, token)
+	baseURL := s.appBaseURL
+	if len(customBaseURL) > 0 && customBaseURL[0] != "" {
+		baseURL = customBaseURL[0]
+	}
+	baseURL = strings.TrimRight(baseURL, "/")
+	resetURL := fmt.Sprintf("%s/reset-password?token=%s", baseURL, token)
 
 	data := struct {
 		Username string
