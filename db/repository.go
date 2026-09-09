@@ -104,11 +104,57 @@ func (r *Repository) SetScoringConfig(cfg *ScoringConfig) error {
 // Users
 // ----------------------------------------------------
 
+const userColumns = `id, username, email, password_hash, role, avatar_url, favorite_team_id, email_verified, verification_token, verification_sent_at, reset_token, reset_token_expires_at, notify_email, created_at`
+
+func scanUserRow(scanner interface{ Scan(dest ...any) error }) (*User, error) {
+	var u User
+	var createdAtStr string
+	var verifSentAtStr sql.NullString
+	var resetExpStr sql.NullString
+
+	err := scanner.Scan(
+		&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarURL, &u.FavoriteTeamID,
+		&u.EmailVerified, &u.VerificationToken, &verifSentAtStr,
+		&u.ResetToken, &resetExpStr, &u.NotifyEmail, &createdAtStr,
+	)
+	if err != nil {
+		return nil, err
+	}
+	u.CreatedAt = parseTimeSafe(createdAtStr)
+	if verifSentAtStr.Valid {
+		t := parseTimeSafe(verifSentAtStr.String)
+		u.VerificationSentAt = &t
+	}
+	if resetExpStr.Valid {
+		t := parseTimeSafe(resetExpStr.String)
+		u.ResetTokenExpiresAt = &t
+	}
+	return &u, nil
+}
+
 func (r *Repository) CreateUser(username, email, passwordHash, role string) (*User, error) {
+	return r.CreateUserWithVerification(username, email, passwordHash, role, "")
+}
+
+func (r *Repository) CreateUserWithVerification(username, email, passwordHash, role, token string) (*User, error) {
+	var verifToken *string
+	var verifSentAt *string
+	if token != "" {
+		verifToken = &token
+		nowStr := time.Now().UTC().Format("2006-01-02 15:04:05")
+		verifSentAt = &nowStr
+	}
+
 	query := `
-	INSERT INTO users (username, email, password_hash, role, created_at)
-	VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP);`
-	res, err := r.db.Exec(query, username, email, passwordHash, role)
+	INSERT INTO users (username, email, password_hash, role, email_verified, verification_token, verification_sent_at, notify_email, created_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP);`
+	
+	emailVerified := false
+	if token == "" && role == "admin" {
+		emailVerified = true // Auto-verify admin
+	}
+
+	res, err := r.db.Exec(query, username, email, passwordHash, role, emailVerified, verifToken, verifSentAt)
 	if err != nil {
 		return nil, err
 	}
@@ -120,37 +166,131 @@ func (r *Repository) CreateUser(username, email, passwordHash, role string) (*Us
 }
 
 func (r *Repository) GetUserByID(id int64) (*User, error) {
-	query := `SELECT id, username, email, password_hash, role, avatar_url, favorite_team_id, created_at FROM users WHERE id = ?`
-	var u User
-	err := r.db.QueryRow(query, id).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarURL, &u.FavoriteTeamID, &u.CreatedAt)
-	if err != nil {
-		return nil, err
-	}
-	return &u, nil
+	query := fmt.Sprintf(`SELECT %s FROM users WHERE id = ?`, userColumns)
+	return scanUserRow(r.db.QueryRow(query, id))
 }
 
 func (r *Repository) GetUserByUsername(username string) (*User, error) {
-	query := `SELECT id, username, email, password_hash, role, avatar_url, favorite_team_id, created_at FROM users WHERE LOWER(username) = LOWER(?)`
-	var u User
-	err := r.db.QueryRow(query, username).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarURL, &u.FavoriteTeamID, &u.CreatedAt)
-	if err != nil {
-		return nil, err
-	}
-	return &u, nil
+	query := fmt.Sprintf(`SELECT %s FROM users WHERE LOWER(username) = LOWER(?)`, userColumns)
+	return scanUserRow(r.db.QueryRow(query, username))
 }
 
 func (r *Repository) GetUserByEmail(email string) (*User, error) {
-	query := `SELECT id, username, email, password_hash, role, avatar_url, favorite_team_id, created_at FROM users WHERE LOWER(email) = LOWER(?)`
-	var u User
-	err := r.db.QueryRow(query, email).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarURL, &u.FavoriteTeamID, &u.CreatedAt)
+	query := fmt.Sprintf(`SELECT %s FROM users WHERE LOWER(email) = LOWER(?)`, userColumns)
+	return scanUserRow(r.db.QueryRow(query, email))
+}
+
+func (r *Repository) SetVerificationToken(userID int64, token string) error {
+	nowStr := time.Now().UTC().Format("2006-01-02 15:04:05")
+	query := `UPDATE users SET verification_token = ?, verification_sent_at = ? WHERE id = ?`
+	_, err := r.db.Exec(query, token, nowStr, userID)
+	return err
+}
+
+func (r *Repository) VerifyUserEmail(token string) (*User, error) {
+	if token == "" {
+		return nil, fmt.Errorf("token cannot be empty")
+	}
+	query := fmt.Sprintf(`SELECT %s FROM users WHERE verification_token = ?`, userColumns)
+	u, err := scanUserRow(r.db.QueryRow(query, token))
+	if err != nil {
+		return nil, fmt.Errorf("token de verificación no encontrado o inválido")
+	}
+
+	updateQuery := `UPDATE users SET email_verified = 1, verification_token = NULL, verification_sent_at = NULL WHERE id = ?`
+	if _, err := r.db.Exec(updateQuery, u.ID); err != nil {
+		return nil, err
+	}
+	u.EmailVerified = true
+	u.VerificationToken = nil
+	u.VerificationSentAt = nil
+	return u, nil
+}
+
+func (r *Repository) SetPasswordResetToken(email, token string, expiresAt time.Time) (*User, error) {
+	u, err := r.GetUserByEmail(email)
 	if err != nil {
 		return nil, err
 	}
-	return &u, nil
+	expStr := expiresAt.UTC().Format("2006-01-02 15:04:05")
+	query := `UPDATE users SET reset_token = ?, reset_token_expires_at = ? WHERE id = ?`
+	if _, err := r.db.Exec(query, token, expStr, u.ID); err != nil {
+		return nil, err
+	}
+	u.ResetToken = &token
+	u.ResetTokenExpiresAt = &expiresAt
+	return u, nil
+}
+
+func (r *Repository) GetUserByResetToken(token string) (*User, error) {
+	if token == "" {
+		return nil, fmt.Errorf("token cannot be empty")
+	}
+	query := fmt.Sprintf(`SELECT %s FROM users WHERE reset_token = ?`, userColumns)
+	u, err := scanUserRow(r.db.QueryRow(query, token))
+	if err != nil {
+		return nil, fmt.Errorf("el enlace de restablecimiento es inválido")
+	}
+	if u.ResetTokenExpiresAt != nil && time.Now().UTC().After(u.ResetTokenExpiresAt.UTC()) {
+		return nil, fmt.Errorf("el enlace de restablecimiento ha expirado. Por favor solicita uno nuevo")
+	}
+	return u, nil
+}
+
+func (r *Repository) ResetPasswordWithToken(token, newPasswordHash string) error {
+	u, err := r.GetUserByResetToken(token)
+	if err != nil {
+		return err
+	}
+	query := `UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires_at = NULL WHERE id = ?`
+	_, err = r.db.Exec(query, newPasswordHash, u.ID)
+	return err
+}
+
+func (r *Repository) UpdateUserPassword(userID int64, newPasswordHash string) error {
+	query := `UPDATE users SET password_hash = ? WHERE id = ?`
+	_, err := r.db.Exec(query, newPasswordHash, userID)
+	return err
+}
+
+func (r *Repository) UpdateUserPreferences(userID int64, favoriteTeamID *int64, notifyEmail bool) error {
+	query := `UPDATE users SET favorite_team_id = ?, notify_email = ? WHERE id = ?`
+	_, err := r.db.Exec(query, favoriteTeamID, notifyEmail, userID)
+	return err
+}
+
+func (r *Repository) GetUserStats(userID int64) (*UserStats, error) {
+	var totalPicks, correctPicks, totalPoints int
+
+	statsQuery := `
+	SELECT 
+		COUNT(p.id),
+		COALESCE(SUM(CASE WHEN p.is_correct = 1 THEN 1 ELSE 0 END), 0),
+		COALESCE(SUM(p.points_earned + p.bonus_points), 0)
+	FROM picks p
+	JOIN games g ON p.game_id = g.id
+	WHERE p.user_id = ? AND g.status = 'final'`
+
+	err := r.db.QueryRow(statsQuery, userID).Scan(&totalPicks, &correctPicks, &totalPoints)
+	if err != nil {
+		return nil, err
+	}
+
+	accuracy := 0.0
+	if totalPicks > 0 {
+		accuracy = (float64(correctPicks) / float64(totalPicks)) * 100.0
+	}
+
+	return &UserStats{
+		TotalPicks:   totalPicks,
+		CorrectPicks: correctPicks,
+		TotalPoints:  totalPoints,
+		AccuracyRate: accuracy,
+	}, nil
 }
 
 func (r *Repository) ListUsers() ([]*User, error) {
-	query := `SELECT id, username, email, password_hash, role, avatar_url, favorite_team_id, created_at FROM users ORDER BY username ASC`
+	query := fmt.Sprintf(`SELECT %s FROM users ORDER BY username ASC`, userColumns)
 	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -159,11 +299,11 @@ func (r *Repository) ListUsers() ([]*User, error) {
 
 	var users []*User
 	for rows.Next() {
-		var u User
-		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarURL, &u.FavoriteTeamID, &u.CreatedAt); err != nil {
+		u, err := scanUserRow(rows)
+		if err != nil {
 			return nil, err
 		}
-		users = append(users, &u)
+		users = append(users, u)
 	}
 	return users, nil
 }
@@ -718,6 +858,7 @@ func (r *Repository) GetUsersWithPendingPicks(weekID int64) ([]*User, error) {
 		SELECT COUNT(*) FROM games WHERE week_id = ?
 	)
 	AND (SELECT COUNT(*) FROM games WHERE week_id = ?) > 0
+	AND u.notify_email = 1
 	ORDER BY u.username ASC`
 
 	rows, err := r.db.Query(query, weekID, weekID, weekID)

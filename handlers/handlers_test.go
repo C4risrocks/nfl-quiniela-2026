@@ -49,7 +49,7 @@ func TestAuthFlow(t *testing.T) {
 	repo, authService, renderer, _, cleanup := setupTestApp(t)
 	defer cleanup()
 
-	authHandler := NewAuthHandler(authService, renderer)
+	authHandler := NewAuthHandler(authService, repo, nil, renderer)
 
 	// 1. Register User
 	form := url.Values{}
@@ -305,6 +305,130 @@ func TestLiveEventsSSE(t *testing.T) {
 	}
 	if !strings.Contains(output, "event: game-updated") {
 		t.Errorf("Expected output to contain 'event: game-updated', got: %s", output)
+	}
+}
+
+func TestEmailVerificationAndResetFlow(t *testing.T) {
+	repo, authService, renderer, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	authHandler := NewAuthHandler(authService, repo, nil, renderer)
+
+	// 1. Register User
+	form := url.Values{}
+	form.Set("username", "verifyuser")
+	form.Set("email", "verify@test.com")
+	form.Set("password", "secret123")
+
+	req := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	authHandler.HandleRegister(rr, req)
+
+	// Retrieve user and token
+	u, err := repo.GetUserByEmail("verify@test.com")
+	if err != nil || u == nil {
+		t.Fatalf("Failed to fetch user: %v", err)
+	}
+	if u.EmailVerified {
+		t.Errorf("Expected EmailVerified to be false initially")
+	}
+	if u.VerificationToken == nil || *u.VerificationToken == "" {
+		t.Fatalf("Expected non-empty VerificationToken")
+	}
+
+	token := *u.VerificationToken
+
+	// 2. Verify with valid token
+	req = httptest.NewRequest(http.MethodGet, "/verify-email?token="+token, nil)
+	rr = httptest.NewRecorder()
+	authHandler.HandleVerifyEmail(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected status 200 OK for verification, got %d", rr.Code)
+	}
+
+	// Confirm user is now verified
+	u, _ = repo.GetUserByID(u.ID)
+	if !u.EmailVerified {
+		t.Errorf("Expected EmailVerified to be true after verification")
+	}
+
+	// 3. Request Password Reset
+	form = url.Values{}
+	form.Set("email", "verify@test.com")
+	req = httptest.NewRequest(http.MethodPost, "/forgot-password", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	authHandler.HandleForgotPassword(rr, req)
+
+	u, _ = repo.GetUserByID(u.ID)
+	if u.ResetToken == nil || *u.ResetToken == "" {
+		t.Fatalf("Expected non-empty ResetToken")
+	}
+	resetTok := *u.ResetToken
+
+	// 4. Reset Password
+	form = url.Values{}
+	form.Set("token", resetTok)
+	form.Set("password", "newpassword123")
+	form.Set("confirm_password", "newpassword123")
+	req = httptest.NewRequest(http.MethodPost, "/reset-password", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	authHandler.HandleResetPassword(rr, req)
+
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("Expected redirect 303, got %d", rr.Code)
+	}
+
+	// 5. Authenticate with new password
+	authUser, err := authService.Authenticate("verifyuser", "newpassword123")
+	if err != nil || authUser == nil {
+		t.Errorf("Failed to authenticate with new password: %v", err)
+	}
+}
+
+func TestProfileHandler(t *testing.T) {
+	repo, authService, renderer, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	profileHandler := NewProfileHandler(repo, authService, renderer)
+	u, err := repo.CreateUser("profiletest", "profile@test.com", "hash", "player")
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	// 1. Show profile
+	req := httptest.NewRequest(http.MethodGet, "/profile", nil)
+	req = req.WithContext(injectUser(req.Context(), u))
+	rr := httptest.NewRecorder()
+	profileHandler.ShowProfile(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK, got %d", rr.Code)
+	}
+
+	// 2. Update preferences
+	form := url.Values{}
+	form.Set("favorite_team_id", "1")
+	form.Set("notify_email", "1")
+	req = httptest.NewRequest(http.MethodPost, "/profile/preferences", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(injectUser(req.Context(), u))
+	rr = httptest.NewRecorder()
+	profileHandler.HandleUpdatePreferences(rr, req)
+
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("Expected 303 SeeOther, got %d", rr.Code)
+	}
+
+	freshUser, _ := repo.GetUserByID(u.ID)
+	if freshUser.FavoriteTeamID == nil || *freshUser.FavoriteTeamID != 1 {
+		t.Errorf("Expected FavoriteTeamID = 1, got %v", freshUser.FavoriteTeamID)
+	}
+	if !freshUser.NotifyEmail {
+		t.Errorf("Expected NotifyEmail = true")
 	}
 }
 

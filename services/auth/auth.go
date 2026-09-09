@@ -3,8 +3,10 @@ package auth
 import (
 	"context"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -71,6 +73,11 @@ func (s *AuthService) Authenticate(usernameOrEmail, password string) (*db.User, 
 
 // Register creates a new player account
 func (s *AuthService) Register(username, email, password string) (*db.User, error) {
+	return s.RegisterWithVerification(username, email, password, "")
+}
+
+// RegisterWithVerification creates a player account with an initial email verification token
+func (s *AuthService) RegisterWithVerification(username, email, password, token string) (*db.User, error) {
 	if len(strings.TrimSpace(username)) < 3 {
 		return nil, errors.New("el nombre de usuario debe tener al menos 3 caracteres")
 	}
@@ -94,7 +101,16 @@ func (s *AuthService) Register(username, email, password string) (*db.User, erro
 		return nil, fmt.Errorf("error al cifrar la contraseña: %w", err)
 	}
 
-	return s.repo.CreateUser(username, email, hash, "player")
+	return s.repo.CreateUserWithVerification(username, email, hash, "player", token)
+}
+
+// GenerateRandomToken generates cryptographically secure hex strings (e.g. for verification or password resets)
+func GenerateRandomToken(nBytes int) (string, error) {
+	b := make([]byte, nBytes)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }
 
 // GenerateSessionToken creates a signed token format: "userID:expiry:signature"

@@ -7,18 +7,33 @@ import (
 
 // User represents a player or administrator
 type User struct {
-	ID             int64     `json:"id"`
-	Username       string    `json:"username"`
-	Email          string    `json:"email"`
-	PasswordHash   string    `json:"-"`
-	Role           string    `json:"role"` // "admin" or "player"
-	AvatarURL      string    `json:"avatar_url"`
-	FavoriteTeamID *int64    `json:"favorite_team_id"`
-	CreatedAt      time.Time `json:"created_at"`
+	ID                  int64      `json:"id"`
+	Username            string     `json:"username"`
+	Email               string     `json:"email"`
+	PasswordHash        string     `json:"-"`
+	Role                string     `json:"role"` // "admin" or "player"
+	AvatarURL           string     `json:"avatar_url"`
+	FavoriteTeamID      *int64     `json:"favorite_team_id"`
+	EmailVerified       bool       `json:"email_verified"`
+	VerificationToken   *string    `json:"-"`
+	VerificationSentAt  *time.Time `json:"-"`
+	ResetToken          *string    `json:"-"`
+	ResetTokenExpiresAt *time.Time `json:"-"`
+	NotifyEmail         bool       `json:"notify_email"`
+	CreatedAt           time.Time  `json:"created_at"`
 }
 
 func (u *User) IsAdmin() bool {
 	return u.Role == "admin"
+}
+
+// UserStats represents aggregated user performance metrics
+type UserStats struct {
+	TotalPicks   int     `json:"total_picks"`
+	CorrectPicks int     `json:"correct_picks"`
+	TotalPoints  int     `json:"total_points"`
+	AccuracyRate float64 `json:"accuracy_rate"`
+	CurrentRank  int     `json:"current_rank"`
 }
 
 // SystemSetting stores key-value configuration such as scoring rules

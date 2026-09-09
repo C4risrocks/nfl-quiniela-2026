@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="128" fill="#0c0c0c"/>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="none" stroke="#262626" stroke-width="8"/>
+  <circle cx="256" cy="256" r="180" fill="#141414"/>
+  <!-- Football icon representation -->
+  <g transform="translate(136, 136) scale(0.47)" fill="#ffffff">
+    <path d="M464 256c0-70.6-38.3-132.3-95.6-165.7L314.7 144H288v48h26.7l-32 48H256v48h26.7l-48 72H208v48h26.7c-57.3-33.4-95.6-95.1-95.6-165.7 0-106 86-192 192-192 28.3 0 55.2 6.1 79.5 17.2L358.3 112H384v48h-25.7l32 48H416v48h-25.7l48 72H464v48h-26.3c16.5-22.1 26.3-49.4 26.3-79zm-272 0c0-106 86-192 192-192 10.7 0 21.1 1 31.3 2.7l-40.7 61.3H352V80h-48v48h-22.7l-32 48H224v48h25.3l-32 48H192v48h25.3l-24.6 37c-10.8-19.3-16.7-41.4-16.7-65z"/>
+    <circle cx="256" cy="256" r="32" fill="#00dfd8"/>
+  </g>
+</svg>

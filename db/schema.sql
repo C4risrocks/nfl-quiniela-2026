@@ -15,6 +15,12 @@ CREATE TABLE IF NOT EXISTS users (
     role TEXT NOT NULL DEFAULT 'player', -- 'admin' or 'player'
     avatar_url TEXT DEFAULT '',
     favorite_team_id INTEGER DEFAULT NULL,
+    email_verified BOOLEAN NOT NULL DEFAULT 0,
+    verification_token TEXT DEFAULT NULL,
+    verification_sent_at TIMESTAMP DEFAULT NULL,
+    reset_token TEXT DEFAULT NULL,
+    reset_token_expires_at TIMESTAMP DEFAULT NULL,
+    notify_email BOOLEAN NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

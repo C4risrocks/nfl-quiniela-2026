@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{block "title" .}}NFL Quiniela 2026{{end}}</title>
     
+    <!-- PWA & Mobile Capabilities -->
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="NFL Quiniela">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" type="image/svg+xml" href="/static/icons/icon.svg">
+    
     <!-- Geist Font CDN -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -136,7 +144,7 @@
                 <!-- User Controls -->
                 <div class="hidden md:flex items-center space-x-3">
                     {{if .User}}
-                        <div class="flex items-center space-x-2.5 bg-zinc-900/90 border border-zinc-800 px-3 py-1 rounded-full text-xs">
+                        <a href="/profile" class="flex items-center space-x-2.5 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 px-3 py-1 rounded-full text-xs transition-colors" title="Mi Perfil y Ajustes">
                             <div class="w-5 h-5 rounded-full bg-white text-black flex items-center justify-center text-[10px] font-bold uppercase">
                                 {{slice .User.Username 0 1}}
                             </div>
@@ -144,7 +152,7 @@
                             {{if .User.IsAdmin}}
                                 <span class="text-[9px] uppercase font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1 rounded">Admin</span>
                             {{end}}
-                        </div>
+                        </a>
                         <form action="/logout" method="POST" class="inline">
                             <button type="submit" class="p-1.5 text-zinc-400 hover:text-zinc-200 rounded-lg hover:bg-zinc-900 transition-colors text-xs" title="Cerrar sesión">
                                 <i class="fa-solid fa-arrow-right-from-bracket"></i>
@@ -178,6 +186,11 @@
             <a href="/rules" class="block px-3 py-2 rounded-lg text-sm font-medium {{if eq .ActiveNav "rules"}}bg-zinc-800 text-white{{else}}text-zinc-400{{end}}">
                 <i class="fa-solid fa-circle-question mr-2 text-zinc-400"></i> Reglamento
             </a>
+            {{if .User}}
+            <a href="/profile" class="block px-3 py-2 rounded-lg text-sm font-medium {{if eq .ActiveNav "profile"}}bg-zinc-800 text-white{{else}}text-zinc-400{{end}}">
+                <i class="fa-solid fa-user-gear mr-2 text-zinc-400"></i> Mi Perfil
+            </a>
+            {{end}}
             {{if and .User .User.IsAdmin}}
             <a href="/admin" class="block px-3 py-2 rounded-lg text-sm font-medium text-amber-300 bg-amber-500/10 border border-amber-500/20">
                 <i class="fa-solid fa-shield-halved mr-2"></i> Panel de Administración
@@ -248,6 +261,17 @@
             </div>
         </div>
     </footer>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js').catch(err => {
+                    console.debug('SW registration skipped:', err);
+                });
+            });
+        }
+    </script>
 
 </body>
 </html>

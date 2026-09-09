@@ -177,6 +177,8 @@ func (h *PicksHandler) SavePick(w http.ResponseWriter, r *http.Request) {
 
 	game.UserPick = pick
 
+	w.Header().Set("HX-Trigger", `{"show-toast": {"message": "¡Pronóstico guardado exitosamente!", "type": "success"}}`)
+
 	// Render updated single game card partial
 	h.renderer.RenderPartial(w, "game_card.html", map[string]interface{}{
 		"Game":             game,
@@ -244,6 +246,8 @@ func (h *PicksHandler) SaveScore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	game.UserPick = pick
+
+	w.Header().Set("HX-Trigger", `{"show-toast": {"message": "¡Marcador guardado exitosamente!", "type": "success"}}`)
 
 	h.renderer.RenderPartial(w, "game_card.html", map[string]interface{}{
 		"Game":             game,

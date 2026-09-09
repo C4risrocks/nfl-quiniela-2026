@@ -106,5 +106,29 @@ func (d *DB) migrate() error {
 			return fmt.Errorf("executing migration query [%s]: %w", stmt, err)
 		}
 	}
+
+	// Safe incremental column additions for existing databases
+	userCols := []string{
+		"ALTER TABLE users ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT 0",
+		"ALTER TABLE users ADD COLUMN verification_token TEXT DEFAULT NULL",
+		"ALTER TABLE users ADD COLUMN verification_sent_at TIMESTAMP DEFAULT NULL",
+		"ALTER TABLE users ADD COLUMN reset_token TEXT DEFAULT NULL",
+		"ALTER TABLE users ADD COLUMN reset_token_expires_at TIMESTAMP DEFAULT NULL",
+		"ALTER TABLE users ADD COLUMN notify_email BOOLEAN NOT NULL DEFAULT 1",
+	}
+	if d.DriverName == "pgx" {
+		userCols = []string{
+			"ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE",
+			"ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT DEFAULT NULL",
+			"ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_sent_at TIMESTAMP DEFAULT NULL",
+			"ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT DEFAULT NULL",
+			"ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires_at TIMESTAMP DEFAULT NULL",
+			"ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email BOOLEAN NOT NULL DEFAULT TRUE",
+		}
+	}
+	for _, colStmt := range userCols {
+		_, _ = d.Exec(colStmt) // Safe ignore if column already exists
+	}
+
 	return nil
 }

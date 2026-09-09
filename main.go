@@ -103,7 +103,8 @@ func main() {
 	renderer := handlers.NewRenderer(subTemplatesFS)
 
 	// 7. HTTP Handlers
-	authHandler := handlers.NewAuthHandler(authService, renderer)
+	authHandler := handlers.NewAuthHandler(authService, repo, emailSender, renderer)
+	profileHandler := handlers.NewProfileHandler(repo, authService, renderer)
 	picksHandler := handlers.NewPicksHandler(repo, renderer, syncer, cfg.CurrentSeasonYear)
 	leaderboardHandler := handlers.NewLeaderboardHandler(repo, renderer, cfg.CurrentSeasonYear)
 	rulesHandler := handlers.NewRulesHandler(repo, renderer)
@@ -137,6 +138,11 @@ func main() {
 			dbStatus = "error: " + err.Error()
 			status = "degraded"
 			statusCode = http.StatusServiceUnavailable
+		} else if database.DriverName == "sqlite" {
+			var checkResult string
+			if err := database.QueryRow("PRAGMA quick_check").Scan(&checkResult); err != nil || checkResult != "ok" {
+				dbStatus = "integrity check note: " + checkResult
+			}
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
@@ -157,6 +163,14 @@ func main() {
 	r.Post("/register", authHandler.HandleRegister)
 	r.Post("/logout", authHandler.HandleLogout)
 
+	// Email Verification & Password Reset
+	r.Get("/verify-email", authHandler.HandleVerifyEmail)
+	r.Post("/verify-email/resend", authHandler.HandleResendVerification)
+	r.Get("/forgot-password", authHandler.ShowForgotPassword)
+	r.Post("/forgot-password", authHandler.HandleForgotPassword)
+	r.Get("/reset-password", authHandler.ShowResetPassword)
+	r.Post("/reset-password", authHandler.HandleResetPassword)
+
 	r.Get("/rules", rulesHandler.ShowRules)
 	r.Get("/leaderboard", leaderboardHandler.ShowLeaderboard)
 	r.Get("/leaderboard/table", leaderboardHandler.LeaderboardTable)
@@ -170,6 +184,11 @@ func main() {
 		player.Post("/picks/save", picksHandler.SavePick)
 		player.Post("/picks/save-score", picksHandler.SaveScore)
 		player.Get("/picks/community/{gameId}", picksHandler.CommunityPicks)
+
+		// Profile & Preferences
+		player.Get("/profile", profileHandler.ShowProfile)
+		player.Post("/profile/preferences", profileHandler.HandleUpdatePreferences)
+		player.Post("/profile/password", profileHandler.HandleChangePassword)
 	})
 
 	// Admin Protected Routes

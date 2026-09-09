@@ -44,6 +44,24 @@
         </div>
     </div>
 
+    {{if and .User (not .User.EmailVerified)}}
+        <!-- Unverified Email Notification Banner -->
+        <div id="email-verification-banner" class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-sm">
+            <div class="flex items-center space-x-2.5">
+                <i class="fa-solid fa-triangle-exclamation text-amber-400 text-sm"></i>
+                <span><strong>Verifica tu correo:</strong> Te enviamos un enlace a <strong>{{.User.Email}}</strong> para asegurar tu cuenta y activar alertas.</span>
+            </div>
+            <div id="resend-banner-container">
+                <button hx-post="/verify-email/resend"
+                        hx-target="#resend-banner-container"
+                        hx-swap="innerHTML"
+                        class="underline hover:text-white font-semibold whitespace-nowrap">
+                    Reenviar enlace
+                </button>
+            </div>
+        </div>
+    {{end}}
+
     {{if .IsFullWeekLocked}}
         <!-- Full Week Locked Alert Banner -->
         <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center space-x-2.5 shadow-sm">
