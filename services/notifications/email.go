@@ -26,9 +26,9 @@ func NewEmailSender(host string, port int, username, password, from, appBaseURL 
 	return &EmailSender{
 		host:       host,
 		port:       port,
-		username:   username,
-		password:   password,
-		from:       from,
+		username:   strings.TrimSpace(username),
+		password:   strings.ReplaceAll(strings.TrimSpace(password), " ", ""),
+		from:       strings.TrimSpace(from),
 		appBaseURL: appBaseURL,
 	}
 }

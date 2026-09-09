@@ -21,6 +21,14 @@ services:
       - ENABLE_BACKGROUND_SYNC=true
       - ESPN_SYNC_INTERVAL_MINS=5
       - CURRENT_SEASON_YEAR=2026
+      # Email Service (Gmail SMTP)
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - APP_BASE_URL=${APP_BASE_URL:-http://localhost:8080}
+      - ENABLE_REMINDERS=${ENABLE_REMINDERS:-true}
     volumes:
       # Named volume for Dokploy automated backups and persistent SQLite storage
       - quiniela_data:/app/data
