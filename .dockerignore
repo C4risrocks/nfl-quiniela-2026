@@ -1,0 +1,13 @@
+.git
+.gitignore
+.env
+*.db
+test_*.db
+quiniela.db*
+data/
+*.log
+.DS_Store
+.agents
+.gemini
+README.md
+DEPLOYMENT.md

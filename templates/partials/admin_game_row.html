@@ -1,0 +1,72 @@
+<tr id="admin-game-row-{{.Game.ID}}" class="hover:bg-zinc-900/40 transition-colors">
+    <td class="py-3 px-3">
+        <div class="flex items-center space-x-2">
+            <img src="{{.Game.AwayTeam.LogoURL}}" alt="{{.Game.AwayTeam.Code}}" class="w-5 h-5 object-contain">
+            <span class="font-bold text-white text-xs">{{.Game.AwayTeam.Code}}</span>
+            <span class="text-zinc-600 text-xs">@</span>
+            <img src="{{.Game.HomeTeam.LogoURL}}" alt="{{.Game.HomeTeam.Code}}" class="w-5 h-5 object-contain">
+            <span class="font-bold text-white text-xs">{{.Game.HomeTeam.Code}}</span>
+        </div>
+        <div class="text-[10px] font-mono text-zinc-500 mt-0.5">{{.FormattedKickoff}}</div>
+    </td>
+
+    <!-- Score Editing Form -->
+    <td class="py-3 px-3">
+        <form hx-post="/admin/games/save-score"
+              hx-target="#admin-game-row-{{.Game.ID}}"
+              hx-swap="outerHTML"
+              class="flex items-center space-x-2">
+            
+            <input type="hidden" name="game_id" value="{{.Game.ID}}">
+
+            <div class="flex items-center space-x-1">
+                <input type="number" name="away_score" min="0" max="99" 
+                       value="{{if .Game.AwayScore}}{{.Game.AwayScore}}{{end}}"
+                       placeholder="Vis" 
+                       class="w-12 px-1.5 py-1 text-center font-mono font-bold text-xs bg-zinc-900 border border-zinc-700 rounded text-white focus:border-white">
+                <span class="text-zinc-600 font-bold">-</span>
+                <input type="number" name="home_score" min="0" max="99" 
+                       value="{{if .Game.HomeScore}}{{.Game.HomeScore}}{{end}}"
+                       placeholder="Loc" 
+                       class="w-12 px-1.5 py-1 text-center font-mono font-bold text-xs bg-zinc-900 border border-zinc-700 rounded text-white focus:border-white">
+            </div>
+
+            <!-- Status Dropdown -->
+            <select name="status" class="bg-zinc-900 border border-zinc-700 text-xs rounded px-2 py-1 text-zinc-200 focus:border-white">
+                <option value="scheduled" {{if eq .Game.Status "scheduled"}}selected{{end}}>Programado</option>
+                <option value="in_progress" {{if eq .Game.Status "in_progress"}}selected{{end}}>En Juego</option>
+                <option value="final" {{if eq .Game.Status "final"}}selected{{end}}>Finalizado</option>
+            </select>
+
+            <button type="submit" class="px-2.5 py-1 bg-white hover:bg-zinc-200 text-black rounded text-xs font-semibold transition-colors shadow-sm" title="Guardar cambios">
+                <i class="fa-solid fa-floppy-disk"></i>
+            </button>
+        </form>
+    </td>
+
+    <!-- Toggles -->
+    <td class="py-3 px-3 text-center">
+        <div class="flex items-center justify-center space-x-2">
+            
+            <!-- Tiebreaker Toggle -->
+            <button hx-post="/admin/games/toggle-tiebreaker"
+                    hx-vals='{"game_id": "{{.Game.ID}}"}'
+                    hx-target="#admin-game-row-{{.Game.ID}}"
+                    hx-swap="outerHTML"
+                    class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium border transition-all {{if .Game.IsTiebreaker}}bg-amber-500/10 text-amber-300 border-amber-500/30{{else}}bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-zinc-300{{end}}">
+                <i class="fa-solid fa-star text-[9px] mr-1"></i> Desempate
+            </button>
+
+            <!-- Force Lock Toggle -->
+            <button hx-post="/admin/games/toggle-lock"
+                    hx-vals='{"game_id": "{{.Game.ID}}"}'
+                    hx-target="#admin-game-row-{{.Game.ID}}"
+                    hx-swap="outerHTML"
+                    class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-medium border transition-all {{if .Game.IsLocked}}bg-red-500/10 text-red-300 border-red-500/30{{else}}bg-zinc-900 text-zinc-500 border-zinc-800 hover:text-zinc-300{{end}}">
+                <i class="fa-solid {{if .Game.IsLocked}}fa-lock{{else}}fa-lock-open{{end}} text-[9px] mr-1"></i>
+                {{if .Game.IsLocked}}Bloqueado{{else}}Abierto{{end}}
+            </button>
+
+        </div>
+    </td>
+</tr>

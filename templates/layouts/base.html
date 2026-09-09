@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-black text-[#ededed]">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{block "title" .}}NFL Quiniela 2026{{end}}</title>
+    
+    <!-- Geist Font CDN -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Geist:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Geist', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+                        mono: ['Geist Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']
+                    },
+                    colors: {
+                        vercel: {
+                            black: '#000000',
+                            dark: '#0a0a0a',
+                            card: '#121212',
+                            cardHover: '#181818',
+                            border: '#262626',
+                            borderHover: '#404040',
+                            textMuted: '#888888',
+                            textLight: '#a1a1aa',
+                            textWhite: '#ededed',
+                            accentCyan: '#00dfd8',
+                            accentBlue: '#0070f3'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@2.0.2"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        body {
+            font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #000000;
+            color: #ededed;
+        }
+
+        .vercel-card {
+            background: #0d0d0d;
+            border: 1px solid #222222;
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .vercel-card:hover {
+            border-color: #383838;
+        }
+
+        .vercel-glass {
+            background: rgba(10, 10, 10, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Subtle grid background */
+        .bg-grid {
+            background-size: 32px 32px;
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        }
+
+        /* HTMX Indicator styles */
+        .htmx-indicator {
+            opacity: 0;
+            transition: opacity 200ms ease-in;
+        }
+        .htmx-request .htmx-indicator,
+        .htmx-request.htmx-indicator {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="min-h-full flex flex-col font-sans antialiased bg-black text-[#ededed] selection:bg-cyan-500 selection:text-black bg-grid" x-data="{ mobileMenuOpen: false }">
+    
+    <!-- Top Minimalist Vercel-Style Navigation -->
+    <nav class="sticky top-0 z-50 vercel-glass border-b border-[#222222] bg-black/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                
+                <!-- Logo & Brand Mark -->
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="flex items-center space-x-2.5 group">
+                        <div class="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center font-black text-sm shadow-md group-hover:scale-105 transition-transform">
+                            <i class="fa-solid fa-football text-black text-xs"></i>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-sm font-bold tracking-tight text-white flex items-center">
+                                NFL <span class="text-neutral-400 ml-1 font-semibold">QUINIELA</span>
+                                <span class="ml-2 text-[10px] font-mono font-medium px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700/60">2026</span>
+                            </span>
+                        </div>
+                    </a>
+                    
+                    <!-- Desktop Nav Links -->
+                    <div class="hidden md:flex items-center space-x-1 pl-4 border-l border-zinc-800/80">
+                        <a href="/picks" class="px-3 py-1.5 rounded-lg text-xs font-medium {{if eq .ActiveNav "picks"}}bg-zinc-800/90 text-white font-semibold border border-zinc-700/60 shadow-sm{{else}}text-zinc-400 hover:text-white hover:bg-zinc-900{{end}} transition-all">
+                            <i class="fa-solid fa-list-check mr-1.5 text-zinc-400"></i> Pronósticos
+                        </a>
+                        <a href="/leaderboard" class="px-3 py-1.5 rounded-lg text-xs font-medium {{if eq .ActiveNav "leaderboard"}}bg-zinc-800/90 text-white font-semibold border border-zinc-700/60 shadow-sm{{else}}text-zinc-400 hover:text-white hover:bg-zinc-900{{end}} transition-all">
+                            <i class="fa-solid fa-trophy mr-1.5 text-amber-400/90"></i> Posiciones
+                        </a>
+                        <a href="/rules" class="px-3 py-1.5 rounded-lg text-xs font-medium {{if eq .ActiveNav "rules"}}bg-zinc-800/90 text-white font-semibold border border-zinc-700/60 shadow-sm{{else}}text-zinc-400 hover:text-white hover:bg-zinc-900{{end}} transition-all">
+                            <i class="fa-solid fa-circle-question mr-1.5 text-zinc-400"></i> Reglamento
+                        </a>
+                        {{if and .User .User.IsAdmin}}
+                        <a href="/admin" class="px-3 py-1.5 rounded-lg text-xs font-medium {{if eq .ActiveNav "admin"}}bg-amber-500/10 text-amber-300 border border-amber-500/30 font-semibold{{else}}text-amber-400/80 hover:bg-amber-500/5 hover:text-amber-300{{end}} transition-all">
+                            <i class="fa-solid fa-shield-halved mr-1.5"></i> Admin
+                        </a>
+                        {{end}}
+                    </div>
+                </div>
+
+                <!-- User Controls -->
+                <div class="hidden md:flex items-center space-x-3">
+                    {{if .User}}
+                        <div class="flex items-center space-x-2.5 bg-zinc-900/90 border border-zinc-800 px-3 py-1 rounded-full text-xs">
+                            <div class="w-5 h-5 rounded-full bg-white text-black flex items-center justify-center text-[10px] font-bold uppercase">
+                                {{slice .User.Username 0 1}}
+                            </div>
+                            <span class="font-medium text-zinc-200">{{.User.Username}}</span>
+                            {{if .User.IsAdmin}}
+                                <span class="text-[9px] uppercase font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1 rounded">Admin</span>
+                            {{end}}
+                        </div>
+                        <form action="/logout" method="POST" class="inline">
+                            <button type="submit" class="p-1.5 text-zinc-400 hover:text-zinc-200 rounded-lg hover:bg-zinc-900 transition-colors text-xs" title="Cerrar sesión">
+                                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                            </button>
+                        </form>
+                    {{else}}
+                        <a href="/login" class="text-xs font-medium text-zinc-400 hover:text-white px-3 py-1.5 transition-colors">Iniciar Sesión</a>
+                        <a href="/register" class="text-xs font-semibold bg-white hover:bg-zinc-200 text-black px-3.5 py-1.5 rounded-lg shadow-sm transition-all">
+                            Registrarse
+                        </a>
+                    {{end}}
+                </div>
+
+                <!-- Mobile Menu Button -->
+                <div class="md:hidden flex items-center">
+                    <button @click="mobileMenuOpen = !mobileMenuOpen" class="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900">
+                        <i class="fa-solid" :class="mobileMenuOpen ? 'fa-xmark' : 'fa-bars'"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation Menu -->
+        <div x-show="mobileMenuOpen" x-cloak class="md:hidden border-t border-zinc-800 bg-black/95 px-4 pt-3 pb-4 space-y-2">
+            <a href="/picks" class="block px-3 py-2 rounded-lg text-sm font-medium {{if eq .ActiveNav "picks"}}bg-zinc-800 text-white{{else}}text-zinc-400{{end}}">
+                <i class="fa-solid fa-list-check mr-2 text-zinc-400"></i> Mis Pronósticos
+            </a>
+            <a href="/leaderboard" class="block px-3 py-2 rounded-lg text-sm font-medium {{if eq .ActiveNav "leaderboard"}}bg-zinc-800 text-white{{else}}text-zinc-400{{end}}">
+                <i class="fa-solid fa-trophy mr-2 text-amber-400"></i> Tabla de Posiciones
+            </a>
+            <a href="/rules" class="block px-3 py-2 rounded-lg text-sm font-medium {{if eq .ActiveNav "rules"}}bg-zinc-800 text-white{{else}}text-zinc-400{{end}}">
+                <i class="fa-solid fa-circle-question mr-2 text-zinc-400"></i> Reglamento
+            </a>
+            {{if and .User .User.IsAdmin}}
+            <a href="/admin" class="block px-3 py-2 rounded-lg text-sm font-medium text-amber-300 bg-amber-500/10 border border-amber-500/20">
+                <i class="fa-solid fa-shield-halved mr-2"></i> Panel de Administración
+            </a>
+            {{end}}
+
+            <div class="pt-4 border-t border-zinc-800 flex items-center justify-between">
+                {{if .User}}
+                    <div class="flex items-center space-x-2">
+                        <div class="w-6 h-6 rounded-full bg-white text-black flex items-center justify-center text-xs font-bold uppercase">
+                            {{slice .User.Username 0 1}}
+                        </div>
+                        <span class="text-xs font-medium text-zinc-200">{{.User.Username}}</span>
+                    </div>
+                    <form action="/logout" method="POST">
+                        <button type="submit" class="text-xs text-red-400 hover:text-red-300 py-1 px-2">
+                            <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Salir
+                        </button>
+                    </form>
+                {{else}}
+                    <div class="w-full flex space-x-2">
+                        <a href="/login" class="flex-1 text-center py-2 rounded-lg text-xs font-medium bg-zinc-900 text-zinc-300 border border-zinc-800">Iniciar Sesión</a>
+                        <a href="/register" class="flex-1 text-center py-2 rounded-lg text-xs font-semibold bg-white text-black">Registrarse</a>
+                    </div>
+                {{end}}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {{block "content" .}}{{end}}
+    </main>
+
+    <!-- Vercel Toast Notification via Alpine/HTMX -->
+    <div x-data="{ show: false, message: '', type: 'success' }"
+         x-on:show-toast.window="message = $event.detail.message; type = $event.detail.type || 'success'; show = true; setTimeout(() => show = false, 3000)"
+         x-show="show"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 translate-y-3 scale-95"
+         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+         x-transition:leave-end="opacity-0 translate-y-3 scale-95"
+         x-cloak
+         class="fixed bottom-6 right-6 z-50 flex items-center space-x-3 px-4 py-2.5 rounded-xl shadow-2xl border text-xs font-medium bg-[#111111]/95 backdrop-blur-md border-[#333333] text-zinc-100">
+        <i class="fa-solid" :class="{
+            'fa-circle-check text-emerald-400': type === 'success',
+            'fa-circle-exclamation text-red-400': type === 'error',
+            'fa-circle-info text-cyan-400': type === 'info'
+        }"></i>
+        <span x-text="message"></span>
+    </div>
+
+    <!-- Minimalist Vercel-Style Footer -->
+    <footer class="border-t border-[#1a1a1a] bg-black/90 py-6 text-xs text-zinc-500">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="flex items-center space-x-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>NFL Quiniela 2026 • Live Sync vía ESPN API</span>
+            </div>
+            <div class="flex items-center space-x-4 text-zinc-400">
+                <a href="/picks" class="hover:text-white transition-colors">Pronósticos</a>
+                <span>/</span>
+                <a href="/leaderboard" class="hover:text-white transition-colors">Posiciones</a>
+                <span>/</span>
+                <a href="/rules" class="hover:text-white transition-colors">Reglamento</a>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

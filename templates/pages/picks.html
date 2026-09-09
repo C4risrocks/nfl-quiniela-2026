@@ -1,0 +1,103 @@
+{{template "base.html" .}}
+
+{{define "title"}}Mis Pronósticos - NFL Quiniela 2026{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+
+    <!-- Header Slot with Week Switcher -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 vercel-card p-5 sm:p-6 rounded-2xl shadow-sm">
+        <div>
+            <div class="flex items-center space-x-2 mb-1">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700/60">
+                    Jornada {{.SelectedWeek.WeekNumber}} de 22
+                </span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-medium {{if eq .LockMode "full_week"}}bg-amber-500/10 text-amber-300 border border-amber-500/20{{else}}bg-zinc-900 text-zinc-400 border border-zinc-800{{end}}">
+                    <i class="fa-solid fa-clock text-[9px] mr-1"></i>
+                    {{if eq .LockMode "full_week"}}Bloqueo Jornada Completa{{else}}Bloqueo por Partido{{end}}
+                </span>
+            </div>
+            <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center">
+                {{.SelectedWeek.Name}}
+            </h1>
+            <p class="text-xs text-zinc-400 mt-1 max-w-xl">
+                {{if eq .LockMode "full_week"}}
+                    Haz clic en el equipo ganador y marcador. Todos los partidos se congelan cuando inicia el primer partido de la semana.
+                {{else}}
+                    Haz clic en el equipo ganador y marcador. Cada partido se congela individualmente al llegar su hora de patada inicial.
+                {{end}}
+            </p>
+        </div>
+
+        <!-- Week Dropdown Selector -->
+        <div class="flex items-center space-x-2.5">
+            <span class="text-xs font-mono text-zinc-400 uppercase tracking-wider">Jornada:</span>
+            <select id="week-select" 
+                    onchange="window.location.href = '/picks?week=' + this.value"
+                    class="bg-zinc-900 border border-zinc-700/80 text-white text-xs font-semibold rounded-xl px-3 py-2 focus:ring-1 focus:ring-white focus:border-white transition-all shadow-inner">
+                {{range .Weeks}}
+                    <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
+                        {{.Name}} {{if eq .Status "active"}}⚡{{end}}
+                    </option>
+                {{end}}
+            </select>
+        </div>
+    </div>
+
+    {{if .IsFullWeekLocked}}
+        <!-- Full Week Locked Alert Banner -->
+        <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center space-x-2.5 shadow-sm">
+            <i class="fa-solid fa-lock text-amber-400 text-sm"></i>
+            <span><strong>Jornada Congelada:</strong> El primer partido de esta semana ya comenzó. Todos los pronósticos de la jornada están bloqueados según la configuración activa.</span>
+        </div>
+    {{end}}
+
+    <!-- Stat Metrics Row -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="vercel-card p-4 rounded-xl">
+            <div class="text-[11px] font-mono font-medium text-zinc-500 uppercase tracking-wider">Partidos</div>
+            <div class="text-2xl font-bold font-mono text-white mt-1">{{len .Games}}</div>
+        </div>
+
+        <div class="vercel-card p-4 rounded-xl">
+            <div class="text-[11px] font-mono font-medium text-zinc-500 uppercase tracking-wider">Pronosticados</div>
+            <div class="text-2xl font-bold font-mono text-white mt-1">{{.PicksCount}} <span class="text-xs text-zinc-500 font-normal">/ {{len .Games}}</span></div>
+        </div>
+
+        <div class="vercel-card p-4 rounded-xl">
+            <div class="text-[11px] font-mono font-medium text-zinc-500 uppercase tracking-wider">Puntos Semana</div>
+            <div class="text-2xl font-bold font-mono text-amber-400 mt-1">{{.UserWeeklyPoints}} <span class="text-xs text-zinc-500 font-normal">pts</span></div>
+        </div>
+
+        <div class="vercel-card p-4 rounded-xl">
+            <div class="text-[11px] font-mono font-medium text-zinc-500 uppercase tracking-wider">Aciertos Ganador</div>
+            <div class="text-2xl font-bold font-mono text-emerald-400 mt-1">{{.UserCorrectPicks}}</div>
+        </div>
+    </div>
+
+    <!-- Games Grid -->
+    {{if .Games}}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+            {{range .Games}}
+                {{template "game_card.html" (dict "Game" . "CurrentTime" $.CurrentTime "FormattedKickoff" (formatDate .KickoffTime) "LockMode" $.LockMode "FirstKickoff" $.FirstKickoff)}}
+            {{end}}
+        </div>
+    {{else}}
+        <div class="vercel-card text-center py-16 px-4 rounded-2xl">
+            <div class="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mx-auto text-zinc-500 text-lg mb-3">
+                <i class="fa-solid fa-calendar-xmark"></i>
+            </div>
+            <h3 class="text-base font-bold text-white mb-1">Sin partidos programados para {{.SelectedWeek.Name}}</h3>
+            <p class="text-xs text-zinc-400 max-w-md mx-auto mb-5">
+                Los partidos se sincronizan automáticamente con ESPN o pueden ser dados de alta desde el panel de administración.
+            </p>
+            {{if and .User .User.IsAdmin}}
+                <a href="/admin" class="inline-flex items-center px-4 py-2 rounded-lg bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-colors shadow-sm">
+                    <i class="fa-solid fa-cloud-arrow-down mr-1.5"></i> Sincronizar en Panel de Admin
+                </a>
+            {{end}}
+        </div>
+    {{end}}
+
+</div>
+{{end}}

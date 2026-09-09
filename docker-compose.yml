@@ -1,0 +1,36 @@
+services:
+  quiniela:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nfl-quiniela-2026
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DB_TYPE=sqlite
+      - DB_PATH=/app/data/quiniela.db
+      # If migrating to PostgreSQL later in Dokploy:
+      # - DB_TYPE=postgres
+      # - DATABASE_URL=postgres://user:password@postgres-service:5432/quiniela?sslmode=disable
+      - SESSION_SECRET=change-this-to-a-secure-random-key-in-dokploy-env
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin123
+      - ADMIN_EMAIL=admin@quiniela.com
+      - ENABLE_BACKGROUND_SYNC=true
+      - ESPN_SYNC_INTERVAL_MINS=5
+      - CURRENT_SEASON_YEAR=2026
+    volumes:
+      # Named volume for Dokploy automated backups and persistent SQLite storage
+      - quiniela_data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  quiniela_data:
+    name: quiniela_data

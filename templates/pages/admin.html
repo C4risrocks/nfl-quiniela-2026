@@ -1,0 +1,310 @@
+{{template "base.html" .}}
+
+{{define "title"}}Panel de Administración - NFL Quiniela 2026{{end}}
+
+{{define "content"}}
+<div class="space-y-6" x-data="{ activeTab: 'settings' }">
+
+    <!-- Header & Tab Controls -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 vercel-card p-5 sm:p-6 rounded-2xl shadow-sm">
+        <div>
+            <div class="flex items-center space-x-2 mb-1">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30 uppercase">
+                    Admin Console
+                </span>
+            </div>
+            <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center">
+                Panel de Administración
+            </h1>
+            <p class="text-xs text-zinc-400 mt-1">
+                Ajusta las reglas de puntuación, sincroniza con ESPN en vivo y gestiona marcadores.
+            </p>
+        </div>
+
+        <!-- Vercel Tab Switcher -->
+        <div class="bg-zinc-950 p-1 rounded-xl border border-zinc-800 flex items-center space-x-1">
+            <button @click="activeTab = 'settings'" 
+                    :class="activeTab === 'settings' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
+                <i class="fa-solid fa-sliders mr-1.5"></i> Puntuación
+            </button>
+            <button @click="activeTab = 'games'" 
+                    :class="activeTab === 'games' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
+                <i class="fa-solid fa-football mr-1.5"></i> Partidos & ESPN
+            </button>
+            <button @click="activeTab = 'users'" 
+                    :class="activeTab === 'users' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
+                <i class="fa-solid fa-users mr-1.5"></i> Jugadores
+            </button>
+        </div>
+    </div>
+
+    <!-- TAB 1: Scoring Rules Configuration -->
+    <div x-show="activeTab === 'settings'" class="space-y-6">
+        <div class="vercel-card p-6 rounded-2xl">
+            <h2 class="text-base font-bold text-white mb-1 flex items-center">
+                <i class="fa-solid fa-scale-balanced text-zinc-400 mr-2"></i>
+                Modo de Puntuación
+            </h2>
+            <p class="text-xs text-zinc-400 mb-6">
+                Selecciona la modalidad de cálculo para el torneo y ajusta el valor de los puntos. Al guardar se recalculan todas las jornadas.
+            </p>
+
+            <form hx-post="/admin/settings/save" 
+                  hx-swap="none"
+                  hx-on::after-request="$dispatch('show-toast', {message: 'Configuración guardada y puntos recalculados', type: 'success'})"
+                  class="space-y-6">
+                
+                <!-- Radio Mode Options (Vercel Card Selector) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    
+                    <!-- Option 1: Weighted + Bonuses -->
+                    <label class="p-4 rounded-xl border border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 cursor-pointer block relative transition-all has-[:checked]:border-white has-[:checked]:bg-zinc-900/60">
+                        <div class="flex items-start">
+                            <input type="radio" name="scoring_mode" value="weighted" 
+                                   {{if eq .ScoringConfig.ScoringMode "weighted"}}checked{{end}} 
+                                   class="mt-1 mr-3 text-white focus:ring-white">
+                            <div>
+                                <div class="font-bold text-white text-xs">
+                                    Puntaje Ponderado + Bonos Extra
+                                </div>
+                                <p class="text-xs text-zinc-400 mt-1 leading-relaxed">
+                                    El ganador otorga puntos base (ej. 10 pts) y acertar el marcador o margen suma bonos extra a la tabla general.
+                                </p>
+                            </div>
+                        </div>
+                    </label>
+
+                    <!-- Option 2: Pure 1-Point Winner + Tiebreaker Only -->
+                    <label class="p-4 rounded-xl border border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 cursor-pointer block relative transition-all has-[:checked]:border-white has-[:checked]:bg-zinc-900/60">
+                        <div class="flex items-start">
+                            <input type="radio" name="scoring_mode" value="pure_tiebreaker" 
+                                   {{if eq .ScoringConfig.ScoringMode "pure_tiebreaker"}}checked{{end}} 
+                                   class="mt-1 mr-3 text-white focus:ring-white">
+                            <div>
+                                <div class="font-bold text-white text-xs">
+                                    1 Punto por Ganador (Marcador Solo Desempate)
+                                </div>
+                                <p class="text-xs text-zinc-400 mt-1 leading-relaxed">
+                                    Cada acierto vale 1 punto. El pronóstico de marcador se usa exclusivamente para romper empates en MNF.
+                                </p>
+                            </div>
+                        </div>
+                    </label>
+
+                </div>
+
+                <!-- Numerical Values Adjustment -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-zinc-800/80">
+                    <div>
+                        <label class="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1.5">Puntos por Ganador</label>
+                        <input type="number" name="winner_points" value="{{.ScoringConfig.WinnerPoints}}" min="1" max="100"
+                               class="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white font-mono font-bold text-xs focus:border-white">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1.5">Bono Marcador Exacto</label>
+                        <input type="number" name="exact_score_bonus" value="{{.ScoringConfig.ExactScoreBonus}}" min="0" max="100"
+                               class="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white font-mono font-bold text-xs focus:border-white">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1.5">Bono Margen de Victoria</label>
+                        <input type="number" name="margin_bonus" value="{{.ScoringConfig.ExactMarginBonus}}" min="0" max="100"
+                               class="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white font-mono font-bold text-xs focus:border-white">
+                    </div>
+                </div>
+
+                <!-- Lock Timing Options (Per-Game vs Full-Week) -->
+                <div class="pt-4 border-t border-zinc-800/80">
+                    <h3 class="text-sm font-bold text-white mb-1 flex items-center">
+                        <i class="fa-solid fa-clock text-zinc-400 mr-2"></i>
+                        Momento de Bloqueo de Pronósticos
+                    </h3>
+                    <p class="text-xs text-zinc-400 mb-3">
+                        Define cuándo se congelan los pronósticos para los jugadores.
+                    </p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        
+                        <!-- Option A: Per-Game Lock -->
+                        <label class="p-4 rounded-xl border border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 cursor-pointer block relative transition-all has-[:checked]:border-white has-[:checked]:bg-zinc-900/60">
+                            <div class="flex items-start">
+                                <input type="radio" name="lock_mode" value="per_game" 
+                                       {{if ne .ScoringConfig.LockMode "full_week"}}checked{{end}} 
+                                       class="mt-1 mr-3 text-white focus:ring-white">
+                                <div>
+                                    <div class="font-bold text-white text-xs flex items-center">
+                                        Bloqueo Individual por Partido
+                                        <span class="ml-2 text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-zinc-800 text-zinc-300">Recomendado</span>
+                                    </div>
+                                    <p class="text-xs text-zinc-400 mt-1 leading-relaxed">
+                                        Cada partido se bloquea individualmente en su horario exacto de patada inicial (Kickoff).
+                                    </p>
+                                    <p class="text-[11px] text-zinc-500 mt-1">
+                                        <em>Ejemplo:</em> El juego del jueves se bloquea a las 8:15 PM, pero los pronósticos del domingo y lunes se pueden modificar durante viernes y sábado.
+                                    </p>
+                                </div>
+                            </div>
+                        </label>
+
+                        <!-- Option B: Full-Week Lock -->
+                        <label class="p-4 rounded-xl border border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 cursor-pointer block relative transition-all has-[:checked]:border-white has-[:checked]:bg-zinc-900/60">
+                            <div class="flex items-start">
+                                <input type="radio" name="lock_mode" value="full_week" 
+                                       {{if eq .ScoringConfig.LockMode "full_week"}}checked{{end}} 
+                                       class="mt-1 mr-3 text-white focus:ring-white">
+                                <div>
+                                    <div class="font-bold text-white text-xs">
+                                        Bloqueo de Jornada Completa
+                                    </div>
+                                    <p class="text-xs text-zinc-400 mt-1 leading-relaxed">
+                                        Todos los partidos de la semana se congelan en el instante que arranca el primer partido de la jornada.
+                                    </p>
+                                    <p class="text-[11px] text-zinc-500 mt-1">
+                                        <em>Ejemplo:</em> Una vez que inicia el juego del jueves, todos los pronósticos de jueves, domingo y lunes quedan congelados.
+                                    </p>
+                                </div>
+                            </div>
+                        </label>
+
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="flex justify-end pt-2">
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-colors shadow-sm flex items-center">
+                        <i class="fa-solid fa-floppy-disk mr-1.5"></i> Guardar y Recalcular Puntuaciones
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <!-- TAB 2: Games Management & ESPN Live Sync -->
+    <div x-show="activeTab === 'games'" x-cloak class="space-y-6">
+        
+        <!-- ESPN Sync Card -->
+        <div class="vercel-card p-6 rounded-2xl">
+            <h2 class="text-base font-bold text-white mb-1 flex items-center">
+                <i class="fa-solid fa-cloud-arrow-down text-zinc-400 mr-2"></i>
+                Sincronización con ESPN
+            </h2>
+            <p class="text-xs text-zinc-400 mb-4">
+                Descarga el calendario oficial, horarios, estados y marcadores en vivo desde la API de ESPN.
+            </p>
+
+            <form hx-post="/admin/sync-espn" 
+                  hx-target="#sync-result"
+                  hx-swap="innerHTML"
+                  class="flex flex-wrap items-center gap-3">
+                
+                <div class="flex items-center space-x-2">
+                    <label class="text-xs font-mono text-zinc-400 uppercase">Jornada:</label>
+                    <select name="week" class="bg-zinc-900 border border-zinc-700 text-white text-xs font-semibold rounded-xl px-3 py-2 focus:ring-1 focus:ring-white">
+                        {{range .Weeks}}
+                            <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
+                                {{.Name}}
+                            </option>
+                        {{end}}
+                    </select>
+                </div>
+
+                <button type="submit" class="px-4 py-2 rounded-lg bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-colors shadow-sm flex items-center">
+                    <i class="fa-solid fa-rotate mr-1.5"></i> Sincronizar Ahora
+                </button>
+
+                <div id="sync-result" class="text-xs text-zinc-300 font-medium ml-2"></div>
+            </form>
+        </div>
+
+        <!-- Manual Game List for Selected Week -->
+        <div class="vercel-card p-6 rounded-2xl space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <h3 class="text-sm font-bold text-white">Partidos de {{.SelectedWeek.Name}}</h3>
+                    <p class="text-xs text-zinc-400">Edita marcadores manualmente, cambia estados o fuerza bloqueos.</p>
+                </div>
+
+                <select onchange="window.location.href = '/admin?week=' + this.value"
+                        class="bg-zinc-900 border border-zinc-700 text-white text-xs font-semibold rounded-xl px-3 py-1.5 focus:ring-1 focus:ring-white">
+                    {{range .Weeks}}
+                        <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
+                            {{.Name}}
+                        </option>
+                    {{end}}
+                </select>
+            </div>
+
+            <!-- Games Table -->
+            <div class="overflow-x-auto rounded-xl border border-[#222222]">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="border-b border-[#1f1f1f] bg-black/40 text-zinc-500 font-mono text-[11px] uppercase tracking-wider">
+                            <th class="py-2.5 px-3">Encuentro & Horario</th>
+                            <th class="py-2.5 px-3">Marcador & Estado</th>
+                            <th class="py-2.5 px-3 text-center">Opciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-[#1a1a1a]">
+                        {{if .Games}}
+                            {{range .Games}}
+                                {{template "admin_game_row.html" (dict "Game" . "FormattedKickoff" (formatDate .KickoffTime))}}
+                            {{end}}
+                        {{else}}
+                            <tr>
+                                <td colspan="3" class="py-8 text-center text-zinc-500">
+                                    No hay partidos para esta semana. Sincroniza con ESPN arriba.
+                                </td>
+                            </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- TAB 3: Users List -->
+    <div x-show="activeTab === 'users'" x-cloak class="space-y-6">
+        <div class="vercel-card p-6 rounded-2xl">
+            <h2 class="text-base font-bold text-white mb-3 flex items-center">
+                <i class="fa-solid fa-users text-zinc-400 mr-2"></i>
+                Jugadores Registrados ({{len .Users}})
+            </h2>
+
+            <div class="overflow-x-auto rounded-xl border border-[#222222]">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="border-b border-[#1f1f1f] bg-black/40 text-zinc-500 font-mono text-[11px] uppercase tracking-wider">
+                            <th class="py-2.5 px-3">ID</th>
+                            <th class="py-2.5 px-3">Usuario</th>
+                            <th class="py-2.5 px-3">Correo</th>
+                            <th class="py-2.5 px-3">Rol</th>
+                            <th class="py-2.5 px-3">Fecha de Registro</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-[#1a1a1a] text-zinc-300">
+                        {{range .Users}}
+                            <tr class="hover:bg-zinc-900/30">
+                                <td class="py-2.5 px-3 font-mono text-zinc-500">#{{.ID}}</td>
+                                <td class="py-2.5 px-3 font-semibold text-white">{{.Username}}</td>
+                                <td class="py-2.5 px-3 text-zinc-400">{{.Email}}</td>
+                                <td class="py-2.5 px-3">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold {{if .IsAdmin}}bg-amber-500/10 text-amber-300 border border-amber-500/30{{else}}bg-zinc-900 text-zinc-400 border border-zinc-800{{end}}">
+                                        {{.Role}}
+                                    </span>
+                                </td>
+                                <td class="py-2.5 px-3 font-mono text-zinc-500">{{formatDate .CreatedAt}}</td>
+                            </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+{{end}}

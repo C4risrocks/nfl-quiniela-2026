@@ -1,0 +1,33 @@
+{{if .Picks}}
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+    {{range .Picks}}
+        <div class="flex items-center justify-between p-2 rounded-lg bg-slate-900/80 border border-slate-800 text-xs">
+            <div class="flex items-center space-x-2">
+                <div class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center font-bold text-[10px] text-cyan-400">
+                    {{slice .User.Username 0 1}}
+                </div>
+                <span class="font-semibold text-slate-300">{{.User.Username}}</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                {{if .PickedTeamID}}
+                    <span class="px-2 py-0.5 rounded font-black text-[11px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                        {{.TeamCode}}
+                    </span>
+                {{else}}
+                    <span class="text-slate-500 text-[11px]">Sin ganador</span>
+                {{end}}
+
+                {{if and .PredictedAwayScore .PredictedHomeScore}}
+                    <span class="text-slate-400 font-mono text-[11px]">
+                        ({{.PredictedAwayScore}} - {{.PredictedHomeScore}})
+                    </span>
+                {{end}}
+            </div>
+        </div>
+    {{end}}
+</div>
+{{else}}
+<div class="text-center py-2 text-slate-500 text-xs">
+    Ningún jugador ha registrado pronóstico para este partido.
+</div>
+{{end}}

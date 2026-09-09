@@ -1,0 +1,273 @@
+package handlers
+
+import (
+	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+
+	"nfl-quiniela-2026/db"
+	"nfl-quiniela-2026/services/auth"
+	"nfl-quiniela-2026/services/espn"
+	"nfl-quiniela-2026/services/scoring"
+)
+
+type AdminHandler struct {
+	repo       *db.Repository
+	renderer   *Renderer
+	syncer     *espn.Syncer
+	calculator *scoring.Calculator
+	seasonYear int
+}
+
+func NewAdminHandler(repo *db.Repository, renderer *Renderer, syncer *espn.Syncer, calculator *scoring.Calculator, seasonYear int) *AdminHandler {
+	return &AdminHandler{
+		repo:       repo,
+		renderer:   renderer,
+		syncer:     syncer,
+		calculator: calculator,
+		seasonYear: seasonYear,
+	}
+}
+
+func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromContext(r.Context())
+	season, err := h.repo.GetActiveSeason(h.seasonYear)
+	if err != nil {
+		http.Error(w, "Season not found", http.StatusInternalServerError)
+		return
+	}
+
+	weeks, _ := h.repo.ListWeeks(season.ID)
+	selectedWeekNum := 1
+	if wStr := r.URL.Query().Get("week"); wStr != "" {
+		if wn, err := strconv.Atoi(wStr); err == nil && wn >= 1 && wn <= len(weeks) {
+			selectedWeekNum = wn
+		}
+	}
+
+	var selectedWeek *db.Week
+	for _, wk := range weeks {
+		if wk.WeekNumber == selectedWeekNum {
+			selectedWeek = wk
+			break
+		}
+	}
+	if selectedWeek == nil && len(weeks) > 0 {
+		selectedWeek = weeks[0]
+	}
+
+	games, _ := h.repo.ListGamesByWeek(selectedWeek.ID)
+	users, _ := h.repo.ListUsers()
+	scoringCfg, _ := h.repo.GetScoringConfig()
+
+	h.renderer.RenderPage(w, "admin.html", map[string]interface{}{
+		"ActiveNav":     "admin",
+		"User":          user,
+		"Weeks":         weeks,
+		"SelectedWeek":  selectedWeek,
+		"Games":         games,
+		"Users":         users,
+		"ScoringConfig": scoringCfg,
+	})
+}
+
+func (h *AdminHandler) SaveSettings(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	mode := r.FormValue("scoring_mode")
+	if mode != "pure_tiebreaker" {
+		mode = "weighted"
+	}
+
+	winnerPts, _ := strconv.Atoi(r.FormValue("winner_points"))
+	if winnerPts <= 0 {
+		if mode == "pure_tiebreaker" {
+			winnerPts = 1
+		} else {
+			winnerPts = 10
+		}
+	}
+
+	exactBonus, _ := strconv.Atoi(r.FormValue("exact_score_bonus"))
+	marginBonus, _ := strconv.Atoi(r.FormValue("margin_bonus"))
+
+	lockMode := r.FormValue("lock_mode")
+	if lockMode != "full_week" {
+		lockMode = "per_game"
+	}
+
+	cfg := &db.ScoringConfig{
+		ScoringMode:      mode,
+		WinnerPoints:     winnerPts,
+		ExactScoreBonus:  exactBonus,
+		ExactMarginBonus: marginBonus,
+		LockMode:         lockMode,
+	}
+
+	if err := h.repo.SetScoringConfig(cfg); err != nil {
+		http.Error(w, "Error saving settings", http.StatusInternalServerError)
+		return
+	}
+
+	// Recalculate scores for all weeks under new scoring mode
+	_ = h.calculator.RecalculateAllWeeks(h.seasonYear)
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *AdminHandler) SyncESPN(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	weekNum, err := strconv.Atoi(r.FormValue("week"))
+	if err != nil || weekNum <= 0 {
+		weekNum = 1
+	}
+
+	count, err := h.syncer.SyncWeek(weekNum)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(fmt.Sprintf(`<span class="text-red-400 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Error: %v</span>`, err)))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(fmt.Sprintf(`<span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i> ¡Éxito! %d partidos sincronizados con ESPN</span>`, count)))
+}
+
+func (h *AdminHandler) SaveGameScore(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	gameID, err := strconv.ParseInt(r.FormValue("game_id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid game id", http.StatusBadRequest)
+		return
+	}
+
+	game, err := h.repo.GetGameByID(gameID)
+	if err != nil || game == nil {
+		http.Error(w, "Game not found", http.StatusNotFound)
+		return
+	}
+
+	var homeScore, awayScore *int
+	if hsStr := r.FormValue("home_score"); hsStr != "" {
+		if hs, err := strconv.Atoi(hsStr); err == nil && hs >= 0 {
+			homeScore = &hs
+		}
+	}
+	if asStr := r.FormValue("away_score"); asStr != "" {
+		if as, err := strconv.Atoi(asStr); err == nil && as >= 0 {
+			awayScore = &as
+		}
+	}
+
+	status := r.FormValue("status")
+	if status != "in_progress" && status != "final" {
+		status = "scheduled"
+	}
+
+	statusDetail := ""
+	if status == "final" {
+		statusDetail = "Final"
+	} else if status == "in_progress" {
+		statusDetail = "En Juego"
+	}
+
+	if err := h.repo.UpdateGameScoreAndStatus(gameID, homeScore, awayScore, status, statusDetail); err != nil {
+		http.Error(w, "Error updating game score", http.StatusInternalServerError)
+		return
+	}
+
+	// Recalculate leaderboard for this week
+	_ = h.calculator.CalculateWeekScores(game.WeekID)
+
+	updatedGame, _ := h.repo.GetGameByID(gameID)
+	h.renderer.RenderPartial(w, "admin_game_row.html", map[string]interface{}{
+		"Game":             updatedGame,
+		"FormattedKickoff": h.formatKickoff(updatedGame.KickoffTime),
+	})
+}
+
+func (h *AdminHandler) ToggleGameLock(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	gameID, err := strconv.ParseInt(r.FormValue("game_id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid game id", http.StatusBadRequest)
+		return
+	}
+
+	game, err := h.repo.GetGameByID(gameID)
+	if err != nil || game == nil {
+		http.Error(w, "Game not found", http.StatusNotFound)
+		return
+	}
+
+	newLockState := !game.IsLocked
+	if err := h.repo.ToggleGameLock(gameID, newLockState); err != nil {
+		http.Error(w, "Error toggling lock", http.StatusInternalServerError)
+		return
+	}
+
+	updatedGame, _ := h.repo.GetGameByID(gameID)
+	h.renderer.RenderPartial(w, "admin_game_row.html", map[string]interface{}{
+		"Game":             updatedGame,
+		"FormattedKickoff": h.formatKickoff(updatedGame.KickoffTime),
+	})
+}
+
+func (h *AdminHandler) ToggleTiebreaker(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	gameID, err := strconv.ParseInt(r.FormValue("game_id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid game id", http.StatusBadRequest)
+		return
+	}
+
+	game, err := h.repo.GetGameByID(gameID)
+	if err != nil || game == nil {
+		http.Error(w, "Game not found", http.StatusNotFound)
+		return
+	}
+
+	newTiebreakerState := !game.IsTiebreaker
+	if err := h.repo.SetGameTiebreaker(gameID, newTiebreakerState); err != nil {
+		http.Error(w, "Error toggling tiebreaker", http.StatusInternalServerError)
+		return
+	}
+
+	// Recalculate leaderboard
+	_ = h.calculator.CalculateWeekScores(game.WeekID)
+
+	updatedGame, _ := h.repo.GetGameByID(gameID)
+	h.renderer.RenderPartial(w, "admin_game_row.html", map[string]interface{}{
+		"Game":             updatedGame,
+		"FormattedKickoff": h.formatKickoff(updatedGame.KickoffTime),
+	})
+}
+
+func (h *AdminHandler) formatKickoff(t time.Time) string {
+	if t.IsZero() {
+		return "--"
+	}
+	dayAbbr := map[string]string{"Mon": "Lun", "Tue": "Mar", "Wed": "Mié", "Thu": "Jue", "Fri": "Vie", "Sat": "Sáb", "Sun": "Dom"}[t.Format("Mon")]
+	monthAbbr := map[string]string{"Jan": "Ene", "Feb": "Feb", "Mar": "Mar", "Apr": "Abr", "May": "May", "Jun": "Jun", "Jul": "Jul", "Aug": "Ago", "Sep": "Sep", "Oct": "Oct", "Nov": "Nov", "Dec": "Dic"}[t.Format("Jan")]
+	return dayAbbr + ", " + t.Format("2") + " " + monthAbbr + " - " + t.Format("3:04 PM")
+}

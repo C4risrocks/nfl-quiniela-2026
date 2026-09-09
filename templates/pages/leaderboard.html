@@ -1,0 +1,77 @@
+{{template "base.html" .}}
+
+{{define "title"}}Tabla de Posiciones - NFL Quiniela 2026{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+
+    <!-- Header & Controls -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 vercel-card p-5 sm:p-6 rounded-2xl shadow-sm">
+        <div>
+            <div class="flex items-center space-x-2 mb-1">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700/60">
+                    Leaderboard
+                </span>
+            </div>
+            <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center">
+                Tabla de Posiciones
+            </h1>
+            <p class="text-xs text-zinc-400 mt-1">
+                Clasificación acumulada de la temporada y puntuaciones detalladas por jornada.
+            </p>
+        </div>
+
+        <!-- Mode Switcher & Week Select -->
+        <div class="flex flex-wrap items-center gap-3">
+            
+            <!-- Vercel-Style Segmented Tab Group -->
+            <div class="bg-zinc-950 p-1 rounded-xl border border-zinc-800 flex items-center space-x-1">
+                <a href="/leaderboard?mode=season" 
+                   class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all {{if eq .ViewMode "season"}}bg-white text-black font-semibold shadow-sm{{else}}text-zinc-400 hover:text-white{{end}}">
+                    General
+                </a>
+                <a href="/leaderboard?mode=weekly&week={{.SelectedWeek.WeekNumber}}" 
+                   class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all {{if eq .ViewMode "weekly"}}bg-white text-black font-semibold shadow-sm{{else}}text-zinc-400 hover:text-white{{end}}">
+                    Por Semana
+                </a>
+            </div>
+
+            <!-- Week Dropdown (When in weekly mode) -->
+            {{if eq .ViewMode "weekly"}}
+                <div class="flex items-center space-x-2">
+                    <select onchange="window.location.href = '/leaderboard?mode=weekly&week=' + this.value"
+                            class="bg-zinc-900 border border-zinc-700 text-white text-xs font-semibold rounded-xl px-3 py-1.5 focus:ring-1 focus:ring-white">
+                        {{range .Weeks}}
+                            <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
+                                {{.Name}}
+                            </option>
+                        {{end}}
+                    </select>
+                </div>
+            {{end}}
+
+        </div>
+    </div>
+
+    <!-- Live Status & Scoring Mode Bar -->
+    <div class="flex items-center justify-between text-xs text-zinc-400 px-1 font-mono">
+        <div class="flex items-center space-x-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>Vista: <strong class="text-zinc-200 font-sans">{{if eq .ViewMode "season"}}Temporada Regular 2026{{else}}{{.SelectedWeek.Name}}{{end}}</strong></span>
+        </div>
+        <div class="flex items-center space-x-1.5 text-zinc-500 text-[11px]">
+            <span>Modo:</span>
+            <span class="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 uppercase">{{.ScoringConfig.ScoringMode}}</span>
+        </div>
+    </div>
+
+    <!-- Dynamic Leaderboard Table -->
+    <div id="leaderboard-container" 
+         hx-get="/leaderboard/table?mode={{.ViewMode}}&week={{.SelectedWeek.WeekNumber}}"
+         hx-trigger="every 60s"
+         hx-swap="innerHTML">
+        {{template "leaderboard_table.html" (dict "Leaderboard" .Leaderboard "CurrentUser" .User)}}
+    </div>
+
+</div>
+{{end}}

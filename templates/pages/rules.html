@@ -1,0 +1,107 @@
+{{template "base.html" .}}
+
+{{define "title"}}Reglamento - NFL Quiniela 2026{{end}}
+
+{{define "content"}}
+<div class="max-w-4xl mx-auto space-y-6">
+
+    <!-- Header -->
+    <div class="vercel-card p-6 sm:p-8 rounded-2xl">
+        <div class="flex items-center space-x-2 mb-1">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700/60">
+                Official Rules
+            </span>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center">
+            Reglamento y Puntuación
+        </h1>
+        <p class="text-zinc-400 mt-2 text-xs sm:text-sm leading-relaxed">
+            Conoce cómo funciona la quiniela de la NFL 2026, las reglas de bloqueo por partido y los criterios oficiales de desempate.
+        </p>
+    </div>
+
+    <!-- Active Pool Settings Banner -->
+    <div class="vercel-card p-5 rounded-2xl bg-zinc-950 border-[#262626]">
+        <div class="flex items-center space-x-2 text-zinc-200 font-bold mb-3 text-xs uppercase font-mono tracking-wide">
+            <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+            <span>Configuración Activa de la Liga</span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+            <div class="bg-black/60 p-3.5 rounded-xl border border-zinc-800">
+                <span class="text-zinc-500 block mb-1 text-[11px] font-sans">Modo de Puntuación:</span>
+                <span class="text-sm font-bold text-white uppercase">{{.ScoringConfig.ScoringMode}}</span>
+            </div>
+            <div class="bg-black/60 p-3.5 rounded-xl border border-zinc-800">
+                <span class="text-zinc-500 block mb-1 text-[11px] font-sans">Puntos por Ganador:</span>
+                <span class="text-sm font-bold text-emerald-400">+{{.ScoringConfig.WinnerPoints}} pts</span>
+            </div>
+            <div class="bg-black/60 p-3.5 rounded-xl border border-zinc-800">
+                <span class="text-zinc-500 block mb-1 text-[11px] font-sans">Bono Marcador:</span>
+                <span class="text-sm font-bold text-amber-400">{{if eq .ScoringConfig.ScoringMode "weighted"}}+{{.ScoringConfig.ExactScoreBonus}} pts{{else}}Desempate MNF{{end}}</span>
+            </div>
+            <div class="bg-black/60 p-3.5 rounded-xl border border-zinc-800">
+                <span class="text-zinc-500 block mb-1 text-[11px] font-sans">Tipo de Bloqueo:</span>
+                <span class="text-sm font-bold text-cyan-400">{{if eq .ScoringConfig.LockMode "full_week"}}Jornada Completa{{else}}Por Partido{{end}}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rule Sections Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        
+        <!-- 1. Ganadores -->
+        <div class="vercel-card p-5 rounded-2xl space-y-2.5">
+            <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 text-sm">
+                <i class="fa-solid fa-hand-pointer"></i>
+            </div>
+            <h3 class="text-sm font-bold text-white">1. Elección de Ganadores (Principal)</h3>
+            <p class="text-xs text-zinc-400 leading-relaxed font-sans">
+                El objetivo central de cada jornada es seleccionar al equipo que ganará cada encuentro. Acertar el ganador otorga los puntos base principales (<strong class="text-emerald-400 font-mono">+{{.ScoringConfig.WinnerPoints}} puntos</strong> por partido).
+            </p>
+        </div>
+
+        <!-- 2. Bloqueo de Pronósticos -->
+        <div class="vercel-card p-5 rounded-2xl space-y-2.5">
+            <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 text-sm">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+            </div>
+            <h3 class="text-sm font-bold text-white">2. Momento de Bloqueo ({{if eq .ScoringConfig.LockMode "full_week"}}Jornada Completa{{else}}Individual por Kickoff{{end}})</h3>
+            <p class="text-xs text-zinc-400 leading-relaxed font-sans">
+                {{if eq .ScoringConfig.LockMode "full_week"}}
+                    <strong>Bloqueo de Jornada Completa activo:</strong> Todos los partidos de la semana se congelan en el instante que inicia el primer partido de la jornada (ej. Jueves 8:15 PM). Una vez arrancado el primer juego, no se pueden modificar los pronósticos de jueves, domingo ni lunes.
+                {{else}}
+                    <strong>Bloqueo Individual por Partido activo:</strong> Cada encuentro se bloquea en su horario exacto de patada inicial (Kickoff). Puedes cambiar tus pronósticos del domingo y lunes incluso después de que el juego del jueves haya comenzado.
+                {{end}}
+            </p>
+        </div>
+
+        <!-- 3. Bonos de Marcador -->
+        <div class="vercel-card p-5 rounded-2xl space-y-2.5">
+            <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 text-sm">
+                <i class="fa-solid fa-bullseye"></i>
+            </div>
+            <h3 class="text-sm font-bold text-white">3. Pronóstico de Marcador (Extra)</h3>
+            <p class="text-xs text-zinc-400 leading-relaxed font-sans">
+                Al predecir el marcador exacto de los partidos, acumulas bonos adicionales:
+            </p>
+            <ul class="text-xs space-y-1 text-zinc-300 font-mono">
+                <li><strong class="text-amber-300">+{{.ScoringConfig.ExactScoreBonus}} pts:</strong> Acierto exacto del marcador final.</li>
+                <li><strong class="text-cyan-300">+{{.ScoringConfig.ExactMarginBonus}} pts:</strong> Acierto exacto del margen de victoria.</li>
+            </ul>
+        </div>
+
+        <!-- 4. Criterio de Desempate -->
+        <div class="vercel-card p-5 rounded-2xl space-y-2.5">
+            <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 text-sm">
+                <i class="fa-solid fa-scale-balanced"></i>
+            </div>
+            <h3 class="text-sm font-bold text-white">4. Criterio de Desempate (MNF)</h3>
+            <p class="text-xs text-zinc-400 leading-relaxed font-sans">
+                En caso de empate en puntos y aciertos, el ganador de la jornada se define por el partido de desempate (Monday Night Football). Aquel cuya suma total de puntos pronosticados esté más cercana al marcador total real obtiene la posición más alta.
+            </p>
+        </div>
+
+    </div>
+
+</div>
+{{end}}

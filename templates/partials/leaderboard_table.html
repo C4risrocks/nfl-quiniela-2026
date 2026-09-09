@@ -1,0 +1,93 @@
+<div class="overflow-x-auto rounded-2xl border border-[#222222] bg-[#0c0c0c]">
+    <table class="w-full text-left border-collapse text-xs">
+        <thead>
+            <tr class="border-b border-[#1f1f1f] bg-black/40 text-zinc-500 font-mono text-[11px] uppercase tracking-wider">
+                <th class="py-3 px-4 text-center w-16">Pos</th>
+                <th class="py-3 px-4">Jugador</th>
+                <th class="py-3 px-4 text-center">Puntos Totales</th>
+                <th class="py-3 px-4 text-center">Aciertos</th>
+                <th class="py-3 px-4 text-center">Efectividad</th>
+                <th class="py-3 px-4 text-center">Dif. Desempate</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-[#1a1a1a] text-zinc-200">
+            {{if .Leaderboard}}
+                {{range .Leaderboard}}
+                    <tr class="transition-colors hover:bg-zinc-900/50 {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}bg-zinc-900/80 border-l-2 border-l-white font-medium{{end}}">
+                        
+                        <!-- Rank Column -->
+                        <td class="py-3 px-4 text-center">
+                            {{if eq .Rank 1}}
+                                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-400/10 text-amber-300 font-mono font-bold text-xs border border-amber-400/30">
+                                    🥇
+                                </span>
+                            {{else if eq .Rank 2}}
+                                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-700/20 text-zinc-200 font-mono font-bold text-xs border border-zinc-600/40">
+                                    🥈
+                                </span>
+                            {{else if eq .Rank 3}}
+                                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-700/10 text-amber-500 font-mono font-bold text-xs border border-amber-700/30">
+                                    🥉
+                                </span>
+                            {{else}}
+                                <span class="text-xs font-mono text-zinc-500 font-medium">#{{.Rank}}</span>
+                            {{end}}
+                        </td>
+
+                        <!-- Player Info -->
+                        <td class="py-3 px-4">
+                            <div class="flex items-center space-x-2.5">
+                                <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[10px] font-bold text-zinc-200 uppercase">
+                                    {{slice .Username 0 1}}
+                                </div>
+                                <div class="font-medium text-white flex items-center">
+                                    {{.Username}}
+                                    {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}
+                                        <span class="ml-2 text-[9px] font-mono uppercase font-bold bg-white text-black px-1.5 py-0.2 rounded-full">Tú</span>
+                                    {{end}}
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Total Points -->
+                        <td class="py-3 px-4 text-center">
+                            <span class="font-mono font-bold text-sm text-amber-400">
+                                {{.TotalPoints}} <span class="text-[10px] text-zinc-500 font-normal">pts</span>
+                            </span>
+                        </td>
+
+                        <!-- Correct Picks -->
+                        <td class="py-3 px-4 text-center font-mono">
+                            <span class="font-bold text-white">{{.CorrectPicks}}</span>
+                            <span class="text-zinc-600 text-[11px]">/ {{.TotalPicks}}</span>
+                        </td>
+
+                        <!-- Win Percentage -->
+                        <td class="py-3 px-4 text-center font-mono text-emerald-400 font-medium">
+                            {{printf "%.1f" .WinPercentage}}%
+                        </td>
+
+                        <!-- Tiebreaker Error -->
+                        <td class="py-3 px-4 text-center font-mono">
+                            {{if eq .TiebreakerError 999}}
+                                <span class="text-zinc-600 text-[11px]">--</span>
+                            {{else}}
+                                <span class="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 text-[11px]">
+                                    ±{{.TiebreakerError}} pts
+                                </span>
+                            {{end}}
+                        </td>
+
+                    </tr>
+                {{end}}
+            {{else}}
+                <tr>
+                    <td colspan="6" class="py-12 text-center text-zinc-500">
+                        <i class="fa-solid fa-trophy text-zinc-700 text-2xl mb-2 block"></i>
+                        Aún no se han registrado puntuaciones para esta vista.
+                    </td>
+                </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
