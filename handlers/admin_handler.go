@@ -91,7 +91,10 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminHandler) SaveSettings(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Error en los datos del formulario", "type": "error"}}`)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, `<div class="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-xs flex items-center space-x-2.5"><i class="fa-solid fa-circle-exclamation text-red-400 text-sm"></i><span>Error en los datos del formulario. Verifica los valores ingresados.</span></div>`)
 		return
 	}
 
@@ -126,14 +129,30 @@ func (h *AdminHandler) SaveSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.repo.SetScoringConfig(cfg); err != nil {
-		http.Error(w, "Error saving settings", http.StatusInternalServerError)
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Error al guardar la configuración", "type": "error"}}`)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, `<div class="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-xs flex items-center space-x-2.5"><i class="fa-solid fa-circle-exclamation text-red-400 text-sm"></i><span>Error al guardar las reglas en la base de datos: %s</span></div>`, err.Error())
 		return
 	}
 
 	// Recalculate scores for all weeks under new scoring mode
 	_ = h.calculator.RecalculateAllWeeks(h.seasonYear)
 
+	if h.broker != nil {
+		h.broker.BroadcastLeaderboardUpdate()
+	}
+
+	now := time.Now()
+	if CDMXLocation != nil {
+		now = now.In(CDMXLocation)
+	}
+	timeStr := now.Format("3:04:05 PM")
+
+	w.Header().Set("HX-Trigger", `{"show-toast": {"message": "¡Reglas guardadas y puntuaciones recalculadas exitosamente!", "type": "success"}}`)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, `<div class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 shadow-sm transition-all"><div class="flex items-center space-x-2.5"><i class="fa-solid fa-circle-check text-emerald-400 text-base flex-shrink-0"></i><div><span class="font-bold text-white">¡Reglas guardadas exitosamente!</span> <span class="text-zinc-400">La nueva modalidad de puntuación y política de bloqueo han sido aplicadas y todos los puntajes del torneo fueron recalculados.</span></div></div><div class="flex items-center space-x-1.5 text-[10px] font-mono text-emerald-400/80 bg-emerald-500/15 px-2.5 py-1 rounded-md self-start sm:self-auto"><i class="fa-regular fa-clock"></i><span>Actualizado: %s</span></div></div>`, timeStr)
 }
 
 func (h *AdminHandler) SyncESPN(w http.ResponseWriter, r *http.Request) {
@@ -149,11 +168,13 @@ func (h *AdminHandler) SyncESPN(w http.ResponseWriter, r *http.Request) {
 
 	count, err := h.syncer.SyncWeek(weekNum)
 	if err != nil {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Error al sincronizar con ESPN", "type": "error"}}`)
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte(fmt.Sprintf(`<span class="text-red-400 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Error: %v</span>`, err)))
 		return
 	}
 
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "¡Éxito! %d partidos sincronizados con ESPN", "type": "success"}}`, count))
 	w.Header().Set("Content-Type", "text/html")
 	w.Write([]byte(fmt.Sprintf(`<span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i> ¡Éxito! %d partidos sincronizados con ESPN</span>`, count)))
 }
@@ -215,6 +236,7 @@ func (h *AdminHandler) SaveGameScore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updatedGame, _ := h.repo.GetGameByID(gameID)
+	w.Header().Set("HX-Trigger", `{"show-toast": {"message": "¡Marcador y estado actualizados!", "type": "success"}}`)
 	h.renderer.RenderPartial(w, "admin_game_row.html", map[string]interface{}{
 		"Game":             updatedGame,
 		"FormattedKickoff": h.formatKickoff(updatedGame.KickoffTime),
@@ -251,6 +273,11 @@ func (h *AdminHandler) ToggleGameLock(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updatedGame, _ := h.repo.GetGameByID(gameID)
+	statusMsg := "Partido desbloqueado para pronósticos"
+	if newLockState {
+		statusMsg = "Partido bloqueado para pronósticos"
+	}
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "%s", "type": "info"}}`, statusMsg))
 	h.renderer.RenderPartial(w, "admin_game_row.html", map[string]interface{}{
 		"Game":             updatedGame,
 		"FormattedKickoff": h.formatKickoff(updatedGame.KickoffTime),
@@ -285,11 +312,16 @@ func (h *AdminHandler) ToggleTiebreaker(w http.ResponseWriter, r *http.Request) 
 	_ = h.calculator.CalculateWeekScores(game.WeekID)
 
 	if h.broker != nil {
-		h.broker.Broadcast(fmt.Sprintf("game-%d", gameID), fmt.Sprintf(`{"game_id": %d, "tiebreaker": %v}`, gameID, newTiebreakerState))
+		h.broker.Broadcast(fmt.Sprintf("game-%d", gameID), fmt.Sprintf(`{"game_id": %d, "is_tiebreaker": %v}`, gameID, newTiebreakerState))
 		h.broker.BroadcastLeaderboardUpdate()
 	}
 
 	updatedGame, _ := h.repo.GetGameByID(gameID)
+	tbMsg := "Partido retirado como desempate"
+	if newTiebreakerState {
+		tbMsg = "Partido configurado como desempate (Tiebreaker)"
+	}
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "%s", "type": "info"}}`, tbMsg))
 	h.renderer.RenderPartial(w, "admin_game_row.html", map[string]interface{}{
 		"Game":             updatedGame,
 		"FormattedKickoff": h.formatKickoff(updatedGame.KickoffTime),

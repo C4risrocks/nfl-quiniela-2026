@@ -58,8 +58,9 @@
             </p>
 
             <form hx-post="/admin/settings/save" 
-                  hx-swap="none"
-                  hx-on::after-request="$dispatch('show-toast', {message: 'Configuración guardada y puntos recalculados', type: 'success'})"
+                  hx-target="#settings-feedback"
+                  hx-swap="innerHTML"
+                  hx-indicator="#settings-loading"
                   class="space-y-6">
                 
                 <!-- Radio Mode Options (Vercel Card Selector) -->
@@ -176,11 +177,20 @@
                     </div>
                 </div>
 
-                <!-- Submit Button -->
-                <div class="flex justify-end pt-2">
-                    <button type="submit" class="px-4 py-2 rounded-lg bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-colors shadow-sm flex items-center">
-                        <i class="fa-solid fa-floppy-disk mr-1.5"></i> Guardar y Recalcular Puntuaciones
-                    </button>
+                <!-- Feedback Status Notification Area -->
+                <div id="settings-feedback" class="transition-all duration-200"></div>
+
+                <!-- Submit Button & Loading State -->
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                    <div id="settings-loading" class="htmx-indicator text-xs text-zinc-400 font-medium flex items-center space-x-2">
+                        <i class="fa-solid fa-circle-notch fa-spin text-white"></i>
+                        <span>Guardando configuración y recalculando puntos...</span>
+                    </div>
+                    <div class="ml-auto">
+                        <button type="submit" class="px-4 py-2 rounded-lg bg-white text-black font-semibold text-xs hover:bg-zinc-200 active:scale-95 transition-all shadow-sm flex items-center">
+                            <i class="fa-solid fa-floppy-disk mr-1.5"></i> Guardar y Recalcular Puntuaciones
+                        </button>
+                    </div>
                 </div>
 
             </form>

@@ -243,6 +243,16 @@ func TestAdminSettingsAndRecalculate(t *testing.T) {
 		t.Errorf("Expected status 200 OK, got %d", rr.Code)
 	}
 
+	hxTrigger := rr.Header().Get("HX-Trigger")
+	if !strings.Contains(hxTrigger, "show-toast") || !strings.Contains(hxTrigger, "Reglas guardadas") {
+		t.Errorf("Expected HX-Trigger with show-toast and success message, got %s", hxTrigger)
+	}
+
+	body := rr.Body.String()
+	if !strings.Contains(body, "¡Reglas guardadas exitosamente!") {
+		t.Errorf("Expected feedback banner in response body, got %s", body)
+	}
+
 	cfg, _ := repo.GetScoringConfig()
 	if cfg.ScoringMode != "pure_tiebreaker" || cfg.WinnerPoints != 1 || cfg.LockMode != "full_week" {
 		t.Errorf("Expected pure_tiebreaker with 1 winner point and full_week lock, got %+v", cfg)
