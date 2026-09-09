@@ -107,47 +107,54 @@ func SeedDatabase(repo *Repository, adminUser, adminEmail, adminPass string, sea
 		_, _ = repo.CreateWeek(season.ID, 22, "Super Bowl LXI")
 	}
 
-	// 5. Seed default matchups for Week 1 if empty
+	// 5. Seed official matchups for Week 1 (and purge outdated dummy seed games)
 	weeks, _ := repo.ListWeeks(season.ID)
 	if len(weeks) > 0 {
 		week1 := weeks[0]
+		// Purge any legacy placeholder games from previous seed versions
+		_ = repo.DeletePlaceholderSeedGames(week1.ID)
+
 		g1, _ := repo.ListGamesByWeek(week1.ID)
 		if len(g1) == 0 {
-			log.Printf("[DB] Seeding default Week 1 NFL matchups...")
+			log.Printf("[DB] Seeding official 2026 Week 1 NFL matchups...")
 			matchups := []struct {
 				awayCode, homeCode string
-				hoursFromNow       int
+				espnID             string
+				kickoffStr         string
 				isTiebreaker       bool
 			}{
-				{"BAL", "KC", 24, false},
-				{"GB", "PHI", 48, false},
-				{"PIT", "ATL", 72, false},
-				{"ARI", "BUF", 72, false},
-				{"TEN", "CHI", 72, false},
-				{"NE", "CIN", 72, false},
-				{"HOU", "IND", 72, false},
-				{"JAX", "MIA", 72, false},
-				{"CAR", "NO", 72, false},
-				{"MIN", "NYG", 72, false},
-				{"LV", "LAC", 75, false},
-				{"DEN", "SEA", 75, false},
-				{"DAL", "CLE", 76, false},
-				{"WSH", "TB", 76, false},
-				{"LAR", "DET", 80, false},
-				{"NYJ", "SF", 96, true},
+				{"NE", "SEA", "401872656", "2026-09-10T00:20:00Z", false},
+				{"SF", "LAR", "401872657", "2026-09-11T00:35:00Z", false},
+				{"TB", "CIN", "401872925", "2026-09-13T17:00:00Z", false},
+				{"NO", "DET", "401872923", "2026-09-13T17:00:00Z", false},
+				{"NYJ", "TEN", "401872924", "2026-09-13T17:00:00Z", false},
+				{"BAL", "IND", "401872659", "2026-09-13T17:00:00Z", false},
+				{"ATL", "PIT", "401872658", "2026-09-13T17:00:00Z", false},
+				{"CHI", "CAR", "401872661", "2026-09-13T17:00:00Z", false},
+				{"CLE", "JAX", "401872922", "2026-09-13T17:00:00Z", false},
+				{"BUF", "HOU", "401872660", "2026-09-13T17:00:00Z", false},
+				{"MIA", "LV", "401872928", "2026-09-13T20:25:00Z", false},
+				{"GB", "MIN", "401872927", "2026-09-13T20:25:00Z", false},
+				{"WSH", "PHI", "401872929", "2026-09-13T20:25:00Z", false},
+				{"ARI", "LAC", "401872926", "2026-09-13T20:25:00Z", false},
+				{"DAL", "NYG", "401872930", "2026-09-14T00:20:00Z", false},
+				{"DEN", "KC", "401872931", "2026-09-15T00:15:00Z", true},
 			}
 
-			now := time.Now()
 			for _, m := range matchups {
 				homeTeam, _ := repo.GetTeamByCode(m.homeCode)
 				awayTeam, _ := repo.GetTeamByCode(m.awayCode)
+				t, err := time.Parse(time.RFC3339, m.kickoffStr)
+				if err != nil {
+					t = time.Now()
+				}
 				if homeTeam != nil && awayTeam != nil {
 					_, _ = repo.CreateManualGame(&Game{
 						WeekID:       week1.ID,
-						ESPNGameID:   fmt.Sprintf("seed-w1-%s-%s", m.awayCode, m.homeCode),
+						ESPNGameID:   m.espnID,
 						HomeTeamID:   homeTeam.ID,
 						AwayTeamID:   awayTeam.ID,
-						KickoffTime:  now.Add(time.Duration(m.hoursFromNow) * time.Hour),
+						KickoffTime:  t,
 						Status:       "scheduled",
 						StatusDetail: "Programado",
 						IsTiebreaker: m.isTiebreaker,
