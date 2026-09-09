@@ -63,19 +63,20 @@ ENABLE_BACKGROUND_SYNC=true
 ESPN_SYNC_INTERVAL_MINS=5
 CURRENT_SEASON_YEAR=2026
 
-# URL pública de tu dominio (para los enlaces de los correos de recordatorio)
+# URL pública de tu dominio (esencial para los links de verificación y recuperación)
 APP_BASE_URL=https://quiniela.tudominio.com
 
-# Notificaciones y Recordatorios por Correo (Opcional - SMTP estándar)
+# Servicio de Correo Gmail (SMTP con Contraseña de Aplicación de 16 letras)
+# Obtén tu token en: https://myaccount.google.com/apppasswords
 ENABLE_REMINDERS=true
-SMTP_HOST=smtp.resend.com
+SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=resend
-SMTP_PASS=re_tu_api_key_aqui
-SMTP_FROM=quiniela@tudominio.com
+SMTP_USER=tu_correo@gmail.com
+SMTP_PASS=tu_token_de_16_letras_sin_espacios
+SMTP_FROM=tu_correo@gmail.com
 ```
 
-*(Si dejas `SMTP_HOST` vacío, el sistema continuará funcionando normalmente y registrará los recordatorios en modo simulación/registro en la consola).*
+*(Si dejas `SMTP_HOST` vacío, el sistema opera en modo seguro "MOCK" registrando los correos en los logs sin enviar correos reales).*
 
 ### Paso 5: Dominio y Certificado SSL
 
