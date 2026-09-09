@@ -35,9 +35,7 @@ func (c *Client) FetchWeekScoreboard(year, weekNum, seasonType int) (*ESPNScoreb
 	if err != nil {
 		return nil, fmt.Errorf("creating espn request: %w", err)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "application/json, text/plain, */*")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9,es;q=0.8")
+	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

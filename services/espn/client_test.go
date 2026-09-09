@@ -118,3 +118,15 @@ func TestParseKickoffTime(t *testing.T) {
 	}
 }
 
+func TestLiveFetchWeekScoreboard(t *testing.T) {
+	client := NewClient()
+	sb, err := client.FetchWeekScoreboard(2026, 1, 2)
+	if err != nil {
+		t.Fatalf("Live ESPN fetch failed: %v", err)
+	}
+	if len(sb.Events) == 0 {
+		t.Fatalf("Expected events for Week 1 2026, got 0")
+	}
+	t.Logf("Successfully fetched %d ESPN events for 2026 Week 1", len(sb.Events))
+}
+
