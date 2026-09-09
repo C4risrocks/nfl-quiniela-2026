@@ -13,8 +13,11 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build single static binary with stripped debug symbols for minimum footprint
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /build/server .
+# Build single static binary with stripped debug symbols
+# GOMAXPROCS=1 and -p 1 force single-threaded compilation, reducing peak memory usage from ~2.5GB to <400MB
+# to prevent Out-Of-Memory (OOM) crashes on VPS instances with 1GB-2GB RAM when compiling modernc.org/sqlite.
+ENV GOMAXPROCS=1
+RUN CGO_ENABLED=0 GOOS=linux go build -p 1 -ldflags="-s -w" -o /build/server .
 
 # Production Runtime Stage
 FROM alpine:3.21
