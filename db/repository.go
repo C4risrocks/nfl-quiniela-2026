@@ -454,7 +454,9 @@ func (r *Repository) ListGamesByWeek(weekID int64) ([]*Game, error) {
 
 	query := `
 	SELECT g.id, g.week_id, g.espn_game_id, g.home_team_id, g.away_team_id, g.kickoff_time,
-	       g.home_score, g.away_score, g.status, g.status_detail, g.is_tiebreaker, g.is_locked, g.created_at,
+	       g.home_score, g.away_score, g.status, g.status_detail,
+	       COALESCE(g.broadcast, ''), COALESCE(g.situation, ''), COALESCE(g.linescores, ''),
+	       g.is_tiebreaker, g.is_locked, g.created_at,
 	       ht.id, ht.code, ht.name, ht.city, ht.logo_url, ht.primary_color, ht.secondary_color, ht.conference, ht.division,
 	       at.id, at.code, at.name, at.city, at.logo_url, at.primary_color, at.secondary_color, at.conference, at.division
 	FROM games g
@@ -478,7 +480,9 @@ func (r *Repository) ListGamesByWeek(weekID int64) ([]*Game, error) {
 
 		if err := rows.Scan(
 			&g.ID, &g.WeekID, &g.ESPNGameID, &g.HomeTeamID, &g.AwayTeamID, &kickoffStr,
-			&g.HomeScore, &g.AwayScore, &g.Status, &g.StatusDetail, &g.IsTiebreaker, &g.IsLocked, &g.CreatedAt,
+			&g.HomeScore, &g.AwayScore, &g.Status, &g.StatusDetail,
+			&g.Broadcast, &g.Situation, &g.Linescores,
+			&g.IsTiebreaker, &g.IsLocked, &g.CreatedAt,
 			&ht.ID, &ht.Code, &ht.Name, &ht.City, &ht.LogoURL, &ht.PrimaryColor, &ht.SecondaryColor, &ht.Conference, &ht.Division,
 			&at.ID, &at.Code, &at.Name, &at.City, &at.LogoURL, &at.PrimaryColor, &at.SecondaryColor, &at.Conference, &at.Division,
 		); err != nil {
@@ -499,7 +503,9 @@ func (r *Repository) ListGamesByWeek(weekID int64) ([]*Game, error) {
 func (r *Repository) GetGameByID(id int64) (*Game, error) {
 	query := `
 	SELECT g.id, g.week_id, g.espn_game_id, g.home_team_id, g.away_team_id, g.kickoff_time,
-	       g.home_score, g.away_score, g.status, g.status_detail, g.is_tiebreaker, g.is_locked, g.created_at,
+	       g.home_score, g.away_score, g.status, g.status_detail,
+	       COALESCE(g.broadcast, ''), COALESCE(g.situation, ''), COALESCE(g.linescores, ''),
+	       g.is_tiebreaker, g.is_locked, g.created_at,
 	       ht.id, ht.code, ht.name, ht.city, ht.logo_url, ht.primary_color, ht.secondary_color, ht.conference, ht.division,
 	       at.id, at.code, at.name, at.city, at.logo_url, at.primary_color, at.secondary_color, at.conference, at.division
 	FROM games g
@@ -514,7 +520,9 @@ func (r *Repository) GetGameByID(id int64) (*Game, error) {
 
 	err := r.db.QueryRow(query, id).Scan(
 		&g.ID, &g.WeekID, &g.ESPNGameID, &g.HomeTeamID, &g.AwayTeamID, &kickoffStr,
-		&g.HomeScore, &g.AwayScore, &g.Status, &g.StatusDetail, &g.IsTiebreaker, &g.IsLocked, &g.CreatedAt,
+		&g.HomeScore, &g.AwayScore, &g.Status, &g.StatusDetail,
+		&g.Broadcast, &g.Situation, &g.Linescores,
+		&g.IsTiebreaker, &g.IsLocked, &g.CreatedAt,
 		&ht.ID, &ht.Code, &ht.Name, &ht.City, &ht.LogoURL, &ht.PrimaryColor, &ht.SecondaryColor, &ht.Conference, &ht.Division,
 		&at.ID, &at.Code, &at.Name, &at.City, &at.LogoURL, &at.PrimaryColor, &at.SecondaryColor, &at.Conference, &at.Division,
 	)
@@ -540,9 +548,9 @@ func (r *Repository) UpsertGameByESPNID(g *Game) error {
 	if err == sql.ErrNoRows {
 		// Insert
 		query := `
-		INSERT INTO games (week_id, espn_game_id, home_team_id, away_team_id, kickoff_time, home_score, away_score, status, status_detail, is_tiebreaker, is_locked)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-		res, err := r.db.Exec(query, g.WeekID, g.ESPNGameID, g.HomeTeamID, g.AwayTeamID, g.KickoffTime.Format("2006-01-02 15:04:05"), g.HomeScore, g.AwayScore, g.Status, g.StatusDetail, g.IsTiebreaker, g.IsLocked)
+		INSERT INTO games (week_id, espn_game_id, home_team_id, away_team_id, kickoff_time, home_score, away_score, status, status_detail, broadcast, situation, linescores, is_tiebreaker, is_locked)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		res, err := r.db.Exec(query, g.WeekID, g.ESPNGameID, g.HomeTeamID, g.AwayTeamID, g.KickoffTime.Format("2006-01-02 15:04:05"), g.HomeScore, g.AwayScore, g.Status, g.StatusDetail, g.Broadcast, g.Situation, g.Linescores, g.IsTiebreaker, g.IsLocked)
 		if err != nil {
 			return err
 		}
@@ -565,9 +573,12 @@ func (r *Repository) UpsertGameByESPNID(g *Game) error {
 		home_score = ?,
 		away_score = ?,
 		status = ?,
-		status_detail = ?
+		status_detail = ?,
+		broadcast = ?,
+		situation = ?,
+		linescores = ?
 	WHERE id = ?`
-	_, err = r.db.Exec(query, g.WeekID, g.HomeTeamID, g.AwayTeamID, g.KickoffTime.Format("2006-01-02 15:04:05"), g.HomeScore, g.AwayScore, g.Status, g.StatusDetail, existingID)
+	_, err = r.db.Exec(query, g.WeekID, g.HomeTeamID, g.AwayTeamID, g.KickoffTime.Format("2006-01-02 15:04:05"), g.HomeScore, g.AwayScore, g.Status, g.StatusDetail, g.Broadcast, g.Situation, g.Linescores, existingID)
 	if err == nil {
 		g.ID = existingID
 	}
@@ -1206,5 +1217,75 @@ func (r *Repository) GetPicksExportDataForWeek(weekID int64) ([]*PickExportRow, 
 		exportRows = append(exportRows, &row)
 	}
 	return exportRows, nil
+}
+
+// GetFeaturedLiveGame returns the primary game to highlight in matchcast (live in_progress, tiebreaker, or upcoming)
+func (r *Repository) GetFeaturedLiveGame(weekID int64) (*Game, error) {
+	games, err := r.ListGamesByWeek(weekID)
+	if err != nil || len(games) == 0 {
+		return nil, err
+	}
+	// 1. Any in_progress game?
+	for _, g := range games {
+		if g.Status == "in_progress" {
+			return g, nil
+		}
+	}
+	// 2. Any tiebreaker game?
+	for _, g := range games {
+		if g.IsTiebreaker {
+			return g, nil
+		}
+	}
+	// 3. First game of week
+	return games[0], nil
+}
+
+// GetUserRank returns user's rank in the overall standings and the total number of players
+func (r *Repository) GetUserRank(userID int64, seasonID int64) (int, int, error) {
+	entries, err := r.GetSeasonLeaderboard(seasonID)
+	if err != nil {
+		return 0, 0, err
+	}
+	total := len(entries)
+	for _, e := range entries {
+		if e.UserID == userID {
+			return e.Rank, total, nil
+		}
+	}
+	return 0, total, nil
+}
+
+// GetUserWeeklyBreakdown returns the historical performance per week for dashboard charts
+func (r *Repository) GetUserWeeklyBreakdown(userID int64, seasonID int64) ([]*UserWeeklyPerformance, error) {
+	query := `
+	SELECT w.id, w.week_number, w.name,
+	       COALESCE(wl.total_points, 0),
+	       COALESCE(wl.correct_picks, 0),
+	       COALESCE(wl.total_picks, 0),
+	       COALESCE(wl.rank, 0)
+	FROM weeks w
+	LEFT JOIN weekly_leaderboard wl ON w.id = wl.week_id AND wl.user_id = ?
+	WHERE w.season_id = ?
+	ORDER BY w.week_number ASC`
+
+	rows, err := r.db.Query(query, userID, seasonID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []*UserWeeklyPerformance
+	for rows.Next() {
+		var p UserWeeklyPerformance
+		if err := rows.Scan(&p.WeekID, &p.WeekNumber, &p.WeekName, &p.Points, &p.CorrectPicks, &p.TotalGames, &p.Rank); err != nil {
+			return nil, err
+		}
+		if p.TotalGames > 0 {
+			p.AccuracyRate = (float64(p.CorrectPicks) / float64(p.TotalGames)) * 100.0
+		}
+		result = append(result, &p)
+	}
+	return result, nil
 }
 

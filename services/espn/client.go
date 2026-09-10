@@ -134,6 +134,45 @@ func MapESPNEventToGame(event *ESPNEvent, weekID int64, teamMap map[string]*db.T
 		statusDetail = event.Status.Type.Detail
 	}
 
+	// Broadcast channel detection
+	broadcast := comp.Broadcast
+	if broadcast == "" && len(comp.GeoBroadcasts) > 0 {
+		broadcast = comp.GeoBroadcasts[0].Media.ShortName
+	}
+
+	// Game situation / Down & Distance
+	situation := ""
+	if comp.Situation != nil {
+		if comp.Situation.DownDistanceText != "" {
+			situation = comp.Situation.DownDistanceText
+		} else if comp.Situation.ShortDownDistanceText != "" {
+			situation = comp.Situation.ShortDownDistanceText
+		} else if comp.Situation.LastPlay.Text != "" {
+			situation = comp.Situation.LastPlay.Text
+		}
+	}
+
+	// Quarter linescores
+	linescoresJSON := ""
+	if len(awayComp.Linescores) > 0 || len(homeComp.Linescores) > 0 {
+		matrix := struct {
+			Away []string `json:"away"`
+			Home []string `json:"home"`
+		}{
+			Away: make([]string, len(awayComp.Linescores)),
+			Home: make([]string, len(homeComp.Linescores)),
+		}
+		for i, ls := range awayComp.Linescores {
+			matrix.Away[i] = fmt.Sprintf("%.0f", ls.Value)
+		}
+		for i, ls := range homeComp.Linescores {
+			matrix.Home[i] = fmt.Sprintf("%.0f", ls.Value)
+		}
+		if b, err := json.Marshal(matrix); err == nil {
+			linescoresJSON = string(b)
+		}
+	}
+
 	return &db.Game{
 		WeekID:       weekID,
 		ESPNGameID:   event.ID,
@@ -144,6 +183,9 @@ func MapESPNEventToGame(event *ESPNEvent, weekID int64, teamMap map[string]*db.T
 		AwayScore:    awayScore,
 		Status:       status,
 		StatusDetail: statusDetail,
+		Broadcast:    broadcast,
+		Situation:    situation,
+		Linescores:   linescoresJSON,
 	}, nil
 }
 

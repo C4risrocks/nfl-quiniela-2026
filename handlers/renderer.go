@@ -61,6 +61,15 @@ func (r *Renderer) FuncMap() template.FuncMap {
 		"sub": func(a, b int) int {
 			return a - b
 		},
+		"mul": func(a, b int) int {
+			return a * b
+		},
+		"div": func(a, b int) int {
+			if b == 0 {
+				return 0
+			}
+			return a / b
+		},
 		"slice": func(s string, start, end int) string {
 			if len(s) == 0 {
 				return ""

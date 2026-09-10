@@ -1,0 +1,511 @@
+<div id="live-content-container" 
+     hx-get="/live/content?week={{.SelectedWeek.WeekNumber}}" 
+     hx-trigger="every 25s" 
+     hx-swap="innerHTML"
+     class="space-y-6"
+     x-data="{ activeFilter: 'all', rivalsModalOpen: false }">
+
+    <!-- Top Week Switcher & Live Stats Strip -->
+    <div class="vercel-card p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+        <div class="flex items-center space-x-3">
+            <div class="relative w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 text-lg shrink-0">
+                <i class="fa-solid fa-bolt"></i>
+                {{if gt .LiveGamesCount 0}}
+                    <span class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 animate-ping"></span>
+                    <span class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500"></span>
+                {{end}}
+            </div>
+            <div>
+                <div class="flex items-center space-x-2">
+                    <h1 class="text-lg sm:text-xl font-black text-white tracking-tight">Game Center en Vivo</h1>
+                    {{if gt .LiveGamesCount 0}}
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/30 animate-pulse">
+                            {{.LiveGamesCount}} EN JUEGO
+                        </span>
+                    {{else}}
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800">
+                            Sin partidos en vivo
+                        </span>
+                    {{end}}
+                </div>
+                <p class="text-xs text-zinc-400 mt-0.5">
+                    {{.SelectedWeek.Name}} • Marcadores actualizados automáticamente en tiempo real
+                </p>
+            </div>
+        </div>
+
+        <!-- Week Dropdown Selector -->
+        <div class="flex items-center space-x-2.5 self-start sm:self-auto">
+            <span class="text-xs font-mono text-zinc-400 uppercase tracking-wider">Jornada:</span>
+            <select id="live-week-select" 
+                    onchange="window.location.href = '/live?week=' + this.value"
+                    class="bg-zinc-900 border border-zinc-700/80 text-white text-xs font-semibold rounded-xl px-3 py-2 focus:ring-1 focus:ring-white focus:border-white transition-all shadow-inner">
+                {{range .Weeks}}
+                    <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
+                        {{.Name}} {{if eq .Status "active"}}⚡{{end}}
+                    </option>
+                {{end}}
+            </select>
+        </div>
+    </div>
+
+    <!-- Live Performance Dashboard Strip (If User Logged In) -->
+    {{if .User}}
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="vercel-card p-4 rounded-xl border border-emerald-500/20 bg-gradient-to-b from-emerald-500/5 to-transparent">
+                <div class="text-[11px] font-mono text-emerald-400 font-medium uppercase tracking-wider">Puntos Confirmados</div>
+                <div class="text-2xl font-bold font-mono text-white mt-1">
+                    {{.UserConfirmedPoints}} <span class="text-xs text-zinc-400 font-normal">pts</span>
+                </div>
+                <div class="text-[10px] text-zinc-400 mt-0.5">{{.FinalGamesCount}} partidos finalizados</div>
+            </div>
+
+            <div class="vercel-card p-4 rounded-xl border border-red-500/20 bg-gradient-to-b from-red-500/5 to-transparent">
+                <div class="text-[11px] font-mono text-red-400 font-medium uppercase tracking-wider flex items-center">
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse mr-1.5"></span>
+                    Liderando en Vivo
+                </div>
+                <div class="text-2xl font-bold font-mono text-white mt-1">
+                    +{{.UserProvisionalPts}} <span class="text-xs text-zinc-400 font-normal">provisionales</span>
+                </div>
+                <div class="text-[10px] text-zinc-400 mt-0.5">{{.LiveGamesCount}} partidos activos</div>
+            </div>
+
+            <div class="vercel-card p-4 rounded-xl">
+                <div class="text-[11px] font-mono text-zinc-400 font-medium uppercase tracking-wider">Total Proyectado</div>
+                <div class="text-2xl font-bold font-mono text-amber-400 mt-1">
+                    {{add .UserConfirmedPoints .UserProvisionalPts}} <span class="text-xs text-zinc-400 font-normal">pts</span>
+                </div>
+                <div class="text-[10px] text-zinc-400 mt-0.5">Al ritmo actual</div>
+            </div>
+
+            <div class="vercel-card p-4 rounded-xl">
+                <div class="text-[11px] font-mono text-zinc-400 font-medium uppercase tracking-wider">Por Disputarse</div>
+                <div class="text-2xl font-bold font-mono text-cyan-400 mt-1">
+                    {{.UpcomingGamesCount}} <span class="text-xs text-zinc-400 font-normal">partidos</span>
+                </div>
+                <div class="text-[10px] text-zinc-400 mt-0.5">Kickoff pendiente</div>
+            </div>
+        </div>
+    {{end}}
+
+    <!-- Featured Live Matchcast Section (Partido en Transmisión) -->
+    {{if .FeaturedGame}}
+        {{$fg := .FeaturedGame}}
+        {{$linescores := $fg.LinescoreData}}
+        <div class="vercel-card rounded-2xl overflow-hidden border border-zinc-700 shadow-xl bg-gradient-to-b from-zinc-900 via-zinc-950 to-black">
+            
+            <!-- Matchcast Header Bar -->
+            <div class="p-3.5 sm:p-4 bg-zinc-900/90 border-b border-zinc-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div class="flex items-center space-x-2">
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-white/10 text-white border border-white/20 flex items-center">
+                        <i class="fa-solid fa-satellite-dish mr-1.5 text-cyan-400"></i> Transmisión Destacada
+                    </span>
+
+                    {{if $fg.Broadcast}}
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-black bg-zinc-800 text-white border border-zinc-700 flex items-center">
+                            <i class="fa-solid fa-tv mr-1 text-zinc-400"></i> {{$fg.Broadcast}}
+                        </span>
+                    {{end}}
+
+                    {{if $fg.IsTiebreaker}}
+                        <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wider flex items-center">
+                            <i class="fa-solid fa-star text-[9px] mr-1 text-amber-400"></i> Desempate MNF
+                        </span>
+                    {{end}}
+                </div>
+
+                <div>
+                    {{if eq $fg.Status "in_progress"}}
+                        <span class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-red-500/20 text-red-300 border border-red-500/40 text-xs font-bold animate-pulse">
+                            <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                            <span>EN VIVO</span>
+                            {{if $fg.StatusDetail}}<span class="font-mono ml-1 text-white font-black">({{$fg.StatusDetail}})</span>{{end}}
+                        </span>
+                    {{else if eq $fg.Status "final"}}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 text-xs font-semibold">
+                            FINAL {{if $fg.StatusDetail}}• {{$fg.StatusDetail}}{{end}}
+                        </span>
+                    {{else}}
+                        <span class="text-zinc-400 font-mono text-xs flex items-center">
+                            <i class="fa-regular fa-clock mr-1.5 text-zinc-500"></i> {{$fg.FormattedKickoff}}
+                        </span>
+                    {{end}}
+                </div>
+            </div>
+
+            <!-- Matchcast Teams & Scores Scoreboard -->
+            <div class="p-5 sm:p-7">
+                <div class="grid grid-cols-11 items-center gap-2 sm:gap-6">
+                    
+                    <!-- Away Team -->
+                    <div class="col-span-5 flex flex-col items-center sm:flex-row sm:items-center sm:justify-start sm:space-x-4 text-center sm:text-left">
+                        <img src="{{$fg.AwayTeam.LogoURL}}" alt="{{$fg.AwayTeam.Code}}" class="w-14 h-14 sm:w-20 sm:h-20 object-contain drop-shadow-lg mb-2 sm:mb-0">
+                        <div class="min-w-0">
+                            <div class="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">{{$fg.AwayTeam.City}}</div>
+                            <div class="text-lg sm:text-2xl font-black text-white tracking-tight leading-none sm:leading-tight">{{$fg.AwayTeam.Name}}</div>
+                            <div class="text-xs font-mono font-bold text-zinc-500 mt-0.5">{{$fg.AwayTeam.Code}}</div>
+                        </div>
+                    </div>
+
+                    <!-- Live Center Score Display (1 col) -->
+                    <div class="col-span-1 flex flex-col items-center justify-center text-center">
+                        {{if or (eq $fg.Status "in_progress") (eq $fg.Status "final")}}
+                            <div class="flex items-center space-x-2 sm:space-x-4">
+                                <span class="text-3xl sm:text-5xl font-mono font-black {{if $fg.IsAwayLeading}}text-white{{else}}text-zinc-400{{end}}">
+                                    {{if $fg.AwayScore}}{{$fg.AwayScore}}{{else}}0{{end}}
+                                </span>
+                                <span class="text-zinc-600 font-bold text-lg sm:text-2xl font-mono">-</span>
+                                <span class="text-3xl sm:text-5xl font-mono font-black {{if $fg.IsHomeLeading}}text-white{{else}}text-zinc-400{{end}}">
+                                    {{if $fg.HomeScore}}{{$fg.HomeScore}}{{else}}0{{end}}
+                                </span>
+                            </div>
+                        {{else}}
+                            <span class="text-xl sm:text-3xl font-mono font-black text-zinc-600">VS</span>
+                        {{end}}
+                    </div>
+
+                    <!-- Home Team -->
+                    <div class="col-span-5 flex flex-col items-center sm:flex-row-reverse sm:items-center sm:justify-start sm:space-x-4 sm:space-x-reverse text-center sm:text-right">
+                        <img src="{{$fg.HomeTeam.LogoURL}}" alt="{{$fg.HomeTeam.Code}}" class="w-14 h-14 sm:w-20 sm:h-20 object-contain drop-shadow-lg mb-2 sm:mb-0">
+                        <div class="min-w-0">
+                            <div class="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">{{$fg.HomeTeam.City}}</div>
+                            <div class="text-lg sm:text-2xl font-black text-white tracking-tight leading-none sm:leading-tight">{{$fg.HomeTeam.Name}}</div>
+                            <div class="text-xs font-mono font-bold text-zinc-500 mt-0.5">{{$fg.HomeTeam.Code}}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- In-Game Situation Pill (e.g. 3rd & 4 at KC 42) -->
+                {{if $fg.Situation}}
+                    <div class="mt-4 p-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-center space-x-2 text-xs font-mono text-center">
+                        <i class="fa-solid fa-football text-amber-400 text-[11px]"></i>
+                        <span class="text-zinc-400">Situación:</span>
+                        <strong class="text-white">{{$fg.Situation}}</strong>
+                    </div>
+                {{end}}
+
+                <!-- Linescores by Quarters (If available from ESPN) -->
+                {{if and $linescores (or (gt (len $linescores.AwayScores) 0) (gt (len $linescores.HomeScores) 0))}}
+                    <div class="mt-4 overflow-x-auto">
+                        <table class="w-full max-w-md mx-auto text-xs font-mono text-center border border-zinc-800 rounded-xl overflow-hidden">
+                            <thead class="bg-zinc-900 text-zinc-400 text-[10px] uppercase">
+                                <tr>
+                                    <th class="py-1 px-3 text-left">Equipo</th>
+                                    {{range $idx, $score := $linescores.AwayScores}}
+                                        <th class="py-1 px-2.5">Q{{add $idx 1}}</th>
+                                    {{end}}
+                                    <th class="py-1 px-3 font-bold text-white">T</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-zinc-900 bg-zinc-950">
+                                <tr>
+                                    <td class="py-1.5 px-3 text-left font-bold text-white flex items-center space-x-1.5">
+                                        <img src="{{$fg.AwayTeam.LogoURL}}" alt="{{$fg.AwayTeam.Code}}" class="w-3.5 h-3.5 object-contain">
+                                        <span>{{$fg.AwayTeam.Code}}</span>
+                                    </td>
+                                    {{range $linescores.AwayScores}}
+                                        <td class="py-1.5 px-2.5 text-zinc-300">{{.}}</td>
+                                    {{end}}
+                                    <td class="py-1.5 px-3 font-black text-white">{{if $fg.AwayScore}}{{$fg.AwayScore}}{{else}}0{{end}}</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-1.5 px-3 text-left font-bold text-white flex items-center space-x-1.5">
+                                        <img src="{{$fg.HomeTeam.LogoURL}}" alt="{{$fg.HomeTeam.Code}}" class="w-3.5 h-3.5 object-contain">
+                                        <span>{{$fg.HomeTeam.Code}}</span>
+                                    </td>
+                                    {{range $linescores.HomeScores}}
+                                        <td class="py-1.5 px-2.5 text-zinc-300">{{.}}</td>
+                                    {{end}}
+                                    <td class="py-1.5 px-3 font-black text-white">{{if $fg.HomeScore}}{{$fg.HomeScore}}{{else}}0{{end}}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                {{end}}
+
+                <!-- Community Consensus & Picks Breakdown Strip -->
+                <div class="mt-5 pt-4 border-t border-zinc-800/80 space-y-3">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-mono text-[11px] text-zinc-400 uppercase tracking-wider flex items-center">
+                            <i class="fa-solid fa-users mr-1.5 text-zinc-500"></i> Consenso Quiniela
+                        </span>
+                        {{if .FeaturedPicks}}
+                            <button type="button" 
+                                    @click="rivalsModalOpen = true"
+                                    class="text-xs text-cyan-400 hover:text-cyan-300 font-medium flex items-center space-x-1 cursor-pointer">
+                                <span>Ver pronósticos de rivales ({{len .FeaturedPicks}})</span>
+                                <i class="fa-solid fa-chevron-right text-[9px]"></i>
+                            </button>
+                        {{end}}
+                    </div>
+
+                    <!-- Progress Bar for Community Pick Spread -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs font-mono font-bold">
+                            <span class="text-white flex items-center space-x-1">
+                                <span>{{$fg.AwayTeam.Code}}</span>
+                                <span class="text-zinc-400 font-normal">({{$fg.AwayPickPercent}}%)</span>
+                            </span>
+                            <span class="text-white flex items-center space-x-1">
+                                <span class="text-zinc-400 font-normal">({{$fg.HomePickPercent}}%)</span>
+                                <span>{{$fg.HomeTeam.Code}}</span>
+                            </span>
+                        </div>
+                        <div class="w-full h-2.5 bg-zinc-800 rounded-full overflow-hidden flex">
+                            <div class="bg-cyan-500 h-full transition-all duration-500" style="width: {{$fg.AwayPickPercent}}%;"></div>
+                            <div class="bg-amber-400 h-full transition-all duration-500" style="width: {{$fg.HomePickPercent}}%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- User's Personal Pick Status on Featured Game -->
+                    {{if $fg.UserPick}}
+                        <div class="p-3 rounded-xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-between text-xs">
+                            <span class="text-zinc-400">Tu Pronóstico:</span>
+                            <div class="flex items-center space-x-2">
+                                <span class="font-mono font-black text-white">
+                                    {{if $fg.UserPick.IsPickedTeam $fg.AwayTeamID}}
+                                        {{$fg.AwayTeam.Code}} (Visitante)
+                                    {{else if $fg.UserPick.IsPickedTeam $fg.HomeTeamID}}
+                                        {{$fg.HomeTeam.Code}} (Local)
+                                    {{end}}
+                                </span>
+
+                                {{if eq $fg.Status "final"}}
+                                    {{if $fg.UserPick.HasCorrectWinner}}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                            <i class="fa-solid fa-circle-check text-[9px] mr-1"></i> Acertaste (+{{$fg.UserPick.TotalPoints}} pts)
+                                        </span>
+                                    {{else}}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+                                            <i class="fa-solid fa-circle-xmark text-[9px] mr-1"></i> Fallaste (0 pts)
+                                        </span>
+                                    {{end}}
+                                {{else if eq $fg.Status "in_progress"}}
+                                    {{if $fg.UserPick.IsProvisionalWinner $fg}}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 animate-pulse">
+                                            <i class="fa-solid fa-bolt text-[9px] mr-1"></i> Ganando al momento (+1 pt)
+                                        </span>
+                                    {{else if $fg.UserPick.IsProvisionalLoser $fg}}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                            <i class="fa-solid fa-triangle-exclamation text-[9px] mr-1"></i> Perdiendo al momento
+                                        </span>
+                                    {{end}}
+                                {{end}}
+                            </div>
+                        </div>
+                    {{end}}
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Rivals Picks Modal for Featured Game -->
+        <div x-show="rivalsModalOpen" 
+             x-cloak 
+             class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+             @keydown.escape.window="rivalsModalOpen = false">
+            <div class="vercel-card rounded-2xl w-full max-w-md overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[85vh] bg-zinc-950"
+                 @click.away="rivalsModalOpen = false">
+                <div class="p-4 border-b border-zinc-800 flex items-center justify-between">
+                    <div class="text-sm font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-users text-cyan-400"></i>
+                        <span>Pronósticos del Partido: {{$fg.AwayTeam.Code}} @ {{$fg.HomeTeam.Code}}</span>
+                    </div>
+                    <button type="button" @click="rivalsModalOpen = false" class="text-zinc-400 hover:text-white p-1">
+                        <i class="fa-solid fa-xmark text-base"></i>
+                    </button>
+                </div>
+                <div class="p-4 overflow-y-auto divide-y divide-zinc-900 text-xs">
+                    {{range .FeaturedPicks}}
+                        <div class="py-2.5 flex items-center justify-between">
+                            <div class="flex items-center space-x-2.5">
+                                <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-[10px] text-white">
+                                    {{slice .User.Username 0 1}}
+                                </div>
+                                <span class="text-zinc-200 font-medium">{{.User.Username}}</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                {{if .IsPickedTeam $fg.AwayTeamID}}
+                                    <span class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-mono font-bold">
+                                        <img src="{{$fg.AwayTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
+                                        <span>{{$fg.AwayTeam.Code}}</span>
+                                    </span>
+                                {{else if .IsPickedTeam $fg.HomeTeamID}}
+                                    <span class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-mono font-bold">
+                                        <img src="{{$fg.HomeTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
+                                        <span>{{$fg.HomeTeam.Code}}</span>
+                                    </span>
+                                {{else}}
+                                    <span class="text-zinc-600 font-mono text-[11px]">Sin pick</span>
+                                {{end}}
+
+                                {{if and .PredictedAwayScore .PredictedHomeScore}}
+                                    <span class="font-mono text-zinc-400 text-[10px]">
+                                        ({{.AwayScoreStr}} - {{.HomeScoreStr}})
+                                    </span>
+                                {{end}}
+                            </div>
+                        </div>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+    {{end}}
+
+    <!-- Matchup List / Filter Strip -->
+    <div class="space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-zinc-800">
+            <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center">
+                <i class="fa-solid fa-list text-zinc-400 mr-2"></i> Todos los Partidos de la Jornada
+            </h2>
+
+            <!-- Filter Buttons -->
+            <div class="flex items-center space-x-1 bg-zinc-900 p-1 rounded-xl border border-zinc-800 self-start sm:self-auto text-xs font-medium">
+                <button type="button" 
+                        @click="activeFilter = 'all'"
+                        :class="activeFilter === 'all' ? 'bg-zinc-800 text-white font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                        class="px-2.5 py-1 rounded-lg transition-colors cursor-pointer">
+                    Todos ({{len .Games}})
+                </button>
+                <button type="button" 
+                        @click="activeFilter = 'live'"
+                        :class="activeFilter === 'live' ? 'bg-red-500/20 text-red-300 font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                        class="px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center space-x-1">
+                    {{if gt .LiveGamesCount 0}}<span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>{{end}}
+                    <span>En Vivo ({{.LiveGamesCount}})</span>
+                </button>
+                <button type="button" 
+                        @click="activeFilter = 'final'"
+                        :class="activeFilter === 'final' ? 'bg-zinc-800 text-white font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                        class="px-2.5 py-1 rounded-lg transition-colors cursor-pointer">
+                    Finalizados ({{.FinalGamesCount}})
+                </button>
+                <button type="button" 
+                        @click="activeFilter = 'scheduled'"
+                        :class="activeFilter === 'scheduled' ? 'bg-zinc-800 text-white font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                        class="px-2.5 py-1 rounded-lg transition-colors cursor-pointer">
+                    Próximos ({{.UpcomingGamesCount}})
+                </button>
+            </div>
+        </div>
+
+        <!-- Games Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+            {{range .Games}}
+                {{$p := .UserPick}}
+                {{$g := .}}
+                <div x-show="activeFilter === 'all' || activeFilter === '{{$g.Status}}'" 
+                     class="vercel-card p-3.5 sm:p-4 rounded-2xl relative transition-all shadow-sm {{if eq $g.Status "in_progress"}}ring-1 ring-red-500/30 bg-gradient-to-b from-red-500/5 to-transparent{{else if eq $g.Status "final"}}border-zinc-800/80{{end}}">
+                    
+                    <!-- Card Header: Status & Broadcast -->
+                    <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-zinc-800/80 text-[11px]">
+                        <div class="flex items-center space-x-2">
+                            {{if eq $g.Status "in_progress"}}
+                                <span class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 font-bold animate-pulse">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                    <span>EN VIVO</span>
+                                    {{if $g.StatusDetail}}<span class="font-mono text-zinc-300">({{$g.StatusDetail}})</span>{{end}}
+                                </span>
+                            {{else if eq $g.Status "final"}}
+                                <span class="px-2 py-0.5 rounded-full bg-zinc-900 text-zinc-400 border border-zinc-800 font-mono">
+                                    FINAL
+                                </span>
+                            {{else}}
+                                <span class="text-zinc-400 font-mono flex items-center">
+                                    <i class="fa-regular fa-clock mr-1 text-zinc-500"></i>
+                                    {{$g.FormattedKickoff}}
+                                </span>
+                            {{end}}
+
+                            {{if $g.Broadcast}}
+                                <span class="px-2 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-800 font-mono text-[10px]">
+                                    <i class="fa-solid fa-tv mr-1 text-zinc-500"></i> {{$g.Broadcast}}
+                                </span>
+                            {{end}}
+                        </div>
+
+                        <div>
+                            {{if $g.IsTiebreaker}}
+                                <span class="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/30 text-[10px] font-bold uppercase">
+                                    <i class="fa-solid fa-star text-[9px] mr-1 text-amber-400"></i> Desempate MNF
+                                </span>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <!-- Teams & Scores -->
+                    <div class="space-y-2">
+                        <!-- Away Team Row -->
+                        <div class="flex items-center justify-between p-2 rounded-xl {{if and $p ($p.IsPickedTeam $g.AwayTeamID)}}bg-zinc-800/80 border border-zinc-700/60 font-black text-white{{else}}bg-zinc-950/60 border border-zinc-900 text-zinc-400{{end}}">
+                            <div class="flex items-center space-x-2.5 min-w-0">
+                                <img src="{{$g.AwayTeam.LogoURL}}" alt="{{$g.AwayTeam.Code}}" class="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0">
+                                <div class="truncate">
+                                    <span class="font-bold text-white text-xs sm:text-sm mr-1">{{$g.AwayTeam.Code}}</span>
+                                    <span class="text-xs text-zinc-400 truncate hidden sm:inline">{{$g.AwayTeam.Name}}</span>
+                                    {{if and $p ($p.IsPickedTeam $g.AwayTeamID)}}
+                                        <span class="ml-1.5 inline-block px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-white text-black">TU PICK</span>
+                                    {{end}}
+                                </div>
+                            </div>
+                            <span class="font-mono font-black text-base sm:text-lg {{if $g.IsAwayLeading}}text-white{{else}}text-zinc-500{{end}}">
+                                {{if $g.AwayScore}}{{$g.AwayScore}}{{else}}-{{end}}
+                            </span>
+                        </div>
+
+                        <!-- Home Team Row -->
+                        <div class="flex items-center justify-between p-2 rounded-xl {{if and $p ($p.IsPickedTeam $g.HomeTeamID)}}bg-zinc-800/80 border border-zinc-700/60 font-black text-white{{else}}bg-zinc-950/60 border border-zinc-900 text-zinc-400{{end}}">
+                            <div class="flex items-center space-x-2.5 min-w-0">
+                                <img src="{{$g.HomeTeam.LogoURL}}" alt="{{$g.HomeTeam.Code}}" class="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0">
+                                <div class="truncate">
+                                    <span class="font-bold text-white text-xs sm:text-sm mr-1">{{$g.HomeTeam.Code}}</span>
+                                    <span class="text-xs text-zinc-400 truncate hidden sm:inline">{{$g.HomeTeam.Name}}</span>
+                                    {{if and $p ($p.IsPickedTeam $g.HomeTeamID)}}
+                                        <span class="ml-1.5 inline-block px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-white text-black">TU PICK</span>
+                                    {{end}}
+                                </div>
+                            </div>
+                            <span class="font-mono font-black text-base sm:text-lg {{if $g.IsHomeLeading}}text-white{{else}}text-zinc-500{{end}}">
+                                {{if $g.HomeScore}}{{$g.HomeScore}}{{else}}-{{end}}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Footer: Status Tag of Pick -->
+                    {{if $p}}
+                        <div class="mt-2.5 pt-2 border-t border-zinc-900 flex items-center justify-between text-[11px]">
+                            <span class="text-zinc-500 font-mono text-[10px]">Resultado de tu pronóstico:</span>
+                            <div>
+                                {{if eq $g.Status "final"}}
+                                    {{if $p.HasCorrectWinner}}
+                                        <span class="font-bold text-emerald-400 flex items-center">
+                                            <i class="fa-solid fa-circle-check mr-1"></i> Acierto (+{{$p.TotalPoints}} pts)
+                                        </span>
+                                    {{else}}
+                                        <span class="font-bold text-red-400 flex items-center">
+                                            <i class="fa-solid fa-circle-xmark mr-1"></i> Fallado (0 pts)
+                                        </span>
+                                    {{end}}
+                                {{else if eq $g.Status "in_progress"}}
+                                    {{if $p.IsProvisionalWinner $g}}
+                                        <span class="font-bold text-emerald-400 flex items-center animate-pulse">
+                                            <i class="fa-solid fa-bolt mr-1"></i> Ganando al momento
+                                        </span>
+                                    {{else if $p.IsProvisionalLoser $g}}
+                                        <span class="font-bold text-amber-400 flex items-center">
+                                            <i class="fa-solid fa-triangle-exclamation mr-1"></i> Perdiendo al momento
+                                        </span>
+                                    {{end}}
+                                {{else}}
+                                    <span class="text-zinc-400 font-mono text-[10px]">Pendiente de inicio</span>
+                                {{end}}
+                            </div>
+                        </div>
+                    {{end}}
+
+                </div>
+            {{end}}
+        </div>
+    </div>
+
+</div>

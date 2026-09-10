@@ -129,6 +129,9 @@
                         <a href="/picks" class="px-3 py-1.5 rounded-lg text-xs font-medium {{if eq .ActiveNav "picks"}}bg-zinc-800/90 text-white font-semibold border border-zinc-700/60 shadow-sm{{else}}text-zinc-400 hover:text-white hover:bg-zinc-900{{end}} transition-all">
                             <i class="fa-solid fa-list-check mr-1.5 text-zinc-400"></i> Pronósticos
                         </a>
+                        <a href="/live" class="px-3 py-1.5 rounded-lg text-xs font-medium {{if eq .ActiveNav "live"}}bg-zinc-800/90 text-red-400 font-semibold border border-red-500/40 shadow-sm{{else}}text-zinc-400 hover:text-white hover:bg-zinc-900{{end}} transition-all">
+                            <i class="fa-solid fa-bolt mr-1.5 text-red-500 animate-pulse"></i> En Vivo
+                        </a>
                         <a href="/leaderboard" class="px-3 py-1.5 rounded-lg text-xs font-medium {{if eq .ActiveNav "leaderboard"}}bg-zinc-800/90 text-white font-semibold border border-zinc-700/60 shadow-sm{{else}}text-zinc-400 hover:text-white hover:bg-zinc-900{{end}} transition-all">
                             <i class="fa-solid fa-trophy mr-1.5 text-amber-400/90"></i> Posiciones
                         </a>
@@ -182,6 +185,9 @@
             <a href="/picks" class="block px-3 py-2 rounded-lg text-sm font-medium {{if eq .ActiveNav "picks"}}bg-zinc-800 text-white{{else}}text-zinc-400{{end}}">
                 <i class="fa-solid fa-list-check mr-2 text-zinc-400"></i> Mis Pronósticos
             </a>
+            <a href="/live" class="block px-3 py-2 rounded-lg text-sm font-medium {{if eq .ActiveNav "live"}}bg-zinc-800 text-red-400 font-semibold{{else}}text-zinc-400{{end}}">
+                <i class="fa-solid fa-bolt mr-2 text-red-500 animate-pulse"></i> En Vivo (Game Center)
+            </a>
             <a href="/leaderboard" class="block px-3 py-2 rounded-lg text-sm font-medium {{if eq .ActiveNav "leaderboard"}}bg-zinc-800 text-white{{else}}text-zinc-400{{end}}">
                 <i class="fa-solid fa-trophy mr-2 text-amber-400"></i> Tabla de Posiciones
             </a>
@@ -223,7 +229,7 @@
     </nav>
 
     <!-- Main Content Container -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 md:pb-8">
         {{block "content" .}}{{end}}
     </main>
 
@@ -241,7 +247,7 @@
          x-transition:leave-start="opacity-100 translate-y-0 scale-100"
          x-transition:leave-end="opacity-0 translate-y-3 scale-95"
          x-cloak
-         class="fixed bottom-6 right-6 z-50 flex items-center space-x-3 px-4 py-2.5 rounded-xl shadow-2xl border text-xs font-medium bg-[#111111]/95 backdrop-blur-md border-[#333333] text-zinc-100">
+         class="fixed bottom-20 md:bottom-6 right-6 z-50 flex items-center space-x-3 px-4 py-2.5 rounded-xl shadow-2xl border text-xs font-medium bg-[#111111]/95 backdrop-blur-md border-[#333333] text-zinc-100">
         <i class="fa-solid" :class="{
             'fa-circle-check text-emerald-400': type === 'success',
             'fa-circle-exclamation text-red-400': type === 'error',
@@ -251,7 +257,7 @@
     </div>
 
     <!-- Minimalist Vercel-Style Footer -->
-    <footer class="border-t border-[#1a1a1a] bg-black/90 py-6 text-xs text-zinc-500">
+    <footer class="border-t border-[#1a1a1a] bg-black/90 py-6 text-xs text-zinc-500 mb-16 md:mb-0">
         <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div class="flex items-center space-x-2">
                 <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -260,12 +266,80 @@
             <div class="flex items-center space-x-4 text-zinc-400">
                 <a href="/picks" class="hover:text-white transition-colors">Pronósticos</a>
                 <span>/</span>
+                <a href="/live" class="hover:text-white transition-colors">En Vivo</a>
+                <span>/</span>
                 <a href="/leaderboard" class="hover:text-white transition-colors">Posiciones</a>
                 <span>/</span>
                 <a href="/rules" class="hover:text-white transition-colors">Reglamento</a>
             </div>
         </div>
     </footer>
+
+    <!-- Mobile Bottom Navigation Dock (App-Like Native UX) -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-2xl border-t border-zinc-800/90 px-3 py-2 shadow-[0_-4px_25px_rgba(0,0,0,0.9)]">
+        <div class="grid grid-cols-5 items-center justify-around text-center">
+            
+            <!-- Picks Tab -->
+            <a href="/picks" class="flex flex-col items-center py-1 group transition-colors {{if eq .ActiveNav "picks"}}text-white font-black{{else}}text-zinc-500 hover:text-zinc-300{{end}}">
+                <div class="relative flex items-center justify-center">
+                    <i class="fa-solid fa-list-check text-base"></i>
+                    {{if eq .ActiveNav "picks"}}
+                        <span class="absolute -top-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></span>
+                    {{end}}
+                </div>
+                <span class="text-[10px] mt-1 tracking-tight">Picks</span>
+            </a>
+
+            <!-- Live Game Center Tab -->
+            <a href="/live" class="flex flex-col items-center py-1 group transition-colors {{if eq .ActiveNav "live"}}text-red-400 font-black{{else}}text-zinc-500 hover:text-zinc-300{{end}}">
+                <div class="relative flex items-center justify-center">
+                    <i class="fa-solid fa-bolt text-base"></i>
+                    <span class="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                </div>
+                <span class="text-[10px] mt-1 tracking-tight">En Vivo</span>
+            </a>
+
+            <!-- Leaderboard Tab -->
+            <a href="/leaderboard" class="flex flex-col items-center py-1 group transition-colors {{if eq .ActiveNav "leaderboard"}}text-amber-400 font-black{{else}}text-zinc-500 hover:text-zinc-300{{end}}">
+                <div class="relative flex items-center justify-center">
+                    <i class="fa-solid fa-trophy text-base"></i>
+                    {{if eq .ActiveNav "leaderboard"}}
+                        <span class="absolute -top-1 w-1.5 h-1.5 rounded-full bg-amber-400 shadow-sm"></span>
+                    {{end}}
+                </div>
+                <span class="text-[10px] mt-1 tracking-tight">Posiciones</span>
+            </a>
+
+            <!-- Rules Tab -->
+            <a href="/rules" class="flex flex-col items-center py-1 group transition-colors {{if eq .ActiveNav "rules"}}text-white font-black{{else}}text-zinc-500 hover:text-zinc-300{{end}}">
+                <div class="relative flex items-center justify-center">
+                    <i class="fa-solid fa-circle-question text-base"></i>
+                    {{if eq .ActiveNav "rules"}}
+                        <span class="absolute -top-1 w-1.5 h-1.5 rounded-full bg-white shadow-sm"></span>
+                    {{end}}
+                </div>
+                <span class="text-[10px] mt-1 tracking-tight">Reglas</span>
+            </a>
+
+            <!-- Profile Tab -->
+            {{if .User}}
+                <a href="/profile" class="flex flex-col items-center py-1 group transition-colors {{if eq .ActiveNav "profile"}}text-white font-black{{else}}text-zinc-500 hover:text-zinc-300{{end}}">
+                    <div class="relative flex items-center justify-center">
+                        <div class="w-4 h-4 rounded-full bg-zinc-800 border {{if eq .ActiveNav "profile"}}border-white text-white{{else}}border-zinc-700 text-zinc-400{{end}} flex items-center justify-center text-[8px] font-bold uppercase">
+                            {{slice .User.Username 0 1}}
+                        </div>
+                    </div>
+                    <span class="text-[10px] mt-1 tracking-tight truncate max-w-[55px]">Perfil</span>
+                </a>
+            {{else}}
+                <a href="/login" class="flex flex-col items-center py-1 group transition-colors text-zinc-500 hover:text-zinc-300">
+                    <i class="fa-solid fa-arrow-right-to-bracket text-base"></i>
+                    <span class="text-[10px] mt-1 tracking-tight">Entrar</span>
+                </a>
+            {{end}}
+
+        </div>
+    </nav>
 
     <!-- PWA Service Worker Registration -->
     <script>

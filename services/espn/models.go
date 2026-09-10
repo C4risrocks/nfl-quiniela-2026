@@ -38,17 +38,35 @@ type ESPNEvent struct {
 }
 
 type ESPNCompetition struct {
-	ID          string           `json:"id"`
-	Date        string           `json:"date"`
-	Competitors []ESPNCompetitor `json:"competitors"`
+	ID            string           `json:"id"`
+	Date          string           `json:"date"`
+	Competitors   []ESPNCompetitor `json:"competitors"`
+	Broadcast     string           `json:"broadcast"`
+	GeoBroadcasts []struct {
+		Media struct {
+			ShortName string `json:"shortName"`
+		} `json:"media"`
+	} `json:"geoBroadcasts"`
+	Situation *struct {
+		DownDistanceText      string `json:"downDistanceText"`
+		ShortDownDistanceText string `json:"shortDownDistanceText"`
+		LastPlay              struct {
+			Text string `json:"text"`
+		} `json:"lastPlay"`
+	} `json:"situation"`
+}
+
+type ESPNLinescore struct {
+	Value float64 `json:"value"`
 }
 
 type ESPNCompetitor struct {
-	ID       string   `json:"id"`
-	HomeAway string   `json:"homeAway"` // "home" or "away"
-	Score    string   `json:"score"`
-	Winner   *bool    `json:"winner"`
-	Team     ESPNTeam `json:"team"`
+	ID         string          `json:"id"`
+	HomeAway   string          `json:"homeAway"` // "home" or "away"
+	Score      string          `json:"score"`
+	Winner     *bool           `json:"winner"`
+	Team       ESPNTeam        `json:"team"`
+	Linescores []ESPNLinescore `json:"linescores"`
 }
 
 type ESPNTeam struct {

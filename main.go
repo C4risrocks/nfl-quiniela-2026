@@ -109,6 +109,7 @@ func main() {
 	leaderboardHandler := handlers.NewLeaderboardHandler(repo, renderer, cfg.CurrentSeasonYear)
 	rulesHandler := handlers.NewRulesHandler(repo, renderer)
 	adminHandler := handlers.NewAdminHandler(repo, renderer, syncer, calculator, broker, reminderWorker, cfg.CurrentSeasonYear)
+	liveHandler := handlers.NewLiveHandler(repo, renderer, cfg.CurrentSeasonYear)
 	eventsHandler := handlers.NewEventsHandler(broker)
 
 	// 8. Router Setup
@@ -178,6 +179,8 @@ func main() {
 	r.Get("/rules", rulesHandler.ShowRules)
 	r.Get("/leaderboard", leaderboardHandler.ShowLeaderboard)
 	r.Get("/leaderboard/table", leaderboardHandler.LeaderboardTable)
+	r.Get("/live", liveHandler.ShowLive)
+	r.Get("/live/content", liveHandler.LiveContent)
 	r.Get("/events/live", eventsHandler.StreamLiveEvents)
 
 	// Authenticated Player Routes

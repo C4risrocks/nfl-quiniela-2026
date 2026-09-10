@@ -66,6 +66,9 @@ CREATE TABLE IF NOT EXISTS games (
     away_score INTEGER DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'scheduled', -- 'scheduled', 'in_progress', 'final'
     status_detail TEXT DEFAULT '',             -- e.g. 'Final', 'Q4 02:15', 'Halftime'
+    broadcast TEXT DEFAULT '',                 -- e.g. 'ESPN', 'FOX', 'NBC'
+    situation TEXT DEFAULT '',                 -- e.g. '3rd & 4 at KC 42'
+    linescores TEXT DEFAULT '',                -- JSON matrix of quarters
     is_tiebreaker BOOLEAN NOT NULL DEFAULT 0, -- 1 for designated tiebreaker game (e.g. Monday Night)
     is_locked BOOLEAN NOT NULL DEFAULT 0,     -- Manual override lock
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

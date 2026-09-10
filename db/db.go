@@ -146,6 +146,22 @@ func (d *DB) migrate() error {
 		_, _ = d.Exec(colStmt) // Safe ignore if column already exists
 	}
 
+	gameCols := []string{
+		"ALTER TABLE games ADD COLUMN broadcast TEXT DEFAULT ''",
+		"ALTER TABLE games ADD COLUMN situation TEXT DEFAULT ''",
+		"ALTER TABLE games ADD COLUMN linescores TEXT DEFAULT ''",
+	}
+	if d.DriverName == "pgx" {
+		gameCols = []string{
+			"ALTER TABLE games ADD COLUMN IF NOT EXISTS broadcast TEXT DEFAULT ''",
+			"ALTER TABLE games ADD COLUMN IF NOT EXISTS situation TEXT DEFAULT ''",
+			"ALTER TABLE games ADD COLUMN IF NOT EXISTS linescores TEXT DEFAULT ''",
+		}
+	}
+	for _, colStmt := range gameCols {
+		_, _ = d.Exec(colStmt) // Safe ignore if column already exists
+	}
+
 	return nil
 }
 

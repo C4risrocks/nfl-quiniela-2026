@@ -1,6 +1,7 @@
 package db
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -92,6 +93,9 @@ type Game struct {
 	AwayScore     *int      `json:"away_score"`
 	Status        string    `json:"status"` // "scheduled", "in_progress", "final"
 	StatusDetail  string    `json:"status_detail"`
+	Broadcast     string    `json:"broadcast,omitempty"`
+	Situation     string    `json:"situation,omitempty"`
+	Linescores    string    `json:"linescores,omitempty"`
 	IsTiebreaker  bool      `json:"is_tiebreaker"`
 	IsLocked      bool      `json:"is_locked"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -105,6 +109,77 @@ type Game struct {
 	HomePickCount int `json:"home_pick_count,omitempty"`
 	AwayPickCount int `json:"away_pick_count,omitempty"`
 	TotalPicks    int `json:"total_picks,omitempty"`
+}
+
+// LinescoreMatrix represents quarters breakdown for matchcast
+type LinescoreMatrix struct {
+	AwayScores []string `json:"away"`
+	HomeScores []string `json:"home"`
+}
+
+func (g *Game) LinescoreData() *LinescoreMatrix {
+	if g == nil || g.Linescores == "" {
+		return nil
+	}
+	var matrix LinescoreMatrix
+	if err := json.Unmarshal([]byte(g.Linescores), &matrix); err != nil {
+		return nil
+	}
+	return &matrix
+}
+
+func (g *Game) HomeScoreVal() int {
+	if g != nil && g.HomeScore != nil {
+		return *g.HomeScore
+	}
+	return 0
+}
+
+func (g *Game) AwayScoreVal() int {
+	if g != nil && g.AwayScore != nil {
+		return *g.AwayScore
+	}
+	return 0
+}
+
+func (g *Game) IsHomeLeading() bool {
+	if g != nil && g.HomeScore != nil && g.AwayScore != nil {
+		return *g.HomeScore > *g.AwayScore
+	}
+	return false
+}
+
+func (g *Game) IsAwayLeading() bool {
+	if g != nil && g.HomeScore != nil && g.AwayScore != nil {
+		return *g.AwayScore > *g.HomeScore
+	}
+	return false
+}
+
+func (g *Game) HomePickPercent() int {
+	if g == nil || g.TotalPicks == 0 {
+		return 50
+	}
+	return int(float64(g.HomePickCount) / float64(g.TotalPicks) * 100.0)
+}
+
+func (g *Game) AwayPickPercent() int {
+	if g == nil || g.TotalPicks == 0 {
+		return 50
+	}
+	return 100 - g.HomePickPercent()
+}
+
+// UserWeeklyPerformance tracks a user's points and rank for a single week
+type UserWeeklyPerformance struct {
+	WeekID       int64   `json:"week_id"`
+	WeekNumber   int     `json:"week_number"`
+	WeekName     string  `json:"week_name"`
+	Points       int     `json:"points"`
+	CorrectPicks int     `json:"correct_picks"`
+	TotalGames   int     `json:"total_games"`
+	AccuracyRate float64 `json:"accuracy_rate"`
+	Rank         int     `json:"rank"`
 }
 
 // Week1GraceDeadline defines the extended deadline for Week 1 picks

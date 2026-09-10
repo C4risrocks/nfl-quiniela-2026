@@ -65,14 +65,14 @@
 
     <!-- Stat Metrics Grid -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div class="vercel-card p-4 rounded-xl">
-            <div class="text-[11px] font-mono font-medium text-zinc-500 uppercase tracking-wider">Pronósticos</div>
-            <div class="text-2xl font-bold font-mono text-white mt-1">{{.Stats.TotalPicks}}</div>
-        </div>
-
-        <div class="vercel-card p-4 rounded-xl">
-            <div class="text-[11px] font-mono font-medium text-zinc-500 uppercase tracking-wider">Aciertos</div>
-            <div class="text-2xl font-bold font-mono text-emerald-400 mt-1">{{.Stats.CorrectPicks}}</div>
+        <div class="vercel-card p-4 rounded-xl border border-amber-500/20 bg-gradient-to-b from-amber-500/5 to-transparent">
+            <div class="flex items-center justify-between">
+                <span class="text-[11px] font-mono font-medium text-amber-400 uppercase tracking-wider">Posición General</span>
+                <i class="fa-solid fa-trophy text-amber-400 text-xs"></i>
+            </div>
+            <div class="text-2xl font-bold font-mono text-white mt-1">
+                {{if .Rank}}#{{.Rank}}{{else}}-{{end}} <span class="text-xs text-zinc-500 font-normal">de {{.TotalPlayers}}</span>
+            </div>
         </div>
 
         <div class="vercel-card p-4 rounded-xl">
@@ -81,10 +81,103 @@
         </div>
 
         <div class="vercel-card p-4 rounded-xl">
-            <div class="text-[11px] font-mono font-medium text-zinc-500 uppercase tracking-wider">Efectividad</div>
+            <div class="text-[11px] font-mono font-medium text-zinc-500 uppercase tracking-wider">Aciertos / Picks</div>
+            <div class="text-2xl font-bold font-mono text-emerald-400 mt-1">{{.Stats.CorrectPicks}} <span class="text-xs text-zinc-500 font-normal">/ {{.Stats.TotalPicks}}</span></div>
+        </div>
+
+        <div class="vercel-card p-4 rounded-xl">
+            <div class="text-[11px] font-mono font-medium text-zinc-500 uppercase tracking-wider">Efectividad Global</div>
             <div class="text-2xl font-bold font-mono text-cyan-400 mt-1">
                 {{printf "%.1f" .Stats.AccuracyRate}}%
             </div>
+        </div>
+    </div>
+
+    <!-- Performance History & Chart Card -->
+    <div class="vercel-card p-5 sm:p-6 rounded-2xl shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-zinc-800/80">
+            <div>
+                <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center">
+                    <i class="fa-solid fa-chart-simple text-cyan-400 mr-2"></i> Evolución de Puntos por Jornada
+                </h2>
+                <p class="text-xs text-zinc-400 mt-0.5">Seguimiento semana a semana de tus aciertos y puntuación obtenida.</p>
+            </div>
+            {{if .BestWeek}}
+                <div class="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/30 text-xs font-mono">
+                    <i class="fa-solid fa-star text-[10px] mr-1 text-amber-400"></i> Mejor Jornada: <strong>{{.BestWeek.WeekName}} ({{.BestWeek.Points}} pts)</strong>
+                </div>
+            {{end}}
+        </div>
+
+        <!-- Weekly Performance Visual Bar Chart -->
+        <div class="overflow-x-auto pb-2">
+            <div class="min-w-[600px] h-44 flex items-end justify-between gap-2 px-2 pt-6 pb-2 bg-zinc-950/60 rounded-xl border border-zinc-900">
+                {{range .WeeklyHistory}}
+                    {{$pts := .Points}}
+                    {{$heightPercent := 0}}
+                    {{if gt $pts 0}}
+                        {{/* Assume 16 points as standard maximum */}}
+                        {{$heightPercent = div (mul $pts 100) 16}}
+                        {{if gt $heightPercent 100}}{{$heightPercent = 100}}{{end}}
+                        {{if lt $heightPercent 12}}{{$heightPercent = 12}}{{end}}
+                    {{end}}
+                    <div class="flex-1 flex flex-col items-center justify-end h-full group relative">
+                        <!-- Tooltip on hover/tap -->
+                        <div class="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-8 bg-zinc-800 text-white text-[10px] font-mono px-2 py-0.5 rounded shadow pointer-events-none whitespace-nowrap z-10 border border-zinc-700">
+                            {{.WeekName}}: <strong>{{$pts}} pts</strong> ({{.CorrectPicks}} aciertos)
+                        </div>
+
+                        <!-- Bar -->
+                        <div class="w-full max-w-[28px] rounded-t-lg transition-all duration-300 flex items-center justify-center {{if gt $pts 0}}bg-gradient-to-t from-cyan-600 to-cyan-400 group-hover:brightness-125 shadow-md shadow-cyan-500/20{{else}}bg-zinc-800/40 border border-dashed border-zinc-700/50 h-2{{end}}"
+                             style="{{if gt $pts 0}}height: {{$heightPercent}}%;{{end}}">
+                            {{if gt $pts 0}}
+                                <span class="text-[9px] font-mono font-bold text-black select-none">{{$pts}}</span>
+                            {{end}}
+                        </div>
+
+                        <!-- Label below -->
+                        <span class="text-[10px] font-mono text-zinc-500 mt-2 truncate max-w-[32px] {{if gt $pts 0}}text-zinc-300 font-bold{{end}}">
+                            S{{.WeekNumber}}
+                        </span>
+                    </div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Weekly Summary Table / Accordion -->
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-zinc-300">
+                <thead>
+                    <tr class="border-b border-zinc-800 text-[10px] font-mono uppercase text-zinc-500">
+                        <th class="py-2 px-3 font-semibold">Jornada</th>
+                        <th class="py-2 px-3 font-semibold text-center">Puntos</th>
+                        <th class="py-2 px-3 font-semibold text-center">Aciertos</th>
+                        <th class="py-2 px-3 font-semibold text-center">Efectividad</th>
+                        <th class="py-2 px-3 font-semibold text-right">Posición</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-900">
+                    {{range .WeeklyHistory}}
+                        <tr class="hover:bg-zinc-900/40 transition-colors">
+                            <td class="py-2.5 px-3 font-medium text-white flex items-center space-x-1.5">
+                                <span>{{.WeekName}}</span>
+                            </td>
+                            <td class="py-2.5 px-3 text-center font-mono font-bold {{if gt .Points 0}}text-amber-400{{else}}text-zinc-500{{end}}">
+                                {{.Points}} pts
+                            </td>
+                            <td class="py-2.5 px-3 text-center font-mono text-zinc-400">
+                                {{if gt .TotalGames 0}}{{.CorrectPicks}} / {{.TotalGames}}{{else}}-{{end}}
+                            </td>
+                            <td class="py-2.5 px-3 text-center font-mono {{if gt .AccuracyRate 60.0}}text-emerald-400{{else if gt .AccuracyRate 0.0}}text-cyan-400{{else}}text-zinc-500{{end}}">
+                                {{if gt .TotalGames 0}}{{printf "%.0f" .AccuracyRate}}%{{else}}-{{end}}
+                            </td>
+                            <td class="py-2.5 px-3 text-right font-mono font-medium text-zinc-300">
+                                {{if gt .Rank 0}}#{{.Rank}}{{else}}-{{end}}
+                            </td>
+                        </tr>
+                    {{end}}
+                </tbody>
+            </table>
         </div>
     </div>
 

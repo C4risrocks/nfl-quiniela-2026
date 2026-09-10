@@ -40,6 +40,23 @@ func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 	stats, _ := h.repo.GetUserStats(user.ID)
 	teams, _ := h.repo.ListTeams()
 
+	season, _ := h.repo.GetActiveSeason(2026)
+	var seasonID int64
+	if season != nil {
+		seasonID = season.ID
+	}
+	rank, totalPlayers, _ := h.repo.GetUserRank(user.ID, seasonID)
+	weeklyHistory, _ := h.repo.GetUserWeeklyBreakdown(user.ID, seasonID)
+
+	var bestWeek *db.UserWeeklyPerformance
+	for _, w := range weeklyHistory {
+		if w.Points > 0 {
+			if bestWeek == nil || w.Points > bestWeek.Points {
+				bestWeek = w
+			}
+		}
+	}
+
 	var successMsg, errorMsg string
 	if r.URL.Query().Get("updated") == "1" {
 		successMsg = "Tus preferencias han sido guardadas exitosamente."
@@ -52,12 +69,16 @@ func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.renderer.RenderPage(w, "profile.html", map[string]interface{}{
-		"ActiveNav":  "profile",
-		"User":       freshUser,
-		"Stats":      stats,
-		"Teams":      teams,
-		"Success":    successMsg,
-		"Error":      errorMsg,
+		"ActiveNav":     "profile",
+		"User":          freshUser,
+		"Stats":         stats,
+		"Teams":         teams,
+		"Rank":          rank,
+		"TotalPlayers":  totalPlayers,
+		"WeeklyHistory": weeklyHistory,
+		"BestWeek":      bestWeek,
+		"Success":       successMsg,
+		"Error":         errorMsg,
 	})
 }
 
