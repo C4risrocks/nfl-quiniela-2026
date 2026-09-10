@@ -130,23 +130,24 @@ func SeedDatabase(repo *Repository, adminUser, adminEmail, adminPass string, sea
 				espnID             string
 				kickoffStr         string
 				isTiebreaker       bool
+				broadcast          string
 			}{
-				{"NE", "SEA", "401872656", "2026-09-10T00:20:00Z", false},
-				{"SF", "LAR", "401872657", "2026-09-11T00:35:00Z", false},
-				{"TB", "CIN", "401872925", "2026-09-13T17:00:00Z", false},
-				{"NO", "DET", "401872923", "2026-09-13T17:00:00Z", false},
-				{"NYJ", "TEN", "401872924", "2026-09-13T17:00:00Z", false},
-				{"BAL", "IND", "401872659", "2026-09-13T17:00:00Z", false},
-				{"ATL", "PIT", "401872658", "2026-09-13T17:00:00Z", false},
-				{"CHI", "CAR", "401872661", "2026-09-13T17:00:00Z", false},
-				{"CLE", "JAX", "401872922", "2026-09-13T17:00:00Z", false},
-				{"BUF", "HOU", "401872660", "2026-09-13T17:00:00Z", false},
-				{"MIA", "LV", "401872928", "2026-09-13T20:25:00Z", false},
-				{"GB", "MIN", "401872927", "2026-09-13T20:25:00Z", false},
-				{"WSH", "PHI", "401872929", "2026-09-13T20:25:00Z", false},
-				{"ARI", "LAC", "401872926", "2026-09-13T20:25:00Z", false},
-				{"DAL", "NYG", "401872930", "2026-09-14T00:20:00Z", false},
-				{"DEN", "KC", "401872931", "2026-09-15T00:15:00Z", true},
+				{"NE", "SEA", "401872656", "2026-09-10T00:20:00Z", false, "ESPN, Disney+, Canal 5"},
+				{"SF", "LAR", "401872657", "2026-09-11T00:35:00Z", false, "ESPN, Disney+"},
+				{"TB", "CIN", "401872925", "2026-09-13T17:00:00Z", false, "Fox Sports, Canal 5, ViX"},
+				{"NO", "DET", "401872923", "2026-09-13T17:00:00Z", false, "Fox Sports, ViX"},
+				{"NYJ", "TEN", "401872924", "2026-09-13T17:00:00Z", false, "Fox Sports"},
+				{"BAL", "IND", "401872659", "2026-09-13T17:00:00Z", false, "ESPN, Disney+"},
+				{"ATL", "PIT", "401872658", "2026-09-13T17:00:00Z", false, "Fox Sports, ViX"},
+				{"CHI", "CAR", "401872661", "2026-09-13T17:00:00Z", false, "Fox Sports"},
+				{"CLE", "JAX", "401872922", "2026-09-13T17:00:00Z", false, "Fox Sports, ViX"},
+				{"BUF", "HOU", "401872660", "2026-09-13T17:00:00Z", false, "ESPN, Disney+"},
+				{"MIA", "LV", "401872928", "2026-09-13T20:25:00Z", false, "Fox Sports, Fox Sports Premium"},
+				{"GB", "MIN", "401872927", "2026-09-13T20:25:00Z", false, "Fox Sports, Fox Sports Premium"},
+				{"WSH", "PHI", "401872929", "2026-09-13T20:25:00Z", false, "Fox Sports, ViX"},
+				{"ARI", "LAC", "401872926", "2026-09-13T20:25:00Z", false, "ESPN, Disney+"},
+				{"DAL", "NYG", "401872930", "2026-09-14T00:20:00Z", false, "ESPN, Disney+"},
+				{"DEN", "KC", "401872931", "2026-09-15T00:15:00Z", true, "ESPN, Disney+, Canal 5, ViX"},
 			}
 
 			for _, m := range matchups {
@@ -165,6 +166,7 @@ func SeedDatabase(repo *Repository, adminUser, adminEmail, adminPass string, sea
 						KickoffTime:  t,
 						Status:       "scheduled",
 						StatusDetail: "Programado",
+						Broadcast:    m.broadcast,
 						IsTiebreaker: m.isTiebreaker,
 					})
 				}

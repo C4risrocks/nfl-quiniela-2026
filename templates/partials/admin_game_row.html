@@ -8,6 +8,15 @@
             <span class="font-bold text-white text-xs">{{.Game.HomeTeam.Code}}</span>
         </div>
         <div class="text-[10px] font-mono text-zinc-500 mt-0.5">{{.FormattedKickoff}}</div>
+        {{if .Game.MexicoBroadcastOptions}}
+            <div class="flex flex-wrap items-center gap-1 mt-1">
+                {{range .Game.MexicoBroadcastOptions}}
+                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[8px] font-mono font-bold border {{.BadgeCSS}}">
+                        {{.Name}}
+                    </span>
+                {{end}}
+            </div>
+        {{end}}
     </td>
 
     <!-- Score Editing Form -->

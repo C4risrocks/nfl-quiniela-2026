@@ -97,22 +97,29 @@
             
             <!-- Matchcast Header Bar -->
             <div class="p-3.5 sm:p-4 bg-zinc-900/90 border-b border-zinc-800 flex flex-wrap items-center justify-between gap-2 text-xs">
-                <div class="flex items-center space-x-2">
+                <div class="flex flex-wrap items-center gap-2">
                     <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-white/10 text-white border border-white/20 flex items-center">
-                        <i class="fa-solid fa-satellite-dish mr-1.5 text-cyan-400"></i> Transmisión Destacada
+                        <i class="fa-solid fa-satellite-dish mr-1.5 text-cyan-400"></i> Partido Destacado
                     </span>
-
-                    {{if $fg.Broadcast}}
-                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-black bg-zinc-800 text-white border border-zinc-700 flex items-center">
-                            <i class="fa-solid fa-tv mr-1 text-zinc-400"></i> {{$fg.Broadcast}}
-                        </span>
-                    {{end}}
 
                     {{if $fg.IsTiebreaker}}
                         <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wider flex items-center">
                             <i class="fa-solid fa-star text-[9px] mr-1 text-amber-400"></i> Desempate MNF
                         </span>
                     {{end}}
+
+                    <!-- Mexican Viewing Options -->
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-wider flex items-center">
+                            <i class="fa-solid fa-tv mr-1 text-zinc-500"></i> En México:
+                        </span>
+                        {{range $b := $fg.MexicoBroadcastOptions}}
+                            <span class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-md text-[10px] font-mono font-black border {{$b.BadgeCSS}} shadow-sm">
+                                <i class="{{$b.IconCSS}} text-[9px]"></i>
+                                <span>{{$b.Name}}</span>
+                            </span>
+                        {{end}}
+                    </div>
                 </div>
 
                 <div>
@@ -417,12 +424,6 @@
                                     {{formatDate $g.KickoffTime}}
                                 </span>
                             {{end}}
-
-                            {{if $g.Broadcast}}
-                                <span class="px-2 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-800 font-mono text-[10px]">
-                                    <i class="fa-solid fa-tv mr-1 text-zinc-500"></i> {{$g.Broadcast}}
-                                </span>
-                            {{end}}
                         </div>
 
                         <div>
@@ -432,6 +433,19 @@
                                 </span>
                             {{end}}
                         </div>
+                    </div>
+
+                    <!-- Mexico Viewing Options Strip -->
+                    <div class="flex flex-wrap items-center gap-1 my-1.5 pt-1.5 border-t border-zinc-900/80">
+                        <span class="text-[9px] font-mono text-zinc-500 flex items-center mr-0.5">
+                            <i class="fa-solid fa-satellite-dish mr-1 text-zinc-400 text-[8px]"></i> En MX:
+                        </span>
+                        {{range $b := $g.MexicoBroadcastOptions}}
+                            <span class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold border {{$b.BadgeCSS}}">
+                                <i class="{{$b.IconCSS}} text-[8px]"></i>
+                                <span>{{$b.Name}}</span>
+                            </span>
+                        {{end}}
                     </div>
 
                     <!-- Teams & Scores -->

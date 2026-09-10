@@ -3,6 +3,7 @@ package db
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -193,6 +194,219 @@ func (g *Game) FormattedKickoff() string {
 	dayNum := t.Format("2")
 	hourMin := t.Format("3:04 PM")
 	return fmt.Sprintf("%s, %s %s - %s", dayAbbr, dayNum, monthAbbr, hourMin)
+}
+
+// BroadcastOption represents a viewing option (TV channel or streaming platform) in Mexico
+type BroadcastOption struct {
+	Name     string `json:"name"`
+	Type     string `json:"type"`      // "tv" (TV Abierta/Paga) or "streaming" (Plataforma Digital)
+	BadgeCSS string `json:"badge_css"` // Tailwind badge classes
+	IconCSS  string `json:"icon_css"`  // FontAwesome icon class
+}
+
+var knownBroadcastMap = map[string]BroadcastOption{
+	"espn": {
+		Name:     "ESPN",
+		Type:     "tv",
+		BadgeCSS: "bg-red-600/15 text-red-400 border-red-500/30",
+		IconCSS:  "fa-solid fa-tv",
+	},
+	"disney+": {
+		Name:     "Disney+",
+		Type:     "streaming",
+		BadgeCSS: "bg-indigo-600/15 text-indigo-300 border-indigo-500/30",
+		IconCSS:  "fa-solid fa-play",
+	},
+	"fox sports": {
+		Name:     "Fox Sports",
+		Type:     "tv",
+		BadgeCSS: "bg-blue-600/15 text-blue-300 border-blue-500/30",
+		IconCSS:  "fa-solid fa-tv",
+	},
+	"fox sports premium": {
+		Name:     "Fox Sports Premium",
+		Type:     "streaming",
+		BadgeCSS: "bg-cyan-600/15 text-cyan-300 border-cyan-500/30",
+		IconCSS:  "fa-solid fa-play",
+	},
+	"prime video": {
+		Name:     "Prime Video",
+		Type:     "streaming",
+		BadgeCSS: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+		IconCSS:  "fa-brands fa-amazon",
+	},
+	"netflix": {
+		Name:     "Netflix",
+		Type:     "streaming",
+		BadgeCSS: "bg-rose-600/20 text-rose-300 border-rose-500/40",
+		IconCSS:  "fa-solid fa-play",
+	},
+	"canal 5": {
+		Name:     "Canal 5",
+		Type:     "tv",
+		BadgeCSS: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+		IconCSS:  "fa-solid fa-tower-broadcast",
+	},
+	"vix": {
+		Name:     "ViX",
+		Type:     "streaming",
+		BadgeCSS: "bg-orange-500/15 text-orange-300 border-orange-500/30",
+		IconCSS:  "fa-solid fa-play",
+	},
+	"dazn": {
+		Name:     "DAZN (Game Pass)",
+		Type:     "streaming",
+		BadgeCSS: "bg-zinc-800 text-zinc-300 border-zinc-700",
+		IconCSS:  "fa-solid fa-play",
+	},
+}
+
+func (g *Game) MexicoBroadcastOptions() []BroadcastOption {
+	if g == nil {
+		return nil
+	}
+
+	var results []BroadcastOption
+	seen := make(map[string]bool)
+
+	addOption := func(key string) {
+		keyLower := strings.ToLower(strings.TrimSpace(key))
+		if opt, ok := knownBroadcastMap[keyLower]; ok {
+			if !seen[opt.Name] {
+				seen[opt.Name] = true
+				results = append(results, opt)
+			}
+		} else if !seen[key] && key != "" {
+			seen[key] = true
+			results = append(results, BroadcastOption{
+				Name:     key,
+				Type:     "tv",
+				BadgeCSS: "bg-zinc-800 text-zinc-300 border-zinc-700",
+				IconCSS:  "fa-solid fa-tv",
+			})
+		}
+	}
+
+	bRaw := strings.ToLower(strings.TrimSpace(g.Broadcast))
+
+	// 1. Check if specific platforms are explicitly mentioned in g.Broadcast
+	hasNetflix := strings.Contains(bRaw, "netflix")
+	hasPrime := strings.Contains(bRaw, "prime") || strings.Contains(bRaw, "amazon")
+	hasESPN := strings.Contains(bRaw, "espn") || strings.Contains(bRaw, "abc")
+	hasDisney := strings.Contains(bRaw, "disney")
+	hasFox := strings.Contains(bRaw, "fox")
+	hasCanal5 := strings.Contains(bRaw, "canal 5") || strings.Contains(bRaw, "televisa")
+	hasViX := strings.Contains(bRaw, "vix")
+	hasNBC := strings.Contains(bRaw, "nbc") || strings.Contains(bRaw, "peacock")
+	hasCBS := strings.Contains(bRaw, "cbs")
+	hasDAZN := strings.Contains(bRaw, "dazn") || strings.Contains(bRaw, "game pass")
+
+	// 2. Kickoff Time context in Mexico City
+	loc, err := time.LoadLocation("America/Mexico_City")
+	tCDMX := g.KickoffTime
+	if err == nil {
+		tCDMX = tCDMX.In(loc)
+	} else {
+		tCDMX = tCDMX.In(time.FixedZone("CST", -6*3600))
+	}
+	weekday := tCDMX.Weekday() // Sunday=0, Monday=1, Thursday=4, Friday=5, Saturday=6
+	hour := tCDMX.Hour()
+	month := tCDMX.Month()
+	day := tCDMX.Day()
+
+	// Special holiday: Christmas (Dec 25/26) -> Netflix global NFL deal
+	isChristmas := month == time.December && (day == 25 || day == 26)
+
+	if hasNetflix || isChristmas {
+		addOption("netflix")
+		addOption("dazn")
+		return results
+	}
+
+	// Thursday Night Football
+	if hasPrime || (weekday == time.Thursday && hour >= 17) {
+		addOption("prime video")
+		addOption("fox sports")
+		addOption("dazn")
+		return results
+	}
+
+	// Monday Night Football
+	if g.IsTiebreaker || (weekday == time.Monday && hour >= 17) || (hasESPN && weekday == time.Monday) {
+		addOption("espn")
+		addOption("disney+")
+		addOption("canal 5")
+		addOption("vix")
+		addOption("dazn")
+		return results
+	}
+
+	// Sunday Night Football (SNF on NBC in US -> ESPN / Disney+ in Mexico)
+	if hasNBC || (weekday == time.Sunday && hour >= 18) {
+		addOption("espn")
+		addOption("disney+")
+		addOption("dazn")
+		return results
+	}
+
+	// If explicit tags were provided (e.g. from admin or ESPN)
+	if hasFox {
+		addOption("fox sports")
+	}
+	if hasESPN {
+		addOption("espn")
+		addOption("disney+")
+	}
+	if hasDisney {
+		addOption("disney+")
+	}
+	if hasCBS {
+		addOption("fox sports")
+		addOption("vix")
+	}
+	if hasCanal5 {
+		addOption("canal 5")
+	}
+	if hasViX {
+		addOption("vix")
+	}
+	if hasDAZN {
+		addOption("dazn")
+	}
+
+	// If by here we already have matched options, add DAZN and return
+	if len(results) > 0 {
+		addOption("dazn")
+		return results
+	}
+
+	// Contextual Fallbacks by Sunday kickoff windows
+	if weekday == time.Sunday {
+		if hour <= 14 { // Sunday Early Window (11:00 AM / 12:00 PM CDMX)
+			addOption("fox sports")
+			addOption("canal 5")
+			addOption("vix")
+			addOption("dazn")
+		} else { // Sunday Late Window (15:05 / 15:25 PM CDMX)
+			addOption("fox sports")
+			addOption("fox sports premium")
+			addOption("espn")
+			addOption("disney+")
+			addOption("dazn")
+		}
+	} else if weekday == time.Friday || weekday == time.Saturday {
+		addOption("espn")
+		addOption("disney+")
+		addOption("dazn")
+	} else {
+		// General fallback
+		addOption("fox sports")
+		addOption("espn")
+		addOption("disney+")
+		addOption("dazn")
+	}
+
+	return results
 }
 
 // UserWeeklyPerformance tracks a user's points and rank for a single week

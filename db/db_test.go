@@ -467,3 +467,65 @@ func TestCommunityStatsAndHeadToHead(t *testing.T) {
 		t.Errorf("Expected user3 to be provisional loser when home is leading 21-10")
 	}
 }
+
+func TestMexicoBroadcastOptions(t *testing.T) {
+	loc, _ := time.LoadLocation("America/Mexico_City")
+	if loc == nil {
+		loc = time.FixedZone("CST", -6*3600)
+	}
+
+	// 1. Christmas Game
+	xmasGame := &Game{
+		KickoffTime: time.Date(2026, 12, 25, 15, 30, 0, 0, loc),
+	}
+	opts := xmasGame.MexicoBroadcastOptions()
+	hasNetflix := false
+	hasDAZN := false
+	for _, o := range opts {
+		if o.Name == "Netflix" {
+			hasNetflix = true
+		}
+		if o.Name == "DAZN (Game Pass)" {
+			hasDAZN = true
+		}
+	}
+	if !hasNetflix || !hasDAZN {
+		t.Errorf("Expected Christmas game to have Netflix and DAZN, got %+v", opts)
+	}
+
+	// 2. Thursday Night Football
+	tnfGame := &Game{
+		Broadcast:   "Prime Video",
+		KickoffTime: time.Date(2026, 9, 10, 19, 15, 0, 0, loc),
+	}
+	optsTNF := tnfGame.MexicoBroadcastOptions()
+	hasPrime := false
+	for _, o := range optsTNF {
+		if o.Name == "Prime Video" {
+			hasPrime = true
+		}
+	}
+	if !hasPrime {
+		t.Errorf("Expected TNF to have Prime Video, got %+v", optsTNF)
+	}
+
+	// 3. Monday Night Football (Tiebreaker)
+	mnfGame := &Game{
+		IsTiebreaker: true,
+		KickoffTime:  time.Date(2026, 9, 14, 19, 15, 0, 0, loc),
+	}
+	optsMNF := mnfGame.MexicoBroadcastOptions()
+	hasESPN := false
+	hasCanal5 := false
+	for _, o := range optsMNF {
+		if o.Name == "ESPN" {
+			hasESPN = true
+		}
+		if o.Name == "Canal 5" {
+			hasCanal5 = true
+		}
+	}
+	if !hasESPN || !hasCanal5 {
+		t.Errorf("Expected MNF to have ESPN and Canal 5, got %+v", optsMNF)
+	}
+}

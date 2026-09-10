@@ -125,6 +125,21 @@
         </div>
     </div>
 
+    <!-- Mexico Viewing Options Strip -->
+    {{if .Game.MexicoBroadcastOptions}}
+        <div class="flex flex-wrap items-center gap-1 my-1 px-1">
+            <span class="text-[9px] font-mono text-zinc-500 flex items-center mr-0.5">
+                <i class="fa-solid fa-satellite-dish mr-1 text-zinc-400 text-[8px]"></i> En MX:
+            </span>
+            {{range .Game.MexicoBroadcastOptions}}
+                <span class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold border {{.BadgeCSS}}" title="{{.Type}}: {{.Name}}">
+                    <i class="{{.IconCSS}} text-[8px]"></i>
+                    <span>{{.Name}}</span>
+                </span>
+            {{end}}
+        </div>
+    {{end}}
+
     <!-- Matchup Selection Grid (Away vs Home) -->
     <div class="grid grid-cols-11 items-center gap-2 sm:gap-3 my-2">
         
