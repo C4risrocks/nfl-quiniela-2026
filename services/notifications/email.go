@@ -79,6 +79,48 @@ const emailTemplateHTML = `<!DOCTYPE html>
 </body>
 </html>`
 
+const gracePeriodTemplateHTML = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aviso de Prórroga NFL Quiniela 2026</title>
+<style>
+  body { margin: 0; padding: 0; background-color: #000000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #ededed; }
+  .container { max-width: 580px; margin: 30px auto; background-color: #0c0c0c; border: 1px solid #222222; border-radius: 16px; padding: 32px; }
+  .badge { display: inline-block; background-color: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 9999px; font-size: 11px; font-weight: 600; padding: 4px 12px; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.05em; }
+  h1 { font-size: 22px; font-weight: 800; color: #ffffff; margin: 0 0 12px 0; letter-spacing: -0.02em; }
+  p { font-size: 14px; line-height: 1.6; color: #a1a1aa; margin: 0 0 20px 0; }
+  .alert-box { background-color: #111827; border: 1px solid #1e3a8a; border-radius: 12px; padding: 18px; margin-bottom: 24px; }
+  .alert-box strong { color: #ffffff; }
+  .btn { display: inline-block; background-color: #ffffff; color: #000000; font-size: 13px; font-weight: 700; text-decoration: none; padding: 12px 24px; border-radius: 10px; text-align: center; }
+  .btn:hover { background-color: #e4e4e7; }
+  .footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid #1f1f1f; font-size: 11px; color: #71717a; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="badge">⏳ Prórroga Activa &bull; Semana 1</div>
+  <h1>¡Últimas horas, {{.Username}}!</h1>
+  <p>La prórroga especial para la <strong>Semana 1</strong> está por concluir. Debido al despliegue de la quiniela, <strong>todos los partidos de la jornada</strong> (incluyendo el partido de Seattle vs New England) se encuentran aún abiertos para registro y edición.</p>
+  
+  <div class="alert-box">
+    <div style="font-size: 12px; color: #93c5fd; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Cierre definitivo de pronósticos:</div>
+    <div style="font-size: 16px; font-weight: 700; color: #ffffff;">{{.FormattedDeadline}}</div>
+    <div style="font-size: 12px; color: #60a5fa; margin-top: 6px;">Al llegar la hora límite, la jornada se bloqueará por completo y no podrás ingresar selecciones.</div>
+  </div>
+
+  <div style="text-align: center; margin: 28px 0;">
+    <a href="{{.PicksURL}}" class="btn">Completar mis Pronósticos Ahora &rarr;</a>
+  </div>
+
+  <div class="footer">
+    NFL Quiniela 2026 &bull; Notificación de prórroga especial para participantes con pronósticos pendientes.
+  </div>
+</div>
+</body>
+</html>`
+
 const verificationTemplateHTML = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -187,6 +229,45 @@ func (s *EmailSender) SendKickoffReminder(user *db.User, week *db.Week, kickoff 
 	var body bytes.Buffer
 	if err := tmpl.Execute(&body, data); err != nil {
 		return fmt.Errorf("executing email template: %w", err)
+	}
+
+	return s.sendMail(user.Email, user.Username, subject, body.String())
+}
+
+// SendGracePeriodReminder sends an urgent reminder about the closing of the Week 1 grace period
+func (s *EmailSender) SendGracePeriodReminder(user *db.User, week *db.Week, deadline time.Time) error {
+	subject := fmt.Sprintf("⏳ ¡Últimas horas de prórroga! Completa tus pronósticos de %s", week.Name)
+	picksURL := fmt.Sprintf("%s/picks?week=%d", s.appBaseURL, week.WeekNumber)
+
+	formattedDeadline := deadline.Format("Monday 02 Jan, 03:04 PM MST")
+	loc, err := time.LoadLocation("America/Mexico_City")
+	if err == nil {
+		cdmxTime := deadline.In(loc)
+		dayAbbr := map[string]string{"Mon": "Lunes", "Tue": "Martes", "Wed": "Miércoles", "Thu": "Jueves", "Fri": "Viernes", "Sat": "Sábado", "Sun": "Domingo"}[cdmxTime.Format("Mon")]
+		monthAbbr := map[string]string{"Jan": "Enero", "Feb": "Febrero", "Mar": "Marzo", "Apr": "Abril", "May": "Mayo", "Jun": "Junio", "Jul": "Julio", "Aug": "Agosto", "Sep": "Septiembre", "Oct": "Octubre", "Nov": "Noviembre", "Dec": "Diciembre"}[cdmxTime.Format("Jan")]
+		formattedDeadline = fmt.Sprintf("%s %s de %s a las %s (Hora CDMX)", dayAbbr, cdmxTime.Format("2"), monthAbbr, cdmxTime.Format("3:04 PM"))
+	}
+
+	data := struct {
+		Username          string
+		WeekName          string
+		FormattedDeadline string
+		PicksURL          string
+	}{
+		Username:          user.Username,
+		WeekName:          week.Name,
+		FormattedDeadline: formattedDeadline,
+		PicksURL:          picksURL,
+	}
+
+	tmpl, err := template.New("grace_email").Parse(gracePeriodTemplateHTML)
+	if err != nil {
+		return fmt.Errorf("parsing grace email template: %w", err)
+	}
+
+	var body bytes.Buffer
+	if err := tmpl.Execute(&body, data); err != nil {
+		return fmt.Errorf("executing grace email template: %w", err)
 	}
 
 	return s.sendMail(user.Email, user.Username, subject, body.String())

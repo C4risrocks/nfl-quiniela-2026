@@ -279,3 +279,30 @@ type ScoringConfig struct {
 	ExactMarginBonus int    // e.g. 2
 	LockMode         string // "per_game" or "full_week"
 }
+
+// UserWeeklySummary represents a player's pick completion metrics for an admin view
+type UserWeeklySummary struct {
+	User           *User `json:"user"`
+	CompletedPicks int   `json:"completed_picks"`
+	TotalGames     int   `json:"total_games"`
+	HasTiebreaker  bool  `json:"has_tiebreaker"`
+	TotalPoints    int   `json:"total_points"`
+}
+
+// PickExportRow represents a flattened pick record suitable for CSV export
+type PickExportRow struct {
+	Username           string    `json:"username"`
+	Email              string    `json:"email"`
+	WeekNumber         int       `json:"week_number"`
+	AwayTeamCode       string    `json:"away_team_code"`
+	HomeTeamCode       string    `json:"home_team_code"`
+	PickedTeamCode     string    `json:"picked_team_code"`
+	PredictedAwayScore *int      `json:"predicted_away_score"`
+	PredictedHomeScore *int      `json:"predicted_home_score"`
+	ActualAwayScore    *int      `json:"actual_away_score"`
+	ActualHomeScore    *int      `json:"actual_home_score"`
+	PointsEarned       int       `json:"points_earned"`
+	BonusPoints        int       `json:"bonus_points"`
+	GameStatus         string    `json:"game_status"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}

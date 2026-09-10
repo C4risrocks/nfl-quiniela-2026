@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"nfl-quiniela-2026/db"
 	"nfl-quiniela-2026/services/auth"
 	"nfl-quiniela-2026/services/espn"
@@ -629,5 +631,143 @@ func TestWeek1GracePeriodException(t *testing.T) {
 	}
 	if !strings.Contains(rrShow.Body.String(), "Prórroga") {
 		t.Errorf("Expected ShowPicks Week 1 to include Prórroga banner or badge")
+	}
+}
+
+func TestAdminUserManagementAndOverride(t *testing.T) {
+	repo, authService, _, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	subTemplatesFS, _ := fs.Sub(os.DirFS(".."), "templates")
+	renderer := NewRenderer(subTemplatesFS)
+
+	emailSender := notifications.NewEmailSender("", 587, "", "", "noreply@test.com", "http://localhost:8080")
+	reminderWorker := notifications.NewReminderWorker(repo, emailSender, 2026)
+	scoringCalc := scoring.NewCalculator(repo)
+	adminHandler := NewAdminHandler(repo, renderer, nil, scoringCalc, nil, reminderWorker, 2026)
+
+	adminUser, _ := authService.Register("superadmin", "superadmin@test.com", "pass123")
+	_ = repo.SetUserRole(adminUser.ID, "admin")
+	adminUser, _ = repo.GetUserByID(adminUser.ID)
+
+	playerUser, _ := authService.Register("playerjoe", "joe@test.com", "pass123")
+
+	season, _ := repo.GetActiveSeason(2026)
+	weeks, _ := repo.ListWeeks(season.ID)
+	week1 := weeks[0]
+	games, _ := repo.ListGamesByWeek(week1.ID)
+
+	// 1. Test VerifyUserEmail
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("userId", strconvFormat(playerUser.ID))
+	reqVerify := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/admin/users/%d/verify-email", playerUser.ID), nil)
+	reqVerify = reqVerify.WithContext(context.WithValue(reqVerify.Context(), chi.RouteCtxKey, rctx))
+	reqVerify = reqVerify.WithContext(injectUser(reqVerify.Context(), adminUser))
+	rrVerify := httptest.NewRecorder()
+
+	adminHandler.VerifyUserEmail(rrVerify, reqVerify)
+	if rrVerify.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK verifying email, got %d", rrVerify.Code)
+	}
+	uCheck, _ := repo.GetUserByID(playerUser.ID)
+	if !uCheck.EmailVerified {
+		t.Errorf("Expected user email to be verified in DB")
+	}
+
+	// 2. Test ToggleUserRole
+	reqRole := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/admin/users/%d/toggle-role", playerUser.ID), nil)
+	reqRole = reqRole.WithContext(context.WithValue(reqRole.Context(), chi.RouteCtxKey, rctx))
+	reqRole = reqRole.WithContext(injectUser(reqRole.Context(), adminUser))
+	rrRole := httptest.NewRecorder()
+
+	adminHandler.ToggleUserRole(rrRole, reqRole)
+	if rrRole.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK toggling role, got %d", rrRole.Code)
+	}
+	uRoleCheck, _ := repo.GetUserByID(playerUser.ID)
+	if uRoleCheck.Role != "admin" {
+		t.Errorf("Expected playerjoe to become admin, got %s", uRoleCheck.Role)
+	}
+
+	// 3. Test ShowUserPicks Modal
+	reqPicks := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/admin/users/%d/picks?week_id=%d", playerUser.ID, week1.ID), nil)
+	reqPicks = reqPicks.WithContext(context.WithValue(reqPicks.Context(), chi.RouteCtxKey, rctx))
+	reqPicks = reqPicks.WithContext(injectUser(reqPicks.Context(), adminUser))
+	rrPicks := httptest.NewRecorder()
+
+	adminHandler.ShowUserPicks(rrPicks, reqPicks)
+	if rrPicks.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK showing user picks modal, got %d: %s", rrPicks.Code, rrPicks.Body.String())
+	}
+	if !strings.Contains(rrPicks.Body.String(), "playerjoe") {
+		t.Errorf("Expected modal body to contain playerjoe")
+	}
+
+	// 4. Test SaveUserPicks (Admin Override)
+	formSave := url.Values{}
+	formSave.Set("week_id", strconvFormat(week1.ID))
+	if len(games) > 0 {
+		g := games[0]
+		formSave.Set(fmt.Sprintf("picked_team_%d", g.ID), strconvFormat(g.HomeTeamID))
+		formSave.Set(fmt.Sprintf("home_score_%d", g.ID), "24")
+		formSave.Set(fmt.Sprintf("away_score_%d", g.ID), "17")
+	}
+
+	reqSave := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/admin/users/%d/picks/save", playerUser.ID), strings.NewReader(formSave.Encode()))
+	reqSave.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqSave = reqSave.WithContext(context.WithValue(reqSave.Context(), chi.RouteCtxKey, rctx))
+	reqSave = reqSave.WithContext(injectUser(reqSave.Context(), adminUser))
+	rrSave := httptest.NewRecorder()
+
+	adminHandler.SaveUserPicks(rrSave, reqSave)
+	if rrSave.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK saving user picks, got %d", rrSave.Code)
+	}
+
+	// Verify pick in DB
+	if len(games) > 0 {
+		p, err := repo.GetUserPickForGame(playerUser.ID, games[0].ID)
+		if err != nil || p == nil {
+			t.Fatalf("Pick was not saved in DB for user: %v", err)
+		}
+		if *p.PickedTeamID != games[0].HomeTeamID {
+			t.Errorf("Expected picked team %d, got %d", games[0].HomeTeamID, *p.PickedTeamID)
+		}
+		if p.PredictedHomeScore == nil || *p.PredictedHomeScore != 24 {
+			t.Errorf("Expected home score 24, got %v", p.PredictedHomeScore)
+		}
+	}
+
+	// 5. Test ExportWeekPicksCSV
+	reqExport := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/admin/picks/export?week=%d", week1.WeekNumber), nil)
+	reqExport = reqExport.WithContext(injectUser(reqExport.Context(), adminUser))
+	rrExport := httptest.NewRecorder()
+
+	adminHandler.ExportWeekPicksCSV(rrExport, reqExport)
+	if rrExport.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK exporting CSV, got %d", rrExport.Code)
+	}
+	if !strings.Contains(rrExport.Header().Get("Content-Type"), "text/csv") {
+		t.Errorf("Expected text/csv content type, got %s", rrExport.Header().Get("Content-Type"))
+	}
+	if !strings.Contains(rrExport.Body.String(), "playerjoe") {
+		t.Errorf("Expected CSV output to contain playerjoe")
+	}
+
+	// 6. Test SendReminders (Grace Period)
+	formReminder := url.Values{}
+	formReminder.Set("week_id", strconvFormat(week1.ID))
+	formReminder.Set("reminder_type", "grace_period")
+	reqRemind := httptest.NewRequest(http.MethodPost, "/admin/reminders/send", strings.NewReader(formReminder.Encode()))
+	reqRemind.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqRemind = reqRemind.WithContext(injectUser(reqRemind.Context(), adminUser))
+	rrRemind := httptest.NewRecorder()
+
+	adminHandler.SendReminders(rrRemind, reqRemind)
+	if rrRemind.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK sending reminders, got %d", rrRemind.Code)
+	}
+	if !strings.Contains(rrRemind.Body.String(), "prórroga") {
+		t.Errorf("Expected response to mention prórroga")
 	}
 }

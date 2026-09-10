@@ -907,3 +907,118 @@ func (r *Repository) LogReminderSent(userID, weekID int64, reminderType string) 
 	return err
 }
 
+func (r *Repository) SetUserEmailVerified(userID int64, verified bool) error {
+	v := 0
+	if verified {
+		v = 1
+	}
+	query := `UPDATE users SET email_verified = ? WHERE id = ?`
+	_, err := r.db.Exec(query, v, userID)
+	return err
+}
+
+func (r *Repository) SetUserRole(userID int64, role string) error {
+	if role != "admin" && role != "player" {
+		return fmt.Errorf("invalid role: %s", role)
+	}
+	query := `UPDATE users SET role = ? WHERE id = ?`
+	_, err := r.db.Exec(query, role, userID)
+	return err
+}
+
+func (r *Repository) GetUserWeeklySummaries(weekID int64) ([]*UserWeeklySummary, error) {
+	users, err := r.ListUsers()
+	if err != nil {
+		return nil, err
+	}
+
+	games, err := r.ListGamesByWeek(weekID)
+	if err != nil {
+		return nil, err
+	}
+	totalGames := len(games)
+
+	var tiebreakerGameID int64
+	for _, g := range games {
+		if g.IsTiebreaker {
+			tiebreakerGameID = g.ID
+			break
+		}
+	}
+
+	var summaries []*UserWeeklySummary
+	for _, u := range users {
+		picks, _ := r.GetUserPicksForWeek(u.ID, weekID)
+		completed := 0
+		hasTb := false
+		totalPts := 0
+		for _, p := range picks {
+			if p.PickedTeamID != nil {
+				completed++
+			}
+			if tiebreakerGameID > 0 && p.GameID == tiebreakerGameID {
+				if p.PredictedHomeScore != nil && p.PredictedAwayScore != nil {
+					hasTb = true
+				}
+			}
+			totalPts += p.PointsEarned + p.BonusPoints
+		}
+
+		summaries = append(summaries, &UserWeeklySummary{
+			User:           u,
+			CompletedPicks: completed,
+			TotalGames:     totalGames,
+			HasTiebreaker:  hasTb,
+			TotalPoints:    totalPts,
+		})
+	}
+
+	return summaries, nil
+}
+
+func (r *Repository) GetPicksExportDataForWeek(weekID int64) ([]*PickExportRow, error) {
+	query := `
+	SELECT u.username, u.email, w.week_number,
+	       at.code as away_code, ht.code as home_code,
+	       COALESCE(pt.code, '') as picked_code,
+	       p.predicted_away_score, p.predicted_home_score,
+	       g.away_score, g.home_score,
+	       COALESCE(p.points_earned, 0), COALESCE(p.bonus_points, 0),
+	       g.status, COALESCE(p.updated_at, g.created_at)
+	FROM users u
+	CROSS JOIN games g
+	JOIN weeks w ON g.week_id = w.id
+	JOIN teams ht ON g.home_team_id = ht.id
+	JOIN teams at ON g.away_team_id = at.id
+	LEFT JOIN picks p ON p.user_id = u.id AND p.game_id = g.id
+	LEFT JOIN teams pt ON p.picked_team_id = pt.id
+	WHERE g.week_id = ?
+	ORDER BY u.username ASC, g.kickoff_time ASC, g.id ASC`
+
+	rows, err := r.db.Query(query, weekID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var exportRows []*PickExportRow
+	for rows.Next() {
+		var row PickExportRow
+		var updatedAtStr string
+		if err := rows.Scan(
+			&row.Username, &row.Email, &row.WeekNumber,
+			&row.AwayTeamCode, &row.HomeTeamCode,
+			&row.PickedTeamCode,
+			&row.PredictedAwayScore, &row.PredictedHomeScore,
+			&row.ActualAwayScore, &row.ActualHomeScore,
+			&row.PointsEarned, &row.BonusPoints,
+			&row.GameStatus, &updatedAtStr,
+		); err != nil {
+			return nil, err
+		}
+		row.UpdatedAt = parseTimeSafe(updatedAtStr)
+		exportRows = append(exportRows, &row)
+	}
+	return exportRows, nil
+}
+

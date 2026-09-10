@@ -282,38 +282,136 @@
 
     </div>
 
-    <!-- TAB 3: Users List -->
+    <!-- TAB 3: Users List & Picks Overview -->
     <div x-show="activeTab === 'users'" x-cloak class="space-y-6">
         <div class="vercel-card p-6 rounded-2xl">
-            <h2 class="text-base font-bold text-white mb-3 flex items-center">
-                <i class="fa-solid fa-users text-zinc-400 mr-2"></i>
-                Jugadores Registrados ({{len .Users}})
-            </h2>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                <div>
+                    <h2 class="text-base font-bold text-white mb-1 flex items-center">
+                        <i class="fa-solid fa-users text-zinc-400 mr-2"></i>
+                        Jugadores y Pronósticos ({{.SelectedWeek.Name}})
+                    </h2>
+                    <p class="text-xs text-zinc-400">
+                        Gestiona roles, verifica cuentas de correo, inspecciona y edita pronósticos en nombre de cualquier jugador.
+                    </p>
+                </div>
+
+                <div class="flex items-center space-x-2.5">
+                    <select onchange="window.location.href = '/admin?week=' + this.value"
+                            class="bg-zinc-900 border border-zinc-700 text-white text-xs font-semibold rounded-xl px-3 py-1.5 focus:ring-1 focus:ring-white">
+                        {{range .Weeks}}
+                            <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
+                                {{.Name}}
+                            </option>
+                        {{end}}
+                    </select>
+
+                    <a href="/admin/picks/export?week={{.SelectedWeek.WeekNumber}}" 
+                       class="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700 text-xs font-semibold transition-colors flex items-center shadow-sm">
+                        <i class="fa-solid fa-file-csv mr-1.5 text-emerald-400"></i> Exportar CSV
+                    </a>
+                </div>
+            </div>
 
             <div class="overflow-x-auto rounded-xl border border-[#222222]">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead>
                         <tr class="border-b border-[#1f1f1f] bg-black/40 text-zinc-500 font-mono text-[11px] uppercase tracking-wider">
-                            <th class="py-2.5 px-3">ID</th>
                             <th class="py-2.5 px-3">Usuario</th>
-                            <th class="py-2.5 px-3">Correo</th>
-                            <th class="py-2.5 px-3">Rol</th>
-                            <th class="py-2.5 px-3">Fecha de Registro</th>
+                            <th class="py-2.5 px-3">Correo & Estado</th>
+                            <th class="py-2.5 px-3 text-center">Rol</th>
+                            <th class="py-2.5 px-3 text-center">Picks ({{.SelectedWeek.Name}})</th>
+                            <th class="py-2.5 px-3 text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-[#1a1a1a] text-zinc-300">
-                        {{range .Users}}
-                            <tr class="hover:bg-zinc-900/30">
-                                <td class="py-2.5 px-3 font-mono text-zinc-500">#{{.ID}}</td>
-                                <td class="py-2.5 px-3 font-semibold text-white">{{.Username}}</td>
-                                <td class="py-2.5 px-3 text-zinc-400">{{.Email}}</td>
-                                <td class="py-2.5 px-3">
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold {{if .IsAdmin}}bg-amber-500/10 text-amber-300 border border-amber-500/30{{else}}bg-zinc-900 text-zinc-400 border border-zinc-800{{end}}">
-                                        {{.Role}}
-                                    </span>
-                                </td>
-                                <td class="py-2.5 px-3 font-mono text-zinc-500">{{formatDate .CreatedAt}}</td>
-                            </tr>
+                        {{if .UserSummaries}}
+                            {{range .UserSummaries}}
+                                <tr class="hover:bg-zinc-900/30">
+                                    <td class="py-2.5 px-3">
+                                        <div class="font-semibold text-white flex items-center">
+                                            <span>{{.User.Username}}</span>
+                                            {{if .User.IsAdmin}}
+                                                <span class="ml-1.5 text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">ADMIN</span>
+                                            {{end}}
+                                        </div>
+                                        <div class="text-[10px] font-mono text-zinc-500 mt-0.5">ID: #{{.User.ID}} &bull; Reg: {{formatShortDate .User.CreatedAt}}</div>
+                                    </td>
+                                    <td class="py-2.5 px-3">
+                                        <div class="text-zinc-300 font-mono">{{.User.Email}}</div>
+                                        <div class="mt-1">
+                                            {{if .User.EmailVerified}}
+                                                <span class="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+                                                    <i class="fa-solid fa-circle-check mr-1 text-[8px]"></i> Verificado
+                                                </span>
+                                            {{else}}
+                                                <span class="inline-flex items-center space-x-1.5">
+                                                    <span class="px-1.5 py-0.2 rounded text-[10px] font-mono text-amber-300 bg-amber-500/10 border border-amber-500/20">
+                                                        No verificado
+                                                    </span>
+                                                    <button hx-post="/admin/users/{{.User.ID}}/verify-email" 
+                                                            hx-swap="outerHTML"
+                                                            class="px-2 py-0.5 rounded text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors border border-zinc-700"
+                                                            title="Confirmar correo manualmente">
+                                                        <i class="fa-solid fa-check mr-1 text-[8px]"></i> Validar
+                                                    </button>
+                                                </span>
+                                            {{end}}
+                                        </div>
+                                    </td>
+                                    <td class="py-2.5 px-3 text-center">
+                                        <button hx-post="/admin/users/{{.User.ID}}/toggle-role" 
+                                                hx-swap="outerHTML"
+                                                class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold cursor-pointer hover:opacity-80 transition-opacity {{if .User.IsAdmin}}bg-amber-500/10 text-amber-300 border border-amber-500/30{{else}}bg-zinc-900 text-zinc-400 border border-zinc-800{{end}}"
+                                                title="Clic para cambiar rol">
+                                            {{.User.Role}}
+                                        </button>
+                                    </td>
+                                    <td class="py-2.5 px-3 text-center font-mono">
+                                        {{if eq .CompletedPicks .TotalGames}}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                <i class="fa-solid fa-check mr-1 text-[8px]"></i> {{.CompletedPicks}}/{{.TotalGames}}
+                                            </span>
+                                        {{else}}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                                                {{.CompletedPicks}}/{{.TotalGames}}
+                                            </span>
+                                        {{end}}
+                                        {{if .HasTiebreaker}}
+                                            <span class="ml-1 text-[10px] text-amber-400" title="Desempate MNF configurado">★</span>
+                                        {{end}}
+                                    </td>
+                                    <td class="py-2.5 px-3 text-right">
+                                        <button hx-get="/admin/users/{{.User.ID}}/picks?week_id={{$.SelectedWeek.ID}}" 
+                                                hx-target="#admin-modal-container" 
+                                                hx-swap="innerHTML"
+                                                class="inline-flex items-center px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold border border-zinc-700 hover:border-zinc-500 transition-colors shadow-sm">
+                                            <i class="fa-solid fa-user-pen mr-1.5 text-zinc-400"></i> Pronósticos
+                                        </button>
+                                    </td>
+                                </tr>
+                            {{end}}
+                        {{else}}
+                            {{range .Users}}
+                                <tr class="hover:bg-zinc-900/30">
+                                    <td class="py-2.5 px-3 font-semibold text-white">{{.Username}}</td>
+                                    <td class="py-2.5 px-3 text-zinc-400">{{.Email}}</td>
+                                    <td class="py-2.5 px-3 text-center">
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold {{if .IsAdmin}}bg-amber-500/10 text-amber-300 border border-amber-500/30{{else}}bg-zinc-900 text-zinc-400 border border-zinc-800{{end}}">
+                                            {{.Role}}
+                                        </span>
+                                    </td>
+                                    <td class="py-2.5 px-3 text-center text-zinc-500">--</td>
+                                    <td class="py-2.5 px-3 text-right">
+                                        <button hx-get="/admin/users/{{.ID}}/picks?week_id={{$.SelectedWeek.ID}}" 
+                                                hx-target="#admin-modal-container" 
+                                                hx-swap="innerHTML"
+                                                class="inline-flex items-center px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold border border-zinc-700 transition-colors shadow-sm">
+                                            <i class="fa-solid fa-user-pen mr-1.5 text-zinc-400"></i> Pronósticos
+                                        </button>
+                                    </td>
+                                </tr>
+                            {{end}}
                         {{end}}
                     </tbody>
                 </table>
@@ -328,10 +426,10 @@
                 <div>
                     <h2 class="text-base font-bold text-white mb-1 flex items-center">
                         <i class="fa-solid fa-envelope text-zinc-400 mr-2"></i>
-                        Recordatorios de Kickoff ({{.SelectedWeek.Name}})
+                        Recordatorios de Cierre & Kickoff ({{.SelectedWeek.Name}})
                     </h2>
                     <p class="text-xs text-zinc-400">
-                        Envía alertas por correo a los jugadores que aún tienen pronósticos incompletos antes de que comiencen los partidos.
+                        Envía alertas por correo a los jugadores que aún tienen pronósticos incompletos antes de que comience el bloqueo.
                     </p>
                 </div>
 
@@ -345,6 +443,19 @@
                 </select>
             </div>
 
+            {{if and (eq .SelectedWeek.WeekNumber 1) .IsWeek1GraceActive}}
+                <!-- Week 1 Special Grace Period Notice -->
+                <div class="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs flex items-start space-x-3 mb-6 shadow-sm">
+                    <i class="fa-solid fa-clock-rotate-left text-blue-400 text-base mt-0.5 flex-shrink-0"></i>
+                    <div>
+                        <div class="font-bold text-white text-xs">Prórroga Especial Activa para la Semana 1</div>
+                        <p class="text-blue-300/90 text-xs mt-0.5 leading-relaxed">
+                            Todos los partidos (incluyendo el de hoy Seattle vs New England) permanecen desbloqueados hasta el <strong>jueves 10 de septiembre a las 6:35 PM (Hora CDMX)</strong>. El trabajador en segundo plano enviará recordatorios automáticos 12h y 2h antes del cierre.
+                        </p>
+                    </div>
+                </div>
+            {{end}}
+
             <!-- Reminder Metric Stats -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
                 <div class="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800">
@@ -353,19 +464,30 @@
                 </div>
 
                 <div class="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800">
-                    <div class="text-[11px] font-mono text-zinc-500 uppercase tracking-wider">Picks Pendientes</div>
+                    <div class="text-[11px] font-mono text-zinc-500 uppercase tracking-wider">Picks Incompletos</div>
                     <div class="text-xl font-bold font-mono text-amber-400 mt-1">{{.PendingCount}} <span class="text-xs text-zinc-500 font-normal">jugadores</span></div>
                 </div>
 
                 <div class="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800 flex flex-col justify-center">
                     <form hx-post="/admin/reminders/send"
                           hx-target="#reminder-result"
-                          hx-swap="innerHTML">
+                          hx-swap="innerHTML"
+                          class="space-y-2">
                         <input type="hidden" name="week_id" value="{{.SelectedWeek.ID}}">
-                        <button type="submit" 
-                                class="w-full py-2 px-3 rounded-lg bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-colors shadow-sm flex items-center justify-center">
-                            <i class="fa-solid fa-paper-plane mr-1.5"></i> Enviar Recordatorio Ahora
-                        </button>
+                        
+                        {{if and (eq .SelectedWeek.WeekNumber 1) .IsWeek1GraceActive}}
+                            <input type="hidden" name="reminder_type" value="grace_period">
+                            <button type="submit" 
+                                    class="w-full py-2 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-semibold text-xs transition-colors shadow-sm flex items-center justify-center">
+                                <i class="fa-solid fa-clock-rotate-left mr-1.5"></i> Enviar Alerta de Prórroga
+                            </button>
+                        {{else}}
+                            <input type="hidden" name="reminder_type" value="kickoff">
+                            <button type="submit" 
+                                    class="w-full py-2 px-3 rounded-lg bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-colors shadow-sm flex items-center justify-center">
+                                <i class="fa-solid fa-paper-plane mr-1.5"></i> Enviar Recordatorio Kickoff
+                            </button>
+                        {{end}}
                     </form>
                 </div>
             </div>
@@ -381,6 +503,7 @@
                             <th class="py-2.5 px-3">Usuario</th>
                             <th class="py-2.5 px-3">Correo</th>
                             <th class="py-2.5 px-3 text-center">Estado</th>
+                            <th class="py-2.5 px-3 text-right">Acción</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-[#1a1a1a] text-zinc-300">
@@ -388,17 +511,25 @@
                             {{range .PendingUsers}}
                                 <tr class="hover:bg-zinc-900/30">
                                     <td class="py-2.5 px-3 font-semibold text-white">{{.Username}}</td>
-                                    <td class="py-2.5 px-3 text-zinc-400">{{.Email}}</td>
+                                    <td class="py-2.5 px-3 text-zinc-400 font-mono">{{.Email}}</td>
                                     <td class="py-2.5 px-3 text-center">
                                         <span class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase bg-amber-500/10 text-amber-300 border border-amber-500/30">
                                             Pendiente
                                         </span>
                                     </td>
+                                    <td class="py-2.5 px-3 text-right">
+                                        <button hx-get="/admin/users/{{.ID}}/picks?week_id={{$.SelectedWeek.ID}}" 
+                                                hx-target="#admin-modal-container" 
+                                                hx-swap="innerHTML"
+                                                class="inline-flex items-center px-2 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-[11px] border border-zinc-700 transition-colors">
+                                            <i class="fa-solid fa-pen-to-square mr-1"></i> Asignar
+                                        </button>
+                                    </td>
                                 </tr>
                             {{end}}
                         {{else}}
                             <tr>
-                                <td colspan="3" class="py-6 text-center text-zinc-500">
+                                <td colspan="4" class="py-6 text-center text-zinc-500">
                                     <i class="fa-solid fa-circle-check text-emerald-400 mr-1.5"></i> ¡Todos los jugadores han completado sus pronósticos para esta jornada!
                                 </td>
                             </tr>
@@ -409,6 +540,15 @@
 
         </div>
     </div>
+
+    <!-- Dynamic Container for Admin Modals (User Picks Override, etc.) -->
+    <div id="admin-modal-container"></div>
+    <script>
+        document.addEventListener('close-admin-modal', function() {
+            var el = document.getElementById('admin-modal-container');
+            if (el) el.innerHTML = '';
+        });
+    </script>
 
 </div>
 {{end}}

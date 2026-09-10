@@ -1,0 +1,149 @@
+<div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+     x-data="{}"
+     @keydown.escape.window="document.getElementById('admin-modal-container').innerHTML = ''">
+    
+    <div class="vercel-card rounded-2xl w-full max-w-2xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[90vh] bg-zinc-950">
+        
+        <!-- Modal Header -->
+        <div class="p-4 sm:p-5 border-b border-[#222222] flex items-center justify-between bg-zinc-900/60">
+            <div>
+                <div class="flex items-center space-x-2">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                        Admin Override
+                    </span>
+                    <span class="text-xs text-zinc-400 font-mono">{{.Week.Name}}</span>
+                </div>
+                <h2 class="text-base sm:text-lg font-bold text-white mt-1 flex items-center">
+                    <i class="fa-solid fa-user-pen mr-2 text-zinc-400"></i>
+                    Pronósticos de {{.TargetUser.Username}}
+                </h2>
+            </div>
+            
+            <button type="button" 
+                    onclick="document.getElementById('admin-modal-container').innerHTML = ''"
+                    class="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors">
+                <i class="fa-solid fa-xmark text-base"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body: Scrollable Game Picks Form -->
+        <form hx-post="/admin/users/{{.TargetUser.ID}}/picks/save"
+              hx-swap="none"
+              hx-indicator="#admin-save-spinner"
+              class="flex flex-col flex-1 overflow-hidden">
+            
+            <input type="hidden" name="week_id" value="{{.Week.ID}}">
+
+            <div class="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1">
+                <p class="text-xs text-zinc-400 mb-2">
+                    Selecciona el equipo ganador y, si corresponde, el marcador previsto para romper desempates en MNF.
+                </p>
+
+                {{range .Games}}
+                    {{$pick := .UserPick}}
+                    <div class="p-3 rounded-xl border border-zinc-800/80 bg-zinc-900/40 space-y-2.5">
+                        
+                        <!-- Kickoff & Status -->
+                        <div class="flex items-center justify-between text-[11px] text-zinc-400 border-b border-zinc-800/60 pb-1.5">
+                            <span class="font-mono">
+                                <i class="fa-regular fa-clock mr-1 text-zinc-500"></i>
+                                {{formatDate .KickoffTime}}
+                            </span>
+                            {{if .IsTiebreaker}}
+                                <span class="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/30 text-[9px] font-bold uppercase">
+                                    <i class="fa-solid fa-star text-[8px] mr-1"></i> Desempate
+                                </span>
+                            {{end}}
+                        </div>
+
+                        <!-- Matchup Pick Selector -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <!-- Away Team -->
+                            <label class="flex items-center space-x-2 p-2.5 rounded-lg border border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 cursor-pointer has-[:checked]:border-white has-[:checked]:bg-zinc-900">
+                                <input type="radio" 
+                                       name="picked_team_{{.ID}}" 
+                                       value="{{.AwayTeamID}}"
+                                       {{if and $pick ($pick.IsPickedTeam .AwayTeamID)}}checked{{end}}
+                                       class="text-white focus:ring-white">
+                                <div class="flex items-center space-x-2 flex-1 min-w-0">
+                                    {{if .AwayTeam}}
+                                        <img src="{{.AwayTeam.LogoURL}}" alt="{{.AwayTeam.Code}}" class="w-5 h-5 object-contain">
+                                        <span class="text-xs font-bold text-white truncate">{{.AwayTeam.Name}}</span>
+                                        <span class="text-[10px] font-mono text-zinc-500">({{.AwayTeam.Code}})</span>
+                                    {{else}}
+                                        <span class="text-xs text-white">Visitante</span>
+                                    {{end}}
+                                </div>
+                            </label>
+
+                            <!-- Home Team -->
+                            <label class="flex items-center space-x-2 p-2.5 rounded-lg border border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 cursor-pointer has-[:checked]:border-white has-[:checked]:bg-zinc-900">
+                                <input type="radio" 
+                                       name="picked_team_{{.ID}}" 
+                                       value="{{.HomeTeamID}}"
+                                       {{if and $pick ($pick.IsPickedTeam .HomeTeamID)}}checked{{end}}
+                                       class="text-white focus:ring-white">
+                                <div class="flex items-center space-x-2 flex-1 min-w-0">
+                                    {{if .HomeTeam}}
+                                        <img src="{{.HomeTeam.LogoURL}}" alt="{{.HomeTeam.Code}}" class="w-5 h-5 object-contain">
+                                        <span class="text-xs font-bold text-white truncate">{{.HomeTeam.Name}}</span>
+                                        <span class="text-[10px] font-mono text-zinc-500">({{.HomeTeam.Code}})</span>
+                                    {{else}}
+                                        <span class="text-xs text-white">Local</span>
+                                    {{end}}
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Score Prediction Inputs -->
+                        <div class="flex items-center justify-between text-xs pt-1 px-1">
+                            <span class="text-[11px] text-zinc-500 font-mono">Pronóstico marcador:</span>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[11px] font-mono text-zinc-400">{{if .AwayTeam}}{{.AwayTeam.Code}}{{else}}VIS{{end}}</span>
+                                <input type="number" 
+                                       name="away_score_{{.ID}}" 
+                                       min="0" 
+                                       max="99"
+                                       value="{{if $pick}}{{$pick.AwayScoreStr}}{{end}}"
+                                       placeholder="--"
+                                       class="w-11 py-1 px-1.5 text-center font-mono font-bold text-xs bg-zinc-950 border border-zinc-700 rounded text-white focus:border-white">
+                                <span class="text-zinc-600">-</span>
+                                <input type="number" 
+                                       name="home_score_{{.ID}}" 
+                                       min="0" 
+                                       max="99"
+                                       value="{{if $pick}}{{$pick.HomeScoreStr}}{{end}}"
+                                       placeholder="--"
+                                       class="w-11 py-1 px-1.5 text-center font-mono font-bold text-xs bg-zinc-950 border border-zinc-700 rounded text-white focus:border-white">
+                                <span class="text-[11px] font-mono text-zinc-400">{{if .HomeTeam}}{{.HomeTeam.Code}}{{else}}LOC{{end}}</span>
+                            </div>
+                        </div>
+
+                    </div>
+                {{end}}
+
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 sm:p-5 border-t border-[#222222] bg-zinc-900/60 flex items-center justify-between">
+                <button type="button" 
+                        onclick="document.getElementById('admin-modal-container').innerHTML = ''"
+                        class="px-4 py-2 rounded-xl border border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800 text-xs font-semibold transition-colors">
+                    Cancelar
+                </button>
+
+                <div class="flex items-center space-x-3">
+                    <span id="admin-save-spinner" class="htmx-indicator text-xs text-zinc-400">
+                        <i class="fa-solid fa-spinner fa-spin mr-1"></i> Guardando...
+                    </span>
+                    <button type="submit" 
+                            class="px-5 py-2 rounded-xl bg-white text-black font-extrabold text-xs hover:bg-zinc-200 transition-colors shadow-sm flex items-center">
+                        <i class="fa-solid fa-check mr-1.5"></i> Guardar Pronósticos
+                    </button>
+                </div>
+            </div>
+
+        </form>
+
+    </div>
+</div>

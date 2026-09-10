@@ -208,6 +208,13 @@ func main() {
 		admin.Post("/admin/games/toggle-lock", adminHandler.ToggleGameLock)
 		admin.Post("/admin/games/toggle-tiebreaker", adminHandler.ToggleTiebreaker)
 		admin.Post("/admin/reminders/send", adminHandler.SendReminders)
+
+		// User Management & Pick Override
+		admin.Get("/admin/users/{userId}/picks", adminHandler.ShowUserPicks)
+		admin.Post("/admin/users/{userId}/picks/save", adminHandler.SaveUserPicks)
+		admin.Post("/admin/users/{userId}/verify-email", adminHandler.VerifyUserEmail)
+		admin.Post("/admin/users/{userId}/toggle-role", adminHandler.ToggleUserRole)
+		admin.Get("/admin/picks/export", adminHandler.ExportWeekPicksCSV)
 	})
 
 	// 9. HTTP Server & Graceful Shutdown

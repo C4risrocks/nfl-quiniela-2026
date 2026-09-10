@@ -307,3 +307,68 @@ func TestWeek1GracePeriodLockLogic(t *testing.T) {
 		t.Errorf("Expected Week 2 in-progress game to be locked")
 	}
 }
+
+func TestUserManagementAndPicksExport(t *testing.T) {
+	testDB := "test_admin_suite.db"
+	defer os.Remove(testDB)
+	defer os.Remove(testDB + "-wal")
+	defer os.Remove(testDB + "-shm")
+
+	database, err := InitDB("sqlite", testDB)
+	if err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	defer database.Close()
+
+	repo := NewRepository(database)
+	_ = SeedDatabase(repo, "testadmin", "admin@test.com", "pass123", 2026)
+
+	user, err := repo.CreateUser("testplayer", "player@test.com", "hash", "player")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	// 1. Test SetUserEmailVerified
+	if user.EmailVerified {
+		t.Errorf("Expected initial EmailVerified to be false")
+	}
+	if err := repo.SetUserEmailVerified(user.ID, true); err != nil {
+		t.Fatalf("SetUserEmailVerified failed: %v", err)
+	}
+	u1, _ := repo.GetUserByID(user.ID)
+	if !u1.EmailVerified {
+		t.Errorf("Expected EmailVerified to be true after update")
+	}
+
+	// 2. Test SetUserRole
+	if err := repo.SetUserRole(user.ID, "admin"); err != nil {
+		t.Fatalf("SetUserRole failed: %v", err)
+	}
+	u2, _ := repo.GetUserByID(user.ID)
+	if u2.Role != "admin" {
+		t.Errorf("Expected role admin, got %s", u2.Role)
+	}
+	if err := repo.SetUserRole(user.ID, "invalid_role"); err == nil {
+		t.Errorf("Expected error setting invalid role, got nil")
+	}
+
+	// 3. Test GetUserWeeklySummaries
+	season, _ := repo.GetActiveSeason(2026)
+	weeks, _ := repo.ListWeeks(season.ID)
+	summaries, err := repo.GetUserWeeklySummaries(weeks[0].ID)
+	if err != nil {
+		t.Fatalf("GetUserWeeklySummaries failed: %v", err)
+	}
+	if len(summaries) == 0 {
+		t.Errorf("Expected user summaries, got 0")
+	}
+
+	// 4. Test GetPicksExportDataForWeek
+	exportRows, err := repo.GetPicksExportDataForWeek(weeks[0].ID)
+	if err != nil {
+		t.Fatalf("GetPicksExportDataForWeek failed: %v", err)
+	}
+	if len(exportRows) == 0 {
+		t.Errorf("Expected export rows for Week 1 games, got 0")
+	}
+}

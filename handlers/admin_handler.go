@@ -1,10 +1,14 @@
 package handlers
 
 import (
+	"encoding/csv"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/go-chi/chi/v5"
 
 	"nfl-quiniela-2026/db"
 	"nfl-quiniela-2026/services/auth"
@@ -75,17 +79,21 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 	users, _ := h.repo.ListUsers()
 	scoringCfg, _ := h.repo.GetScoringConfig()
 	pendingUsers, _ := h.repo.GetUsersWithPendingPicks(selectedWeek.ID)
+	userSummaries, _ := h.repo.GetUserWeeklySummaries(selectedWeek.ID)
 
 	h.renderer.RenderPage(w, "admin.html", map[string]interface{}{
-		"ActiveNav":     "admin",
-		"User":          user,
-		"Weeks":         weeks,
-		"SelectedWeek":  selectedWeek,
-		"Games":         games,
-		"Users":         users,
-		"ScoringConfig": scoringCfg,
-		"PendingUsers":  pendingUsers,
-		"PendingCount":  len(pendingUsers),
+		"ActiveNav":          "admin",
+		"User":               user,
+		"Weeks":              weeks,
+		"SelectedWeek":       selectedWeek,
+		"Games":              games,
+		"Users":              users,
+		"UserSummaries":      userSummaries,
+		"ScoringConfig":      scoringCfg,
+		"PendingUsers":       pendingUsers,
+		"PendingCount":       len(pendingUsers),
+		"IsWeek1GraceActive": selectedWeek.WeekNumber == 1 && time.Now().Before(db.Week1GraceDeadline),
+		"Week1GraceDeadline": db.Week1GraceDeadline,
 	})
 }
 
@@ -345,7 +353,8 @@ func (h *AdminHandler) SendReminders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	count, err := h.reminderWorker.SendManualReminders(weekID)
+	reminderType := r.FormValue("reminder_type") // "grace_period" or "kickoff"
+	count, err := h.reminderWorker.SendManualReminders(weekID, reminderType)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
@@ -355,7 +364,277 @@ func (h *AdminHandler) SendReminders(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `<div class="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center space-x-1.5"><i class="fa-solid fa-circle-check"></i><span>¡Éxito! Se enviaron <strong>%d</strong> recordatorios a jugadores con picks pendientes.</span></div>`, count)
+	reminderLabel := "recordatorios de patada inicial"
+	if reminderType == "grace_period" {
+		reminderLabel = "avisos urgentes de prórroga"
+	}
+	fmt.Fprintf(w, `<div class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center space-x-2"><i class="fa-solid fa-circle-check text-emerald-400"></i><span>¡Éxito! Se enviaron <strong>%d</strong> %s a jugadores con pronósticos pendientes.</span></div>`, count, reminderLabel)
+}
+
+func (h *AdminHandler) ShowUserPicks(w http.ResponseWriter, r *http.Request) {
+	targetUserID, err := strconv.ParseInt(chi.URLParam(r, "userId"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	targetUser, err := h.repo.GetUserByID(targetUserID)
+	if err != nil || targetUser == nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	weekIDStr := r.URL.Query().Get("week_id")
+	var week *db.Week
+	if weekIDStr != "" {
+		wID, err := strconv.ParseInt(weekIDStr, 10, 64)
+		if err == nil {
+			week, _ = h.repo.GetWeekByID(wID)
+		}
+	}
+	if week == nil {
+		season, _ := h.repo.GetActiveSeason(h.seasonYear)
+		weeks, _ := h.repo.ListWeeks(season.ID)
+		if len(weeks) > 0 {
+			week = weeks[0]
+		}
+	}
+	if week == nil {
+		http.Error(w, "Week not found", http.StatusNotFound)
+		return
+	}
+
+	games, _ := h.repo.ListGamesByWeek(week.ID)
+	userPicks, _ := h.repo.GetUserPicksForWeek(targetUser.ID, week.ID)
+	for _, g := range games {
+		if userPicks != nil {
+			g.UserPick = userPicks[g.ID]
+		}
+	}
+
+	h.renderer.RenderPartial(w, "admin_user_picks_modal.html", map[string]interface{}{
+		"TargetUser": targetUser,
+		"Week":       week,
+		"Games":      games,
+	})
+}
+
+func (h *AdminHandler) SaveUserPicks(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	targetUserID, err := strconv.ParseInt(chi.URLParam(r, "userId"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	targetUser, err := h.repo.GetUserByID(targetUserID)
+	if err != nil || targetUser == nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	weekID, err := strconv.ParseInt(r.FormValue("week_id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid week ID", http.StatusBadRequest)
+		return
+	}
+
+	weekGames, err := h.repo.ListGamesByWeek(weekID)
+	if err != nil {
+		http.Error(w, "Error listing games", http.StatusInternalServerError)
+		return
+	}
+
+	savedCount := 0
+	for _, game := range weekGames {
+		var pickedTeamID *int64
+		if teamStr := strings.TrimSpace(r.FormValue(fmt.Sprintf("picked_team_%d", game.ID))); teamStr != "" {
+			if tid, err := strconv.ParseInt(teamStr, 10, 64); err == nil {
+				pickedTeamID = &tid
+			}
+		}
+
+		var homeScore, awayScore *int
+		if hsStr := strings.TrimSpace(r.FormValue(fmt.Sprintf("home_score_%d", game.ID))); hsStr != "" {
+			if hs, err := strconv.Atoi(hsStr); err == nil && hs >= 0 {
+				homeScore = &hs
+			}
+		}
+		if asStr := strings.TrimSpace(r.FormValue(fmt.Sprintf("away_score_%d", game.ID))); asStr != "" {
+			if as, err := strconv.Atoi(asStr); err == nil && as >= 0 {
+				awayScore = &as
+			}
+		}
+
+		if pickedTeamID != nil || homeScore != nil || awayScore != nil {
+			_, err := h.repo.SavePick(targetUser.ID, game.ID, pickedTeamID, homeScore, awayScore)
+			if err == nil {
+				savedCount++
+			}
+		}
+	}
+
+	// Recalculate leaderboard
+	_ = h.calculator.CalculateWeekScores(weekID)
+	if h.broker != nil {
+		h.broker.BroadcastLeaderboardUpdate()
+	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "¡Se guardaron %d pronósticos para %s exitosamente!", "type": "success"}, "close-admin-modal": true}`, savedCount, targetUser.Username))
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *AdminHandler) VerifyUserEmail(w http.ResponseWriter, r *http.Request) {
+	targetUserID, err := strconv.ParseInt(chi.URLParam(r, "userId"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.repo.SetUserEmailVerified(targetUserID, true); err != nil {
+		http.Error(w, "Error verifying user email", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Correo del usuario verificado manualmente", "type": "success"}}`)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"><i class="fa-solid fa-circle-check mr-1 text-[9px]"></i> Verificado</span>`)
+}
+
+func (h *AdminHandler) ToggleUserRole(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	targetUserID, err := strconv.ParseInt(chi.URLParam(r, "userId"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	if currentUser != nil && currentUser.ID == targetUserID {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "No puedes cambiar tu propio rol", "type": "error"}}`)
+		http.Error(w, "No puedes revocar tu propio rol de administrador", http.StatusBadRequest)
+		return
+	}
+
+	targetUser, err := h.repo.GetUserByID(targetUserID)
+	if err != nil || targetUser == nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	newRole := "admin"
+	if targetUser.Role == "admin" {
+		newRole = "player"
+	}
+
+	if err := h.repo.SetUserRole(targetUserID, newRole); err != nil {
+		http.Error(w, "Error toggling user role", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Rol de %s actualizado a %s", "type": "info"}}`, targetUser.Username, newRole))
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	if newRole == "admin" {
+		fmt.Fprint(w, `<span class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30">admin</span>`)
+	} else {
+		fmt.Fprint(w, `<span class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold bg-zinc-900 text-zinc-400 border border-zinc-800">player</span>`)
+	}
+}
+
+func (h *AdminHandler) ExportWeekPicksCSV(w http.ResponseWriter, r *http.Request) {
+	season, err := h.repo.GetActiveSeason(h.seasonYear)
+	if err != nil {
+		http.Error(w, "Season not found", http.StatusInternalServerError)
+		return
+	}
+
+	weekNum := 1
+	if wStr := r.URL.Query().Get("week"); wStr != "" {
+		if wn, err := strconv.Atoi(wStr); err == nil && wn > 0 {
+			weekNum = wn
+		}
+	}
+
+	week, err := h.repo.GetWeekByNumber(season.ID, weekNum)
+	if err != nil || week == nil {
+		http.Error(w, "Week not found", http.StatusNotFound)
+		return
+	}
+
+	rows, err := h.repo.GetPicksExportDataForWeek(week.ID)
+	if err != nil {
+		http.Error(w, "Error fetching export data", http.StatusInternalServerError)
+		return
+	}
+
+	filename := fmt.Sprintf("quiniela_semana_%d_%s.csv", week.WeekNumber, time.Now().Format("20060102"))
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+
+	writer := csv.NewWriter(w)
+	defer writer.Flush()
+
+	// UTF-8 BOM for Excel compatibility
+	_, _ = w.Write([]byte("\xEF\xBB\xBF"))
+
+	// CSV Header
+	_ = writer.Write([]string{
+		"Usuario",
+		"Correo",
+		"Semana",
+		"Visita",
+		"Local",
+		"Seleccion",
+		"Marcador Visita Pronosticado",
+		"Marcador Local Pronosticado",
+		"Marcador Visita Real",
+		"Marcador Local Real",
+		"Puntos Ganados",
+		"Bono",
+		"Estado Partido",
+		"Fecha Actualizacion",
+	})
+
+	for _, r := range rows {
+		predAway := "--"
+		if r.PredictedAwayScore != nil {
+			predAway = strconv.Itoa(*r.PredictedAwayScore)
+		}
+		predHome := "--"
+		if r.PredictedHomeScore != nil {
+			predHome = strconv.Itoa(*r.PredictedHomeScore)
+		}
+		actAway := "--"
+		if r.ActualAwayScore != nil {
+			actAway = strconv.Itoa(*r.ActualAwayScore)
+		}
+		actHome := "--"
+		if r.ActualHomeScore != nil {
+			actHome = strconv.Itoa(*r.ActualHomeScore)
+		}
+
+		_ = writer.Write([]string{
+			r.Username,
+			r.Email,
+			strconv.Itoa(r.WeekNumber),
+			r.AwayTeamCode,
+			r.HomeTeamCode,
+			r.PickedTeamCode,
+			predAway,
+			predHome,
+			actAway,
+			actHome,
+			strconv.Itoa(r.PointsEarned),
+			strconv.Itoa(r.BonusPoints),
+			r.GameStatus,
+			r.UpdatedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
 }
 
 func (h *AdminHandler) formatKickoff(t time.Time) string {
