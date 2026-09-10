@@ -9,6 +9,8 @@
      data-game-id="{{.Game.ID}}"
      data-is-tiebreaker="{{.Game.IsTiebreaker}}"
      data-locked="{{$locked}}"
+     data-broadcasts="{{range .Game.MexicoBroadcastOptions}}{{.Name}},{{end}}"
+     x-show="typeof activePlatform === 'undefined' || activePlatform === 'all' || '{{range .Game.MexicoBroadcastOptions}}{{.Name}},{{end}}'.toLowerCase().includes(activePlatform)"
      x-data="{ 
          pickedTeam: '{{if $pick}}{{if $pick.PickedTeamID}}{{$pick.PickedTeamID}}{{end}}{{end}}',
          awayTeamID: '{{.Game.AwayTeamID}}',
@@ -132,10 +134,11 @@
                 <i class="fa-solid fa-satellite-dish mr-1 text-zinc-400 text-[8px]"></i> En MX:
             </span>
             {{range .Game.MexicoBroadcastOptions}}
-                <span class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold border {{.BadgeCSS}}" title="{{.Type}}: {{.Name}}">
+                <a href="{{.WatchURL}}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold border transition-transform hover:scale-105 cursor-pointer {{.BadgeCSS}}" title="Ver en {{.Name}} (Abre portal oficial) ↗">
                     <i class="{{.IconCSS}} text-[8px]"></i>
                     <span>{{.Name}}</span>
-                </span>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[7px] opacity-70 ml-0.5"></i>
+                </a>
             {{end}}
         </div>
     {{end}}

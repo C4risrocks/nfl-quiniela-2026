@@ -11,9 +11,9 @@
         {{if .Game.MexicoBroadcastOptions}}
             <div class="flex flex-wrap items-center gap-1 mt-1">
                 {{range .Game.MexicoBroadcastOptions}}
-                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[8px] font-mono font-bold border {{.BadgeCSS}}">
-                        {{.Name}}
-                    </span>
+                    <a href="{{.WatchURL}}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center px-1.5 py-0.2 rounded text-[8px] font-mono font-bold border transition-transform hover:scale-105 cursor-pointer {{.BadgeCSS}}" title="Ver en {{.Name}} ↗">
+                        {{.Name}} <i class="fa-solid fa-arrow-up-right-from-square text-[6px] ml-0.5 opacity-70"></i>
+                    </a>
                 {{end}}
             </div>
         {{end}}

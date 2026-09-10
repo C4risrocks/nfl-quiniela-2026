@@ -202,62 +202,72 @@ type BroadcastOption struct {
 	Type     string `json:"type"`      // "tv" (TV Abierta/Paga) or "streaming" (Plataforma Digital)
 	BadgeCSS string `json:"badge_css"` // Tailwind badge classes
 	IconCSS  string `json:"icon_css"`  // FontAwesome icon class
+	WatchURL string `json:"watch_url"` // Direct official streaming/viewing URL
 }
 
 var knownBroadcastMap = map[string]BroadcastOption{
 	"espn": {
 		Name:     "ESPN",
 		Type:     "tv",
-		BadgeCSS: "bg-red-600/15 text-red-400 border-red-500/30",
+		BadgeCSS: "bg-red-600/15 text-red-400 border-red-500/30 hover:bg-red-600/25 hover:border-red-500/50",
 		IconCSS:  "fa-solid fa-tv",
+		WatchURL: "https://www.espn.com.mx/watch/",
 	},
 	"disney+": {
 		Name:     "Disney+",
 		Type:     "streaming",
-		BadgeCSS: "bg-indigo-600/15 text-indigo-300 border-indigo-500/30",
+		BadgeCSS: "bg-indigo-600/15 text-indigo-300 border-indigo-500/30 hover:bg-indigo-600/25 hover:border-indigo-500/50",
 		IconCSS:  "fa-solid fa-play",
+		WatchURL: "https://www.disneyplus.com/es-419/brand/espn",
 	},
 	"fox sports": {
 		Name:     "Fox Sports",
 		Type:     "tv",
-		BadgeCSS: "bg-blue-600/15 text-blue-300 border-blue-500/30",
+		BadgeCSS: "bg-blue-600/15 text-blue-300 border-blue-500/30 hover:bg-blue-600/25 hover:border-blue-500/50",
 		IconCSS:  "fa-solid fa-tv",
+		WatchURL: "https://www.foxsports.com.mx/en-vivo/",
 	},
 	"fox sports premium": {
 		Name:     "Fox Sports Premium",
 		Type:     "streaming",
-		BadgeCSS: "bg-cyan-600/15 text-cyan-300 border-cyan-500/30",
+		BadgeCSS: "bg-cyan-600/15 text-cyan-300 border-cyan-500/30 hover:bg-cyan-600/25 hover:border-cyan-500/50",
 		IconCSS:  "fa-solid fa-play",
+		WatchURL: "https://www.foxsports.com.mx/fox-sports-premium/",
 	},
 	"prime video": {
 		Name:     "Prime Video",
 		Type:     "streaming",
-		BadgeCSS: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+		BadgeCSS: "bg-sky-500/15 text-sky-300 border-sky-500/30 hover:bg-sky-500/25 hover:border-sky-500/50",
 		IconCSS:  "fa-brands fa-amazon",
+		WatchURL: "https://www.primevideo.com/storefront/sports",
 	},
 	"netflix": {
 		Name:     "Netflix",
 		Type:     "streaming",
-		BadgeCSS: "bg-rose-600/20 text-rose-300 border-rose-500/40",
+		BadgeCSS: "bg-rose-600/20 text-rose-300 border-rose-500/40 hover:bg-rose-600/30 hover:border-rose-500/60",
 		IconCSS:  "fa-solid fa-play",
+		WatchURL: "https://www.netflix.com",
 	},
 	"canal 5": {
 		Name:     "Canal 5",
 		Type:     "tv",
-		BadgeCSS: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+		BadgeCSS: "bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25 hover:border-amber-500/50",
 		IconCSS:  "fa-solid fa-tower-broadcast",
+		WatchURL: "https://www.televisa.com/canal5/en-vivo",
 	},
 	"vix": {
 		Name:     "ViX",
 		Type:     "streaming",
-		BadgeCSS: "bg-orange-500/15 text-orange-300 border-orange-500/30",
+		BadgeCSS: "bg-orange-500/15 text-orange-300 border-orange-500/30 hover:bg-orange-500/25 hover:border-orange-500/50",
 		IconCSS:  "fa-solid fa-play",
+		WatchURL: "https://vix.com/es-es/deportes",
 	},
 	"dazn": {
 		Name:     "DAZN (Game Pass)",
 		Type:     "streaming",
-		BadgeCSS: "bg-zinc-800 text-zinc-300 border-zinc-700",
+		BadgeCSS: "bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700 hover:border-zinc-500",
 		IconCSS:  "fa-solid fa-play",
+		WatchURL: "https://www.dazn.com/es-MX/welcome/nfl",
 	},
 }
 
@@ -281,8 +291,9 @@ func (g *Game) MexicoBroadcastOptions() []BroadcastOption {
 			results = append(results, BroadcastOption{
 				Name:     key,
 				Type:     "tv",
-				BadgeCSS: "bg-zinc-800 text-zinc-300 border-zinc-700",
+				BadgeCSS: "bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700 hover:border-zinc-500",
 				IconCSS:  "fa-solid fa-tv",
+				WatchURL: "https://www.nfl.com/scores",
 			})
 		}
 	}

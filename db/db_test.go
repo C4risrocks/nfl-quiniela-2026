@@ -528,4 +528,11 @@ func TestMexicoBroadcastOptions(t *testing.T) {
 	if !hasESPN || !hasCanal5 {
 		t.Errorf("Expected MNF to have ESPN and Canal 5, got %+v", optsMNF)
 	}
+
+	for _, o := range optsMNF {
+		if o.WatchURL == "" {
+			t.Errorf("Expected WatchURL to be set for option %s, got empty string", o.Name)
+		}
+	}
 }
+

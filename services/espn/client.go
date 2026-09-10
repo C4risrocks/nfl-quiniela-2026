@@ -178,6 +178,8 @@ func MapESPNEventToGame(event *ESPNEvent, weekID int64, teamMap map[string]*db.T
 		ESPNGameID:   event.ID,
 		HomeTeamID:   homeTeam.ID,
 		AwayTeamID:   awayTeam.ID,
+		HomeTeam:     homeTeam,
+		AwayTeam:     awayTeam,
 		KickoffTime:  kickoffTime,
 		HomeScore:    homeScore,
 		AwayScore:    awayScore,

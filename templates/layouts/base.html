@@ -148,6 +148,14 @@
 
                 <!-- User Controls -->
                 <div class="hidden md:flex items-center space-x-3">
+                    <!-- Live Alerts Bell Toggle -->
+                    <button type="button" 
+                            @click="$dispatch('request-notification-permission')" 
+                            class="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors text-xs relative cursor-pointer" 
+                            title="Activar alertas en vivo en el navegador">
+                        <i class="fa-regular fa-bell"></i>
+                    </button>
+
                     {{if .User}}
                         <a href="/profile" class="flex items-center space-x-2.5 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 px-3 py-1 rounded-full text-xs transition-colors" title="Mi Perfil y Ajustes">
                             <div class="w-5 h-5 rounded-full bg-white text-black flex items-center justify-center text-[10px] font-bold uppercase">
@@ -159,7 +167,7 @@
                             {{end}}
                         </a>
                         <form action="/logout" method="POST" class="inline">
-                            <button type="submit" class="p-1.5 text-zinc-400 hover:text-zinc-200 rounded-lg hover:bg-zinc-900 transition-colors text-xs" title="Cerrar sesión">
+                            <button type="submit" class="p-1.5 text-zinc-400 hover:text-zinc-200 rounded-lg hover:bg-zinc-900 transition-colors text-xs cursor-pointer" title="Cerrar sesión">
                                 <i class="fa-solid fa-arrow-right-from-bracket"></i>
                             </button>
                         </form>
@@ -171,9 +179,15 @@
                     {{end}}
                 </div>
 
-                <!-- Mobile Menu Button -->
-                <div class="md:hidden flex items-center">
-                    <button @click="mobileMenuOpen = !mobileMenuOpen" class="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900">
+                <!-- Mobile Menu Button & Bell -->
+                <div class="md:hidden flex items-center space-x-1">
+                    <button type="button" 
+                            @click="$dispatch('request-notification-permission')" 
+                            class="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors text-xs cursor-pointer" 
+                            title="Activar alertas en vivo">
+                        <i class="fa-regular fa-bell"></i>
+                    </button>
+                    <button @click="mobileMenuOpen = !mobileMenuOpen" class="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900 cursor-pointer">
                         <i class="fa-solid" :class="mobileMenuOpen ? 'fa-xmark' : 'fa-bars'"></i>
                     </button>
                 </div>
@@ -235,6 +249,160 @@
 
     <!-- Global Head-to-Head & Interaction Modals Container -->
     <div id="h2h-modal-container"></div>
+
+    <!-- Real-Time Live Game Alerts HUD (Kickoff, Lead Change, Pick Lock, Final) -->
+    <div id="live-alert-container"
+         x-data="{ 
+            visible: false, 
+            alert: { title: '', message: '', type: 'game_start', game_id: 0 },
+            soundEnabled: localStorage.getItem('nfl_alert_sound') !== 'false',
+            dismissTimeout: null,
+            triggerAlert(detail) {
+                this.alert = detail;
+                this.visible = true;
+                if (this.soundEnabled) {
+                    this.playChime(detail.type);
+                }
+                clearTimeout(this.dismissTimeout);
+                this.dismissTimeout = setTimeout(() => { this.visible = false; }, 7000);
+            },
+            toggleSound() {
+                this.soundEnabled = !this.soundEnabled;
+                localStorage.setItem('nfl_alert_sound', this.soundEnabled);
+            },
+            requestPermission() {
+                if (typeof Notification !== 'undefined') {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') {
+                            window.dispatchEvent(new CustomEvent('show-toast', { 
+                                detail: { message: '¡Notificaciones en vivo activadas con éxito!', type: 'success' } 
+                            }));
+                        }
+                    });
+                }
+            },
+            playChime(type) {
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioContext) return;
+                    const ctx = new AudioContext();
+                    const now = ctx.currentTime;
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    gain.gain.setValueAtTime(0.08, now);
+                    
+                    if (type === 'lead_change') {
+                        // Dramatic upward chime (587Hz -> 880Hz)
+                        osc.frequency.setValueAtTime(587.33, now);
+                        osc.frequency.exponentialRampToValueAtTime(880.00, now + 0.15);
+                    } else if (type === 'pick_closing') {
+                        // Urgent warning pulse (440Hz -> 659Hz)
+                        osc.frequency.setValueAtTime(440.00, now);
+                        osc.frequency.setValueAtTime(659.25, now + 0.10);
+                    } else {
+                        // Harmonic kickoff chime (523Hz -> 659Hz)
+                        osc.frequency.setValueAtTime(523.25, now);
+                        osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.18);
+                    }
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+                } catch(e) {
+                    console.debug('Audio chime skipped:', e);
+                }
+            }
+         }"
+         x-init="
+            window.addEventListener('show-live-alert', (e) => {
+                triggerAlert(e.detail);
+                if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) {
+                    new Notification(e.detail.title, {
+                        body: e.detail.message,
+                        icon: '/static/icons/icon.svg'
+                    });
+                }
+            });
+            window.addEventListener('request-notification-permission', () => {
+                requestPermission();
+            });
+
+            if (typeof EventSource !== 'undefined') {
+                const liveSource = new EventSource('/events/live');
+                liveSource.addEventListener('live-alert', (e) => {
+                    try {
+                        const alertData = JSON.parse(e.data);
+                        triggerAlert(alertData);
+                        if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) {
+                            new Notification(alertData.title, {
+                                body: alertData.message,
+                                icon: '/static/icons/icon.svg'
+                            });
+                        }
+                    } catch(err) {
+                        console.debug('Failed to parse live alert:', err);
+                    }
+                });
+            }
+         "
+         x-show="visible"
+         x-transition:enter="transition ease-out duration-300 transform"
+         x-transition:enter-start="opacity-0 -translate-y-4 sm:translate-y-0 sm:translate-x-6 scale-95"
+         x-transition:enter-end="opacity-100 translate-y-0 sm:translate-x-0 scale-100"
+         x-transition:leave="transition ease-in duration-200 transform"
+         x-transition:leave-start="opacity-100 translate-y-0 sm:translate-x-0 scale-100"
+         x-transition:leave-end="opacity-0 -translate-y-4 sm:translate-y-0 sm:translate-x-6 scale-95"
+         x-cloak
+         class="fixed top-20 right-3 sm:right-6 left-3 sm:left-auto z-50 sm:max-w-sm w-auto bg-zinc-950/95 backdrop-blur-xl border border-zinc-700/80 rounded-2xl shadow-2xl p-3.5 text-white ring-1 ring-white/10">
+
+        <div class="flex items-start space-x-3">
+            <!-- Alert Icon Badge -->
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-inner"
+                 :class="{
+                    'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40': alert.type === 'game_start',
+                    'bg-rose-500/20 text-rose-400 border border-rose-500/40': alert.type === 'lead_change',
+                    'bg-amber-500/20 text-amber-400 border border-amber-500/40': alert.type === 'pick_closing',
+                    'bg-zinc-800 text-zinc-300 border border-zinc-700': alert.type === 'game_final'
+                 }">
+                <i class="fa-solid text-sm"
+                   :class="{
+                      'fa-football': alert.type === 'game_start',
+                      'fa-fire-flame-curved': alert.type === 'lead_change',
+                      'fa-clock animate-pulse': alert.type === 'pick_closing',
+                      'fa-flag-checkered': alert.type === 'game_final'
+                   }"></i>
+            </div>
+
+            <!-- Content Body -->
+            <div class="flex-1 min-w-0 pr-1">
+                <div class="flex items-center justify-between gap-1">
+                    <span class="text-xs font-black tracking-tight" x-text="alert.title"></span>
+                    <button @click="visible = false" class="text-zinc-500 hover:text-zinc-300 p-0.5 rounded cursor-pointer transition-colors" title="Cerrar">
+                        <i class="fa-solid fa-xmark text-xs"></i>
+                    </button>
+                </div>
+                <p class="text-xs text-zinc-300 mt-0.5 leading-snug" x-text="alert.message"></p>
+
+                <!-- Action Link & Sound Controls -->
+                <div class="mt-2.5 flex items-center justify-between pt-2 border-t border-zinc-800/80 text-[11px]">
+                    <a :href="'/live#game-' + alert.game_id" 
+                       @click="visible = false"
+                       class="font-semibold text-cyan-400 hover:text-cyan-300 flex items-center transition-colors">
+                        <span>Ver en Game Center</span>
+                        <i class="fa-solid fa-chevron-right text-[9px] ml-1"></i>
+                    </a>
+
+                    <div class="flex items-center space-x-2 text-zinc-500">
+                        <button type="button" @click="toggleSound()" class="hover:text-zinc-300 transition-colors cursor-pointer" :title="soundEnabled ? 'Sonido activado' : 'Sonido silenciado'">
+                            <i class="fa-solid" :class="soundEnabled ? 'fa-volume-high text-zinc-400' : 'fa-volume-xmark text-zinc-600'"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Vercel Toast Notification via Alpine/HTMX -->
     <div x-data="{ show: false, message: '', type: 'success' }"

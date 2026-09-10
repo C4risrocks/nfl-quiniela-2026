@@ -3,7 +3,7 @@
      hx-trigger="every 25s" 
      hx-swap="innerHTML"
      class="space-y-6"
-     x-data="{ activeFilter: 'all', rivalsModalOpen: false }">
+     x-data="{ activeFilter: 'all', activePlatform: 'all', rivalsModalOpen: false }">
 
     <!-- Top Week Switcher & Live Stats Strip -->
     <div class="vercel-card p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
@@ -114,10 +114,11 @@
                             <i class="fa-solid fa-tv mr-1 text-zinc-500"></i> En México:
                         </span>
                         {{range $b := $fg.MexicoBroadcastOptions}}
-                            <span class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-md text-[10px] font-mono font-black border {{$b.BadgeCSS}} shadow-sm">
+                            <a href="{{$b.WatchURL}}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-md text-[10px] font-mono font-black border {{$b.BadgeCSS}} shadow-sm transition-transform hover:scale-105 cursor-pointer" title="Ver transmisión en {{$b.Name}} (Abre portal oficial) ↗">
                                 <i class="{{$b.IconCSS}} text-[9px]"></i>
                                 <span>{{$b.Name}}</span>
-                            </span>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-[7px] opacity-70 ml-0.5"></i>
+                            </a>
                         {{end}}
                     </div>
                 </div>
@@ -367,7 +368,7 @@
                 <i class="fa-solid fa-list text-zinc-400 mr-2"></i> Todos los Partidos de la Jornada
             </h2>
 
-            <!-- Filter Buttons -->
+            <!-- Status Filter Buttons -->
             <div class="flex items-center space-x-1 bg-zinc-900 p-1 rounded-xl border border-zinc-800 self-start sm:self-auto text-xs font-medium">
                 <button type="button" 
                         @click="activeFilter = 'all'"
@@ -397,12 +398,81 @@
             </div>
         </div>
 
+        <!-- Platform / Streaming Channel Filter Bar (Responsive horizontal scroll) -->
+        <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-1 px-0.5 text-xs">
+            <span class="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap mr-1 flex items-center">
+                <i class="fa-solid fa-satellite-dish text-[9px] mr-1 text-zinc-400"></i> Señal:
+            </span>
+            <button type="button"
+                    @click="activePlatform = 'all'"
+                    :class="activePlatform === 'all' ? 'bg-white text-black font-bold shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap text-[11px]">
+                Todas las Señales
+            </button>
+            <button type="button"
+                    @click="activePlatform = 'canal 5'"
+                    :class="activePlatform === 'canal 5' ? 'bg-amber-500/20 text-amber-300 font-bold border-amber-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                <i class="fa-solid fa-tower-broadcast text-[9px] text-amber-400"></i>
+                <span>Canal 5</span>
+            </button>
+            <button type="button"
+                    @click="activePlatform = 'vix'"
+                    :class="activePlatform === 'vix' ? 'bg-orange-500/20 text-orange-300 font-bold border-orange-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                <i class="fa-solid fa-play text-[9px] text-orange-400"></i>
+                <span>ViX</span>
+            </button>
+            <button type="button"
+                    @click="activePlatform = 'espn'"
+                    :class="activePlatform === 'espn' ? 'bg-red-600/20 text-red-300 font-bold border-red-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                <i class="fa-solid fa-tv text-[9px] text-red-400"></i>
+                <span>ESPN</span>
+            </button>
+            <button type="button"
+                    @click="activePlatform = 'disney+'"
+                    :class="activePlatform === 'disney+' ? 'bg-indigo-600/20 text-indigo-300 font-bold border-indigo-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                <i class="fa-solid fa-play text-[9px] text-indigo-400"></i>
+                <span>Disney+</span>
+            </button>
+            <button type="button"
+                    @click="activePlatform = 'fox sports'"
+                    :class="activePlatform === 'fox sports' ? 'bg-blue-600/20 text-blue-300 font-bold border-blue-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                <i class="fa-solid fa-tv text-[9px] text-blue-400"></i>
+                <span>Fox Sports</span>
+            </button>
+            <button type="button"
+                    @click="activePlatform = 'prime video'"
+                    :class="activePlatform === 'prime video' ? 'bg-sky-500/20 text-sky-300 font-bold border-sky-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                <i class="fa-brands fa-amazon text-[9px] text-sky-400"></i>
+                <span>Prime Video</span>
+            </button>
+            <button type="button"
+                    @click="activePlatform = 'netflix'"
+                    :class="activePlatform === 'netflix' ? 'bg-rose-600/20 text-rose-300 font-bold border-rose-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                <i class="fa-solid fa-play text-[9px] text-rose-400"></i>
+                <span>Netflix</span>
+            </button>
+            <button type="button"
+                    @click="activePlatform = 'dazn'"
+                    :class="activePlatform === 'dazn' ? 'bg-zinc-800 text-white font-bold border-zinc-600 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                <i class="fa-solid fa-play text-[9px] text-zinc-400"></i>
+                <span>DAZN</span>
+            </button>
+        </div>
+
         <!-- Games Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             {{range .Games}}
                 {{$p := .UserPick}}
                 {{$g := .}}
-                <div x-show="activeFilter === 'all' || activeFilter === '{{$g.Status}}'" 
+                <div x-show="(activeFilter === 'all' || activeFilter === '{{$g.Status}}') && (activePlatform === 'all' || '{{range $b := $g.MexicoBroadcastOptions}}{{$b.Name}},{{end}}'.toLowerCase().includes(activePlatform))" 
                      class="vercel-card p-3.5 sm:p-4 rounded-2xl relative transition-all shadow-sm {{if eq $g.Status "in_progress"}}ring-1 ring-red-500/30 bg-gradient-to-b from-red-500/5 to-transparent{{else if eq $g.Status "final"}}border-zinc-800/80{{end}}">
                     
                     <!-- Card Header: Status & Broadcast -->
@@ -441,10 +511,11 @@
                             <i class="fa-solid fa-satellite-dish mr-1 text-zinc-400 text-[8px]"></i> En MX:
                         </span>
                         {{range $b := $g.MexicoBroadcastOptions}}
-                            <span class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold border {{$b.BadgeCSS}}">
+                            <a href="{{$b.WatchURL}}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold border transition-transform hover:scale-105 cursor-pointer {{$b.BadgeCSS}}" title="Ver en {{$b.Name}} (Abre portal oficial) ↗">
                                 <i class="{{$b.IconCSS}} text-[8px]"></i>
                                 <span>{{$b.Name}}</span>
-                            </span>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-[7px] opacity-70 ml-0.5"></i>
+                            </a>
                         {{end}}
                     </div>
 

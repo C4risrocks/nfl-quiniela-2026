@@ -2,9 +2,11 @@ package espn
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sort"
+	"sync"
 	"time"
 
 	"nfl-quiniela-2026/db"
@@ -15,21 +17,37 @@ type ScoreCalculator interface {
 	CalculateWeekScores(weekID int64) error
 }
 
+// LiveAlert represents a real-time game event notification
+type LiveAlert struct {
+	Type      string `json:"type"` // "game_start", "lead_change", "pick_closing", "game_final"
+	Title     string `json:"title"`
+	Message   string `json:"message"`
+	GameID    int64  `json:"game_id"`
+	AwayCode  string `json:"away_code"`
+	HomeCode  string `json:"home_code"`
+	AwayScore int    `json:"away_score,omitempty"`
+	HomeScore int    `json:"home_score,omitempty"`
+	Timestamp string `json:"timestamp"`
+}
+
 type Syncer struct {
-	client     *Client
-	repo       *db.Repository
-	calculator ScoreCalculator
-	broker     *events.Broker
-	seasonYear int
+	client         *Client
+	repo           *db.Repository
+	calculator     ScoreCalculator
+	broker         *events.Broker
+	seasonYear     int
+	mu             sync.Mutex
+	closingAlerted map[int64]bool
 }
 
 func NewSyncer(client *Client, repo *db.Repository, calculator ScoreCalculator, broker *events.Broker, seasonYear int) *Syncer {
 	return &Syncer{
-		client:     client,
-		repo:       repo,
-		calculator: calculator,
-		broker:     broker,
-		seasonYear: seasonYear,
+		client:         client,
+		repo:           repo,
+		calculator:     calculator,
+		broker:         broker,
+		seasonYear:     seasonYear,
+		closingAlerted: make(map[int64]bool),
 	}
 }
 
@@ -65,6 +83,12 @@ func (s *Syncer) SyncWeek(weekNum int) (int, error) {
 		teamMap[t.Code] = t
 	}
 
+	existingGames, _ := s.repo.ListGamesByWeek(week.ID)
+	existingMap := make(map[string]*db.Game)
+	for _, g := range existingGames {
+		existingMap[g.ESPNGameID] = g
+	}
+
 	var syncedGames []*db.Game
 	for _, ev := range sb.Events {
 		event := ev
@@ -77,7 +101,121 @@ func (s *Syncer) SyncWeek(weekNum int) (int, error) {
 			log.Printf("[Syncer] Error upserting game %s: %v", ev.ID, err)
 			continue
 		}
+
+		// Detect state changes for real-time live alerts
+		if oldG, exists := existingMap[game.ESPNGameID]; exists && oldG != nil && game.ID > 0 {
+			awayCode, homeCode := "", ""
+			if game.AwayTeam != nil {
+				awayCode = game.AwayTeam.Code
+			} else if oldG.AwayTeam != nil {
+				awayCode = oldG.AwayTeam.Code
+			}
+			if game.HomeTeam != nil {
+				homeCode = game.HomeTeam.Code
+			} else if oldG.HomeTeam != nil {
+				homeCode = oldG.HomeTeam.Code
+			}
+
+			// 1. Kickoff / Game Start
+			if oldG.Status == "scheduled" && game.Status == "in_progress" {
+				s.broadcastAlert(LiveAlert{
+					Type:      "game_start",
+					Title:     "🏈 ¡Comenzó el partido!",
+					Message:   fmt.Sprintf("%s @ %s acaba de dar inicio.", awayCode, homeCode),
+					GameID:    game.ID,
+					AwayCode:  awayCode,
+					HomeCode:  homeCode,
+					Timestamp: time.Now().UTC().Format(time.RFC3339),
+				})
+			}
+
+			// 2. Game Final
+			if oldG.Status != "final" && game.Status == "final" {
+				awayS, homeS := 0, 0
+				if game.AwayScore != nil {
+					awayS = *game.AwayScore
+				}
+				if game.HomeScore != nil {
+					homeS = *game.HomeScore
+				}
+				s.broadcastAlert(LiveAlert{
+					Type:      "game_final",
+					Title:     "🏁 Partido Finalizado",
+					Message:   fmt.Sprintf("Marcador Final: %s %d - %d %s", awayCode, awayS, homeS, homeCode),
+					GameID:    game.ID,
+					AwayCode:  awayCode,
+					HomeCode:  homeCode,
+					AwayScore: awayS,
+					HomeScore: homeS,
+					Timestamp: time.Now().UTC().Format(time.RFC3339),
+				})
+			}
+
+			// 3. Lead Change
+			if oldG.Status == "in_progress" && game.Status == "in_progress" &&
+				oldG.HomeScore != nil && oldG.AwayScore != nil &&
+				game.HomeScore != nil && game.AwayScore != nil {
+				oldDiff := *oldG.HomeScore - *oldG.AwayScore
+				newDiff := *game.HomeScore - *game.AwayScore
+				if (oldDiff <= 0 && newDiff > 0) || (oldDiff >= 0 && newDiff < 0) {
+					leader := homeCode
+					trailed := awayCode
+					if newDiff < 0 {
+						leader = awayCode
+						trailed = homeCode
+					}
+					s.broadcastAlert(LiveAlert{
+						Type:      "lead_change",
+						Title:     "🔥 ¡Cambio de Líder!",
+						Message:   fmt.Sprintf("%s toma la delantera (%d - %d) frente a %s", leader, *game.HomeScore, *game.AwayScore, trailed),
+						GameID:    game.ID,
+						AwayCode:  awayCode,
+						HomeCode:  homeCode,
+						AwayScore: *game.AwayScore,
+						HomeScore: *game.HomeScore,
+						Timestamp: time.Now().UTC().Format(time.RFC3339),
+					})
+				}
+			}
+		}
+
 		syncedGames = append(syncedGames, game)
+	}
+
+	// 4. Pick Closing Alerts (Approaching Kickoff within 15 mins)
+	now := time.Now()
+	for _, g := range syncedGames {
+		if g.Status == "scheduled" && !g.IsLocked && g.ID > 0 {
+			timeUntilKickoff := g.KickoffTime.Sub(now)
+			if timeUntilKickoff > 0 && timeUntilKickoff <= 15*time.Minute {
+				s.mu.Lock()
+				alreadyAlerted := s.closingAlerted[g.ID]
+				if !alreadyAlerted {
+					s.closingAlerted[g.ID] = true
+					s.mu.Unlock()
+
+					awayCode, homeCode := "", ""
+					if g.AwayTeam != nil {
+						awayCode = g.AwayTeam.Code
+					}
+					if g.HomeTeam != nil {
+						homeCode = g.HomeTeam.Code
+					}
+
+					s.broadcastAlert(LiveAlert{
+						Type:      "pick_closing",
+						Title:     "⏰ ¡Cierre de Picks Próximo!",
+						Message:   fmt.Sprintf("Faltan menos de 15 min para el inicio de %s @ %s. ¡Asegura tus pronósticos!", awayCode, homeCode),
+						GameID:    g.ID,
+						AwayCode:  awayCode,
+						HomeCode:  homeCode,
+						Timestamp: time.Now().UTC().Format(time.RFC3339),
+					})
+				} else {
+					s.mu.Unlock()
+				}
+			}
+		}
 	}
 
 	// If we successfully synced games from ESPN, purge any leftover dummy seed games
@@ -187,3 +325,16 @@ func (s *Syncer) StartBackgroundSync(ctx context.Context, defaultInterval time.D
 		}
 	}()
 }
+
+func (s *Syncer) broadcastAlert(alert LiveAlert) {
+	if s.broker == nil {
+		return
+	}
+	payload, err := json.Marshal(alert)
+	if err != nil {
+		return
+	}
+	s.broker.Broadcast("live-alert", string(payload))
+	log.Printf("[Syncer] Dispatched live-alert: [%s] %s", alert.Type, alert.Title)
+}
+
