@@ -996,3 +996,60 @@ func TestLiveHandlerRendering(t *testing.T) {
 	}
 }
 
+func TestLeaderboardAndRulesRendering(t *testing.T) {
+	repo, _, renderer, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	leaderboardHandler := NewLeaderboardHandler(repo, renderer, 2026)
+	rulesHandler := NewRulesHandler(repo, renderer)
+
+	// 1. Test ShowLeaderboard
+	req1 := httptest.NewRequest(http.MethodGet, "/leaderboard", nil)
+	rr1 := httptest.NewRecorder()
+	leaderboardHandler.ShowLeaderboard(rr1, req1)
+	if rr1.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from ShowLeaderboard, got %d: %s", rr1.Code, rr1.Body.String())
+	}
+	body1 := rr1.Body.String()
+	if !strings.Contains(body1, "Tabla de Posiciones") {
+		t.Errorf("Expected ShowLeaderboard to contain 'Tabla de Posiciones'")
+	}
+	if !strings.Contains(body1, "Compartir") {
+		t.Errorf("Expected ShowLeaderboard to contain 'Compartir'")
+	}
+	if !strings.Contains(body1, "shareable-leaderboard-card") {
+		t.Errorf("Expected ShowLeaderboard to contain 'shareable-leaderboard-card'")
+	}
+
+	// 2. Test LeaderboardTable partial
+	req2 := httptest.NewRequest(http.MethodGet, "/leaderboard/table?mode=season", nil)
+	rr2 := httptest.NewRecorder()
+	leaderboardHandler.LeaderboardTable(rr2, req2)
+	if rr2.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from LeaderboardTable, got %d: %s", rr2.Code, rr2.Body.String())
+	}
+	body2 := rr2.Body.String()
+	if !strings.Contains(body2, "md:hidden") {
+		t.Errorf("Expected LeaderboardTable to contain mobile view 'md:hidden'")
+	}
+	if !strings.Contains(body2, "hidden md:block") {
+		t.Errorf("Expected LeaderboardTable to contain desktop view 'hidden md:block'")
+	}
+
+	// 3. Test ShowRules
+	req3 := httptest.NewRequest(http.MethodGet, "/rules", nil)
+	rr3 := httptest.NewRecorder()
+	rulesHandler.ShowRules(rr3, req3)
+	if rr3.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from ShowRules, got %d: %s", rr3.Code, rr3.Body.String())
+	}
+	body3 := rr3.Body.String()
+	if !strings.Contains(body3, "Reglamento") {
+		t.Errorf("Expected ShowRules to contain 'Reglamento'")
+	}
+	if !strings.Contains(body3, "Prórroga Oficial de Registro en Semana 1") {
+		t.Errorf("Expected ShowRules to contain 'Prórroga Oficial de Registro en Semana 1'")
+	}
+}
+
+

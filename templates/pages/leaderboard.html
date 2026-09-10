@@ -3,7 +3,7 @@
 {{define "title"}}Tabla de Posiciones - NFL Quiniela 2026{{end}}
 
 {{define "content"}}
-<div class="space-y-6">
+<div class="space-y-6" x-data="{ shareModalOpen: false }">
 
     <!-- Header & Controls -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 vercel-card p-5 sm:p-6 rounded-2xl shadow-sm">
@@ -21,8 +21,8 @@
             </p>
         </div>
 
-        <!-- Mode Switcher & Week Select -->
-        <div class="flex flex-wrap items-center gap-3">
+        <!-- Mode Switcher, Week Select & Share Button -->
+        <div class="flex flex-wrap items-center gap-2.5">
             
             <!-- Vercel-Style Segmented Tab Group -->
             <div class="bg-zinc-950 p-1 rounded-xl border border-zinc-800 flex items-center space-x-1">
@@ -50,6 +50,14 @@
                 </div>
             {{end}}
 
+            <!-- Share Leaderboard Button -->
+            <button type="button" 
+                    @click="shareModalOpen = true"
+                    class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold transition-all shadow-sm cursor-pointer ml-auto sm:ml-0">
+                <i class="fa-solid fa-share-nodes text-xs"></i>
+                <span>Compartir</span>
+            </button>
+
         </div>
     </div>
 
@@ -74,6 +82,9 @@
          hx-swap="innerHTML">
         {{template "leaderboard_table.html" (dict "Leaderboard" .Leaderboard "CurrentUser" .User "SelectedWeek" .SelectedWeek)}}
     </div>
+
+    <!-- Social Share Leaderboard Modal -->
+    {{template "share_leaderboard_modal.html" .}}
 
 </div>
 {{end}}

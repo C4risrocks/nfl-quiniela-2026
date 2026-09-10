@@ -6,66 +6,76 @@
 <div class="max-w-4xl mx-auto space-y-6">
 
     <!-- Header -->
-    <div class="vercel-card p-6 sm:p-8 rounded-2xl">
-        <div class="flex items-center space-x-2 mb-1">
-            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700/60">
-                Official Rules
+    <div class="vercel-card p-5 sm:p-7 rounded-2xl shadow-sm">
+        <div class="flex items-center space-x-2 mb-1.5">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-white/10 text-white border border-white/20">
+                <i class="fa-solid fa-book mr-1.5 text-cyan-400"></i> Official Rules
             </span>
         </div>
-        <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center">
-            Reglamento y Puntuación
+        <h1 class="text-xl sm:text-3xl font-black tracking-tight text-white flex items-center">
+            Reglamento y Sistema de Puntuación
         </h1>
-        <p class="text-zinc-400 mt-2 text-xs sm:text-sm leading-relaxed">
+        <p class="text-zinc-400 mt-1.5 text-xs sm:text-sm leading-relaxed">
             Conoce cómo funciona la quiniela de la NFL 2026, las reglas de bloqueo por partido y los criterios oficiales de desempate.
         </p>
     </div>
 
     <!-- Active Pool Settings Banner -->
-    <div class="vercel-card p-5 rounded-2xl bg-zinc-950 border-[#262626]">
+    <div class="vercel-card p-4 sm:p-5 rounded-2xl bg-zinc-950 border border-zinc-800">
         <div class="flex items-center space-x-2 text-zinc-200 font-bold mb-3 text-xs uppercase font-mono tracking-wide">
-            <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
             <span>Configuración Activa de la Liga</span>
         </div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
-            <div class="bg-black/60 p-3.5 rounded-xl border border-zinc-800">
-                <span class="text-zinc-500 block mb-1 text-[11px] font-sans">Modo de Puntuación:</span>
-                <span class="text-sm font-bold text-white uppercase">{{.ScoringConfig.ScoringMode}}</span>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 text-xs font-mono">
+            <div class="bg-zinc-900/80 p-3 rounded-xl border border-zinc-800/80">
+                <span class="text-zinc-500 block mb-1 text-[10px] font-sans uppercase font-bold">Modo Puntuación</span>
+                <span class="text-sm font-black text-white uppercase">{{.ScoringConfig.ScoringMode}}</span>
             </div>
-            <div class="bg-black/60 p-3.5 rounded-xl border border-zinc-800">
-                <span class="text-zinc-500 block mb-1 text-[11px] font-sans">Puntos por Ganador:</span>
-                <span class="text-sm font-bold text-emerald-400">+{{.ScoringConfig.WinnerPoints}} pts</span>
+            <div class="bg-zinc-900/80 p-3 rounded-xl border border-zinc-800/80">
+                <span class="text-zinc-500 block mb-1 text-[10px] font-sans uppercase font-bold">Puntos por Ganador</span>
+                <span class="text-sm font-black text-emerald-400">+{{.ScoringConfig.WinnerPoints}} pts</span>
             </div>
-            <div class="bg-black/60 p-3.5 rounded-xl border border-zinc-800">
-                <span class="text-zinc-500 block mb-1 text-[11px] font-sans">Bono Marcador:</span>
-                <span class="text-sm font-bold text-amber-400">{{if eq .ScoringConfig.ScoringMode "weighted"}}+{{.ScoringConfig.ExactScoreBonus}} pts{{else}}Desempate MNF{{end}}</span>
+            <div class="bg-zinc-900/80 p-3 rounded-xl border border-zinc-800/80">
+                <span class="text-zinc-500 block mb-1 text-[10px] font-sans uppercase font-bold">Bono Marcador</span>
+                <span class="text-sm font-black text-amber-400">{{if eq .ScoringConfig.ScoringMode "weighted"}}+{{.ScoringConfig.ExactScoreBonus}} pts{{else}}Desempate MNF{{end}}</span>
             </div>
-            <div class="bg-black/60 p-3.5 rounded-xl border border-zinc-800">
-                <span class="text-zinc-500 block mb-1 text-[11px] font-sans">Tipo de Bloqueo:</span>
-                <span class="text-sm font-bold text-cyan-400">{{if eq .ScoringConfig.LockMode "full_week"}}Jornada Completa{{else}}Por Partido{{end}}</span>
+            <div class="bg-zinc-900/80 p-3 rounded-xl border border-zinc-800/80">
+                <span class="text-zinc-500 block mb-1 text-[10px] font-sans uppercase font-bold">Tipo de Bloqueo</span>
+                <span class="text-sm font-black text-cyan-400">{{if eq .ScoringConfig.LockMode "full_week"}}Jornada Completa{{else}}Por Partido{{end}}</span>
             </div>
         </div>
     </div>
 
     <!-- Rule Sections Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
         
         <!-- 1. Ganadores -->
-        <div class="vercel-card p-5 rounded-2xl space-y-2.5">
-            <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 text-sm">
-                <i class="fa-solid fa-hand-pointer"></i>
+        <div class="vercel-card p-4 sm:p-5 rounded-2xl space-y-2.5 border border-zinc-800/80 hover:border-emerald-500/30 transition-colors">
+            <div class="flex items-center justify-between">
+                <div class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-sm">
+                    <i class="fa-solid fa-hand-pointer"></i>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+                    +{{.ScoringConfig.WinnerPoints}} PT / JUEGO
+                </span>
             </div>
-            <h3 class="text-sm font-bold text-white">1. Elección de Ganadores (Principal)</h3>
+            <h3 class="text-sm font-bold text-white">1. Elección de Ganadores (Regla Principal)</h3>
             <p class="text-xs text-zinc-400 leading-relaxed font-sans">
-                El objetivo central de cada jornada es seleccionar al equipo que ganará cada encuentro. Acertar el ganador otorga los puntos base principales (<strong class="text-emerald-400 font-mono">+{{.ScoringConfig.WinnerPoints}} puntos</strong> por partido).
+                El objetivo central de cada jornada es seleccionar al equipo que ganará cada encuentro. Acertar el ganador otorga los puntos base principales (<strong class="text-emerald-400 font-mono">+{{.ScoringConfig.WinnerPoints}} punto</strong> por partido acertado).
             </p>
         </div>
 
         <!-- 2. Bloqueo de Pronósticos -->
-        <div class="vercel-card p-5 rounded-2xl space-y-2.5">
-            <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 text-sm">
-                <i class="fa-solid fa-clock-rotate-left"></i>
+        <div class="vercel-card p-4 sm:p-5 rounded-2xl space-y-2.5 border border-zinc-800/80 hover:border-cyan-500/30 transition-colors">
+            <div class="flex items-center justify-between">
+                <div class="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-sm">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-black text-cyan-400 bg-cyan-500/10 border border-cyan-500/20">
+                    {{if eq .ScoringConfig.LockMode "full_week"}}JORNADA COMPLETA{{else}}POR KICKOFF{{end}}
+                </span>
             </div>
-            <h3 class="text-sm font-bold text-white">2. Momento de Bloqueo ({{if eq .ScoringConfig.LockMode "full_week"}}Jornada Completa{{else}}Individual por Kickoff{{end}})</h3>
+            <h3 class="text-sm font-bold text-white">2. Momento de Bloqueo de Pronósticos</h3>
             <p class="text-xs text-zinc-400 leading-relaxed font-sans">
                 {{if eq .ScoringConfig.LockMode "full_week"}}
                     <strong>Bloqueo de Jornada Completa activo:</strong> Todos los partidos de la semana se congelan en el instante que inicia el primer partido de la jornada (ej. Jueves 8:15 PM). Una vez arrancado el primer juego, no se pueden modificar los pronósticos de jueves, domingo ni lunes.
@@ -76,31 +86,67 @@
         </div>
 
         <!-- 3. Bonos de Marcador -->
-        <div class="vercel-card p-5 rounded-2xl space-y-2.5">
-            <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 text-sm">
-                <i class="fa-solid fa-bullseye"></i>
+        <div class="vercel-card p-4 sm:p-5 rounded-2xl space-y-2.5 border border-zinc-800/80 hover:border-amber-500/30 transition-colors">
+            <div class="flex items-center justify-between">
+                <div class="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-sm">
+                    <i class="fa-solid fa-bullseye"></i>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-black text-amber-400 bg-amber-500/10 border border-amber-500/20">
+                    PUNTOS EXTRA
+                </span>
             </div>
-            <h3 class="text-sm font-bold text-white">3. Pronóstico de Marcador (Extra)</h3>
+            <h3 class="text-sm font-bold text-white">3. Pronóstico de Marcador</h3>
             <p class="text-xs text-zinc-400 leading-relaxed font-sans">
-                Al predecir el marcador exacto de los partidos, acumulas bonos adicionales:
+                Al predecir el marcador de los partidos, acumulas bonos o mejoras tu posición en desempates:
             </p>
-            <ul class="text-xs space-y-1 text-zinc-300 font-mono">
-                <li><strong class="text-amber-300">+{{.ScoringConfig.ExactScoreBonus}} pts:</strong> Acierto exacto del marcador final.</li>
-                <li><strong class="text-cyan-300">+{{.ScoringConfig.ExactMarginBonus}} pts:</strong> Acierto exacto del margen de victoria.</li>
+            <ul class="text-xs space-y-1.5 text-zinc-300 font-mono">
+                <li class="flex items-center space-x-2">
+                    <span class="text-amber-400 font-bold">+{{.ScoringConfig.ExactScoreBonus}} pts:</span>
+                    <span class="text-zinc-400 font-sans">Acierto exacto del marcador final.</span>
+                </li>
+                <li class="flex items-center space-x-2">
+                    <span class="text-cyan-400 font-bold">+{{.ScoringConfig.ExactMarginBonus}} pts:</span>
+                    <span class="text-zinc-400 font-sans">Acierto exacto del margen de victoria.</span>
+                </li>
             </ul>
         </div>
 
         <!-- 4. Criterio de Desempate -->
-        <div class="vercel-card p-5 rounded-2xl space-y-2.5">
-            <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 text-sm">
-                <i class="fa-solid fa-scale-balanced"></i>
+        <div class="vercel-card p-4 sm:p-5 rounded-2xl space-y-2.5 border border-zinc-800/80 hover:border-purple-500/30 transition-colors">
+            <div class="flex items-center justify-between">
+                <div class="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 text-sm">
+                    <i class="fa-solid fa-scale-balanced"></i>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-black text-purple-400 bg-purple-500/10 border border-purple-500/20">
+                    DESEMPATE MNF
+                </span>
             </div>
-            <h3 class="text-sm font-bold text-white">4. Criterio de Desempate (MNF)</h3>
+            <h3 class="text-sm font-bold text-white">4. Criterio de Desempate (Monday Night)</h3>
             <p class="text-xs text-zinc-400 leading-relaxed font-sans">
-                En caso de empate en puntos y aciertos, el ganador de la jornada se define por el partido de desempate (Monday Night Football). Aquel cuya suma total de puntos pronosticados esté más cercana al marcador total real obtiene la posición más alta.
+                En caso de empate en puntos acumulados, el puesto más alto en la tabla se define por el partido de desempate (Monday Night Football). Aquel jugador cuyo total de puntos combinados pronosticados esté más cercano al total real del encuentro obtiene el desempate (menor diferencia absoluta).
             </p>
         </div>
 
+    </div>
+
+    <!-- 5. Prórroga Oficial en Semana 1 -->
+    <div class="vercel-card p-4 sm:p-6 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/5 via-transparent to-transparent">
+        <div class="flex items-start space-x-3.5">
+            <div class="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-base shrink-0 mt-0.5">
+                <i class="fa-solid fa-hourglass-half"></i>
+            </div>
+            <div class="space-y-1">
+                <div class="flex items-center space-x-2">
+                    <h3 class="text-sm font-bold text-white">5. Prórroga Oficial de Registro en Semana 1</h3>
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-mono font-black bg-amber-400 text-black uppercase">
+                        Vigente
+                    </span>
+                </div>
+                <p class="text-xs text-zinc-400 leading-relaxed font-sans">
+                    Para asegurar que ningún jugador quede fuera por registros tardíos, todos los partidos de la <strong class="text-zinc-200">Semana 1</strong> (excepto aquellos que ya hayan comenzado su patada inicial) permanecen abiertos para guardar o modificar pronósticos hasta el Kickoff del partido del <strong class="text-white">Jueves 10 de Septiembre a las 18:35 CDMX</strong>.
+                </p>
+            </div>
+        </div>
     </div>
 
 </div>

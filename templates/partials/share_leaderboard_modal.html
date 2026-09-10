@@ -1,0 +1,222 @@
+<div x-show="shareModalOpen" 
+     x-cloak 
+     class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+     @keydown.escape.window="shareModalOpen = false">
+    
+    <div class="vercel-card rounded-2xl w-full max-w-2xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[92vh] bg-zinc-950"
+         @click.away="shareModalOpen = false">
+        
+        <!-- Modal Header -->
+        <div class="p-4 sm:p-5 border-b border-[#222222] bg-zinc-900/80 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-white/10 text-white border border-white/20 flex items-center">
+                    <i class="fa-solid fa-share-nodes mr-1.5 text-cyan-400"></i> Compartir Posiciones
+                </span>
+                <span class="text-xs text-zinc-400 hidden sm:inline">Tarjeta lista para WhatsApp, X e Instagram</span>
+            </div>
+            <button type="button" 
+                    @click="shareModalOpen = false"
+                    class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer">
+                <i class="fa-solid fa-xmark text-base"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body (Preview of the Card) -->
+        <div class="p-4 sm:p-6 overflow-y-auto flex-1 flex justify-center bg-black/40">
+            
+            <!-- Renderable Social Card Container (Target of html2canvas) -->
+            <div id="shareable-leaderboard-card" class="w-full max-w-lg bg-[#09090b] border border-zinc-800 rounded-3xl p-6 shadow-2xl text-white font-sans relative overflow-hidden">
+                
+                <!-- Ambient Glow Background Behind Card -->
+                <div class="absolute -top-24 -right-24 w-60 h-60 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="absolute -bottom-24 -left-24 w-60 h-60 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                <!-- Brand & Week Header -->
+                <div class="flex items-center justify-between border-b border-zinc-800/80 pb-4 mb-4 relative z-10">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-700/80 flex items-center justify-center p-1.5 shadow-inner">
+                            <img src="https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png" alt="NFL" class="w-full h-full object-contain">
+                        </div>
+                        <div>
+                            <div class="text-[10px] font-mono uppercase tracking-widest text-zinc-400 font-bold">NFL Quiniela 2026</div>
+                            <div class="text-lg font-black text-white tracking-tight flex items-center">
+                                <span>Tabla de Posiciones</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Week Pill Badge -->
+                    <div class="text-right">
+                        <div id="share-card-view-badge" class="inline-block px-3 py-1 rounded-full text-[10px] font-mono font-black uppercase tracking-wider bg-white text-black shadow-sm">
+                            {{if eq .ViewMode "season"}}General 2026{{else}}{{.SelectedWeek.Name}}{{end}}
+                        </div>
+                        <div class="text-[9px] font-mono text-zinc-500 mt-1">Oficial</div>
+                    </div>
+                </div>
+
+                <!-- Leaderboard Top List -->
+                <div class="space-y-1.5 relative z-10">
+                    {{range $index, $entry := .Leaderboard}}
+                        {{if lt $index 10}}
+                            <div class="flex items-center justify-between p-2.5 rounded-xl border transition-colors {{if and $.User (eq $entry.UserID $.User.ID)}}bg-zinc-800/90 border-white/40{{else}}bg-zinc-950/60 border-zinc-900{{end}}">
+                                <div class="flex items-center space-x-3 min-w-0">
+                                    <div class="w-6 text-center font-mono text-xs font-black">
+                                        {{if eq $entry.Rank 1}}
+                                            <span class="text-amber-400 text-sm">🥇</span>
+                                        {{else if eq $entry.Rank 2}}
+                                            <span class="text-zinc-300 text-sm">🥈</span>
+                                        {{else if eq $entry.Rank 3}}
+                                            <span class="text-amber-600 text-sm">🥉</span>
+                                        {{else}}
+                                            <span class="text-zinc-400 text-[11px]">#{{$entry.Rank}}</span>
+                                        {{end}}
+                                    </div>
+                                    <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[10px] font-bold text-white uppercase shrink-0">
+                                        {{slice $entry.Username 0 1}}
+                                    </div>
+                                    <div class="min-w-0 flex items-center space-x-1.5">
+                                        <span class="font-bold text-xs text-white truncate max-w-[130px] sm:max-w-[160px]">{{$entry.Username}}</span>
+                                        {{if and $.User (eq $entry.UserID $.User.ID)}}
+                                            <span class="text-[8px] font-mono font-black bg-white text-black px-1 rounded-sm">TÚ</span>
+                                        {{end}}
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-3 font-mono text-right">
+                                    <span class="text-[10px] text-zinc-400 font-semibold">{{printf "%.0f" $entry.WinPercentage}}%</span>
+                                    <span class="font-black text-xs text-amber-400 min-w-[45px]">{{$entry.TotalPoints}} pts</span>
+                                </div>
+                            </div>
+                        {{end}}
+                    {{end}}
+                </div>
+
+                <!-- Footer Watermark & Branding -->
+                <div class="mt-4 pt-3 border-t border-zinc-800/80 flex items-center justify-between text-[10px] text-zinc-500 font-mono relative z-10">
+                    <span class="flex items-center space-x-1">
+                        <i class="fa-solid fa-trophy text-amber-400/80"></i>
+                        <span>quiniela.cmoreno.org</span>
+                    </span>
+                    <span>Temporada NFL 2026</span>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- Modal Footer: Actions -->
+        <div class="p-4 sm:p-5 border-t border-[#222222] bg-zinc-900/60 flex flex-col sm:flex-row items-center justify-between gap-3"
+             x-data="{
+                 generating: false,
+                 async generateCardBlob() {
+                     const card = document.getElementById('shareable-leaderboard-card');
+                     if (!card) return null;
+
+                     const clone = card.cloneNode(true);
+                     clone.id = 'shareable-leaderboard-card-clone';
+                     clone.style.width = '600px';
+                     clone.style.maxWidth = '600px';
+                     clone.style.minWidth = '600px';
+                     clone.style.position = 'fixed';
+                     clone.style.left = '-9999px';
+                     clone.style.top = '0';
+                     clone.style.zIndex = '-9999';
+
+                     document.body.appendChild(clone);
+                     if (document.fonts && document.fonts.ready) {
+                         await document.fonts.ready;
+                     }
+                     await new Promise(r => setTimeout(r, 120));
+
+                     try {
+                         const canvas = await html2canvas(clone, {
+                             scale: 3,
+                             useCORS: true,
+                             allowTaint: true,
+                             backgroundColor: '#09090b',
+                             logging: false,
+                             windowWidth: 600
+                         });
+                         return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                     } finally {
+                         if (clone.parentNode) {
+                             clone.parentNode.removeChild(clone);
+                         }
+                     }
+                 },
+                 async shareImage() {
+                     this.generating = true;
+                     try {
+                         const blob = await this.generateCardBlob();
+                         if (!blob) throw new Error('Error generando imagen');
+                         const file = new File([blob], 'quiniela-posiciones.png', { type: 'image/png' });
+                         if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                             await navigator.share({
+                                 title: 'Tabla de Posiciones - Quiniela NFL 2026',
+                                 text: '¡Mira las posiciones actuales en la Quiniela NFL 2026!',
+                                 files: [file]
+                             });
+                         } else {
+                             this.downloadImageBlob(blob);
+                         }
+                     } catch (e) {
+                         if (e.name !== 'AbortError') {
+                             alert('No se pudo compartir automáticamente. Descargando imagen...');
+                             await this.downloadImage();
+                         }
+                     } finally {
+                         this.generating = false;
+                     }
+                 },
+                 async downloadImage() {
+                     this.generating = true;
+                     try {
+                         const blob = await this.generateCardBlob();
+                         if (!blob) throw new Error('Error al generar imagen');
+                         this.downloadImageBlob(blob);
+                     } catch (e) {
+                         alert('Error al generar la imagen: ' + e.message);
+                     } finally {
+                         this.generating = false;
+                     }
+                 },
+                 downloadImageBlob(blob) {
+                     const url = URL.createObjectURL(blob);
+                     const a = document.createElement('a');
+                     a.href = url;
+                     a.download = 'quiniela-posiciones.png';
+                     document.body.appendChild(a);
+                     a.click();
+                     document.body.removeChild(a);
+                     URL.revokeObjectURL(url);
+                 }
+             }">
+            
+            <div class="text-xs text-zinc-400 flex items-center space-x-1.5 self-start sm:self-auto">
+                <i class="fa-solid fa-circle-check text-emerald-400 text-xs"></i>
+                <span>Imagen generada en ultra alta definición (3x)</span>
+            </div>
+
+            <div class="flex items-center space-x-2 w-full sm:w-auto">
+                <button type="button"
+                        @click="downloadImage()"
+                        :disabled="generating"
+                        class="flex-1 sm:flex-none inline-flex items-center justify-center space-x-1.5 px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer">
+                    <i class="fa-solid fa-arrow-down" x-show="!generating"></i>
+                    <i class="fa-solid fa-spinner fa-spin" x-show="generating"></i>
+                    <span>Descargar PNG</span>
+                </button>
+
+                <button type="button"
+                        @click="shareImage()"
+                        :disabled="generating"
+                        class="flex-1 sm:flex-none inline-flex items-center justify-center space-x-1.5 px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold transition-all shadow-md disabled:opacity-50 cursor-pointer">
+                    <i class="fa-solid fa-share-nodes" x-show="!generating"></i>
+                    <i class="fa-solid fa-spinner fa-spin" x-show="generating"></i>
+                    <span>Compartir Imagen</span>
+                </button>
+            </div>
+
+        </div>
+
+    </div>
+</div>

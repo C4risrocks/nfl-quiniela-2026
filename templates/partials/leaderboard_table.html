@@ -1,115 +1,208 @@
-<div class="overflow-x-auto rounded-2xl border border-[#222222] bg-[#0c0c0c]">
-    <table class="w-full text-left border-collapse text-xs">
-        <thead>
-            <tr class="border-b border-[#1f1f1f] bg-black/40 text-zinc-500 font-mono text-[11px] uppercase tracking-wider">
-                <th class="py-3 px-4 text-center w-16">Pos</th>
-                <th class="py-3 px-4">Jugador</th>
-                <th class="py-3 px-4 text-center">Puntos Totales</th>
-                <th class="py-3 px-4 text-center">Aciertos</th>
-                <th class="py-3 px-4 text-center">Efectividad</th>
-                <th class="py-3 px-4 text-center">Dif. Desempate</th>
-                <th class="py-3 px-4 text-center">Duelo</th>
-            </tr>
-        </thead>
-        <tbody class="divide-y divide-[#1a1a1a] text-zinc-200">
-            {{if .Leaderboard}}
-                {{range .Leaderboard}}
-                    <tr class="transition-colors hover:bg-zinc-900/50 {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}bg-zinc-900/80 border-l-2 border-l-white font-medium{{end}}">
-                        
-                        <!-- Rank Column -->
-                        <td class="py-3 px-4 text-center">
-                            {{if eq .Rank 1}}
-                                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-400/10 text-amber-300 font-mono font-bold text-xs border border-amber-400/30">
-                                    🥇
-                                </span>
-                            {{else if eq .Rank 2}}
-                                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-700/20 text-zinc-200 font-mono font-bold text-xs border border-zinc-600/40">
-                                    🥈
-                                </span>
-                            {{else if eq .Rank 3}}
-                                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-700/10 text-amber-500 font-mono font-bold text-xs border border-amber-700/30">
-                                    🥉
-                                </span>
-                            {{else}}
-                                <span class="text-xs font-mono text-zinc-500 font-medium">#{{.Rank}}</span>
-                            {{end}}
-                        </td>
+<div class="space-y-3">
 
-                        <!-- Player Info -->
-                        <td class="py-3 px-4">
-                            <div class="flex items-center space-x-2.5">
-                                <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[10px] font-bold text-zinc-200 uppercase">
-                                    {{slice .Username 0 1}}
-                                </div>
-                                <div class="font-medium text-white flex items-center">
-                                    {{.Username}}
+    <!-- MOBILE VIEW (md:hidden): Compact Ergonomic Cards -->
+    <div class="md:hidden space-y-2.5">
+        {{if .Leaderboard}}
+            {{range .Leaderboard}}
+                <div class="p-3.5 rounded-2xl border transition-all {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}bg-zinc-900/90 border-white/40 ring-1 ring-white/20 shadow-md{{else}}bg-zinc-950/80 border-zinc-800/80 hover:border-zinc-700{{end}}">
+                    <div class="flex items-center justify-between">
+                        
+                        <!-- Left: Rank Badge + Avatar + Player Info -->
+                        <div class="flex items-center space-x-2.5 min-w-0">
+                            <!-- Rank Badge / Medal -->
+                            <div class="flex-shrink-0 w-7 text-center">
+                                {{if eq .Rank 1}}
+                                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-400/20 text-amber-300 font-black text-sm border border-amber-400/40">🥇</span>
+                                {{else if eq .Rank 2}}
+                                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-600/20 text-zinc-200 font-black text-sm border border-zinc-500/40">🥈</span>
+                                {{else if eq .Rank 3}}
+                                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-700/20 text-amber-500 font-black text-sm border border-amber-700/40">🥉</span>
+                                {{else}}
+                                    <span class="font-mono text-xs font-black text-zinc-400">#{{.Rank}}</span>
+                                {{end}}
+                            </div>
+
+                            <!-- Avatar -->
+                            <div class="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-bold text-white uppercase shrink-0">
+                                {{slice .Username 0 1}}
+                            </div>
+
+                            <!-- Username & Stats -->
+                            <div class="min-w-0">
+                                <div class="font-bold text-white text-sm truncate flex items-center">
+                                    <span class="truncate">{{.Username}}</span>
                                     {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}
-                                        <span class="ml-2 text-[9px] font-mono uppercase font-bold bg-white text-black px-1.5 py-0.2 rounded-full">Tú</span>
+                                        <span class="ml-1.5 text-[9px] font-mono uppercase font-black bg-white text-black px-1.5 py-0.2 rounded-full shrink-0">Tú</span>
                                     {{end}}
                                 </div>
+                                <div class="text-[11px] font-mono text-zinc-400 flex items-center space-x-1.5 mt-0.5">
+                                    <span>{{.CorrectPicks}}/{{.TotalPicks}} aciertos</span>
+                                    <span class="text-zinc-600">•</span>
+                                    <span class="text-emerald-400 font-semibold">{{printf "%.1f" .WinPercentage}}%</span>
+                                </div>
                             </div>
-                        </td>
+                        </div>
 
-                        <!-- Total Points & Live Projected -->
-                        <td class="py-3 px-4 text-center">
-                            <span class="font-mono font-bold text-sm text-amber-400">
+                        <!-- Right: Total Points & Live Projected -->
+                        <div class="text-right flex-shrink-0 pl-2">
+                            <div class="font-mono font-black text-base text-amber-400 leading-none">
                                 {{.TotalPoints}} <span class="text-[10px] text-zinc-500 font-normal">pts</span>
-                            </span>
+                            </div>
                             {{if .HasLiveGames}}
-                                <div class="text-[10px] font-mono text-emerald-400 font-semibold mt-0.5" title="Puntos proyectados con resultados en vivo">
+                                <div class="text-[10px] font-mono text-emerald-400 font-bold mt-0.5" title="Puntos proyectados con partidos en vivo">
                                     ({{.LiveProjectedPoints}} en vivo)
                                 </div>
                             {{end}}
-                        </td>
+                        </div>
+                    </div>
 
-                        <!-- Correct Picks -->
-                        <td class="py-3 px-4 text-center font-mono">
-                            <span class="font-bold text-white">{{.CorrectPicks}}</span>
-                            <span class="text-zinc-600 text-[11px]">/ {{.TotalPicks}}</span>
-                        </td>
-
-                        <!-- Win Percentage -->
-                        <td class="py-3 px-4 text-center font-mono text-emerald-400 font-medium">
-                            {{printf "%.1f" .WinPercentage}}%
-                        </td>
-
-                        <!-- Tiebreaker Error -->
-                        <td class="py-3 px-4 text-center font-mono">
+                    <!-- Bottom Bar on Mobile Card (Tiebreaker & Compare Button) -->
+                    <div class="mt-2.5 pt-2 border-t border-zinc-900 flex items-center justify-between text-xs">
+                        <div>
                             {{if .HasTiebreaker}}
-                                <span class="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 text-[11px]">
-                                    ±{{.TiebreakerError}} pts
+                                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
+                                    Desempate: <strong class="text-zinc-200">±{{.TiebreakerError}} pts</strong>
                                 </span>
                             {{else}}
-                                <span class="text-zinc-600 text-[11px]">--</span>
+                                <span class="text-[10px] text-zinc-600 font-mono">Sin desempate</span>
                             {{end}}
-                        </td>
+                        </div>
 
-                        <!-- Head-to-Head Compare Button -->
-                        <td class="py-3 px-4 text-center">
-                            {{if and $.CurrentUser (ne .UserID $.CurrentUser.ID)}}
-                                <button type="button" 
-                                        hx-get="/picks/compare?rival_id={{.UserID}}{{if $.SelectedWeek}}&week_id={{$.SelectedWeek.ID}}{{end}}"
-                                        hx-target="#h2h-modal-container"
-                                        class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 text-[11px] font-medium transition-colors cursor-pointer"
-                                        title="Comparar pronósticos contra {{.Username}}">
-                                    <i class="fa-solid fa-code-compare text-[10px] text-zinc-400"></i>
-                                    <span>Comparar</span>
-                                </button>
-                            {{else}}
-                                <span class="text-zinc-600 text-[10px]">--</span>
-                            {{end}}
-                        </td>
+                        {{if and $.CurrentUser (ne .UserID $.CurrentUser.ID)}}
+                            <button type="button" 
+                                    hx-get="/picks/compare?rival_id={{.UserID}}{{if $.SelectedWeek}}&week_id={{$.SelectedWeek.ID}}{{end}}"
+                                    hx-target="#h2h-modal-container"
+                                    class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 text-[11px] font-medium transition-colors cursor-pointer"
+                                    title="Comparar pronósticos contra {{.Username}}">
+                                <i class="fa-solid fa-code-compare text-[10px] text-zinc-400"></i>
+                                <span>Comparar</span>
+                            </button>
+                        {{end}}
+                    </div>
+                </div>
+            {{end}}
+        {{else}}
+            <div class="p-8 text-center text-zinc-500 bg-zinc-950 rounded-2xl border border-zinc-900">
+                <i class="fa-solid fa-trophy text-zinc-700 text-2xl mb-2 block"></i>
+                Aún no se han registrado puntuaciones para esta vista.
+            </div>
+        {{end}}
+    </div>
 
+    <!-- DESKTOP VIEW (hidden md:block): Classic Wide Table -->
+    <div class="hidden md:block overflow-x-auto rounded-2xl border border-[#222222] bg-[#0c0c0c]">
+        <table class="w-full text-left border-collapse text-xs">
+            <thead>
+                <tr class="border-b border-[#1f1f1f] bg-black/40 text-zinc-500 font-mono text-[11px] uppercase tracking-wider sticky top-0 backdrop-blur-md">
+                    <th class="py-3 px-4 text-center w-16">Pos</th>
+                    <th class="py-3 px-4">Jugador</th>
+                    <th class="py-3 px-4 text-center">Puntos Totales</th>
+                    <th class="py-3 px-4 text-center">Aciertos</th>
+                    <th class="py-3 px-4 text-center">Efectividad</th>
+                    <th class="py-3 px-4 text-center">Dif. Desempate</th>
+                    <th class="py-3 px-4 text-center">Duelo</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-[#1a1a1a] text-zinc-200">
+                {{if .Leaderboard}}
+                    {{range .Leaderboard}}
+                        <tr class="transition-colors hover:bg-zinc-900/50 {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}bg-zinc-900/80 border-l-2 border-l-white font-medium{{end}}">
+                            
+                            <!-- Rank Column -->
+                            <td class="py-3 px-4 text-center">
+                                {{if eq .Rank 1}}
+                                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-400/10 text-amber-300 font-mono font-bold text-xs border border-amber-400/30">
+                                        🥇
+                                    </span>
+                                {{else if eq .Rank 2}}
+                                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-zinc-700/20 text-zinc-200 font-mono font-bold text-xs border border-zinc-600/40">
+                                        🥈
+                                    </span>
+                                {{else if eq .Rank 3}}
+                                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-700/10 text-amber-500 font-mono font-bold text-xs border border-amber-700/30">
+                                        🥉
+                                    </span>
+                                {{else}}
+                                    <span class="text-xs font-mono text-zinc-500 font-medium">#{{.Rank}}</span>
+                                {{end}}
+                            </td>
+
+                            <!-- Player Info -->
+                            <td class="py-3 px-4">
+                                <div class="flex items-center space-x-2.5">
+                                    <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[10px] font-bold text-zinc-200 uppercase">
+                                        {{slice .Username 0 1}}
+                                    </div>
+                                    <div class="font-medium text-white flex items-center">
+                                        {{.Username}}
+                                        {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}
+                                            <span class="ml-2 text-[9px] font-mono uppercase font-bold bg-white text-black px-1.5 py-0.2 rounded-full">Tú</span>
+                                        {{end}}
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- Total Points & Live Projected -->
+                            <td class="py-3 px-4 text-center">
+                                <span class="font-mono font-bold text-sm text-amber-400">
+                                    {{.TotalPoints}} <span class="text-[10px] text-zinc-500 font-normal">pts</span>
+                                </span>
+                                {{if .HasLiveGames}}
+                                    <div class="text-[10px] font-mono text-emerald-400 font-semibold mt-0.5" title="Puntos proyectados con resultados en vivo">
+                                        ({{.LiveProjectedPoints}} en vivo)
+                                    </div>
+                                {{end}}
+                            </td>
+
+                            <!-- Correct Picks -->
+                            <td class="py-3 px-4 text-center font-mono">
+                                <span class="font-bold text-white">{{.CorrectPicks}}</span>
+                                <span class="text-zinc-600 text-[11px]">/ {{.TotalPicks}}</span>
+                            </td>
+
+                            <!-- Win Percentage -->
+                            <td class="py-3 px-4 text-center font-mono text-emerald-400 font-medium">
+                                {{printf "%.1f" .WinPercentage}}%
+                            </td>
+
+                            <!-- Tiebreaker Error -->
+                            <td class="py-3 px-4 text-center font-mono">
+                                {{if .HasTiebreaker}}
+                                    <span class="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 text-[11px]">
+                                        ±{{.TiebreakerError}} pts
+                                    </span>
+                                {{else}}
+                                    <span class="text-zinc-600 text-[11px]">--</span>
+                                {{end}}
+                            </td>
+
+                            <!-- Head-to-Head Compare Button -->
+                            <td class="py-3 px-4 text-center">
+                                {{if and $.CurrentUser (ne .UserID $.CurrentUser.ID)}}
+                                    <button type="button" 
+                                            hx-get="/picks/compare?rival_id={{.UserID}}{{if $.SelectedWeek}}&week_id={{$.SelectedWeek.ID}}{{end}}"
+                                            hx-target="#h2h-modal-container"
+                                            class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 text-[11px] font-medium transition-colors cursor-pointer"
+                                            title="Comparar pronósticos contra {{.Username}}">
+                                        <i class="fa-solid fa-code-compare text-[10px] text-zinc-400"></i>
+                                        <span>Comparar</span>
+                                    </button>
+                                {{else}}
+                                    <span class="text-zinc-600 text-[10px]">--</span>
+                                {{end}}
+                            </td>
+
+                        </tr>
+                    {{end}}
+                {{else}}
+                    <tr>
+                        <td colspan="7" class="py-12 text-center text-zinc-500">
+                            <i class="fa-solid fa-trophy text-zinc-700 text-2xl mb-2 block"></i>
+                            Aún no se han registrado puntuaciones para esta vista.
+                        </td>
                     </tr>
                 {{end}}
-            {{else}}
-                <tr>
-                    <td colspan="7" class="py-12 text-center text-zinc-500">
-                        <i class="fa-solid fa-trophy text-zinc-700 text-2xl mb-2 block"></i>
-                        Aún no se han registrado puntuaciones para esta vista.
-                    </td>
-                </tr>
-            {{end}}
-        </tbody>
-    </table>
+            </tbody>
+        </table>
+    </div>
 </div>
