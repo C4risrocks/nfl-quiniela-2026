@@ -11,12 +11,20 @@ import (
 func SeedDatabase(repo *Repository, adminUser, adminEmail, adminPass string, seasonYear int) error {
 	log.Println("[DB] Seeding default database data...")
 
-	// 1. Seed Scoring Settings
-	if _, err := repo.GetSetting("scoring_mode", ""); err == nil {
+	// 1. Seed Scoring Settings (only if not already set)
+	if val, _ := repo.GetSetting("scoring_mode", ""); val == "" {
 		_ = repo.SetSetting("scoring_mode", "weighted")
+	}
+	if val, _ := repo.GetSetting("winner_points", ""); val == "" {
 		_ = repo.SetSetting("winner_points", "10")
+	}
+	if val, _ := repo.GetSetting("exact_score_bonus", ""); val == "" {
 		_ = repo.SetSetting("exact_score_bonus", "5")
+	}
+	if val, _ := repo.GetSetting("margin_bonus", ""); val == "" {
 		_ = repo.SetSetting("margin_bonus", "2")
+	}
+	if val, _ := repo.GetSetting("lock_mode", ""); val == "" {
 		_ = repo.SetSetting("lock_mode", "per_game")
 	}
 

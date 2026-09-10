@@ -171,3 +171,58 @@ func TestStoragePersistenceAndCheckpoint(t *testing.T) {
 		t.Errorf("CheckpointWAL failed: %v", err)
 	}
 }
+
+func TestScoringSettingsPersistAcrossRestarts(t *testing.T) {
+	testDB := "test_settings_persist.db"
+	defer os.Remove(testDB)
+	defer os.Remove(testDB + "-wal")
+	defer os.Remove(testDB + "-shm")
+
+	database, err := InitDB("sqlite", testDB)
+	if err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	defer database.Close()
+
+	repo := NewRepository(database)
+
+	// First startup: Seed database
+	if err := SeedDatabase(repo, "admin", "admin@test.com", "pass123", 2026); err != nil {
+		t.Fatalf("First seed failed: %v", err)
+	}
+
+	// Admin customizes settings to full_week and simple
+	customCfg := &ScoringConfig{
+		ScoringMode:      "simple",
+		WinnerPoints:     5,
+		ExactScoreBonus:  0,
+		ExactMarginBonus: 0,
+		LockMode:         "full_week",
+	}
+	if err := repo.SetScoringConfig(customCfg); err != nil {
+		t.Fatalf("SetScoringConfig failed: %v", err)
+	}
+
+	// Verify customized settings are saved
+	cfg1, _ := repo.GetScoringConfig()
+	if cfg1.LockMode != "full_week" || cfg1.ScoringMode != "simple" {
+		t.Fatalf("Expected full_week/simple, got %s/%s", cfg1.LockMode, cfg1.ScoringMode)
+	}
+
+	// Second startup / redeployment: SeedDatabase runs again!
+	if err := SeedDatabase(repo, "admin", "admin@test.com", "pass123", 2026); err != nil {
+		t.Fatalf("Second seed failed: %v", err)
+	}
+
+	// Verify custom settings were NOT overwritten by defaults!
+	cfg2, _ := repo.GetScoringConfig()
+	if cfg2.LockMode != "full_week" {
+		t.Errorf("Expected LockMode to remain full_week after restart, got %s", cfg2.LockMode)
+	}
+	if cfg2.ScoringMode != "simple" {
+		t.Errorf("Expected ScoringMode to remain simple after restart, got %s", cfg2.ScoringMode)
+	}
+	if cfg2.WinnerPoints != 5 {
+		t.Errorf("Expected WinnerPoints to remain 5 after restart, got %d", cfg2.WinnerPoints)
+	}
+}
