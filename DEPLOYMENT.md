@@ -29,14 +29,17 @@ El código se encuentra alojado en tu cuenta de GitHub:
 
 ### Paso 3: Configurar el Volumen Persistente (Imprescindible para SQLite)
 
-Para asegurar que la base de datos de los pronósticos y usuarios nunca se borre al actualizar la versión:
-1. Ve a la pestaña **Volumes** (o **Storage**) de la aplicación en Dokploy.
-2. Añade un **Named Volume**:
-   * **Type**: Named Volume.
+Docker recrea el contenedor en cada nuevo despliegue. Para asegurar que tus usuarios, pronósticos y resultados **nunca se borren**, debes asociar un volumen persistente en Dokploy:
+
+1. Ve a la pestaña **Volumes** (o **Storage / Almacenamiento**) de tu aplicación en Dokploy.
+2. Haz clic en **Add Volume** (o **Crear Volumen**) y selecciona:
+   * **Type**: `Volume` (Named Volume). *(Recomendado oficialmente por Dokploy para bases de datos).*
    * **Volume Name**: `quiniela_data`
    * **Mount Path**: `/app/data`
+3. Haz clic en **Save** / **Guardar**.
 
-> 💡 **Tip Dokploy**: Dokploy permite programar copias de seguridad automáticas (S3/Cloudflare R2/Wasabi) del volumen `quiniela_data` con un solo clic.
+> 🔒 **Permisos automáticos**: La imagen cuenta con un script de entrada (`entrypoint.sh`) que asegura automáticamente que `/app/data` pertenezca al usuario del sistema (`appuser:appgroup`), evitando cualquier error de permisos `permission denied`.
+> 💡 **Copias de seguridad**: En Dokploy puedes programar respaldos automáticos a S3/R2 del volumen `quiniela_data` con un solo clic.
 
 ### Paso 4: Variables de Entorno (Environment)
 
@@ -84,13 +87,25 @@ SMTP_FROM=tu_correo@gmail.com
 2. **Container Port**: `8080`.
 3. Activa la casilla **HTTPS / SSL (Let's Encrypt)**. Traefik generará y renovará automáticamente tu certificado SSL gratuito.
 
-### Paso 6: Desplegar
-
-1. Haz clic en **Deploy**.
+### Paso 6: Desplegar y Verificar
+ 
+1. Haz clic en **Deploy** (o **Redeploy** si ya habías desplegado).
 2. Dokploy compilará la imagen en 30-45 segundos.
-3. Podrás verificar que todo está listo visitando:
-   * `https://quiniela.tudominio.com/healthz` $\rightarrow$ Deberá responder `{"database":"connected","season":2026,"status":"ok"}`.
-   * `https://quiniela.tudominio.com/picks` $\rightarrow$ Interfaz en vivo con actualizaciones SSE en tiempo real.
+3. Podrás verificar que la base de datos persistente está activa visitando:
+   * `https://quiniela.tudominio.com/healthz`
+   
+   Deberás recibir un JSON confirmando el almacenamiento persistente con permisos de escritura:
+   ```json
+   {
+     "database": "connected",
+     "db_path": "/app/data/quiniela.db",
+     "driver": "sqlite",
+     "season": 2026,
+     "status": "ok",
+     "storage_writable": true
+   }
+   ```
+   *(Si `storage_writable` es `true` y `db_path` apunta a `/app/data/quiniela.db`, tus datos están 100% a salvo y no se perderán nunca entre despliegues).*
 
 ---
 

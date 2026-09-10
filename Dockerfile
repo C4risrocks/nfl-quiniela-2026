@@ -22,21 +22,23 @@ RUN CGO_ENABLED=0 GOOS=linux go build -p 1 -ldflags="-s -w" -o /build/server .
 # Production Runtime Stage
 FROM alpine:3.21
 
-# Install CA certificates and timezone data for external HTTPS (ESPN API) and accurate kickoff schedules
-RUN apk add --no-cache ca-certificates tzdata wget \
+# Install CA certificates, timezone data, wget and su-exec for safe non-root execution on mounted volumes
+RUN apk add --no-cache ca-certificates tzdata wget su-exec \
     && addgroup -g 10001 appgroup \
     && adduser -u 10001 -G appgroup -D -h /app appuser
 
 WORKDIR /app
 
-# Create persistent storage directory for SQLite database and set permissions
+# Create persistent storage directory for SQLite database and set initial permissions
 RUN mkdir -p /app/data && chown -R appuser:appgroup /app
 
-# Copy binary from builder
+# Copy binary from builder and entrypoint script
 COPY --from=builder --chown=appuser:appgroup /build/server /app/server
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
-# Switch to non-root user for security best practices
-USER appuser
+# Declare persistent volume mount point
+VOLUME ["/app/data"]
 
 # Expose default HTTP application port
 EXPOSE 8080
@@ -53,4 +55,5 @@ ENV PORT=8080 \
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD wget -q -O - http://127.0.0.1:8080/healthz || exit 1
 
-ENTRYPOINT ["/app/server"]
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["/app/server"]

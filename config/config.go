@@ -33,7 +33,17 @@ func LoadConfig() *Config {
 
 	port := getEnv("PORT", "8080")
 	dbType := getEnv("DB_TYPE", "sqlite")
-	dbPath := getEnv("DB_PATH", "quiniela.db")
+
+	defaultDBPath := "quiniela.db"
+	if fi, err := os.Stat("/app/data"); err == nil && fi.IsDir() {
+		defaultDBPath = "/app/data/quiniela.db"
+	}
+	dbPath := getEnv("DB_PATH", defaultDBPath)
+	// If relative path given but running in container with /app/data volume, ensure data persistence
+	if (dbPath == "quiniela.db" || dbPath == "./quiniela.db") && defaultDBPath == "/app/data/quiniela.db" {
+		dbPath = "/app/data/quiniela.db"
+	}
+
 	databaseURL := getEnv("DATABASE_URL", "")
 	sessionSecret := getEnv("SESSION_SECRET", "super-secret-session-key-change-in-prod-2026")
 	adminUser := getEnv("ADMIN_USERNAME", "admin")

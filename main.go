@@ -144,13 +144,17 @@ func main() {
 				dbStatus = "integrity check note: " + checkResult
 			}
 		}
+		isWritable := database.IsStorageWritable()
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"status":    status,
-			"database":  dbStatus,
-			"season":    cfg.CurrentSeasonYear,
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
+			"status":           status,
+			"database":         dbStatus,
+			"driver":           database.DriverName,
+			"db_path":          database.DBPath,
+			"storage_writable": isWritable,
+			"season":           cfg.CurrentSeasonYear,
+			"timestamp":        time.Now().UTC().Format(time.RFC3339),
 		})
 	})
 
@@ -235,5 +239,16 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Printf("Server shutdown error: %v", err)
 	}
+
+	// For SQLite, perform WAL checkpoint to flush all journals into the main database file
+	if database.DriverName == "sqlite" {
+		log.Println("[DB] Checkpointing SQLite WAL log to main database before termination...")
+		if err := database.CheckpointWAL(); err != nil {
+			log.Printf("[DB] Note on WAL checkpoint: %v", err)
+		} else {
+			log.Println("[DB] SQLite WAL checkpoint completed successfully.")
+		}
+	}
+
 	log.Println("Server stopped.")
 }

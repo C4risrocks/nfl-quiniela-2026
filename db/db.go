@@ -20,17 +20,20 @@ var schemaSQL string
 type DB struct {
 	*sql.DB
 	DriverName string
+	DBPath     string
 }
 
 // InitDB initializes database connection and migrates schema
 func InitDB(driverName, dsn string) (*DB, error) {
 	var sqlDriver string
 	var connectionString string
+	var resolvedPath string
 
 	switch strings.ToLower(driverName) {
 	case "postgres", "postgresql", "pgx":
 		sqlDriver = "pgx"
 		connectionString = dsn
+		resolvedPath = dsn
 		log.Println("[DB] Initializing PostgreSQL database connection...")
 	default:
 		sqlDriver = "sqlite"
@@ -40,9 +43,21 @@ func InitDB(driverName, dsn string) (*DB, error) {
 			dbFilePath = dsn[:idx]
 		}
 		if dir := filepath.Dir(dbFilePath); dir != "" && dir != "." {
-			if err := os.MkdirAll(dir, 0755); err != nil {
+			if err := os.MkdirAll(dir, 0775); err != nil {
 				log.Printf("[DB] Warning creating database directory %s: %v", dir, err)
 			}
+		}
+
+		absPath, _ := filepath.Abs(dbFilePath)
+		resolvedPath = absPath
+
+		// Verify directory is writable
+		testFile := filepath.Join(filepath.Dir(absPath), fmt.Sprintf(".perm_test_%d", time.Now().UnixNano()))
+		if err := os.WriteFile(testFile, []byte("ok"), 0660); err != nil {
+			log.Printf("[DB] CRITICAL WARNING: Database directory %s is NOT writable: %v", filepath.Dir(absPath), err)
+		} else {
+			_ = os.Remove(testFile)
+			log.Printf("[DB] Storage directory verified writable: %s", filepath.Dir(absPath))
 		}
 
 		if !strings.Contains(dsn, "?") {
@@ -50,7 +65,7 @@ func InitDB(driverName, dsn string) (*DB, error) {
 		} else {
 			connectionString = dsn
 		}
-		log.Printf("[DB] Initializing SQLite database at %s...", dsn)
+		log.Printf("[DB] Initializing SQLite database at %s (path: %s)...", dsn, absPath)
 	}
 
 	dbConn, err := sql.Open(sqlDriver, connectionString)
@@ -76,6 +91,7 @@ func InitDB(driverName, dsn string) (*DB, error) {
 	database := &DB{
 		DB:         dbConn,
 		DriverName: sqlDriver,
+		DBPath:     resolvedPath,
 	}
 
 	if err := database.migrate(); err != nil {
@@ -131,4 +147,27 @@ func (d *DB) migrate() error {
 	}
 
 	return nil
+}
+
+// CheckpointWAL forces SQLite to merge and truncate the WAL file back into the main database
+func (d *DB) CheckpointWAL() error {
+	if d.DriverName == "sqlite" {
+		_, err := d.Exec("PRAGMA wal_checkpoint(TRUNCATE);")
+		return err
+	}
+	return nil
+}
+
+// IsStorageWritable checks if the database directory is writable
+func (d *DB) IsStorageWritable() bool {
+	if d.DriverName == "sqlite" && d.DBPath != "" {
+		dir := filepath.Dir(d.DBPath)
+		testFile := filepath.Join(dir, fmt.Sprintf(".perm_check_%d", time.Now().UnixNano()))
+		if err := os.WriteFile(testFile, []byte("ok"), 0660); err != nil {
+			return false
+		}
+		_ = os.Remove(testFile)
+		return true
+	}
+	return true
 }

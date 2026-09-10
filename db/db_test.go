@@ -146,3 +146,28 @@ func TestDatabaseAndRepository(t *testing.T) {
 		t.Errorf("Expected TiebreakerError to be 3, got %d", seasonLBAfter[0].TiebreakerError)
 	}
 }
+
+func TestStoragePersistenceAndCheckpoint(t *testing.T) {
+	testDB := "test_persist.db"
+	defer os.Remove(testDB)
+	defer os.Remove(testDB + "-wal")
+	defer os.Remove(testDB + "-shm")
+
+	database, err := InitDB("sqlite", testDB)
+	if err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	defer database.Close()
+
+	if database.DBPath == "" {
+		t.Errorf("Expected DBPath to be populated")
+	}
+
+	if !database.IsStorageWritable() {
+		t.Errorf("Expected storage to be writable")
+	}
+
+	if err := database.CheckpointWAL(); err != nil {
+		t.Errorf("CheckpointWAL failed: %v", err)
+	}
+}
