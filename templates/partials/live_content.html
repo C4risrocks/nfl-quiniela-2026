@@ -128,7 +128,7 @@
                         </span>
                     {{else}}
                         <span class="text-zinc-400 font-mono text-xs flex items-center">
-                            <i class="fa-regular fa-clock mr-1.5 text-zinc-500"></i> {{$fg.FormattedKickoff}}
+                            <i class="fa-regular fa-clock mr-1.5 text-zinc-500"></i> {{formatDate $fg.KickoffTime}}
                         </span>
                     {{end}}
                 </div>
@@ -414,7 +414,7 @@
                             {{else}}
                                 <span class="text-zinc-400 font-mono flex items-center">
                                     <i class="fa-regular fa-clock mr-1 text-zinc-500"></i>
-                                    {{$g.FormattedKickoff}}
+                                    {{formatDate $g.KickoffTime}}
                                 </span>
                             {{end}}
 

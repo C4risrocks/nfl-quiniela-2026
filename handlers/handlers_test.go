@@ -946,3 +946,53 @@ func TestCommunityPicksAndHeadToHeadHandler(t *testing.T) {
 		t.Errorf("Expected CommunityPicks to list 'player_two'")
 	}
 }
+
+func TestLiveHandlerRendering(t *testing.T) {
+	repo, _, renderer, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	liveHandler := NewLiveHandler(repo, renderer, 2026)
+
+	// 1. Test ShowLive unauthenticated
+	req1 := httptest.NewRequest(http.MethodGet, "/live", nil)
+	rr1 := httptest.NewRecorder()
+	liveHandler.ShowLive(rr1, req1)
+	if rr1.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from ShowLive unauthenticated, got %d: %s", rr1.Code, rr1.Body.String())
+	}
+	if !strings.Contains(rr1.Body.String(), "Game Center en Vivo") {
+		t.Errorf("Expected ShowLive to contain 'Game Center en Vivo'")
+	}
+
+	// 2. Test LiveContent partial unauthenticated
+	req2 := httptest.NewRequest(http.MethodGet, "/live/content", nil)
+	rr2 := httptest.NewRecorder()
+	liveHandler.LiveContent(rr2, req2)
+	if rr2.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from LiveContent partial unauthenticated, got %d: %s", rr2.Code, rr2.Body.String())
+	}
+	if !strings.Contains(rr2.Body.String(), "live-content-container") {
+		t.Errorf("Expected LiveContent to contain 'live-content-container'")
+	}
+
+	// 3. Test with authenticated user and picks
+	user, _ := repo.GetUserByUsername("admin")
+	season, _ := repo.GetActiveSeason(2026)
+	week1, _ := repo.GetWeekByNumber(season.ID, 1)
+	games, _ := repo.ListGamesByWeek(week1.ID)
+	if len(games) > 0 {
+		_, _ = repo.SavePick(user.ID, games[0].ID, &games[0].HomeTeamID, nil, nil)
+	}
+
+	req3 := httptest.NewRequest(http.MethodGet, "/live/content?week=1", nil)
+	req3 = req3.WithContext(injectUser(req3.Context(), user))
+	rr3 := httptest.NewRecorder()
+	liveHandler.LiveContent(rr3, req3)
+	if rr3.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from LiveContent authenticated, got %d: %s", rr3.Code, rr3.Body.String())
+	}
+	if !strings.Contains(rr3.Body.String(), "Puntos Confirmados") {
+		t.Errorf("Expected LiveContent authenticated to contain 'Puntos Confirmados'")
+	}
+}
+

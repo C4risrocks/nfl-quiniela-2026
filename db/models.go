@@ -170,6 +170,31 @@ func (g *Game) AwayPickPercent() int {
 	return 100 - g.HomePickPercent()
 }
 
+func (g *Game) FormattedKickoff() string {
+	if g == nil || g.KickoffTime.IsZero() {
+		return "--"
+	}
+	t := g.KickoffTime
+	loc, err := time.LoadLocation("America/Mexico_City")
+	if err == nil {
+		t = t.In(loc)
+	} else {
+		t = t.In(time.FixedZone("CST", -6*3600))
+	}
+	spanishDays := map[string]string{
+		"Mon": "Lun", "Tue": "Mar", "Wed": "Mié", "Thu": "Jue", "Fri": "Vie", "Sat": "Sáb", "Sun": "Dom",
+	}
+	spanishMonths := map[string]string{
+		"Jan": "Ene", "Feb": "Feb", "Mar": "Mar", "Apr": "Abr", "May": "May", "Jun": "Jun",
+		"Jul": "Jul", "Aug": "Ago", "Sep": "Sep", "Oct": "Oct", "Nov": "Nov", "Dec": "Dic",
+	}
+	dayAbbr := spanishDays[t.Format("Mon")]
+	monthAbbr := spanishMonths[t.Format("Jan")]
+	dayNum := t.Format("2")
+	hourMin := t.Format("3:04 PM")
+	return fmt.Sprintf("%s, %s %s - %s", dayAbbr, dayNum, monthAbbr, hourMin)
+}
+
 // UserWeeklyPerformance tracks a user's points and rank for a single week
 type UserWeeklyPerformance struct {
 	WeekID       int64   `json:"week_id"`
