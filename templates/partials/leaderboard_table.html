@@ -69,12 +69,12 @@
 
                         <!-- Tiebreaker Error -->
                         <td class="py-3 px-4 text-center font-mono">
-                            {{if eq .TiebreakerError 999}}
-                                <span class="text-zinc-600 text-[11px]">--</span>
-                            {{else}}
+                            {{if .HasTiebreaker}}
                                 <span class="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 text-[11px]">
                                     ±{{.TiebreakerError}} pts
                                 </span>
+                            {{else}}
+                                <span class="text-zinc-600 text-[11px]">--</span>
                             {{end}}
                         </td>
 

@@ -781,6 +781,7 @@ func (r *Repository) GetWeeklyLeaderboard(weekID int64) ([]*LeaderboardEntry, er
 		if e.TotalPicks > 0 {
 			e.WinPercentage = (float64(e.CorrectPicks) / float64(e.TotalPicks)) * 100.0
 		}
+		e.HasTiebreaker = e.TiebreakerError >= 0 && e.TiebreakerError < 999
 		entries = append(entries, &e)
 	}
 	return entries, nil
@@ -792,7 +793,8 @@ func (r *Repository) GetSeasonLeaderboard(seasonID int64) ([]*LeaderboardEntry, 
 	       COALESCE(SUM(wl.total_points), 0) as grand_total_points,
 	       COALESCE(SUM(wl.correct_picks), 0) as grand_correct_picks,
 	       COALESCE(SUM(wl.total_picks), 0) as grand_total_picks,
-	       COALESCE(SUM(wl.tiebreaker_error), 0) as grand_tiebreaker_error
+	       COALESCE(SUM(CASE WHEN wl.tiebreaker_error < 999 AND wl.tiebreaker_error >= 0 THEN wl.tiebreaker_error ELSE 0 END), 0) as grand_tiebreaker_error,
+	       COALESCE(SUM(CASE WHEN wl.tiebreaker_error < 999 AND wl.tiebreaker_error >= 0 THEN 1 ELSE 0 END), 0) as evaluated_tiebreakers
 	FROM users u
 	LEFT JOIN weekly_leaderboard wl ON u.id = wl.user_id
 	LEFT JOIN weeks w ON wl.week_id = w.id AND w.season_id = ?
@@ -809,13 +811,15 @@ func (r *Repository) GetSeasonLeaderboard(seasonID int64) ([]*LeaderboardEntry, 
 	rank := 1
 	for rows.Next() {
 		var e LeaderboardEntry
-		if err := rows.Scan(&e.UserID, &e.Username, &e.AvatarURL, &e.TotalPoints, &e.CorrectPicks, &e.TotalPicks, &e.TiebreakerError); err != nil {
+		var evaluatedCount int
+		if err := rows.Scan(&e.UserID, &e.Username, &e.AvatarURL, &e.TotalPoints, &e.CorrectPicks, &e.TotalPicks, &e.TiebreakerError, &evaluatedCount); err != nil {
 			return nil, err
 		}
 		e.Rank = rank
 		if e.TotalPicks > 0 {
 			e.WinPercentage = (float64(e.CorrectPicks) / float64(e.TotalPicks)) * 100.0
 		}
+		e.HasTiebreaker = evaluatedCount > 0
 		entries = append(entries, &e)
 		rank++
 	}

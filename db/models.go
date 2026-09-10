@@ -210,6 +210,7 @@ type LeaderboardEntry struct {
 	TotalPicks      int     `json:"total_picks"`
 	TiebreakerError int     `json:"tiebreaker_error"`
 	WinPercentage   float64 `json:"win_percentage"`
+	HasTiebreaker   bool    `json:"has_tiebreaker"`
 }
 
 // ScoringConfig holds active pool scoring settings and lock timing

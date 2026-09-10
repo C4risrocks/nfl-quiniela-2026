@@ -99,4 +99,50 @@ func TestDatabaseAndRepository(t *testing.T) {
 	if cfgUpdated.ScoringMode != "pure_tiebreaker" || cfgUpdated.WinnerPoints != 1 {
 		t.Fatalf("Expected updated scoring config, got %+v", cfgUpdated)
 	}
+
+	// Test Leaderboard with unevaluated vs evaluated tiebreaker
+	_ = repo.UpsertWeeklyLeaderboard(&LeaderboardEntry{
+		UserID:          user.ID,
+		TotalPoints:     10,
+		CorrectPicks:    1,
+		TotalPicks:      1,
+		TiebreakerError: 999, // unevaluated week
+		Rank:            1,
+	}, weeks[0].ID)
+
+	seasonLB, err := repo.GetSeasonLeaderboard(season.ID)
+	if err != nil {
+		t.Fatalf("Failed to get season leaderboard: %v", err)
+	}
+	if len(seasonLB) == 0 {
+		t.Fatalf("Expected entries in season leaderboard")
+	}
+	// Should not have evaluated tiebreaker (HasTiebreaker=false, error=0 not 999 or 21978)
+	if seasonLB[0].HasTiebreaker {
+		t.Errorf("Expected HasTiebreaker to be false for unevaluated week, got true")
+	}
+	if seasonLB[0].TiebreakerError != 0 {
+		t.Errorf("Expected TiebreakerError to be 0 for unevaluated week, got %d", seasonLB[0].TiebreakerError)
+	}
+
+	// Now simulate a week with evaluated tiebreaker error = 3
+	_ = repo.UpsertWeeklyLeaderboard(&LeaderboardEntry{
+		UserID:          user.ID,
+		TotalPoints:     20,
+		CorrectPicks:    2,
+		TotalPicks:      2,
+		TiebreakerError: 3, // evaluated!
+		Rank:            1,
+	}, weeks[1].ID)
+
+	seasonLBAfter, err := repo.GetSeasonLeaderboard(season.ID)
+	if err != nil {
+		t.Fatalf("Failed to get season leaderboard: %v", err)
+	}
+	if !seasonLBAfter[0].HasTiebreaker {
+		t.Errorf("Expected HasTiebreaker to be true after evaluated week")
+	}
+	if seasonLBAfter[0].TiebreakerError != 3 {
+		t.Errorf("Expected TiebreakerError to be 3, got %d", seasonLBAfter[0].TiebreakerError)
+	}
 }
