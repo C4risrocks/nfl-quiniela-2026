@@ -126,6 +126,11 @@ func (g *Game) IsEffectivelyLocked(now time.Time) bool {
 	return now.After(effectiveKickoff) || now.Equal(effectiveKickoff)
 }
 
+// IsGracePeriodActive checks if the game's original kickoff has passed but is still open due to Week 1 extension
+func (g *Game) IsGracePeriodActive(now time.Time) bool {
+	return g.WeekNumber == 1 && g.KickoffTime.Before(now) && now.Before(Week1GraceDeadline)
+}
+
 // IsGameOrWeekLocked checks if the game is locked under the given lock mode
 func (g *Game) IsGameOrWeekLocked(now time.Time, lockMode string, firstKickoffInWeek *time.Time) bool {
 	if g.IsLocked {

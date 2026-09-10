@@ -617,4 +617,17 @@ func TestWeek1GracePeriodException(t *testing.T) {
 	if *pick.PickedTeamID != g1.HomeTeamID {
 		t.Errorf("Expected picked team %d, got %d", g1.HomeTeamID, *pick.PickedTeamID)
 	}
+
+	// Verify ShowPicks renders Week 1 templates with no template execution errors
+	reqShow := httptest.NewRequest(http.MethodGet, "/picks?week=1", nil)
+	reqShow = reqShow.WithContext(injectUser(reqShow.Context(), user))
+	rrShow := httptest.NewRecorder()
+	picksHandler.ShowPicks(rrShow, reqShow)
+
+	if rrShow.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK rendering ShowPicks Week 1, got %d: %s", rrShow.Code, rrShow.Body.String())
+	}
+	if !strings.Contains(rrShow.Body.String(), "Prórroga") {
+		t.Errorf("Expected ShowPicks Week 1 to include Prórroga banner or badge")
+	}
 }
