@@ -60,6 +60,11 @@
                 </span>
             {{else}}
                 <div class="flex items-center space-x-1.5">
+                    {{if lt .Game.KickoffTime $.CurrentTime}}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/30 text-[10px] font-medium transition-all" title="Partido con prórroga activa">
+                            <i class="fa-solid fa-clock-rotate-left text-[9px] mr-1 text-blue-400"></i> Prórroga
+                        </span>
+                    {{end}}
                     <span x-show="!pickedTeam" class="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/30 text-[10px] font-medium transition-all">
                         <i class="fa-solid fa-circle-exclamation text-[9px] mr-1 text-amber-400"></i> Pendiente
                     </span>

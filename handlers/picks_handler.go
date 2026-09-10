@@ -79,9 +79,13 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 	scoringCfg, _ := h.repo.GetScoringConfig()
 	firstKickoff := findFirstKickoff(games)
 	isFullWeekLocked := false
-	if scoringCfg.LockMode == "full_week" && firstKickoff != nil {
-		now := time.Now()
-		isFullWeekLocked = now.After(*firstKickoff) || now.Equal(*firstKickoff)
+	now := time.Now()
+	effectiveFirstKickoff := firstKickoff
+	if effectiveFirstKickoff != nil && effectiveFirstKickoff.Before(db.Week1GraceDeadline) && now.Before(db.Week1GraceDeadline) {
+		effectiveFirstKickoff = &db.Week1GraceDeadline
+	}
+	if scoringCfg.LockMode == "full_week" && effectiveFirstKickoff != nil {
+		isFullWeekLocked = now.After(*effectiveFirstKickoff) || now.Equal(*effectiveFirstKickoff)
 	}
 
 	// Fetch user's picks
@@ -110,21 +114,23 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.renderer.RenderPage(w, "picks.html", map[string]interface{}{
-		"ActiveNav":        "picks",
-		"User":             user,
-		"Weeks":            weeks,
-		"SelectedWeek":     selectedWeek,
-		"Games":            games,
-		"PicksCount":       picksCount,
-		"UserWeeklyPoints": userWeeklyPts,
-		"UserCorrectPicks": userCorrectPicks,
-		"CurrentTime":      time.Now(),
-		"ScoringConfig":    scoringCfg,
-		"LockMode":         scoringCfg.LockMode,
-		"FirstKickoff":     firstKickoff,
-		"IsFullWeekLocked": isFullWeekLocked,
-		"JustSaved":        r.URL.Query().Get("saved") == "1",
-		"MissingCount":     func() int { m, _ := strconv.Atoi(r.URL.Query().Get("missing")); return m }(),
+		"ActiveNav":          "picks",
+		"User":               user,
+		"Weeks":              weeks,
+		"SelectedWeek":       selectedWeek,
+		"Games":              games,
+		"PicksCount":         picksCount,
+		"UserWeeklyPoints":   userWeeklyPts,
+		"UserCorrectPicks":   userCorrectPicks,
+		"CurrentTime":        time.Now(),
+		"ScoringConfig":      scoringCfg,
+		"LockMode":           scoringCfg.LockMode,
+		"FirstKickoff":       firstKickoff,
+		"IsFullWeekLocked":   isFullWeekLocked,
+		"JustSaved":          r.URL.Query().Get("saved") == "1",
+		"MissingCount":       func() int { m, _ := strconv.Atoi(r.URL.Query().Get("missing")); return m }(),
+		"IsWeek1GraceActive": selectedWeek.WeekNumber == 1 && time.Now().Before(db.Week1GraceDeadline),
+		"Week1GraceDeadline": db.Week1GraceDeadline,
 	})
 }
 

@@ -104,7 +104,7 @@ func TestPicksSaveAndLockEnforcement(t *testing.T) {
 
 	// Get Season, Week, and Teams
 	season, _ := repo.GetActiveSeason(2026)
-	week, _ := repo.GetWeekByNumber(season.ID, 1)
+	week, _ := repo.GetWeekByNumber(season.ID, 2)
 	kc, _ := repo.GetTeamByCode("KC")
 	bal, _ := repo.GetTeamByCode("BAL")
 
@@ -564,4 +564,57 @@ func strconvFormat(n int64) string {
 
 func injectUser(ctx context.Context, u *db.User) context.Context {
 	return context.WithValue(ctx, auth.UserContextKey, u)
+}
+
+func TestWeek1GracePeriodException(t *testing.T) {
+	repo, authService, _, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	subTemplatesFS, _ := fs.Sub(os.DirFS(".."), "templates")
+	renderer := NewRenderer(subTemplatesFS)
+	picksHandler := NewPicksHandler(repo, renderer, nil, 2026)
+
+	user, _ := authService.Register("grace_tester", "grace@test.com", "pass123")
+	season, _ := repo.GetActiveSeason(2026)
+	week1, _ := repo.GetWeekByNumber(season.ID, 1)
+
+	// Fetch week 1 games
+	week1Games, err := repo.ListGamesByWeek(week1.ID)
+	if err != nil || len(week1Games) == 0 {
+		t.Fatalf("Expected seeded Week 1 games: %v", err)
+	}
+
+	// First game (NE vs SEA) had kickoff earlier tonight
+	g1 := week1Games[0]
+	if !time.Now().After(g1.KickoffTime) {
+		// If test runs in time before kickoff, this is still valid
+		t.Logf("Game 1 kickoff: %v, now: %v", g1.KickoffTime, time.Now())
+	}
+
+	// Even under full_week lock mode, Week 1 games MUST be pickable due to the grace period!
+	_ = repo.SetSetting("lock_mode", "full_week")
+
+	form := url.Values{}
+	form.Set("game_id", strconvFormat(g1.ID))
+	form.Set("picked_team_id", strconvFormat(g1.HomeTeamID))
+
+	req := httptest.NewRequest(http.MethodPost, "/picks/save", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(injectUser(req.Context(), user))
+	rr := httptest.NewRecorder()
+
+	picksHandler.SavePick(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK for Week 1 game under grace period, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// Verify pick was saved
+	pick, err := repo.GetUserPickForGame(user.ID, g1.ID)
+	if err != nil || pick == nil {
+		t.Fatalf("Pick was not saved under Week 1 grace period: %v", err)
+	}
+	if *pick.PickedTeamID != g1.HomeTeamID {
+		t.Errorf("Expected picked team %d, got %d", g1.HomeTeamID, *pick.PickedTeamID)
+	}
 }

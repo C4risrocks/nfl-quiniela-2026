@@ -445,6 +445,12 @@ func (r *Repository) UpsertTeam(t *Team) error {
 // ----------------------------------------------------
 
 func (r *Repository) ListGamesByWeek(weekID int64) ([]*Game, error) {
+	week, _ := r.GetWeekByID(weekID)
+	weekNum := 0
+	if week != nil {
+		weekNum = week.WeekNumber
+	}
+
 	query := `
 	SELECT g.id, g.week_id, g.espn_game_id, g.home_team_id, g.away_team_id, g.kickoff_time,
 	       g.home_score, g.away_score, g.status, g.status_detail, g.is_tiebreaker, g.is_locked, g.created_at,
@@ -478,12 +484,14 @@ func (r *Repository) ListGamesByWeek(weekID int64) ([]*Game, error) {
 			return nil, err
 		}
 
+		g.WeekNumber = weekNum
 		g.HomeTeam = &ht
 		g.AwayTeam = &at
 		g.KickoffTime = parseTimeSafe(kickoffStr)
 
 		games = append(games, &g)
 	}
+
 	return games, nil
 }
 
@@ -515,6 +523,9 @@ func (r *Repository) GetGameByID(id int64) (*Game, error) {
 	g.HomeTeam = &ht
 	g.AwayTeam = &at
 	g.KickoffTime = parseTimeSafe(kickoffStr)
+	if w, _ := r.GetWeekByID(g.WeekID); w != nil {
+		g.WeekNumber = w.WeekNumber
+	}
 	return &g, nil
 }
 

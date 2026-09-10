@@ -140,6 +140,14 @@
         </div>
     {{end}}
 
+    {{if and (eq .SelectedWeek.WeekNumber 1) .IsWeek1GraceActive}}
+        <!-- Week 1 Special Grace Period Alert Banner -->
+        <div class="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs flex items-center space-x-2.5 shadow-sm">
+            <i class="fa-solid fa-clock-rotate-left text-blue-400 text-sm"></i>
+            <span><strong>Prórroga Especial Jornada 1:</strong> Debido al despliegue de la quiniela, todos los pronósticos de la Semana 1 permanecen abiertos hasta antes del partido de mañana jueves a las 6:35 PM. ¡Aún puedes registrar o modificar tus selecciones!</span>
+        </div>
+    {{end}}
+
     {{if .IsFullWeekLocked}}
         <!-- Full Week Locked Alert Banner -->
         <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center space-x-2.5 shadow-sm">

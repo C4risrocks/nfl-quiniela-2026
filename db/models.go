@@ -83,6 +83,7 @@ func (t *Team) FullName() string {
 type Game struct {
 	ID            int64     `json:"id"`
 	WeekID        int64     `json:"week_id"`
+	WeekNumber    int       `json:"week_number,omitempty"`
 	ESPNGameID    string    `json:"espn_game_id"`
 	HomeTeamID    int64     `json:"home_team_id"`
 	AwayTeamID    int64     `json:"away_team_id"`
@@ -106,6 +107,10 @@ type Game struct {
 	TotalPicks    int `json:"total_picks,omitempty"`
 }
 
+// Week1GraceDeadline defines the extended deadline for Week 1 picks
+// (kickoff of SF vs LAR on Thursday September 10, 2026 at 18:35 UTC-6 / 2026-09-11 00:35 UTC)
+var Week1GraceDeadline = time.Date(2026, 9, 11, 0, 35, 0, 0, time.UTC)
+
 // IsGameLocked checks if the game cannot be picked anymore (individual game kickoff lock)
 func (g *Game) IsEffectivelyLocked(now time.Time) bool {
 	if g.IsLocked {
@@ -114,7 +119,11 @@ func (g *Game) IsEffectivelyLocked(now time.Time) bool {
 	if g.Status == "in_progress" || g.Status == "final" {
 		return true
 	}
-	return now.After(g.KickoffTime) || now.Equal(g.KickoffTime)
+	effectiveKickoff := g.KickoffTime
+	if g.WeekNumber == 1 && effectiveKickoff.Before(Week1GraceDeadline) && now.Before(Week1GraceDeadline) {
+		effectiveKickoff = Week1GraceDeadline
+	}
+	return now.After(effectiveKickoff) || now.Equal(effectiveKickoff)
 }
 
 // IsGameOrWeekLocked checks if the game is locked under the given lock mode
@@ -125,10 +134,29 @@ func (g *Game) IsGameOrWeekLocked(now time.Time, lockMode string, firstKickoffIn
 	if g.Status == "in_progress" || g.Status == "final" {
 		return true
 	}
-	if lockMode == "full_week" && firstKickoffInWeek != nil {
-		return now.After(*firstKickoffInWeek) || now.Equal(*firstKickoffInWeek)
+
+	effectiveKickoff := g.KickoffTime
+	var effectiveFirstKickoff *time.Time
+	if firstKickoffInWeek != nil {
+		t := *firstKickoffInWeek
+		effectiveFirstKickoff = &t
 	}
-	return now.After(g.KickoffTime) || now.Equal(g.KickoffTime)
+
+	// Week 1 Special Grace Period:
+	// Only apply extension to Week 1 games and before Thursday's kickoff
+	if g.WeekNumber == 1 && now.Before(Week1GraceDeadline) {
+		if effectiveKickoff.Before(Week1GraceDeadline) {
+			effectiveKickoff = Week1GraceDeadline
+		}
+		if effectiveFirstKickoff != nil && effectiveFirstKickoff.Before(Week1GraceDeadline) {
+			effectiveFirstKickoff = &Week1GraceDeadline
+		}
+	}
+
+	if lockMode == "full_week" && effectiveFirstKickoff != nil {
+		return now.After(*effectiveFirstKickoff) || now.Equal(*effectiveFirstKickoff)
+	}
+	return now.After(effectiveKickoff) || now.Equal(effectiveKickoff)
 }
 
 // WinningTeamID returns pointer to winning team ID if final and not a tie
