@@ -408,7 +408,10 @@ func (h *AdminHandler) ShowUserPicks(w http.ResponseWriter, r *http.Request) {
 	userPicks, _ := h.repo.GetUserPicksForWeek(targetUser.ID, week.ID)
 	for _, g := range games {
 		if userPicks != nil {
-			g.UserPick = userPicks[g.ID]
+			if pick, exists := userPicks[g.ID]; exists {
+				pick.InferWinnerFromScores(g)
+				g.UserPick = pick
+			}
 		}
 	}
 
@@ -467,6 +470,15 @@ func (h *AdminHandler) SaveUserPicks(w http.ResponseWriter, r *http.Request) {
 		if asStr := strings.TrimSpace(r.FormValue(fmt.Sprintf("away_score_%d", game.ID))); asStr != "" {
 			if as, err := strconv.Atoi(asStr); err == nil && as >= 0 {
 				awayScore = &as
+			}
+		}
+
+		// Infer winner from scores if not explicitly provided
+		if pickedTeamID == nil && homeScore != nil && awayScore != nil {
+			if *homeScore > *awayScore {
+				pickedTeamID = &game.HomeTeamID
+			} else if *awayScore > *homeScore {
+				pickedTeamID = &game.AwayTeamID
 			}
 		}
 

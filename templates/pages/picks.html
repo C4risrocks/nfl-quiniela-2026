@@ -10,31 +10,42 @@
         missingCount: 0,
         missingTiebreaker: false,
         validateAndSubmit() {
-            const pickInputs = document.querySelectorAll('input[name^=\'picked_team_\']');
+            const cards = document.querySelectorAll('[id^=\'game-card-\']');
             let picked = 0;
             let total = 0;
+            this.missingTiebreaker = false;
 
-            pickInputs.forEach(input => {
-                if (!input.disabled) {
+            cards.forEach(card => {
+                const locked = card.getAttribute('data-locked') === 'true';
+                if (!locked) {
                     total++;
-                    if (input.value && input.value.trim() !== '') {
-                        picked++;
+                    const pickInput = card.querySelector('input[name^=\'picked_team_\']');
+                    const awayInput = card.querySelector('input[name^=\'away_score_\']');
+                    const homeInput = card.querySelector('input[name^=\'home_score_\']');
+                    const isTiebreaker = card.getAttribute('data-is-tiebreaker') === 'true';
+
+                    const hasPick = pickInput && pickInput.value && pickInput.value.trim() !== '';
+                    const hasAway = awayInput && awayInput.value && awayInput.value.trim() !== '';
+                    const hasHome = homeInput && homeInput.value && homeInput.value.trim() !== '';
+                    const hasScores = hasAway && hasHome;
+
+                    if (isTiebreaker) {
+                        if (!hasScores) {
+                            this.missingTiebreaker = true;
+                        }
+                        if (hasPick && hasScores) {
+                            picked++;
+                        }
+                    } else {
+                        if (hasPick || hasScores) {
+                            picked++;
+                        }
                     }
                 }
             });
 
             this.missingCount = total - picked;
-
-            // Check if tiebreaker score is missing
-            const tiebreakerCard = document.querySelector('[data-is-tiebreaker=\'true\']');
-            this.missingTiebreaker = false;
-            if (tiebreakerCard && tiebreakerCard.getAttribute('data-locked') !== 'true') {
-                const awayInput = tiebreakerCard.querySelector('input[name^=\'away_score_\']');
-                const homeInput = tiebreakerCard.querySelector('input[name^=\'home_score_\']');
-                if (!awayInput || !homeInput || !awayInput.value || !homeInput.value) {
-                    this.missingTiebreaker = true;
-                }
-            }
+            if (this.missingCount < 0) this.missingCount = 0;
 
             if (this.missingCount > 0 || this.missingTiebreaker) {
                 this.confirmOpen = true;
@@ -50,26 +61,32 @@
         reviewAndComplete() {
             this.confirmOpen = false;
             let firstMissing = null;
-            const pickInputs = document.querySelectorAll('input[name^=\'picked_team_\']');
-            pickInputs.forEach(input => {
-                if (!input.disabled && (!input.value || input.value.trim() === '')) {
-                    const card = input.closest('[id^=\'game-card-\']');
-                    if (card) {
+            const cards = document.querySelectorAll('[id^=\'game-card-\']');
+            cards.forEach(card => {
+                const locked = card.getAttribute('data-locked') === 'true';
+                if (!locked) {
+                    const pickInput = card.querySelector('input[name^=\'picked_team_\']');
+                    const awayInput = card.querySelector('input[name^=\'away_score_\']');
+                    const homeInput = card.querySelector('input[name^=\'home_score_\']');
+                    const isTiebreaker = card.getAttribute('data-is-tiebreaker') === 'true';
+
+                    const hasPick = pickInput && pickInput.value && pickInput.value.trim() !== '';
+                    const hasScores = awayInput && homeInput && awayInput.value.trim() !== '' && homeInput.value.trim() !== '';
+
+                    let isMissing = false;
+                    if (isTiebreaker) {
+                        isMissing = !hasPick || !hasScores;
+                    } else {
+                        isMissing = !hasPick && !hasScores;
+                    }
+
+                    if (isMissing) {
                         card.classList.add('ring-2', 'ring-amber-500', 'animate-pulse');
                         setTimeout(() => card.classList.remove('ring-2', 'ring-amber-500', 'animate-pulse'), 3000);
                         if (!firstMissing) firstMissing = card;
                     }
                 }
             });
-
-            if (!firstMissing && this.missingTiebreaker) {
-                const tbCard = document.querySelector('[data-is-tiebreaker=\'true\']');
-                if (tbCard) {
-                    tbCard.classList.add('ring-2', 'ring-amber-500', 'animate-pulse');
-                    setTimeout(() => tbCard.classList.remove('ring-2', 'ring-amber-500', 'animate-pulse'), 3000);
-                    firstMissing = tbCard;
-                }
-            }
 
             if (firstMissing) {
                 firstMissing.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -327,14 +344,24 @@
 
 <script>
 function updatePicksCounter() {
-    const inputs = document.querySelectorAll('input[name^="picked_team_"]');
+    const cards = document.querySelectorAll('[id^="game-card-"]');
     let total = 0;
     let count = 0;
-    inputs.forEach(input => {
-        if (!input.disabled) {
+    cards.forEach(card => {
+        const locked = card.getAttribute('data-locked') === 'true';
+        if (!locked) {
             total++;
-            if (input.value && input.value.trim() !== '') {
-                count++;
+            const pickInput = card.querySelector('input[name^="picked_team_"]');
+            const hasPick = pickInput && pickInput.value && pickInput.value.trim() !== '';
+            const awayInput = card.querySelector('input[name^="away_score_"]');
+            const homeInput = card.querySelector('input[name^="home_score_"]');
+            const hasScores = awayInput && homeInput && awayInput.value.trim() !== '' && homeInput.value.trim() !== '';
+            const isTiebreaker = card.getAttribute('data-is-tiebreaker') === 'true';
+
+            if (isTiebreaker) {
+                if (hasPick && hasScores) count++;
+            } else {
+                if (hasPick || hasScores) count++;
             }
         }
     });

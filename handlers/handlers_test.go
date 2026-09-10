@@ -329,6 +329,119 @@ func TestPicksSaveAll(t *testing.T) {
 	}
 }
 
+func TestScoreWinnerInferenceAndCompletion(t *testing.T) {
+	repo, authService, _, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	subTemplatesFS, _ := fs.Sub(os.DirFS(".."), "templates")
+	renderer := NewRenderer(subTemplatesFS)
+	picksHandler := NewPicksHandler(repo, renderer, nil, 2026)
+
+	user, _ := authService.Register("score_picker", "score_picker@test.com", "pass123")
+	season, _ := repo.GetActiveSeason(2026)
+	week, _ := repo.GetWeekByNumber(season.ID, 3)
+	kc, _ := repo.GetTeamByCode("KC")
+	bal, _ := repo.GetTeamByCode("BAL")
+
+	// Create a regular game and a tiebreaker game
+	gRegular, _ := repo.CreateManualGame(&db.Game{
+		WeekID:       week.ID,
+		HomeTeamID:   kc.ID,
+		AwayTeamID:   bal.ID,
+		KickoffTime:  time.Now().Add(24 * time.Hour),
+		Status:       "scheduled",
+		StatusDetail: "Sun 1:00 PM",
+		IsTiebreaker: false,
+	})
+	gTiebreaker, _ := repo.CreateManualGame(&db.Game{
+		WeekID:       week.ID,
+		HomeTeamID:   kc.ID,
+		AwayTeamID:   bal.ID,
+		KickoffTime:  time.Now().Add(48 * time.Hour),
+		Status:       "scheduled",
+		StatusDetail: "Mon 8:15 PM",
+		IsTiebreaker: true,
+	})
+
+	// Case 1: Submit scores only for gRegular (Away=31, Home=20 -> Away BAL should be inferred winner)
+	// For gTiebreaker, submit only picked team (KC) without scores (incomplete tiebreaker)
+	form := url.Values{}
+	form.Set("week_id", strconvFormat(week.ID))
+	// gRegular: NO picked_team parameter sent! Only scores!
+	form.Set(fmt.Sprintf("away_score_%d", gRegular.ID), "31")
+	form.Set(fmt.Sprintf("home_score_%d", gRegular.ID), "20")
+	// gTiebreaker: picked team sent, but scores missing
+	form.Set(fmt.Sprintf("picked_team_%d", gTiebreaker.ID), strconvFormat(kc.ID))
+
+	req := httptest.NewRequest(http.MethodPost, "/picks/save-all", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(injectUser(req.Context(), user))
+	rr := httptest.NewRecorder()
+
+	picksHandler.SaveAll(rr, req)
+
+	// In gRegular, BAL won (31 > 20). In DB, picked_team_id should be BAL.ID!
+	pReg, err := repo.GetUserPickForGame(user.ID, gRegular.ID)
+	if err != nil || pReg == nil {
+		t.Fatalf("Regular game pick not saved: %v", err)
+	}
+	if pReg.PickedTeamID == nil || *pReg.PickedTeamID != bal.ID {
+		t.Fatalf("Expected inferred winner to be BAL (%d), got %v", bal.ID, pReg.PickedTeamID)
+	}
+	if !pReg.IsCompleteForGame(gRegular) {
+		t.Errorf("Expected regular game pick to be complete")
+	}
+
+	// Tiebreaker game is missing scores, so it should NOT be complete
+	pTb, _ := repo.GetUserPickForGame(user.ID, gTiebreaker.ID)
+	if pTb == nil {
+		t.Fatalf("Tiebreaker pick not saved")
+	}
+	if pTb.IsCompleteForGame(gTiebreaker) {
+		t.Errorf("Expected tiebreaker game pick to be incomplete because scores are missing")
+	}
+	if !pTb.HasMissingTiebreakerScores(gTiebreaker) {
+		t.Errorf("Expected HasMissingTiebreakerScores to be true")
+	}
+
+	// Case 2: Now provide scores for tiebreaker game via SaveScore
+	formScore := url.Values{}
+	formScore.Set("game_id", strconvFormat(gTiebreaker.ID))
+	formScore.Set("away_score", "17")
+	formScore.Set("home_score", "24")
+
+	reqScore := httptest.NewRequest(http.MethodPost, "/picks/save-score", strings.NewReader(formScore.Encode()))
+	reqScore.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqScore = reqScore.WithContext(injectUser(reqScore.Context(), user))
+	rrScore := httptest.NewRecorder()
+
+	picksHandler.SaveScore(rrScore, reqScore)
+	if rrScore.Code != http.StatusOK {
+		t.Errorf("Expected SaveScore 200 OK, got %d", rrScore.Code)
+	}
+
+	// Now tiebreaker has both winner and scores, so it should be complete
+	pTbUpdated, _ := repo.GetUserPickForGame(user.ID, gTiebreaker.ID)
+	if !pTbUpdated.IsCompleteForGame(gTiebreaker) {
+		t.Errorf("Expected tiebreaker pick to be complete after adding scores")
+	}
+
+	// Case 3: ShowPicks should render both as complete and PicksCount should be 2
+	reqShow := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/picks?week=%d", week.WeekNumber), nil)
+	reqShow = reqShow.WithContext(injectUser(reqShow.Context(), user))
+	rrShow := httptest.NewRecorder()
+
+	picksHandler.ShowPicks(rrShow, reqShow)
+	if rrShow.Code != http.StatusOK {
+		t.Errorf("Expected ShowPicks 200 OK, got %d", rrShow.Code)
+	}
+	body := rrShow.Body.String()
+	// Should show 2 / 2 Pronosticados
+	if !strings.Contains(body, "2 <span class=\"text-xs text-zinc-500 font-normal\">/ 2</span>") {
+		t.Errorf("Expected ShowPicks to show 2 / 2 Pronosticados in body")
+	}
+}
+
 func TestAdminSettingsAndRecalculate(t *testing.T) {
 	repo, _, _, calculator, cleanup := setupTestApp(t)
 	defer cleanup()

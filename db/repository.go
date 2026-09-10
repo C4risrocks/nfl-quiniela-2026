@@ -1054,7 +1054,7 @@ func (r *Repository) GetUsersWithPendingPicks(weekID int64) ([]*User, error) {
 	WHERE (
 		SELECT COUNT(*) FROM picks p 
 		JOIN games g ON p.game_id = g.id 
-		WHERE p.user_id = u.id AND g.week_id = ? AND p.picked_team_id IS NOT NULL
+		WHERE p.user_id = u.id AND g.week_id = ? AND (p.picked_team_id IS NOT NULL OR (p.predicted_home_score IS NOT NULL AND p.predicted_away_score IS NOT NULL))
 	) < (
 		SELECT COUNT(*) FROM games WHERE week_id = ?
 	)

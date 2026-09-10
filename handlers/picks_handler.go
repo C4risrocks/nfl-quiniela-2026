@@ -101,8 +101,9 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 	for _, g := range games {
 		if userPicks != nil {
 			if pick, exists := userPicks[g.ID]; exists {
+				pick.InferWinnerFromScores(g)
 				g.UserPick = pick
-				if pick.PickedTeamID != nil {
+				if g.HasPickCompleted() {
 					picksCount++
 				}
 				userWeeklyPts += pick.PointsEarned + pick.BonusPoints
@@ -179,12 +180,33 @@ func (h *PicksHandler) SavePick(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	pick, err := h.repo.SavePick(user.ID, gameID, pickedTeamID, nil, nil)
+	var homeScore, awayScore *int
+	if hsStr := r.FormValue("home_score"); hsStr != "" {
+		if hs, err := strconv.Atoi(hsStr); err == nil && hs >= 0 {
+			homeScore = &hs
+		}
+	}
+	if asStr := r.FormValue("away_score"); asStr != "" {
+		if as, err := strconv.Atoi(asStr); err == nil && as >= 0 {
+			awayScore = &as
+		}
+	}
+
+	if pickedTeamID == nil && homeScore != nil && awayScore != nil {
+		if *homeScore > *awayScore {
+			pickedTeamID = &game.HomeTeamID
+		} else if *awayScore > *homeScore {
+			pickedTeamID = &game.AwayTeamID
+		}
+	}
+
+	pick, err := h.repo.SavePick(user.ID, gameID, pickedTeamID, homeScore, awayScore)
 	if err != nil {
 		http.Error(w, "Error saving pick", http.StatusInternalServerError)
 		return
 	}
 
+	pick.InferWinnerFromScores(game)
 	game.UserPick = pick
 
 	w.Header().Set("HX-Trigger", `{"show-toast": {"message": "¡Pronóstico guardado exitosamente!", "type": "success"}}`)
@@ -249,12 +271,22 @@ func (h *PicksHandler) SaveScore(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	pick, err := h.repo.SavePick(user.ID, gameID, nil, homeScore, awayScore)
+	var pickedTeamID *int64
+	if homeScore != nil && awayScore != nil {
+		if *homeScore > *awayScore {
+			pickedTeamID = &game.HomeTeamID
+		} else if *awayScore > *homeScore {
+			pickedTeamID = &game.AwayTeamID
+		}
+	}
+
+	pick, err := h.repo.SavePick(user.ID, gameID, pickedTeamID, homeScore, awayScore)
 	if err != nil {
 		http.Error(w, "Error saving score", http.StatusInternalServerError)
 		return
 	}
 
+	pick.InferWinnerFromScores(game)
 	game.UserPick = pick
 
 	w.Header().Set("HX-Trigger", `{"show-toast": {"message": "¡Marcador guardado exitosamente!", "type": "success"}}`)
@@ -329,10 +361,22 @@ func (h *PicksHandler) SaveAll(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		// Infer winner from scores if user entered scores but didn't explicitly pick team
+		if pickedTeamID == nil && homeScore != nil && awayScore != nil {
+			if *homeScore > *awayScore {
+				pickedTeamID = &game.HomeTeamID
+			} else if *awayScore > *homeScore {
+				pickedTeamID = &game.AwayTeamID
+			}
+		}
+
 		if pickedTeamID != nil || homeScore != nil || awayScore != nil {
-			_, err := h.repo.SavePick(user.ID, game.ID, pickedTeamID, homeScore, awayScore)
-			if err == nil && pickedTeamID != nil {
-				savedCount++
+			pick, err := h.repo.SavePick(user.ID, game.ID, pickedTeamID, homeScore, awayScore)
+			if err == nil {
+				pick.InferWinnerFromScores(game)
+				if pick.IsCompleteForGame(game) {
+					savedCount++
+				}
 			}
 		}
 	}

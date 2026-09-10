@@ -1,5 +1,7 @@
 {{$locked := .Game.IsGameOrWeekLocked .CurrentTime .LockMode .FirstKickoff}}
 {{$pick := .Game.UserPick}}
+{{$isCardComplete := .Game.HasPickCompleted}}
+{{$isTbScoresMissing := and $pick ($pick.HasMissingTiebreakerScores .Game)}}
 {{$homePicked := and $pick ($pick.IsPickedTeam .Game.HomeTeamID)}}
 {{$awayPicked := and $pick ($pick.IsPickedTeam .Game.AwayTeamID)}}
 
@@ -9,9 +11,46 @@
      data-locked="{{$locked}}"
      x-data="{ 
          pickedTeam: '{{if $pick}}{{if $pick.PickedTeamID}}{{$pick.PickedTeamID}}{{end}}{{end}}',
+         awayTeamID: '{{.Game.AwayTeamID}}',
+         homeTeamID: '{{.Game.HomeTeamID}}',
+         awayScore: '{{if $pick}}{{$pick.AwayScoreStr}}{{end}}',
+         homeScore: '{{if $pick}}{{$pick.HomeScoreStr}}{{end}}',
+         isTiebreaker: {{if .Game.IsTiebreaker}}true{{else}}false{{end}},
+         isLocked: {{$locked}},
+         get isComplete() {
+             const hasPick = this.pickedTeam && this.pickedTeam !== '';
+             const hasAway = this.awayScore && this.awayScore.trim() !== '';
+             const hasHome = this.homeScore && this.homeScore.trim() !== '';
+             if (this.isTiebreaker) {
+                 return hasPick && hasAway && hasHome;
+             }
+             return hasPick || (hasAway && hasHome && this.awayScore !== this.homeScore);
+         },
+         get missingTiebreakerScores() {
+             if (!this.isTiebreaker) return false;
+             const hasPick = this.pickedTeam && this.pickedTeam !== '';
+             const hasAway = this.awayScore && this.awayScore.trim() !== '';
+             const hasHome = this.homeScore && this.homeScore.trim() !== '';
+             return hasPick && (!hasAway || !hasHome);
+         },
          selectTeam(id) {
-             if ({{$locked}}) return;
+             if (this.isLocked) return;
              this.pickedTeam = (this.pickedTeam == id) ? '' : id;
+             const inp = document.getElementById('pick-input-{{.Game.ID}}');
+             if (inp) inp.value = this.pickedTeam;
+             if (typeof updatePicksCounter === 'function') updatePicksCounter();
+         },
+         onScoreInput() {
+             if (this.isLocked) return;
+             const a = parseInt(this.awayScore, 10);
+             const h = parseInt(this.homeScore, 10);
+             if (!isNaN(a) && !isNaN(h)) {
+                 if (a > h) {
+                     this.pickedTeam = this.awayTeamID;
+                 } else if (h > a) {
+                     this.pickedTeam = this.homeTeamID;
+                 }
+             }
              const inp = document.getElementById('pick-input-{{.Game.ID}}');
              if (inp) inp.value = this.pickedTeam;
              if (typeof updatePicksCounter === 'function') updatePicksCounter();
@@ -65,10 +104,20 @@
                             <i class="fa-solid fa-clock-rotate-left text-[9px] mr-1 text-blue-400"></i> Prórroga
                         </span>
                     {{end}}
-                    <span x-show="!pickedTeam" class="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/30 text-[10px] font-medium transition-all">
+                    <span x-show="!isComplete && !missingTiebreakerScores" 
+                          {{if or $isCardComplete $isTbScoresMissing}}x-cloak style="display:none;"{{end}}
+                          class="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/30 text-[10px] font-medium transition-all">
                         <i class="fa-solid fa-circle-exclamation text-[9px] mr-1 text-amber-400"></i> Pendiente
                     </span>
-                    <span x-show="pickedTeam" x-cloak class="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-medium transition-all">
+                    <span x-show="missingTiebreakerScores" 
+                          {{if not $isTbScoresMissing}}x-cloak style="display:none;"{{end}}
+                          class="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/30 text-[10px] font-medium transition-all"
+                          title="Falta pronosticar marcador para el desempate MNF">
+                        <i class="fa-solid fa-star text-[9px] mr-1 text-amber-400"></i> Marcador pendiente
+                    </span>
+                    <span x-show="isComplete" 
+                          {{if not $isCardComplete}}x-cloak style="display:none;"{{end}}
+                          class="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-medium transition-all">
                         <i class="fa-solid fa-circle-check text-[9px] mr-1"></i> Listo
                     </span>
                 </div>
@@ -177,6 +226,8 @@
                            name="away_score_{{.Game.ID}}" 
                            min="0" 
                            max="99"
+                           x-model="awayScore"
+                           @input="onScoreInput()"
                            value="{{if $pick}}{{$pick.AwayScoreStr}}{{end}}"
                            placeholder="--" 
                            {{if $locked}}disabled{{end}}
@@ -191,6 +242,8 @@
                            name="home_score_{{.Game.ID}}" 
                            min="0" 
                            max="99"
+                           x-model="homeScore"
+                           @input="onScoreInput()"
                            value="{{if $pick}}{{$pick.HomeScoreStr}}{{end}}"
                            placeholder="--" 
                            {{if $locked}}disabled{{end}}

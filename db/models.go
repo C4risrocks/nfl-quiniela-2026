@@ -285,6 +285,59 @@ func (p *Pick) IsProvisionalLoser(game *Game) bool {
 	return res != nil && !*res
 }
 
+// InferWinnerFromScores sets PickedTeamID based on score comparison if PickedTeamID is nil
+func (p *Pick) InferWinnerFromScores(game *Game) {
+	if p == nil || game == nil || p.PickedTeamID != nil {
+		return
+	}
+	if p.PredictedHomeScore != nil && p.PredictedAwayScore != nil {
+		if *p.PredictedHomeScore > *p.PredictedAwayScore {
+			id := game.HomeTeamID
+			p.PickedTeamID = &id
+		} else if *p.PredictedAwayScore > *p.PredictedHomeScore {
+			id := game.AwayTeamID
+			p.PickedTeamID = &id
+		}
+	}
+}
+
+// HasMissingTiebreakerScores returns true if the game is a tiebreaker and the user has picked a winner but not both scores
+func (p *Pick) HasMissingTiebreakerScores(game *Game) bool {
+	if p == nil || game == nil || !game.IsTiebreaker {
+		return false
+	}
+	hasWinner := p.PickedTeamID != nil
+	hasScores := p.PredictedHomeScore != nil && p.PredictedAwayScore != nil
+	return hasWinner && !hasScores
+}
+
+// IsCompleteForGame checks if the pick has all required information for the given game
+func (p *Pick) IsCompleteForGame(game *Game) bool {
+	if p == nil || game == nil {
+		return false
+	}
+	hasWinner := p.PickedTeamID != nil
+	if !hasWinner && p.PredictedHomeScore != nil && p.PredictedAwayScore != nil {
+		hasWinner = *p.PredictedHomeScore != *p.PredictedAwayScore
+	}
+	if !hasWinner {
+		return false
+	}
+	if game.IsTiebreaker {
+		return p.PredictedHomeScore != nil && p.PredictedAwayScore != nil
+	}
+	return true
+}
+
+// HasPickCompleted checks if this game has a completed pick
+func (g *Game) HasPickCompleted() bool {
+	if g == nil || g.UserPick == nil {
+		return false
+	}
+	return g.UserPick.IsCompleteForGame(g)
+}
+
+
 // LeaderboardEntry represents a user's standings in a week or season
 type LeaderboardEntry struct {
 	Rank                int     `json:"rank"`
