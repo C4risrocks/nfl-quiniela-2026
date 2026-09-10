@@ -134,27 +134,29 @@
                     @click="selectTeam('{{.Game.AwayTeamID}}')"
                     {{if $locked}}disabled{{end}}
                     :class="pickedTeam == '{{.Game.AwayTeamID}}' ? 'bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60'"
-                    class="w-full text-left p-3 rounded-xl border transition-all relative group {{if $awayPicked}}bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md{{else}}bg-zinc-950/60 border-[#222222]{{end}} {{if $locked}}cursor-default opacity-80{{else}}cursor-pointer hover:scale-[1.01]{{end}}">
+                    class="w-full p-2.5 sm:p-3 rounded-xl border transition-all relative group {{if $awayPicked}}bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md{{else}}bg-zinc-950/60 border-[#222222]{{end}} {{if $locked}}cursor-default opacity-80{{else}}cursor-pointer hover:scale-[1.01]{{end}}">
                 
-                <div class="flex items-center space-x-3">
-                    <img src="{{.Game.AwayTeam.LogoURL}}" alt="{{.Game.AwayTeam.Code}}" class="w-9 h-9 sm:w-11 sm:h-11 object-contain drop-shadow" loading="lazy">
-                    <div class="flex-1 min-w-0">
-                        <div class="text-[10px] uppercase tracking-wider text-zinc-500 truncate font-semibold">{{.Game.AwayTeam.City}}</div>
-                        <div class="text-sm sm:text-base font-bold text-white truncate flex items-center">
-                            {{.Game.AwayTeam.Name}}
-                            <span class="ml-1.5 text-xs font-mono font-medium text-zinc-400">({{.Game.AwayTeam.Code}})</span>
+                <div class="flex flex-col sm:flex-row items-center text-center sm:text-left sm:space-x-3">
+                    <img src="{{.Game.AwayTeam.LogoURL}}" alt="{{.Game.AwayTeam.Code}}" class="w-10 h-10 sm:w-11 sm:h-11 object-contain drop-shadow shrink-0 mb-1 sm:mb-0" loading="lazy">
+                    <div class="flex-1 min-w-0 w-full">
+                        <div class="text-[10px] uppercase tracking-wider text-zinc-500 truncate font-semibold hidden sm:block">{{.Game.AwayTeam.City}}</div>
+                        <div class="flex flex-col sm:flex-row sm:items-center truncate">
+                            <span class="text-sm sm:text-base font-black text-white leading-tight sm:leading-normal">{{.Game.AwayTeam.Code}}</span>
+                            <span class="text-[11px] sm:text-xs text-zinc-300 sm:text-zinc-400 font-medium sm:ml-1.5 truncate">{{.Game.AwayTeam.Name}}</span>
                         </div>
                     </div>
                 </div>
 
                 <div x-show="pickedTeam == '{{.Game.AwayTeamID}}'" 
                      {{if not $awayPicked}}x-cloak{{end}}
-                     class="absolute top-2 right-2 flex items-center justify-center w-4 h-4 rounded-full bg-white text-black shadow">
-                    <i class="fa-solid fa-check text-[10px] font-black"></i>
+                     class="absolute top-2 right-2 flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white text-black shadow-md shrink-0">
+                    <svg class="w-2.5 h-2.5 sm:w-3 sm:h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M2.5 6.5L4.5 8.5L9.5 3.5"/>
+                    </svg>
                 </div>
 
                 {{if or (eq .Game.Status "in_progress") (eq .Game.Status "final")}}
-                    <div class="mt-2 pt-1.5 border-t border-zinc-800/80 flex items-center justify-between text-xs">
+                    <div class="mt-2 pt-1.5 border-t border-zinc-800/80 flex items-center justify-between text-xs w-full">
                         <span class="text-zinc-500 font-medium">Marcador</span>
                         <span class="font-mono font-bold text-sm text-white">{{if .Game.AwayScore}}{{.Game.AwayScore}}{{else}}0{{end}}</span>
                     </div>
@@ -173,27 +175,29 @@
                     @click="selectTeam('{{.Game.HomeTeamID}}')"
                     {{if $locked}}disabled{{end}}
                     :class="pickedTeam == '{{.Game.HomeTeamID}}' ? 'bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60'"
-                    class="w-full text-right p-3 rounded-xl border transition-all relative group {{if $homePicked}}bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md{{else}}bg-zinc-950/60 border-[#222222]{{end}} {{if $locked}}cursor-default opacity-80{{else}}cursor-pointer hover:scale-[1.01]{{end}}">
+                    class="w-full p-2.5 sm:p-3 rounded-xl border transition-all relative group {{if $homePicked}}bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md{{else}}bg-zinc-950/60 border-[#222222]{{end}} {{if $locked}}cursor-default opacity-80{{else}}cursor-pointer hover:scale-[1.01]{{end}}">
                 
-                <div class="flex items-center justify-end space-x-3 space-x-reverse">
-                    <img src="{{.Game.HomeTeam.LogoURL}}" alt="{{.Game.HomeTeam.Code}}" class="w-9 h-9 sm:w-11 sm:h-11 object-contain drop-shadow" loading="lazy">
-                    <div class="flex-1 min-w-0">
-                        <div class="text-[10px] uppercase tracking-wider text-zinc-500 truncate font-semibold">{{.Game.HomeTeam.City}}</div>
-                        <div class="text-sm sm:text-base font-bold text-white truncate flex items-center justify-end">
-                            <span class="mr-1.5 text-xs font-mono font-medium text-zinc-400">({{.Game.HomeTeam.Code}})</span>
-                            {{.Game.HomeTeam.Name}}
+                <div class="flex flex-col sm:flex-row-reverse items-center text-center sm:text-right sm:space-x-3 sm:space-x-reverse">
+                    <img src="{{.Game.HomeTeam.LogoURL}}" alt="{{.Game.HomeTeam.Code}}" class="w-10 h-10 sm:w-11 sm:h-11 object-contain drop-shadow shrink-0 mb-1 sm:mb-0" loading="lazy">
+                    <div class="flex-1 min-w-0 w-full">
+                        <div class="text-[10px] uppercase tracking-wider text-zinc-500 truncate font-semibold hidden sm:block">{{.Game.HomeTeam.City}}</div>
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-end truncate">
+                            <span class="text-[11px] sm:text-xs text-zinc-300 sm:text-zinc-400 font-medium sm:mr-1.5 order-2 sm:order-1 truncate">{{.Game.HomeTeam.Name}}</span>
+                            <span class="text-sm sm:text-base font-black text-white leading-tight sm:leading-normal order-1 sm:order-2">{{.Game.HomeTeam.Code}}</span>
                         </div>
                     </div>
                 </div>
 
                 <div x-show="pickedTeam == '{{.Game.HomeTeamID}}'" 
                      {{if not $homePicked}}x-cloak{{end}}
-                     class="absolute top-2 left-2 flex items-center justify-center w-4 h-4 rounded-full bg-white text-black shadow">
-                    <i class="fa-solid fa-check text-[10px] font-black"></i>
+                     class="absolute top-2 left-2 flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white text-black shadow-md shrink-0">
+                    <svg class="w-2.5 h-2.5 sm:w-3 sm:h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M2.5 6.5L4.5 8.5L9.5 3.5"/>
+                    </svg>
                 </div>
 
                 {{if or (eq .Game.Status "in_progress") (eq .Game.Status "final")}}
-                    <div class="mt-2 pt-1.5 border-t border-zinc-800/80 flex items-center justify-between text-xs">
+                    <div class="mt-2 pt-1.5 border-t border-zinc-800/80 flex items-center justify-between text-xs w-full">
                         <span class="font-mono font-bold text-sm text-white">{{if .Game.HomeScore}}{{.Game.HomeScore}}{{else}}0{{end}}</span>
                         <span class="text-zinc-500 font-medium">Marcador</span>
                     </div>

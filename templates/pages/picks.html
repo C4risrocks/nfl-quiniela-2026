@@ -119,32 +119,36 @@
         </div>
 
         <!-- Week Dropdown Selector & Header Submit Button -->
-        <div class="flex items-center space-x-2.5">
-            <span class="text-xs font-mono text-zinc-400 uppercase tracking-wider">Jornada:</span>
-            <select id="week-select" 
-                    onchange="window.location.href = '/picks?week=' + this.value"
-                    class="bg-zinc-900 border border-zinc-700/80 text-white text-xs font-semibold rounded-xl px-3 py-2 focus:ring-1 focus:ring-white focus:border-white transition-all shadow-inner">
-                {{range .Weeks}}
-                    <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
-                        {{.Name}} {{if eq .Status "active"}}⚡{{end}}
-                    </option>
+        <div class="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full sm:w-auto justify-between sm:justify-end">
+            <div class="flex items-center space-x-2">
+                <span class="text-xs font-mono text-zinc-400 uppercase tracking-wider">Jornada:</span>
+                <select id="week-select" 
+                        onchange="window.location.href = '/picks?week=' + this.value"
+                        class="bg-zinc-900 border border-zinc-700/80 text-white text-xs font-semibold rounded-xl px-3 py-2 focus:ring-1 focus:ring-white focus:border-white transition-all shadow-inner">
+                    {{range .Weeks}}
+                        <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
+                            {{.Name}} {{if eq .Status "active"}}⚡{{end}}
+                        </option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="flex items-center space-x-2">
+                {{if .Games}}
+                    <button type="button" 
+                            @click="shareModalOpen = true"
+                            title="Descargar o compartir tarjeta de picks"
+                            class="inline-flex items-center px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-zinc-500 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer shrink-0">
+                        <i class="fa-solid fa-camera mr-1.5 text-zinc-400"></i> Compartir
+                    </button>
                 {{end}}
-            </select>
-            {{if .Games}}
-                <button type="button" 
-                        @click="shareModalOpen = true"
-                        title="Descargar o compartir tarjeta de picks"
-                        class="inline-flex items-center px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-zinc-500 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer">
-                    <i class="fa-solid fa-camera mr-1.5 text-zinc-400"></i> Compartir
-                </button>
-            {{end}}
-            {{if and .Games (not .IsFullWeekLocked)}}
-                <button type="button" 
-                        @click="validateAndSubmit()"
-                        class="hidden sm:inline-flex items-center px-4 py-2 rounded-xl bg-white text-black font-extrabold text-xs hover:bg-zinc-200 transition-colors shadow-sm cursor-pointer">
-                    <i class="fa-solid fa-paper-plane mr-1.5"></i> Enviar
-                </button>
-            {{end}}
+                {{if and .Games (not .IsFullWeekLocked)}}
+                    <button type="button" 
+                            @click="validateAndSubmit()"
+                            class="hidden sm:inline-flex items-center px-4 py-2 rounded-xl bg-white text-black font-extrabold text-xs hover:bg-zinc-200 transition-colors shadow-sm cursor-pointer shrink-0">
+                        <i class="fa-solid fa-paper-plane mr-1.5"></i> Enviar
+                    </button>
+                {{end}}
+            </div>
         </div>
     </div>
 
@@ -224,34 +228,47 @@
                 {{end}}
             </div>
 
-            <!-- Sticky Bottom Submission Bar -->
-            {{if not .IsFullWeekLocked}}
-                <div class="sticky bottom-4 z-30 p-4 rounded-2xl bg-[#0e0e0e]/95 backdrop-blur-md border border-zinc-800 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div class="flex items-center space-x-3 w-full sm:w-auto">
-                        <div class="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-amber-400 text-sm">
-                            <i class="fa-solid fa-football"></i>
-                        </div>
-                        <div>
-                            <div class="text-xs font-bold text-white">Tus Pronósticos de {{.SelectedWeek.Name}}</div>
-                            <div class="text-[11px] text-zinc-400 flex items-center space-x-2">
-                                <span><span id="picked-games-count" class="font-mono font-bold text-emerald-400">{{.PicksCount}}</span> de {{len .Games}} partidos seleccionados</span>
+            <!-- Sticky Bottom Submission & Share Bar -->
+            <div class="sticky bottom-4 z-30 p-4 rounded-2xl bg-[#0e0e0e]/95 backdrop-blur-md border border-zinc-800 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div class="flex items-center space-x-3 w-full sm:w-auto">
+                    <div class="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-amber-400 text-sm shrink-0">
+                        <i class="fa-solid fa-football"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-xs font-bold text-white truncate">Tus Pronósticos de {{.SelectedWeek.Name}}</div>
+                        <div class="text-[11px] text-zinc-400 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                            <span><span id="picked-games-count" class="font-mono font-bold text-emerald-400">{{.PicksCount}}</span> de {{len .Games}} partidos</span>
+                            {{if not .IsFullWeekLocked}}
                                 <span id="missing-games-badge" class="hidden inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
                                     <i class="fa-solid fa-triangle-exclamation text-[9px] mr-1"></i> Faltan <span id="missing-games-num" class="ml-1">0</span>
                                 </span>
-                            </div>
+                            {{else}}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800">
+                                    <i class="fa-solid fa-lock text-[9px] mr-1"></i> Bloqueada
+                                </span>
+                            {{end}}
                         </div>
                     </div>
-                    <div class="flex items-center space-x-3 w-full sm:w-auto">
+                </div>
+                <div class="flex items-center space-x-2 w-full sm:w-auto">
+                    <button type="button" 
+                            @click="shareModalOpen = true"
+                            title="Descargar o compartir tarjeta de picks"
+                            class="px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-zinc-500 text-white font-semibold text-xs transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer shrink-0 {{if .IsFullWeekLocked}}w-full sm:w-auto{{end}}">
+                        <i class="fa-solid fa-camera text-zinc-400"></i>
+                        <span>Compartir</span>
+                    </button>
+                    {{if not .IsFullWeekLocked}}
                         <button type="button" 
                                 id="submit-picks-btn"
                                 @click="validateAndSubmit()"
-                                class="w-full sm:w-auto px-6 py-2.5 bg-white text-black hover:bg-zinc-200 font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
+                                class="flex-1 sm:flex-initial px-6 py-2.5 bg-white text-black hover:bg-zinc-200 font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
                             <i class="fa-solid fa-paper-plane text-black"></i>
                             <span>Enviar Pronósticos</span>
                         </button>
-                    </div>
+                    {{end}}
                 </div>
-            {{end}}
+            </div>
         </form>
     {{else}}
         <div class="vercel-card text-center py-16 px-4 rounded-2xl">

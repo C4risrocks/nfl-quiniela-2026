@@ -57,28 +57,36 @@
                 </div>
 
                 <!-- Matchups Compact Grid -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                <div class="matchups-grid grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
                     {{range .Games}}
                         {{$p := .UserPick}}
-                        <div class="p-2 rounded-xl bg-zinc-900/90 border border-zinc-800/90 flex items-center justify-between text-xs">
+                        <div class="p-2.5 rounded-xl bg-zinc-900/90 border border-zinc-800/90 flex items-center justify-between text-xs">
                             <!-- Away Team -->
-                            <div class="flex items-center space-x-1.5 {{if and $p ($p.IsPickedTeam .AwayTeamID)}}font-black text-white{{else}}text-zinc-500 opacity-60{{end}}">
-                                <img src="{{.AwayTeam.LogoURL}}" alt="{{.AwayTeam.Code}}" class="w-4 h-4 object-contain" crossorigin="anonymous">
-                                <span class="font-mono text-[11px]">{{.AwayTeam.Code}}</span>
+                            <div class="flex items-center space-x-2 {{if and $p ($p.IsPickedTeam .AwayTeamID)}}font-black text-white{{else}}text-zinc-500 opacity-60{{end}}">
+                                <img src="{{.AwayTeam.LogoURL}}" alt="{{.AwayTeam.Code}}" class="w-5 h-5 sm:w-6 sm:h-6 object-contain shrink-0" crossorigin="anonymous">
+                                <span class="font-mono text-xs font-bold">{{.AwayTeam.Code}}</span>
                                 {{if and $p ($p.IsPickedTeam .AwayTeamID)}}
-                                    <span class="w-3.5 h-3.5 rounded-full bg-white text-black text-[9px] flex items-center justify-center font-black">✓</span>
+                                    <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white text-black shadow-sm shrink-0">
+                                        <svg class="w-2.5 h-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M2.5 6.5L4.5 8.5L9.5 3.5"/>
+                                        </svg>
+                                    </span>
                                 {{end}}
                             </div>
 
-                            <span class="text-[10px] text-zinc-600 font-mono">@</span>
+                            <span class="text-[11px] text-zinc-600 font-mono font-bold px-1">@</span>
 
                             <!-- Home Team -->
-                            <div class="flex items-center space-x-1.5 {{if and $p ($p.IsPickedTeam .HomeTeamID)}}font-black text-white{{else}}text-zinc-500 opacity-60{{end}}">
+                            <div class="flex items-center space-x-2 justify-end {{if and $p ($p.IsPickedTeam .HomeTeamID)}}font-black text-white{{else}}text-zinc-500 opacity-60{{end}}">
                                 {{if and $p ($p.IsPickedTeam .HomeTeamID)}}
-                                    <span class="w-3.5 h-3.5 rounded-full bg-white text-black text-[9px] flex items-center justify-center font-black">✓</span>
+                                    <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white text-black shadow-sm shrink-0">
+                                        <svg class="w-2.5 h-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M2.5 6.5L4.5 8.5L9.5 3.5"/>
+                                        </svg>
+                                    </span>
                                 {{end}}
-                                <span class="font-mono text-[11px]">{{.HomeTeam.Code}}</span>
-                                <img src="{{.HomeTeam.LogoURL}}" alt="{{.HomeTeam.Code}}" class="w-4 h-4 object-contain" crossorigin="anonymous">
+                                <span class="font-mono text-xs font-bold">{{.HomeTeam.Code}}</span>
+                                <img src="{{.HomeTeam.LogoURL}}" alt="{{.HomeTeam.Code}}" class="w-5 h-5 sm:w-6 sm:h-6 object-contain shrink-0" crossorigin="anonymous">
                             </div>
                         </div>
                     {{end}}
@@ -87,7 +95,7 @@
                 <!-- Tiebreaker Prediction Tag if Present -->
                 {{range .Games}}
                     {{if and .IsTiebreaker .UserPick (and .UserPick.PredictedAwayScore .UserPick.PredictedHomeScore)}}
-                        <div class="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-center text-xs mb-3 font-mono">
+                        <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-center text-xs mb-3 font-mono">
                             <i class="fa-solid fa-star text-[10px] mr-1 text-amber-400"></i> Desempate MNF:
                             <strong class="text-white ml-1">{{.AwayTeam.Code}} {{.UserPick.AwayScoreStr}} - {{.UserPick.HomeScoreStr}} {{.HomeTeam.Code}}</strong>
                         </div>
@@ -112,13 +120,44 @@
                 async generateCardBlob() {
                     const card = document.getElementById('shareable-picks-card');
                     if (!card) return null;
-                    const canvas = await html2canvas(card, {
-                        scale: 2,
-                        useCORS: true,
-                        backgroundColor: '#09090b',
-                        logging: false
-                    });
-                    return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+                    // Clone card into off-screen container with fixed standard width (640px)
+                    const clone = card.cloneNode(true);
+                    clone.id = 'shareable-picks-card-clone';
+                    clone.style.width = '640px';
+                    clone.style.maxWidth = '640px';
+                    clone.style.minWidth = '640px';
+                    clone.style.position = 'fixed';
+                    clone.style.left = '-9999px';
+                    clone.style.top = '0';
+                    clone.style.zIndex = '-9999';
+
+                    // Ensure 2-column grid in clone
+                    const grid = clone.querySelector('.matchups-grid');
+                    if (grid) {
+                        grid.style.display = 'grid';
+                        grid.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
+                        grid.style.gap = '8px';
+                    }
+
+                    document.body.appendChild(clone);
+                    await new Promise(r => setTimeout(r, 120));
+
+                    try {
+                        const canvas = await html2canvas(clone, {
+                            scale: 3,
+                            useCORS: true,
+                            allowTaint: true,
+                            backgroundColor: '#09090b',
+                            logging: false,
+                            windowWidth: 640
+                        });
+                        return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                    } finally {
+                        if (clone.parentNode) {
+                            clone.parentNode.removeChild(clone);
+                        }
+                    }
                 },
                 async downloadImage() {
                     this.generating = true;
@@ -172,7 +211,7 @@
              }">
             
             <span class="text-[11px] text-zinc-500 font-mono hidden sm:inline">
-                PNG 2x Retina listo para redes
+                PNG Ultra HD (2K) listo para compartir
             </span>
 
             <div class="flex items-center space-x-2 w-full sm:w-auto">
