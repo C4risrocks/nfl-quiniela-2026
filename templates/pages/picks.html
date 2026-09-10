@@ -3,7 +3,78 @@
 {{define "title"}}Mis Pronósticos - NFL Quiniela 2026{{end}}
 
 {{define "content"}}
-<div class="space-y-6">
+<div class="space-y-6"
+     x-data="{
+        confirmOpen: false,
+        missingCount: 0,
+        missingTiebreaker: false,
+        validateAndSubmit() {
+            const pickInputs = document.querySelectorAll('input[name^=\'picked_team_\']');
+            let picked = 0;
+            let total = 0;
+
+            pickInputs.forEach(input => {
+                if (!input.disabled) {
+                    total++;
+                    if (input.value && input.value.trim() !== '') {
+                        picked++;
+                    }
+                }
+            });
+
+            this.missingCount = total - picked;
+
+            // Check if tiebreaker score is missing
+            const tiebreakerCard = document.querySelector('[data-is-tiebreaker=\'true\']');
+            this.missingTiebreaker = false;
+            if (tiebreakerCard && tiebreakerCard.getAttribute('data-locked') !== 'true') {
+                const awayInput = tiebreakerCard.querySelector('input[name^=\'away_score_\']');
+                const homeInput = tiebreakerCard.querySelector('input[name^=\'home_score_\']');
+                if (!awayInput || !homeInput || !awayInput.value || !homeInput.value) {
+                    this.missingTiebreaker = true;
+                }
+            }
+
+            if (this.missingCount > 0 || this.missingTiebreaker) {
+                this.confirmOpen = true;
+                return;
+            }
+
+            document.getElementById('picks-form').submit();
+        },
+        forceSubmit() {
+            this.confirmOpen = false;
+            document.getElementById('picks-form').submit();
+        },
+        reviewAndComplete() {
+            this.confirmOpen = false;
+            let firstMissing = null;
+            const pickInputs = document.querySelectorAll('input[name^=\'picked_team_\']');
+            pickInputs.forEach(input => {
+                if (!input.disabled && (!input.value || input.value.trim() === '')) {
+                    const card = input.closest('[id^=\'game-card-\']');
+                    if (card) {
+                        card.classList.add('ring-2', 'ring-amber-500', 'animate-pulse');
+                        setTimeout(() => card.classList.remove('ring-2', 'ring-amber-500', 'animate-pulse'), 3000);
+                        if (!firstMissing) firstMissing = card;
+                    }
+                }
+            });
+
+            if (!firstMissing && this.missingTiebreaker) {
+                const tbCard = document.querySelector('[data-is-tiebreaker=\'true\']');
+                if (tbCard) {
+                    tbCard.classList.add('ring-2', 'ring-amber-500', 'animate-pulse');
+                    setTimeout(() => tbCard.classList.remove('ring-2', 'ring-amber-500', 'animate-pulse'), 3000);
+                    firstMissing = tbCard;
+                }
+            }
+
+            if (firstMissing) {
+                firstMissing.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+     }">
 
     <!-- Header Slot with Week Switcher -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 vercel-card p-5 sm:p-6 rounded-2xl shadow-sm">
@@ -43,7 +114,7 @@
             </select>
             {{if and .Games (not .IsFullWeekLocked)}}
                 <button type="button" 
-                        onclick="document.getElementById('picks-form').submit()"
+                        @click="validateAndSubmit()"
                         class="hidden sm:inline-flex items-center px-4 py-2 rounded-xl bg-white text-black font-extrabold text-xs hover:bg-zinc-200 transition-colors shadow-sm cursor-pointer">
                     <i class="fa-solid fa-paper-plane mr-1.5"></i> Enviar
                 </button>
@@ -101,7 +172,11 @@
     </div>
 
     {{if .JustSaved}}
-        <div x-data x-init="$nextTick(() => $dispatch('show-toast', {message: '¡Tus pronósticos se han guardado exitosamente!', type: 'success'}))"></div>
+        {{if gt .MissingCount 0}}
+            <div x-data x-init="$nextTick(() => $dispatch('show-toast', {message: '¡Pronósticos guardados! Ojo: Dejaste {{.MissingCount}} partido(s) sin pronosticar.', type: 'warning'}))"></div>
+        {{else}}
+            <div x-data x-init="$nextTick(() => $dispatch('show-toast', {message: '¡Tus pronósticos se han guardado exitosamente!', type: 'success'}))"></div>
+        {{end}}
     {{end}}
 
     <!-- Games Form and Grid -->
@@ -124,14 +199,18 @@
                         </div>
                         <div>
                             <div class="text-xs font-bold text-white">Tus Pronósticos de {{.SelectedWeek.Name}}</div>
-                            <div class="text-[11px] text-zinc-400">
-                                <span id="picked-games-count" class="font-mono font-bold text-emerald-400">{{.PicksCount}}</span> de {{len .Games}} partidos seleccionados
+                            <div class="text-[11px] text-zinc-400 flex items-center space-x-2">
+                                <span><span id="picked-games-count" class="font-mono font-bold text-emerald-400">{{.PicksCount}}</span> de {{len .Games}} partidos seleccionados</span>
+                                <span id="missing-games-badge" class="hidden inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
+                                    <i class="fa-solid fa-triangle-exclamation text-[9px] mr-1"></i> Faltan <span id="missing-games-num" class="ml-1">0</span>
+                                </span>
                             </div>
                         </div>
                     </div>
                     <div class="flex items-center space-x-3 w-full sm:w-auto">
-                        <button type="submit" 
+                        <button type="button" 
                                 id="submit-picks-btn"
+                                @click="validateAndSubmit()"
                                 class="w-full sm:w-auto px-6 py-2.5 bg-white text-black hover:bg-zinc-200 font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
                             <i class="fa-solid fa-paper-plane text-black"></i>
                             <span>Enviar Pronósticos</span>
@@ -157,19 +236,102 @@
         </div>
     {{end}}
 
+    <!-- Confirmation Modal for Incomplete Picks -->
+    <div x-show="confirmOpen"
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0">
+        
+        <div class="relative w-full max-w-md bg-[#121212] border border-zinc-800 rounded-2xl p-6 shadow-2xl space-y-4"
+             @click.away="confirmOpen = false"
+             @keydown.escape.window="confirmOpen = false"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95">
+            
+            <div class="flex items-start space-x-3.5">
+                <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0 text-base">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-white">¿Deseas enviar con pronósticos pendientes?</h3>
+                    <p class="text-xs text-zinc-400 mt-1">
+                        Detectamos que aún no completas todos tus pronósticos en esta jornada:
+                    </p>
+                </div>
+            </div>
+
+            <div class="bg-zinc-900/90 border border-zinc-800/80 rounded-xl p-3.5 space-y-2 text-xs">
+                <template x-if="missingCount > 0">
+                    <div class="flex items-center space-x-2 text-amber-300">
+                        <i class="fa-solid fa-circle-exclamation text-amber-400 text-xs"></i>
+                        <span>Tienes <strong><span x-text="missingCount"></span></strong> partido(s) sin seleccionar ganador.</span>
+                    </div>
+                </template>
+                <template x-if="missingTiebreaker">
+                    <div class="flex items-center space-x-2 text-amber-300">
+                        <i class="fa-solid fa-star text-amber-400 text-xs"></i>
+                        <span>No ingresaste el marcador para el partido de desempate (MNF).</span>
+                    </div>
+                </template>
+                <p class="text-[11px] text-zinc-500 pt-1 border-t border-zinc-800">
+                    Si envías ahora, no acumularás puntos en los partidos vacíos ni tendrás criterio de desempate completo.
+                </p>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-2">
+                <button type="button"
+                        @click="forceSubmit()"
+                        class="px-4 py-2.5 rounded-xl border border-zinc-700/80 text-zinc-300 hover:text-white hover:bg-zinc-800 text-xs font-semibold transition-colors text-center cursor-pointer">
+                    Enviar como están
+                </button>
+                <button type="button"
+                        @click="reviewAndComplete()"
+                        class="px-5 py-2.5 rounded-xl bg-white text-black hover:bg-zinc-200 font-extrabold text-xs shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>Revisar y Completar</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script>
 function updatePicksCounter() {
     const inputs = document.querySelectorAll('input[name^="picked_team_"]');
+    let total = 0;
     let count = 0;
     inputs.forEach(input => {
-        if (input.value && input.value.trim() !== '') {
-            count++;
+        if (!input.disabled) {
+            total++;
+            if (input.value && input.value.trim() !== '') {
+                count++;
+            }
         }
     });
     const counter = document.getElementById('picked-games-count');
     if (counter) counter.innerText = count;
+
+    const missingBadge = document.getElementById('missing-games-badge');
+    const missingNum = document.getElementById('missing-games-num');
+    const missing = total - count;
+    if (missingBadge && missingNum) {
+        if (missing > 0 && total > 0) {
+            missingNum.innerText = missing;
+            missingBadge.classList.remove('hidden');
+        } else {
+            missingBadge.classList.add('hidden');
+        }
+    }
 }
 document.addEventListener('DOMContentLoaded', updatePicksCounter);
 </script>

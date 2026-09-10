@@ -124,6 +124,7 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 		"FirstKickoff":     firstKickoff,
 		"IsFullWeekLocked": isFullWeekLocked,
 		"JustSaved":        r.URL.Query().Get("saved") == "1",
+		"MissingCount":     func() int { m, _ := strconv.Atoi(r.URL.Query().Get("missing")); return m }(),
 	})
 }
 
@@ -295,11 +296,13 @@ func (h *PicksHandler) SaveAll(w http.ResponseWriter, r *http.Request) {
 	firstKickoff := findFirstKickoff(weekGames)
 	now := time.Now()
 
+	openGamesCount := 0
 	savedCount := 0
 	for _, game := range weekGames {
 		if game.IsGameOrWeekLocked(now, scoringCfg.LockMode, firstKickoff) {
 			continue
 		}
+		openGamesCount++
 
 		var pickedTeamID *int64
 		if teamStr := strings.TrimSpace(r.FormValue(fmt.Sprintf("picked_team_%d", game.ID))); teamStr != "" {
@@ -322,13 +325,18 @@ func (h *PicksHandler) SaveAll(w http.ResponseWriter, r *http.Request) {
 
 		if pickedTeamID != nil || homeScore != nil || awayScore != nil {
 			_, err := h.repo.SavePick(user.ID, game.ID, pickedTeamID, homeScore, awayScore)
-			if err == nil {
+			if err == nil && pickedTeamID != nil {
 				savedCount++
 			}
 		}
 	}
 
-	redirectURL := fmt.Sprintf("/picks?week=%d&saved=1", week.WeekNumber)
+	missingCount := openGamesCount - savedCount
+	if missingCount < 0 {
+		missingCount = 0
+	}
+
+	redirectURL := fmt.Sprintf("/picks?week=%d&saved=1&missing=%d", week.WeekNumber, missingCount)
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("HX-Redirect", redirectURL)
 		w.WriteHeader(http.StatusOK)

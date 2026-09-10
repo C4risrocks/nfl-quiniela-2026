@@ -223,7 +223,7 @@ func TestPicksSaveAll(t *testing.T) {
 
 	user, _ := authService.Register("picker_batch", "batch@test.com", "pass123")
 	season, _ := repo.GetActiveSeason(2026)
-	week, _ := repo.GetWeekByNumber(season.ID, 1)
+	week, _ := repo.GetWeekByNumber(season.ID, 2)
 	kc, _ := repo.GetTeamByCode("KC")
 	bal, _ := repo.GetTeamByCode("BAL")
 
@@ -292,6 +292,38 @@ func TestPicksSaveAll(t *testing.T) {
 	}
 	if p2.PredictedHomeScore == nil || *p2.PredictedHomeScore != 24 {
 		t.Errorf("Expected home score 24, got %v", p2.PredictedHomeScore)
+	}
+
+	loc := rr.Header().Get("Location")
+	if !strings.Contains(loc, "saved=1") || !strings.Contains(loc, "missing=") {
+		t.Errorf("Expected redirect URL to contain saved=1 and missing param, got %s", loc)
+	}
+
+	// Test partial submission: create g3 and submit only g3 without picked team
+	g3, _ := repo.CreateManualGame(&db.Game{
+		WeekID:       week.ID,
+		HomeTeamID:   kc.ID,
+		AwayTeamID:   bal.ID,
+		KickoffTime:  time.Now().Add(36 * time.Hour),
+		Status:       "scheduled",
+		StatusDetail: "Mon 8:15 PM",
+	})
+	_ = g3
+
+	formPartial := url.Values{}
+	formPartial.Set("week_id", strconvFormat(week.ID))
+	formPartial.Set(fmt.Sprintf("picked_team_%d", g1.ID), strconvFormat(kc.ID))
+	// g2 and g3 omitted from picked teams
+
+	reqPartial := httptest.NewRequest(http.MethodPost, "/picks/save-all", strings.NewReader(formPartial.Encode()))
+	reqPartial.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqPartial = reqPartial.WithContext(injectUser(reqPartial.Context(), user))
+	rrPartial := httptest.NewRecorder()
+
+	picksHandler.SaveAll(rrPartial, reqPartial)
+	locPartial := rrPartial.Header().Get("Location")
+	if !strings.Contains(locPartial, "missing=2") {
+		t.Errorf("Expected missing=2 in redirect URL, got %s", locPartial)
 	}
 }
 
