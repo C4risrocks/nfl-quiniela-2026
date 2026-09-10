@@ -372,3 +372,98 @@ func TestUserManagementAndPicksExport(t *testing.T) {
 		t.Errorf("Expected export rows for Week 1 games, got 0")
 	}
 }
+
+func TestCommunityStatsAndHeadToHead(t *testing.T) {
+	testDB := "test_community_h2h.db"
+	defer os.Remove(testDB)
+	defer os.Remove(testDB + "-wal")
+	defer os.Remove(testDB + "-shm")
+
+	database, err := InitDB("sqlite", testDB)
+	if err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	defer database.Close()
+
+	repo := NewRepository(database)
+	_ = SeedDatabase(repo, "testadmin", "admin@test.com", "pass123", 2026)
+
+	season, err := repo.GetActiveSeason(2026)
+	if err != nil {
+		t.Fatalf("GetActiveSeason failed: %v", err)
+	}
+	weeks, _ := repo.ListWeeks(season.ID)
+	week1 := weeks[0]
+	games, _ := repo.ListGamesByWeek(week1.ID)
+	if len(games) == 0 {
+		t.Fatalf("Expected seeded games for Week 1")
+	}
+	game1 := games[0]
+
+	// Create test users
+	user1, _ := repo.CreateUser("player_alpha", "alpha@test.com", "hash", "player")
+	user2, _ := repo.CreateUser("player_beta", "beta@test.com", "hash", "player")
+	user3, _ := repo.CreateUser("player_gamma", "gamma@test.com", "hash", "player")
+
+	// Save picks for game1: user1 and user2 pick Home, user3 picks Away
+	hs1, as1 := 28, 20
+	_, _ = repo.SavePick(user1.ID, game1.ID, &game1.HomeTeamID, &hs1, &as1)
+
+	hs2, as2 := 24, 14
+	_, _ = repo.SavePick(user2.ID, game1.ID, &game1.HomeTeamID, &hs2, &as2)
+
+	hs3, as3 := 17, 31
+	_, _ = repo.SavePick(user3.ID, game1.ID, &game1.AwayTeamID, &hs3, &as3)
+
+	// 1. Verify Community Stats
+	stats, err := repo.GetGameCommunityStats(game1.ID)
+	if err != nil {
+		t.Fatalf("GetGameCommunityStats failed: %v", err)
+	}
+	if stats.TotalPicks != 3 {
+		t.Errorf("Expected 3 total picks, got %d", stats.TotalPicks)
+	}
+	if stats.HomePicksCount != 2 || stats.AwayPicksCount != 1 {
+		t.Errorf("Expected 2 home and 1 away, got %d and %d", stats.HomePicksCount, stats.AwayPicksCount)
+	}
+	if stats.HomePct != 67 || stats.AwayPct != 33 {
+		t.Errorf("Expected 67%% and 33%%, got %d%% and %d%%", stats.HomePct, stats.AwayPct)
+	}
+	if stats.AvgHomeScore == nil || *stats.AvgHomeScore < 22 || *stats.AvgHomeScore > 24 {
+		t.Errorf("Expected AvgHomeScore around 23, got %v", stats.AvgHomeScore)
+	}
+
+	// 2. Verify Head-to-Head Comparison (User 1 vs User 3)
+	h2h, err := repo.GetHeadToHeadComparison(week1.ID, user1.ID, user3.ID)
+	if err != nil {
+		t.Fatalf("GetHeadToHeadComparison failed: %v", err)
+	}
+	if h2h.UserA.Username != "player_alpha" || h2h.UserB.Username != "player_gamma" {
+		t.Errorf("Unexpected users in H2H: %s vs %s", h2h.UserA.Username, h2h.UserB.Username)
+	}
+	if h2h.DivergenceCount == 0 {
+		t.Errorf("Expected at least 1 divergent matchup between User 1 and User 3")
+	}
+
+	// 3. Test Provisional Winner / Loser live logic
+	game1.Status = "in_progress"
+	liveHome, liveAway := 21, 10
+	game1.HomeScore = &liveHome
+	game1.AwayScore = &liveAway
+
+	pickAlpha, _ := repo.GetUserPickForGame(user1.ID, game1.ID)
+	if !pickAlpha.IsProvisionalWinner(game1) {
+		t.Errorf("Expected user1 (picked home) to be provisional winner when home is leading 21-10")
+	}
+	if pickAlpha.IsProvisionalLoser(game1) {
+		t.Errorf("Expected user1 to NOT be provisional loser")
+	}
+
+	pickGamma, _ := repo.GetUserPickForGame(user3.ID, game1.ID)
+	if pickGamma.IsProvisionalWinner(game1) {
+		t.Errorf("Expected user3 (picked away) to NOT be provisional winner")
+	}
+	if !pickGamma.IsProvisionalLoser(game1) {
+		t.Errorf("Expected user3 to be provisional loser when home is leading 21-10")
+	}
+}

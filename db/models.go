@@ -257,18 +257,48 @@ func (p *Pick) HasIncorrectWinner() bool {
 	return p != nil && p.IsCorrect != nil && !*p.IsCorrect
 }
 
+// ProvisionalWinnerCorrect evaluates whether the pick is winning during an in_progress game
+func (p *Pick) ProvisionalWinnerCorrect(game *Game) *bool {
+	if p == nil || p.PickedTeamID == nil || game == nil || game.Status != "in_progress" || game.HomeScore == nil || game.AwayScore == nil {
+		return nil
+	}
+	if *game.HomeScore == *game.AwayScore {
+		return nil // Currently tied
+	}
+	var currentLeadingTeamID int64
+	if *game.HomeScore > *game.AwayScore {
+		currentLeadingTeamID = game.HomeTeamID
+	} else {
+		currentLeadingTeamID = game.AwayTeamID
+	}
+	isLeading := (*p.PickedTeamID == currentLeadingTeamID)
+	return &isLeading
+}
+
+func (p *Pick) IsProvisionalWinner(game *Game) bool {
+	res := p.ProvisionalWinnerCorrect(game)
+	return res != nil && *res
+}
+
+func (p *Pick) IsProvisionalLoser(game *Game) bool {
+	res := p.ProvisionalWinnerCorrect(game)
+	return res != nil && !*res
+}
+
 // LeaderboardEntry represents a user's standings in a week or season
 type LeaderboardEntry struct {
-	Rank            int     `json:"rank"`
-	UserID          int64   `json:"user_id"`
-	Username        string  `json:"username"`
-	AvatarURL       string  `json:"avatar_url"`
-	TotalPoints     int     `json:"total_points"`
-	CorrectPicks    int     `json:"correct_picks"`
-	TotalPicks      int     `json:"total_picks"`
-	TiebreakerError int     `json:"tiebreaker_error"`
-	WinPercentage   float64 `json:"win_percentage"`
-	HasTiebreaker   bool    `json:"has_tiebreaker"`
+	Rank                int     `json:"rank"`
+	UserID              int64   `json:"user_id"`
+	Username            string  `json:"username"`
+	AvatarURL           string  `json:"avatar_url"`
+	TotalPoints         int     `json:"total_points"`
+	LiveProjectedPoints int     `json:"live_projected_points"`
+	CorrectPicks        int     `json:"correct_picks"`
+	TotalPicks          int     `json:"total_picks"`
+	TiebreakerError     int     `json:"tiebreaker_error"`
+	WinPercentage       float64 `json:"win_percentage"`
+	HasTiebreaker       bool    `json:"has_tiebreaker"`
+	HasLiveGames        bool    `json:"has_live_games"`
 }
 
 // ScoringConfig holds active pool scoring settings and lock timing
@@ -306,3 +336,43 @@ type PickExportRow struct {
 	GameStatus         string    `json:"game_status"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }
+
+// GameCommunityStats aggregates community picking patterns for a single game
+type GameCommunityStats struct {
+	TotalPicks     int      `json:"total_picks"`
+	HomePicksCount int      `json:"home_picks_count"`
+	AwayPicksCount int      `json:"away_picks_count"`
+	HomePct        int      `json:"home_pct"` // 0 - 100 rounded
+	AwayPct        int      `json:"away_pct"` // 0 - 100 rounded
+	AvgHomeScore   *float64 `json:"avg_home_score"`
+	AvgAwayScore   *float64 `json:"avg_away_score"`
+}
+
+// HeadToHeadMatchup compares two users' picks on a single game
+type HeadToHeadMatchup struct {
+	Game            *Game `json:"game"`
+	UserAPick       *Pick `json:"user_a_pick"`
+	UserBPick       *Pick `json:"user_b_pick"`
+	UserAPickedTeam *Team `json:"user_a_picked_team"`
+	UserBPickedTeam *Team `json:"user_b_picked_team"`
+	IsDivergent     bool  `json:"is_divergent"`
+	UserAPoints     int   `json:"user_a_points"`
+	UserBPoints     int   `json:"user_b_points"`
+	IsLive          bool  `json:"is_live"`
+	IsFinal         bool  `json:"is_final"`
+}
+
+// HeadToHeadComparison aggregates a direct rivalry matchup between two users for a week
+type HeadToHeadComparison struct {
+	UserA           *User                `json:"user_a"`
+	UserB           *User                `json:"user_b"`
+	Week            *Week                `json:"week"`
+	Matchups        []*HeadToHeadMatchup `json:"matchups"`
+	TotalGames      int                  `json:"total_games"`
+	AgreementsCount int                  `json:"agreements_count"`
+	DivergenceCount int                  `json:"divergence_count"`
+	UserATotalPts   int                  `json:"user_a_total_pts"`
+	UserBTotalPts   int                  `json:"user_b_total_pts"`
+	PointsAtStake   int                  `json:"points_at_stake"`
+}
+

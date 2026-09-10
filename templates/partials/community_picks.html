@@ -1,33 +1,120 @@
 {{if .Picks}}
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-    {{range .Picks}}
-        <div class="flex items-center justify-between p-2 rounded-lg bg-slate-900/80 border border-slate-800 text-xs">
-            <div class="flex items-center space-x-2">
-                <div class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center font-bold text-[10px] text-cyan-400">
-                    {{slice .User.Username 0 1}}
-                </div>
-                <span class="font-semibold text-slate-300">{{.User.Username}}</span>
+<div class="space-y-3">
+    {{if and .Stats (gt .Stats.TotalPicks 0)}}
+        <!-- Community Distribution Summary Bar -->
+        <div class="bg-zinc-950/80 border border-zinc-800/80 rounded-xl p-3 text-xs space-y-2">
+            <div class="flex items-center justify-between font-mono text-[11px] text-zinc-400">
+                <span class="flex items-center space-x-1 font-semibold text-white">
+                    <img src="{{.Game.AwayTeam.LogoURL}}" alt="{{.Game.AwayTeam.Code}}" class="w-4 h-4 object-contain inline">
+                    <span>{{.Game.AwayTeam.Code}} ({{.Stats.AwayPct}}%)</span>
+                </span>
+                <span class="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">Distribución de {{.Stats.TotalPicks}} picks</span>
+                <span class="flex items-center space-x-1 font-semibold text-white">
+                    <span>({{.Stats.HomePct}}%) {{.Game.HomeTeam.Code}}</span>
+                    <img src="{{.Game.HomeTeam.LogoURL}}" alt="{{.Game.HomeTeam.Code}}" class="w-4 h-4 object-contain inline">
+                </span>
             </div>
-            <div class="flex items-center space-x-2">
-                {{if .PickedTeamID}}
-                    <span class="px-2 py-0.5 rounded font-black text-[11px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                        {{.TeamCode}}
-                    </span>
-                {{else}}
-                    <span class="text-slate-500 text-[11px]">Sin ganador</span>
-                {{end}}
 
-                {{if and .PredictedAwayScore .PredictedHomeScore}}
-                    <span class="text-slate-400 font-mono text-[11px]">
-                        ({{.PredictedAwayScore}} - {{.PredictedHomeScore}})
-                    </span>
-                {{end}}
+            <!-- Two-Tone Visual Percentage Progress Bar -->
+            <div class="w-full h-3 rounded-full overflow-hidden flex bg-zinc-900 border border-zinc-700/60">
+                <div class="h-full bg-gradient-to-r from-blue-600 to-indigo-500 transition-all duration-300 flex items-center justify-start pl-1 text-[9px] font-bold text-white" 
+                     style="width: {{if eq .Stats.AwayPct 0}}0%{{else}}{{.Stats.AwayPct}}%{{end}}">
+                    {{if gt .Stats.AwayPct 15}}{{.Stats.AwayPicksCount}}v{{end}}
+                </div>
+                <div class="h-full bg-gradient-to-r from-rose-500 to-red-600 transition-all duration-300 flex items-center justify-end pr-1 text-[9px] font-bold text-white" 
+                     style="width: {{if eq .Stats.HomePct 0}}0%{{else}}{{.Stats.HomePct}}%{{end}}">
+                    {{if gt .Stats.HomePct 15}}{{.Stats.HomePicksCount}}v{{end}}
+                </div>
             </div>
+
+            {{if and .Stats.AvgAwayScore .Stats.AvgHomeScore}}
+                <div class="text-center pt-1 border-t border-zinc-900 text-[10px] text-zinc-400">
+                    <span class="text-amber-400 font-semibold"><i class="fa-solid fa-bullseye mr-1"></i> Marcador promedio:</span>
+                    <span class="font-mono text-zinc-200 ml-1">{{.Game.AwayTeam.Code}} {{.Stats.AvgAwayScore}} - {{.Stats.AvgHomeScore}} {{.Game.HomeTeam.Code}}</span>
+                </div>
+            {{end}}
         </div>
     {{end}}
+
+    <!-- Detailed List of Players -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+        {{range .Picks}}
+            {{$isLiveWinning := and (eq $.Game.Status "in_progress") (.IsProvisionalWinner $.Game)}}
+            {{$isLiveLosing := and (eq $.Game.Status "in_progress") (.IsProvisionalLoser $.Game)}}
+
+            <div class="flex items-center justify-between p-2 rounded-xl bg-zinc-900/90 border border-zinc-800 text-xs hover:border-zinc-700 transition-colors">
+                <div class="flex items-center space-x-2 min-w-0">
+                    <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-[10px] text-zinc-300 flex-shrink-0">
+                        {{if .User.AvatarURL}}
+                            <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-full h-full rounded-full object-cover">
+                        {{else}}
+                            {{slice .User.Username 0 1}}
+                        {{end}}
+                    </div>
+                    <span class="font-semibold text-zinc-200 truncate text-[11px]">{{.User.Username}}</span>
+                </div>
+
+                <div class="flex items-center space-x-1.5 flex-shrink-0">
+                    {{if .PickedTeamID}}
+                        {{if eq $.Game.Status "final"}}
+                            {{if .HasCorrectWinner}}
+                                <span class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center">
+                                    <i class="fa-solid fa-check text-[9px] mr-1"></i>{{.TeamCode}}
+                                </span>
+                            {{else if .HasIncorrectWinner}}
+                                <span class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 opacity-70">
+                                    {{.TeamCode}} ✗
+                                </span>
+                            {{else}}
+                                <span class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-zinc-800 text-zinc-300 border border-zinc-700">
+                                    {{.TeamCode}}
+                                </span>
+                            {{end}}
+                        {{else if eq $.Game.Status "in_progress"}}
+                            {{if $isLiveWinning}}
+                                <span class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center animate-pulse">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1"></span>{{.TeamCode}}
+                                </span>
+                            {{else if $isLiveLosing}}
+                                <span class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-zinc-900 text-zinc-400 border border-zinc-800">
+                                    {{.TeamCode}}
+                                </span>
+                            {{else}}
+                                <span class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-zinc-800 text-zinc-300 border border-zinc-700">
+                                    {{.TeamCode}}
+                                </span>
+                            {{end}}
+                        {{else}}
+                            <span class="px-2 py-0.5 rounded-md font-black text-[10px] bg-zinc-800 text-zinc-200 border border-zinc-700">
+                                {{.TeamCode}}
+                            </span>
+                        {{end}}
+                    {{else}}
+                        <span class="text-zinc-600 text-[10px] italic">Sin pick</span>
+                    {{end}}
+
+                    {{if and .PredictedAwayScore .PredictedHomeScore}}
+                        <span class="text-zinc-400 font-mono text-[10px]">
+                            ({{.PredictedAwayScore}}-{{.PredictedHomeScore}})
+                        </span>
+                    {{end}}
+
+                    <!-- Head-to-Head Compare Button -->
+                    <button type="button" 
+                            hx-get="/picks/compare?rival_id={{.User.ID}}&week_id={{$.Game.WeekID}}"
+                            hx-target="#h2h-modal-container"
+                            title="Comparar pronósticos contra {{.User.Username}}"
+                            class="p-1 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded transition-colors ml-0.5">
+                        <i class="fa-solid fa-code-compare text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+        {{end}}
+    </div>
 </div>
 {{else}}
-<div class="text-center py-2 text-slate-500 text-xs">
+<div class="text-center py-4 text-zinc-500 text-xs">
+    <i class="fa-solid fa-users-slash text-base mb-1 block text-zinc-600"></i>
     Ningún jugador ha registrado pronóstico para este partido.
 </div>
 {{end}}

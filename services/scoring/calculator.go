@@ -111,6 +111,14 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 		return fmt.Errorf("listing users: %w", err)
 	}
 
+	hasLiveGames := false
+	for _, g := range games {
+		if g.Status == "in_progress" {
+			hasLiveGames = true
+			break
+		}
+	}
+
 	var leaderboardEntries []*db.LeaderboardEntry
 
 	for _, u := range users {
@@ -119,11 +127,34 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 		correctCount := 0
 		totalCount := len(picksList)
 		tbError := 999 // default high error
+		liveProjectedPts := 0
 
 		for _, p := range picksList {
+			g, exists := gameMap[p.GameID]
+			if !exists {
+				continue
+			}
+
+			// Final game points
 			totalPts += p.PointsEarned + p.BonusPoints
 			if p.IsCorrect != nil && *p.IsCorrect {
 				correctCount++
+			}
+
+			// Provisional live points for in_progress games
+			if g.Status == "in_progress" {
+				provWinner := p.ProvisionalWinnerCorrect(g)
+				if provWinner != nil && *provWinner {
+					liveProjectedPts += cfg.WinnerPoints
+					if cfg.ScoringMode == "weighted" && p.PredictedHomeScore != nil && p.PredictedAwayScore != nil && g.HomeScore != nil && g.AwayScore != nil {
+						if *p.PredictedHomeScore == *g.HomeScore && *p.PredictedAwayScore == *g.AwayScore {
+							liveProjectedPts += cfg.ExactScoreBonus
+						}
+						if (*p.PredictedHomeScore - *p.PredictedAwayScore) == (*g.HomeScore - *g.AwayScore) {
+							liveProjectedPts += cfg.ExactMarginBonus
+						}
+					}
+				}
 			}
 
 			// If this is the tiebreaker game, compute score distance
@@ -137,13 +168,15 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 		}
 
 		entry := &db.LeaderboardEntry{
-			UserID:          u.ID,
-			Username:        u.Username,
-			AvatarURL:       u.AvatarURL,
-			TotalPoints:     totalPts,
-			CorrectPicks:    correctCount,
-			TotalPicks:      totalCount,
-			TiebreakerError: tbError,
+			UserID:              u.ID,
+			Username:            u.Username,
+			AvatarURL:           u.AvatarURL,
+			TotalPoints:         totalPts,
+			LiveProjectedPoints: totalPts + liveProjectedPts,
+			CorrectPicks:        correctCount,
+			TotalPicks:          totalCount,
+			TiebreakerError:     tbError,
+			HasLiveGames:        hasLiveGames,
 		}
 		leaderboardEntries = append(leaderboardEntries, entry)
 	}

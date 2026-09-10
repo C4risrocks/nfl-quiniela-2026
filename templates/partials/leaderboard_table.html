@@ -8,6 +8,7 @@
                 <th class="py-3 px-4 text-center">Aciertos</th>
                 <th class="py-3 px-4 text-center">Efectividad</th>
                 <th class="py-3 px-4 text-center">Dif. Desempate</th>
+                <th class="py-3 px-4 text-center">Duelo</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-[#1a1a1a] text-zinc-200">
@@ -49,11 +50,16 @@
                             </div>
                         </td>
 
-                        <!-- Total Points -->
+                        <!-- Total Points & Live Projected -->
                         <td class="py-3 px-4 text-center">
                             <span class="font-mono font-bold text-sm text-amber-400">
                                 {{.TotalPoints}} <span class="text-[10px] text-zinc-500 font-normal">pts</span>
                             </span>
+                            {{if .HasLiveGames}}
+                                <div class="text-[10px] font-mono text-emerald-400 font-semibold mt-0.5" title="Puntos proyectados con resultados en vivo">
+                                    ({{.LiveProjectedPoints}} en vivo)
+                                </div>
+                            {{end}}
                         </td>
 
                         <!-- Correct Picks -->
@@ -78,11 +84,27 @@
                             {{end}}
                         </td>
 
+                        <!-- Head-to-Head Compare Button -->
+                        <td class="py-3 px-4 text-center">
+                            {{if and $.CurrentUser (ne .UserID $.CurrentUser.ID)}}
+                                <button type="button" 
+                                        hx-get="/picks/compare?rival_id={{.UserID}}{{if $.SelectedWeek}}&week_id={{$.SelectedWeek.ID}}{{end}}"
+                                        hx-target="#h2h-modal-container"
+                                        class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 text-[11px] font-medium transition-colors cursor-pointer"
+                                        title="Comparar pronósticos contra {{.Username}}">
+                                    <i class="fa-solid fa-code-compare text-[10px] text-zinc-400"></i>
+                                    <span>Comparar</span>
+                                </button>
+                            {{else}}
+                                <span class="text-zinc-600 text-[10px]">--</span>
+                            {{end}}
+                        </td>
+
                     </tr>
                 {{end}}
             {{else}}
                 <tr>
-                    <td colspan="6" class="py-12 text-center text-zinc-500">
+                    <td colspan="7" class="py-12 text-center text-zinc-500">
                         <i class="fa-solid fa-trophy text-zinc-700 text-2xl mb-2 block"></i>
                         Aún no se han registrado puntuaciones para esta vista.
                     </td>

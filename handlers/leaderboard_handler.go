@@ -57,6 +57,7 @@ func (h *LeaderboardHandler) ShowLeaderboard(w http.ResponseWriter, r *http.Requ
 	var leaderboard []*db.LeaderboardEntry
 	if viewMode == "weekly" && selectedWeek != nil {
 		leaderboard, _ = h.repo.GetWeeklyLeaderboard(selectedWeek.ID)
+		h.enrichWithLiveProjected(selectedWeek.ID, leaderboard)
 	} else {
 		leaderboard, _ = h.repo.GetSeasonLeaderboard(season.ID)
 	}
@@ -87,6 +88,7 @@ func (h *LeaderboardHandler) LeaderboardTable(w http.ResponseWriter, r *http.Req
 		viewMode = "season"
 	}
 
+	var selectedWeek *db.Week
 	var leaderboard []*db.LeaderboardEntry
 	if viewMode == "weekly" {
 		weekNum := 1
@@ -95,16 +97,70 @@ func (h *LeaderboardHandler) LeaderboardTable(w http.ResponseWriter, r *http.Req
 				weekNum = wn
 			}
 		}
-		week, _ := h.repo.GetWeekByNumber(season.ID, weekNum)
-		if week != nil {
-			leaderboard, _ = h.repo.GetWeeklyLeaderboard(week.ID)
+		selectedWeek, _ = h.repo.GetWeekByNumber(season.ID, weekNum)
+		if selectedWeek != nil {
+			leaderboard, _ = h.repo.GetWeeklyLeaderboard(selectedWeek.ID)
+			h.enrichWithLiveProjected(selectedWeek.ID, leaderboard)
 		}
 	} else {
 		leaderboard, _ = h.repo.GetSeasonLeaderboard(season.ID)
 	}
 
 	h.renderer.RenderPartial(w, "leaderboard_table.html", map[string]interface{}{
-		"Leaderboard": leaderboard,
-		"CurrentUser": user,
+		"Leaderboard":  leaderboard,
+		"CurrentUser":  user,
+		"SelectedWeek": selectedWeek,
 	})
+}
+
+func (h *LeaderboardHandler) enrichWithLiveProjected(weekID int64, entries []*db.LeaderboardEntry) {
+	games, err := h.repo.ListGamesByWeek(weekID)
+	if err != nil || len(games) == 0 {
+		return
+	}
+
+	var liveGames []*db.Game
+	for _, g := range games {
+		if g.Status == "in_progress" {
+			liveGames = append(liveGames, g)
+		}
+	}
+	if len(liveGames) == 0 {
+		return
+	}
+
+	scoringCfg, _ := h.repo.GetScoringConfig()
+	winnerPts := 10
+	if scoringCfg != nil && scoringCfg.WinnerPoints > 0 {
+		winnerPts = scoringCfg.WinnerPoints
+	}
+
+	allPicks, err := h.repo.ListAllPicksForWeek(weekID)
+	if err != nil {
+		return
+	}
+
+	userPickMap := make(map[int64]map[int64]*db.Pick)
+	for _, p := range allPicks {
+		if userPickMap[p.UserID] == nil {
+			userPickMap[p.UserID] = make(map[int64]*db.Pick)
+		}
+		userPickMap[p.UserID][p.GameID] = p
+	}
+
+	for _, entry := range entries {
+		entry.HasLiveGames = true
+		liveBonus := 0
+		userPicks := userPickMap[entry.UserID]
+		for _, lg := range liveGames {
+			p := userPicks[lg.ID]
+			if p != nil {
+				prov := p.ProvisionalWinnerCorrect(lg)
+				if prov != nil && *prov {
+					liveBonus += winnerPts
+				}
+			}
+		}
+		entry.LiveProjectedPoints = entry.TotalPoints + liveBonus
+	}
 }

@@ -771,3 +771,65 @@ func TestAdminUserManagementAndOverride(t *testing.T) {
 		t.Errorf("Expected response to mention prórroga")
 	}
 }
+
+func TestCommunityPicksAndHeadToHeadHandler(t *testing.T) {
+	repo, authService, renderer, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	picksHandler := NewPicksHandler(repo, renderer, nil, 2026)
+
+	user1, _ := authService.Register("player_one", "p1@test.com", "pass123")
+	user2, _ := authService.Register("player_two", "p2@test.com", "pass123")
+
+	season, _ := repo.GetActiveSeason(2026)
+	weeks, _ := repo.ListWeeks(season.ID)
+	week1 := weeks[0]
+	games, _ := repo.ListGamesByWeek(week1.ID)
+	g1 := games[0]
+
+	// Save picks for user1 and user2
+	_, _ = repo.SavePick(user1.ID, g1.ID, &g1.HomeTeamID, nil, nil)
+	_, _ = repo.SavePick(user2.ID, g1.ID, &g1.AwayTeamID, nil, nil)
+
+	// 1. Test ComparePicks endpoint
+	reqCompare := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/picks/compare?rival_id=%d&week_id=%d", user2.ID, week1.ID), nil)
+	reqCompare = reqCompare.WithContext(injectUser(reqCompare.Context(), user1))
+	rrCompare := httptest.NewRecorder()
+
+	picksHandler.ComparePicks(rrCompare, reqCompare)
+	if rrCompare.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK from ComparePicks, got %d: %s", rrCompare.Code, rrCompare.Body.String())
+	}
+	bodyCompare := rrCompare.Body.String()
+	if !strings.Contains(bodyCompare, "Duelo Cara a Cara") {
+		t.Errorf("Expected ComparePicks to contain 'Duelo Cara a Cara'")
+	}
+	if !strings.Contains(bodyCompare, "player_two") {
+		t.Errorf("Expected ComparePicks to contain rival username 'player_two'")
+	}
+	if !strings.Contains(bodyCompare, "Duelo Directo") {
+		t.Errorf("Expected divergent game to be marked with 'Duelo Directo'")
+	}
+
+	// 2. Test CommunityPicks for a game locked or finalized
+	_ = repo.ToggleGameLock(g1.ID, true) // force lock
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("gameId", strconvFormat(g1.ID))
+
+	reqComm := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/picks/community/%d", g1.ID), nil)
+	reqComm = reqComm.WithContext(context.WithValue(reqComm.Context(), chi.RouteCtxKey, rctx))
+	reqComm = reqComm.WithContext(injectUser(reqComm.Context(), user1))
+	rrComm := httptest.NewRecorder()
+
+	picksHandler.CommunityPicks(rrComm, reqComm)
+	if rrComm.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK from CommunityPicks, got %d: %s", rrComm.Code, rrComm.Body.String())
+	}
+	bodyComm := rrComm.Body.String()
+	if !strings.Contains(bodyComm, "Distribución de") {
+		t.Errorf("Expected CommunityPicks to contain 'Distribución de'")
+	}
+	if !strings.Contains(bodyComm, "player_two") {
+		t.Errorf("Expected CommunityPicks to list 'player_two'")
+	}
+}

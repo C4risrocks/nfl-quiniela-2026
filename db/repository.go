@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"math"
 	"strconv"
 	"time"
 )
@@ -541,8 +542,14 @@ func (r *Repository) UpsertGameByESPNID(g *Game) error {
 		query := `
 		INSERT INTO games (week_id, espn_game_id, home_team_id, away_team_id, kickoff_time, home_score, away_score, status, status_detail, is_tiebreaker, is_locked)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-		_, err := r.db.Exec(query, g.WeekID, g.ESPNGameID, g.HomeTeamID, g.AwayTeamID, g.KickoffTime.Format("2006-01-02 15:04:05"), g.HomeScore, g.AwayScore, g.Status, g.StatusDetail, g.IsTiebreaker, g.IsLocked)
-		return err
+		res, err := r.db.Exec(query, g.WeekID, g.ESPNGameID, g.HomeTeamID, g.AwayTeamID, g.KickoffTime.Format("2006-01-02 15:04:05"), g.HomeScore, g.AwayScore, g.Status, g.StatusDetail, g.IsTiebreaker, g.IsLocked)
+		if err != nil {
+			return err
+		}
+		if id, err := res.LastInsertId(); err == nil {
+			g.ID = id
+		}
+		return nil
 	}
 	if err != nil {
 		return err
@@ -561,6 +568,9 @@ func (r *Repository) UpsertGameByESPNID(g *Game) error {
 		status_detail = ?
 	WHERE id = ?`
 	_, err = r.db.Exec(query, g.WeekID, g.HomeTeamID, g.AwayTeamID, g.KickoffTime.Format("2006-01-02 15:04:05"), g.HomeScore, g.AwayScore, g.Status, g.StatusDetail, existingID)
+	if err == nil {
+		g.ID = existingID
+	}
 	return err
 }
 
@@ -707,6 +717,182 @@ func (r *Repository) ListPicksForGame(gameID int64) ([]*Pick, error) {
 		picks = append(picks, &p)
 	}
 	return picks, nil
+}
+
+func (r *Repository) GetGameCommunityStats(gameID int64) (*GameCommunityStats, error) {
+	game, err := r.GetGameByID(gameID)
+	if err != nil {
+		return nil, err
+	}
+	picks, err := r.ListPicksForGame(gameID)
+	if err != nil {
+		return nil, err
+	}
+
+	stats := &GameCommunityStats{
+		TotalPicks: len(picks),
+	}
+
+	if len(picks) == 0 {
+		return stats, nil
+	}
+
+	var homeCount, awayCount int
+	var homeScoreSum, awayScoreSum int
+	var scoreCount int
+
+	for _, p := range picks {
+		if p.PickedTeamID != nil {
+			if *p.PickedTeamID == game.HomeTeamID {
+				homeCount++
+			} else if *p.PickedTeamID == game.AwayTeamID {
+				awayCount++
+			}
+		}
+		if p.PredictedHomeScore != nil && p.PredictedAwayScore != nil {
+			homeScoreSum += *p.PredictedHomeScore
+			awayScoreSum += *p.PredictedAwayScore
+			scoreCount++
+		}
+	}
+
+	stats.HomePicksCount = homeCount
+	stats.AwayPicksCount = awayCount
+
+	validPicks := homeCount + awayCount
+	if validPicks > 0 {
+		stats.HomePct = int(math.Round(float64(homeCount) / float64(validPicks) * 100.0))
+		stats.AwayPct = 100 - stats.HomePct
+	}
+
+	if scoreCount > 0 {
+		avgHome := math.Round((float64(homeScoreSum)/float64(scoreCount))*10) / 10
+		avgAway := math.Round((float64(awayScoreSum)/float64(scoreCount))*10) / 10
+		stats.AvgHomeScore = &avgHome
+		stats.AvgAwayScore = &avgAway
+	}
+
+	return stats, nil
+}
+
+func (r *Repository) GetHeadToHeadComparison(weekID, userAID, userBID int64) (*HeadToHeadComparison, error) {
+	userA, err := r.GetUserByID(userAID)
+	if err != nil {
+		return nil, fmt.Errorf("user A not found: %w", err)
+	}
+	userB, err := r.GetUserByID(userBID)
+	if err != nil {
+		return nil, fmt.Errorf("user B not found: %w", err)
+	}
+	week, err := r.GetWeekByID(weekID)
+	if err != nil {
+		return nil, fmt.Errorf("week not found: %w", err)
+	}
+
+	games, err := r.ListGamesByWeek(weekID)
+	if err != nil {
+		return nil, fmt.Errorf("listing games: %w", err)
+	}
+
+	teams, err := r.ListTeams()
+	if err != nil {
+		return nil, fmt.Errorf("listing teams: %w", err)
+	}
+	teamMap := make(map[int64]*Team)
+	for _, t := range teams {
+		teamMap[t.ID] = t
+	}
+
+	picksA, err := r.GetUserPicksForWeek(userAID, weekID)
+	if err != nil {
+		return nil, fmt.Errorf("listing user A picks: %w", err)
+	}
+	picksB, err := r.GetUserPicksForWeek(userBID, weekID)
+	if err != nil {
+		return nil, fmt.Errorf("listing user B picks: %w", err)
+	}
+
+	scoringCfg, _ := r.GetScoringConfig()
+	winnerPts := 10
+	if scoringCfg != nil && scoringCfg.WinnerPoints > 0 {
+		winnerPts = scoringCfg.WinnerPoints
+	}
+
+	var matchups []*HeadToHeadMatchup
+	agreements := 0
+	divergences := 0
+	userATotal := 0
+	userBTotal := 0
+	pointsAtStake := 0
+
+	for _, g := range games {
+		pA := picksA[g.ID]
+		pB := picksB[g.ID]
+
+		var teamA, teamB *Team
+		if pA != nil && pA.PickedTeamID != nil {
+			teamA = teamMap[*pA.PickedTeamID]
+		}
+		if pB != nil && pB.PickedTeamID != nil {
+			teamB = teamMap[*pB.PickedTeamID]
+		}
+
+		ptsA := 0
+		if pA != nil {
+			ptsA = pA.PointsEarned + pA.BonusPoints
+			userATotal += ptsA
+		}
+		ptsB := 0
+		if pB != nil {
+			ptsB = pB.PointsEarned + pB.BonusPoints
+			userBTotal += ptsB
+		}
+
+		isDivergent := false
+		if (pA != nil && pA.PickedTeamID != nil) || (pB != nil && pB.PickedTeamID != nil) {
+			if pA == nil || pA.PickedTeamID == nil || pB == nil || pB.PickedTeamID == nil {
+				isDivergent = true
+			} else if *pA.PickedTeamID != *pB.PickedTeamID {
+				isDivergent = true
+			}
+		}
+
+		if isDivergent {
+			divergences++
+			if g.Status != "final" {
+				pointsAtStake += winnerPts
+			}
+		} else if (pA != nil && pA.PickedTeamID != nil) && (pB != nil && pB.PickedTeamID != nil) {
+			agreements++
+		}
+
+		m := &HeadToHeadMatchup{
+			Game:            g,
+			UserAPick:       pA,
+			UserBPick:       pB,
+			UserAPickedTeam: teamA,
+			UserBPickedTeam: teamB,
+			IsDivergent:     isDivergent,
+			UserAPoints:     ptsA,
+			UserBPoints:     ptsB,
+			IsLive:          g.Status == "in_progress",
+			IsFinal:         g.Status == "final",
+		}
+		matchups = append(matchups, m)
+	}
+
+	return &HeadToHeadComparison{
+		UserA:           userA,
+		UserB:           userB,
+		Week:            week,
+		Matchups:        matchups,
+		TotalGames:      len(games),
+		AgreementsCount: agreements,
+		DivergenceCount: divergences,
+		UserATotalPts:   userATotal,
+		UserBTotalPts:   userBTotal,
+		PointsAtStake:   pointsAtStake,
+	}, nil
 }
 
 func (r *Repository) ListAllPicksForWeek(weekID int64) ([]*Pick, error) {

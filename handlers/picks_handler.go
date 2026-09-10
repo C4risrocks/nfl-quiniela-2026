@@ -382,9 +382,63 @@ func (h *PicksHandler) CommunityPicks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	stats, _ := h.repo.GetGameCommunityStats(gameID)
+
 	h.renderer.RenderPartial(w, "community_picks.html", map[string]interface{}{
 		"Picks": picks,
 		"Game":  game,
+		"Stats": stats,
+	})
+}
+
+// ComparePicks handles the head-to-head comparison modal between two players
+func (h *PicksHandler) ComparePicks(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	rivalIDStr := r.URL.Query().Get("rival_id")
+	rivalID, err := strconv.ParseInt(rivalIDStr, 10, 64)
+	if err != nil || rivalID <= 0 {
+		http.Error(w, "Invalid rival_id", http.StatusBadRequest)
+		return
+	}
+
+	weekIDStr := r.URL.Query().Get("week_id")
+	var weekID int64
+	if weekIDStr != "" {
+		weekID, _ = strconv.ParseInt(weekIDStr, 10, 64)
+	}
+
+	if weekID <= 0 {
+		season, err := h.repo.GetActiveSeason(h.seasonYear)
+		if err != nil {
+			http.Error(w, "Active season not found", http.StatusInternalServerError)
+			return
+		}
+		weeks, _ := h.repo.ListWeeks(season.ID)
+		if len(weeks) > 0 {
+			weekID = weeks[0].ID
+			for _, wk := range weeks {
+				if wk.Status == "active" {
+					weekID = wk.ID
+					break
+				}
+			}
+		}
+	}
+
+	comparison, err := h.repo.GetHeadToHeadComparison(weekID, currentUser.ID, rivalID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error generating comparison: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	h.renderer.RenderPartial(w, "head_to_head_modal.html", map[string]interface{}{
+		"Comparison":  comparison,
+		"CurrentUser": currentUser,
 	})
 }
 

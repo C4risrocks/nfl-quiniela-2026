@@ -56,6 +56,8 @@
     <script defer src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- html2canvas for social picks image export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <style>
         [x-cloak] { display: none !important; }
@@ -224,6 +226,9 @@
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {{block "content" .}}{{end}}
     </main>
+
+    <!-- Global Head-to-Head & Interaction Modals Container -->
+    <div id="h2h-modal-container"></div>
 
     <!-- Vercel Toast Notification via Alpine/HTMX -->
     <div x-data="{ show: false, message: '', type: 'success' }"

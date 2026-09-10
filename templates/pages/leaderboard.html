@@ -72,7 +72,7 @@
          hx-get="/leaderboard/table?mode={{.ViewMode}}&week={{.SelectedWeek.WeekNumber}}"
          hx-trigger="sse:leaderboard-updated, every 60s"
          hx-swap="innerHTML">
-        {{template "leaderboard_table.html" (dict "Leaderboard" .Leaderboard "CurrentUser" .User)}}
+        {{template "leaderboard_table.html" (dict "Leaderboard" .Leaderboard "CurrentUser" .User "SelectedWeek" .SelectedWeek)}}
     </div>
 
 </div>

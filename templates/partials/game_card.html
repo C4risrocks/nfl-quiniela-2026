@@ -201,6 +201,31 @@
         </div>
     </div>
 
+    <!-- Game Live In-Progress Status Banner -->
+    {{if and (eq .Game.Status "in_progress") $locked}}
+        <div class="mt-3 pt-2 flex items-center justify-between text-xs px-3 py-2 rounded-xl {{if and $pick ($pick.IsProvisionalWinner .Game)}}bg-emerald-950/20 border border-emerald-500/30 text-emerald-300{{else if and $pick ($pick.IsProvisionalLoser .Game)}}bg-amber-950/20 border border-amber-500/30 text-amber-300{{else}}bg-zinc-900/60 border border-zinc-800 text-zinc-400{{end}}">
+            <div class="flex items-center space-x-2">
+                <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                {{if and $pick ($pick.IsProvisionalWinner .Game)}}
+                    <span class="font-semibold text-emerald-300 flex items-center">
+                        <i class="fa-solid fa-arrow-trend-up text-emerald-400 mr-1.5"></i> Tu equipo va ganando al momento
+                    </span>
+                {{else if and $pick ($pick.IsProvisionalLoser .Game)}}
+                    <span class="font-medium text-amber-300 flex items-center">
+                        <i class="fa-solid fa-arrow-trend-down text-amber-400 mr-1.5"></i> Tu equipo va perdiendo al momento
+                    </span>
+                {{else if $pick}}
+                    <span class="text-zinc-400">Partido empatado al momento</span>
+                {{else}}
+                    <span class="text-zinc-500">Sin pronóstico registrado</span>
+                {{end}}
+            </div>
+            <div class="font-mono font-bold text-xs text-zinc-300">
+                {{if and .Game.AwayScore .Game.HomeScore}}{{.Game.AwayScore}} - {{.Game.HomeScore}}{{end}}
+            </div>
+        </div>
+    {{end}}
+
     <!-- Game Final Points Banner -->
     {{if and (eq .Game.Status "final") $locked}}
         <div class="mt-3 pt-2 flex items-center justify-between text-xs px-3 py-2 rounded-xl {{if and $pick $pick.HasCorrectWinner}}bg-emerald-950/30 border border-emerald-500/20 text-emerald-300{{else if and $pick $pick.HasIncorrectWinner}}bg-red-950/30 border border-red-500/20 text-red-300{{else}}bg-zinc-900/60 border border-zinc-800 text-zinc-500{{end}}">

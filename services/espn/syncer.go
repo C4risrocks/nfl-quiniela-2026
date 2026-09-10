@@ -127,18 +127,19 @@ func (s *Syncer) SyncWeek(weekNum int) (int, error) {
 	return len(syncedGames), nil
 }
 
-// StartBackgroundSync periodically syncs the current active week
-func (s *Syncer) StartBackgroundSync(ctx context.Context, interval time.Duration) {
-	ticker := time.NewTicker(interval)
+// StartBackgroundSync periodically syncs the current active week with adaptive frequency (60s during live games)
+func (s *Syncer) StartBackgroundSync(ctx context.Context, defaultInterval time.Duration) {
+	currentInterval := defaultInterval
+	ticker := time.NewTicker(currentInterval)
 	go func() {
-		log.Printf("[Syncer] Background sync started with interval %v.", interval)
+		log.Printf("[Syncer] Background sync started with default interval %v (adaptive to 60s during live games).", defaultInterval)
 		for {
 			select {
 			case <-ctx.Done():
+				ticker.Stop()
 				log.Println("[Syncer] Background sync stopped.")
 				return
 			case <-ticker.C:
-				// Determine current week or sync active weeks
 				season, err := s.repo.GetActiveSeason(s.seasonYear)
 				if err != nil {
 					continue
@@ -147,11 +148,40 @@ func (s *Syncer) StartBackgroundSync(ctx context.Context, interval time.Duration
 				if err != nil {
 					continue
 				}
+
+				hasActiveGames := false
 				for _, w := range weeks {
 					if w.Status == "active" || w.Status == "scheduled" {
+						games, err := s.repo.ListGamesByWeek(w.ID)
+						if err == nil {
+							now := time.Now()
+							for _, g := range games {
+								if g.Status == "in_progress" {
+									hasActiveGames = true
+									break
+								}
+								// Also treat games kicking off within 15 mins or past kickoff within 4 hours as potentially live
+								if now.After(g.KickoffTime.Add(-15*time.Minute)) && now.Before(g.KickoffTime.Add(4*time.Hour)) && g.Status != "final" {
+									hasActiveGames = true
+									break
+								}
+							}
+						}
+
 						_, _ = s.SyncWeek(w.WeekNumber)
 						break
 					}
+				}
+
+				// Adjust ticker speed based on active games
+				targetInterval := defaultInterval
+				if hasActiveGames {
+					targetInterval = 60 * time.Second
+				}
+				if targetInterval != currentInterval {
+					currentInterval = targetInterval
+					ticker.Reset(currentInterval)
+					log.Printf("[Syncer] Switched sync interval to %v (live games active: %v).", currentInterval, hasActiveGames)
 				}
 			}
 		}

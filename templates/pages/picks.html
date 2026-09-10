@@ -5,6 +5,7 @@
 {{define "content"}}
 <div class="space-y-6"
      x-data="{
+        shareModalOpen: false,
         confirmOpen: false,
         missingCount: 0,
         missingTiebreaker: false,
@@ -112,6 +113,14 @@
                     </option>
                 {{end}}
             </select>
+            {{if .Games}}
+                <button type="button" 
+                        @click="shareModalOpen = true"
+                        title="Descargar o compartir tarjeta de picks"
+                        class="inline-flex items-center px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-zinc-500 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer">
+                    <i class="fa-solid fa-camera mr-1.5 text-zinc-400"></i> Compartir
+                </button>
+            {{end}}
             {{if and .Games (not .IsFullWeekLocked)}}
                 <button type="button" 
                         @click="validateAndSubmit()"
@@ -310,6 +319,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Share Weekly Picks Modal -->
+    {{template "share_picks_modal.html" .}}
 
 </div>
 

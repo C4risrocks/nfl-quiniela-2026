@@ -1,0 +1,200 @@
+<div x-show="shareModalOpen" 
+     x-cloak
+     class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+     @keydown.escape.window="shareModalOpen = false">
+    
+    <div class="vercel-card rounded-2xl w-full max-w-xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[94vh] bg-zinc-950"
+         @click.away="shareModalOpen = false">
+        
+        <!-- Modal Header -->
+        <div class="p-4 border-b border-[#222222] bg-zinc-900/80 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-white/10 text-white border border-white/20 flex items-center">
+                    <i class="fa-solid fa-camera mr-1.5"></i> Compartir Picks
+                </span>
+                <span class="text-xs text-zinc-400 font-mono">{{.SelectedWeek.Name}}</span>
+            </div>
+            
+            <button type="button" 
+                    @click="shareModalOpen = false"
+                    class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors">
+                <i class="fa-solid fa-xmark text-base"></i>
+            </button>
+        </div>
+
+        <!-- Scrollable Preview Area -->
+        <div class="p-4 sm:p-5 overflow-y-auto flex-1 flex flex-col items-center bg-black/40">
+            <p class="text-xs text-zinc-400 mb-3 text-center">
+                Vista previa de tu tarjeta personalizada lista para compartir en WhatsApp, Instagram o tus redes.
+            </p>
+
+            <!-- Renderable Social Card Container (Target of html2canvas) -->
+            <div id="shareable-picks-card" 
+                 class="w-full max-w-md bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-5 rounded-2xl border border-zinc-800 shadow-2xl text-white select-none">
+                
+                <!-- Card Header -->
+                <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3 mb-3">
+                    <div class="flex items-center space-x-2.5">
+                        <div class="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-600 flex items-center justify-center font-bold text-sm text-white shadow">
+                            {{if .User.AvatarURL}}
+                                <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-full h-full rounded-full object-cover">
+                            {{else}}
+                                {{slice .User.Username 0 1}}
+                            {{end}}
+                        </div>
+                        <div>
+                            <div class="text-sm font-extrabold text-white tracking-tight">{{.User.Username}}</div>
+                            <div class="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">NFL Quiniela 2026</div>
+                        </div>
+                    </div>
+
+                    <div class="text-right">
+                        <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white text-black">
+                            {{.SelectedWeek.Name}}
+                        </span>
+                        <div class="text-[10px] font-mono text-zinc-400 mt-0.5">{{.PicksCount}} de {{len .Games}} pronosticados</div>
+                    </div>
+                </div>
+
+                <!-- Matchups Compact Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                    {{range .Games}}
+                        {{$p := .UserPick}}
+                        <div class="p-2 rounded-xl bg-zinc-900/90 border border-zinc-800/90 flex items-center justify-between text-xs">
+                            <!-- Away Team -->
+                            <div class="flex items-center space-x-1.5 {{if and $p ($p.IsPickedTeam .AwayTeamID)}}font-black text-white{{else}}text-zinc-500 opacity-60{{end}}">
+                                <img src="{{.AwayTeam.LogoURL}}" alt="{{.AwayTeam.Code}}" class="w-4 h-4 object-contain" crossorigin="anonymous">
+                                <span class="font-mono text-[11px]">{{.AwayTeam.Code}}</span>
+                                {{if and $p ($p.IsPickedTeam .AwayTeamID)}}
+                                    <span class="w-3.5 h-3.5 rounded-full bg-white text-black text-[9px] flex items-center justify-center font-black">✓</span>
+                                {{end}}
+                            </div>
+
+                            <span class="text-[10px] text-zinc-600 font-mono">@</span>
+
+                            <!-- Home Team -->
+                            <div class="flex items-center space-x-1.5 {{if and $p ($p.IsPickedTeam .HomeTeamID)}}font-black text-white{{else}}text-zinc-500 opacity-60{{end}}">
+                                {{if and $p ($p.IsPickedTeam .HomeTeamID)}}
+                                    <span class="w-3.5 h-3.5 rounded-full bg-white text-black text-[9px] flex items-center justify-center font-black">✓</span>
+                                {{end}}
+                                <span class="font-mono text-[11px]">{{.HomeTeam.Code}}</span>
+                                <img src="{{.HomeTeam.LogoURL}}" alt="{{.HomeTeam.Code}}" class="w-4 h-4 object-contain" crossorigin="anonymous">
+                            </div>
+                        </div>
+                    {{end}}
+                </div>
+
+                <!-- Tiebreaker Prediction Tag if Present -->
+                {{range .Games}}
+                    {{if and .IsTiebreaker .UserPick (and .UserPick.PredictedAwayScore .UserPick.PredictedHomeScore)}}
+                        <div class="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-center text-xs mb-3 font-mono">
+                            <i class="fa-solid fa-star text-[10px] mr-1 text-amber-400"></i> Desempate MNF:
+                            <strong class="text-white ml-1">{{.AwayTeam.Code}} {{.UserPick.AwayScoreStr}} - {{.UserPick.HomeScoreStr}} {{.HomeTeam.Code}}</strong>
+                        </div>
+                    {{end}}
+                {{end}}
+
+                <!-- Card Watermark Footer -->
+                <div class="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[10px] text-zinc-500 font-mono">
+                    <span class="flex items-center space-x-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span>Pronósticos Oficiales</span>
+                    </span>
+                    <span>nfl-quiniela-2026.app</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Actions -->
+        <div class="p-4 border-t border-[#222222] bg-zinc-900/60 flex flex-col sm:flex-row items-center justify-between gap-2.5"
+             x-data="{
+                generating: false,
+                async generateCardBlob() {
+                    const card = document.getElementById('shareable-picks-card');
+                    if (!card) return null;
+                    const canvas = await html2canvas(card, {
+                        scale: 2,
+                        useCORS: true,
+                        backgroundColor: '#09090b',
+                        logging: false
+                    });
+                    return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                },
+                async downloadImage() {
+                    this.generating = true;
+                    try {
+                        const blob = await this.generateCardBlob();
+                        if (!blob) throw new Error('Error al generar imagen');
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'picks-semana-{{.SelectedWeek.WeekNumber}}-{{.User.Username}}.png';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        $dispatch('show-toast', { message: '¡Imagen descargada exitosamente!', type: 'success' });
+                    } catch (err) {
+                        console.error('Download error:', err);
+                        $dispatch('show-toast', { message: 'Error al descargar la imagen', type: 'error' });
+                    } finally {
+                        this.generating = false;
+                    }
+                },
+                async shareImage() {
+                    this.generating = true;
+                    try {
+                        const blob = await this.generateCardBlob();
+                        if (!blob) throw new Error('Error al generar imagen');
+                        const file = new File([blob], 'picks-semana-{{.SelectedWeek.WeekNumber}}.png', { type: 'image/png' });
+                        
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                            await navigator.share({
+                                title: 'Mis Picks NFL - {{.SelectedWeek.Name}}',
+                                text: '¡Aquí están mis pronósticos de la {{.SelectedWeek.Name}} en la Quiniela NFL 2026! 🏈',
+                                files: [file]
+                            });
+                            $dispatch('show-toast', { message: '¡Compartido exitosamente!', type: 'success' });
+                        } else {
+                            // Fallback for desktop: download and toast
+                            await this.downloadImage();
+                            $dispatch('show-toast', { message: '¡Imagen descargada! Cópiala o compártela en tu grupo de WhatsApp.', type: 'info' });
+                        }
+                    } catch (err) {
+                        if (err.name !== 'AbortError') {
+                            console.error('Share error:', err);
+                            await this.downloadImage();
+                        }
+                    } finally {
+                        this.generating = false;
+                    }
+                }
+             }">
+            
+            <span class="text-[11px] text-zinc-500 font-mono hidden sm:inline">
+                PNG 2x Retina listo para redes
+            </span>
+
+            <div class="flex items-center space-x-2 w-full sm:w-auto">
+                <!-- Download Button -->
+                <button type="button"
+                        @click="downloadImage()"
+                        :disabled="generating"
+                        class="flex-1 sm:flex-initial inline-flex items-center justify-center px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50">
+                    <i class="fa-solid fa-download mr-1.5" :class="generating ? 'fa-spinner fa-spin' : ''"></i>
+                    Descargar PNG
+                </button>
+
+                <!-- Share Button (WhatsApp / Mobile) -->
+                <button type="button"
+                        @click="shareImage()"
+                        :disabled="generating"
+                        class="flex-1 sm:flex-initial inline-flex items-center justify-center px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors shadow cursor-pointer disabled:opacity-50">
+                    <i class="fa-solid fa-share-nodes mr-1.5" :class="generating ? 'fa-spinner fa-spin' : ''"></i>
+                    Compartir (WhatsApp / Redes)
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
