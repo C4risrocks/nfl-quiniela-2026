@@ -81,7 +81,7 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 	isFullWeekLocked := false
 	now := time.Now()
 	effectiveFirstKickoff := firstKickoff
-	if effectiveFirstKickoff != nil && effectiveFirstKickoff.Before(db.Week1GraceDeadline) && now.Before(db.Week1GraceDeadline) {
+	if selectedWeek != nil && selectedWeek.WeekNumber == 1 && effectiveFirstKickoff != nil && effectiveFirstKickoff.Before(db.Week1GraceDeadline) && now.Before(db.Week1GraceDeadline) {
 		effectiveFirstKickoff = &db.Week1GraceDeadline
 	}
 	if scoringCfg.LockMode == "full_week" && effectiveFirstKickoff != nil {

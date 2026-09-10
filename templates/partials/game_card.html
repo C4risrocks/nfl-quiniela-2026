@@ -202,7 +202,7 @@
     </div>
 
     <!-- Game Final Points Banner -->
-    {{if eq .Game.Status "final"}}
+    {{if and (eq .Game.Status "final") $locked}}
         <div class="mt-3 pt-2 flex items-center justify-between text-xs px-3 py-2 rounded-xl {{if and $pick $pick.HasCorrectWinner}}bg-emerald-950/30 border border-emerald-500/20 text-emerald-300{{else if and $pick $pick.HasIncorrectWinner}}bg-red-950/30 border border-red-500/20 text-red-300{{else}}bg-zinc-900/60 border border-zinc-800 text-zinc-500{{end}}">
             <div class="flex items-center space-x-2">
                 {{if and $pick $pick.HasCorrectWinner}}

@@ -226,3 +226,84 @@ func TestScoringSettingsPersistAcrossRestarts(t *testing.T) {
 		t.Errorf("Expected WinnerPoints to remain 5 after restart, got %d", cfg2.WinnerPoints)
 	}
 }
+
+func TestWeek1GracePeriodLockLogic(t *testing.T) {
+	// Wednesday Sept 9, 2026 20:30 local (02:30 UTC Sept 10)
+	nowDuringGrace := time.Date(2026, 9, 10, 2, 30, 0, 0, time.UTC)
+	// Friday Sept 11, 2026 01:00 UTC (after Week1GraceDeadline 2026-09-11 00:35:00 UTC)
+	nowAfterGrace := time.Date(2026, 9, 11, 1, 0, 0, 0, time.UTC)
+
+	// Game 1: Today's game (NE vs SEA, kickoff Sept 10 00:20 UTC)
+	todaysGame := &Game{
+		ID:          1,
+		WeekNumber:  1,
+		KickoffTime: time.Date(2026, 9, 10, 0, 20, 0, 0, time.UTC),
+		Status:      "in_progress",
+	}
+
+	firstKickoff := todaysGame.KickoffTime
+
+	// 1. In progress today's game during grace period MUST NOT be locked
+	if todaysGame.IsGameOrWeekLocked(nowDuringGrace, "per_game", &firstKickoff) {
+		t.Errorf("Expected today's game to NOT be locked in per_game mode during grace period")
+	}
+	if todaysGame.IsGameOrWeekLocked(nowDuringGrace, "full_week", &firstKickoff) {
+		t.Errorf("Expected today's game to NOT be locked in full_week mode during grace period")
+	}
+	if todaysGame.IsEffectivelyLocked(nowDuringGrace) {
+		t.Errorf("Expected today's game to NOT be effectively locked during grace period")
+	}
+	if !todaysGame.IsGracePeriodActive(nowDuringGrace) {
+		t.Errorf("Expected IsGracePeriodActive to be true for today's game during grace period")
+	}
+
+	// 2. Final today's game during grace period MUST NOT be locked
+	todaysGame.Status = "final"
+	if todaysGame.IsGameOrWeekLocked(nowDuringGrace, "per_game", &firstKickoff) {
+		t.Errorf("Expected today's final game to NOT be locked in per_game mode during grace period")
+	}
+	if todaysGame.IsGameOrWeekLocked(nowDuringGrace, "full_week", &firstKickoff) {
+		t.Errorf("Expected today's final game to NOT be locked in full_week mode during grace period")
+	}
+
+	// 3. Tomorrow's game (SF vs LAR, kickoff Sept 11 00:35 UTC)
+	tomorrowsGame := &Game{
+		ID:          2,
+		WeekNumber:  1,
+		KickoffTime: time.Date(2026, 9, 11, 0, 35, 0, 0, time.UTC),
+		Status:      "scheduled",
+	}
+	if tomorrowsGame.IsGameOrWeekLocked(nowDuringGrace, "per_game", &firstKickoff) {
+		t.Errorf("Expected tomorrow's game to NOT be locked during grace period")
+	}
+	if tomorrowsGame.IsGracePeriodActive(nowDuringGrace) {
+		t.Errorf("Expected IsGracePeriodActive to be false for tomorrow's game before its kickoff")
+	}
+
+	// 4. After grace period has passed (Friday Sept 11)
+	if !todaysGame.IsGameOrWeekLocked(nowAfterGrace, "per_game", &firstKickoff) {
+		t.Errorf("Expected today's game to BE locked after grace period has expired")
+	}
+	if !todaysGame.IsGameOrWeekLocked(nowAfterGrace, "full_week", &firstKickoff) {
+		t.Errorf("Expected today's game to BE locked after grace period has expired in full_week mode")
+	}
+	if todaysGame.IsGracePeriodActive(nowAfterGrace) {
+		t.Errorf("Expected IsGracePeriodActive to be false after grace period has expired")
+	}
+	if !tomorrowsGame.IsGameOrWeekLocked(nowAfterGrace, "per_game", &firstKickoff) {
+		t.Errorf("Expected tomorrow's game to BE locked after grace period has expired")
+	}
+
+	// 5. Week 2 game (grace exception should NOT apply)
+	week2Game := &Game{
+		ID:          50,
+		WeekNumber:  2,
+		KickoffTime: time.Date(2026, 9, 17, 0, 15, 0, 0, time.UTC),
+		Status:      "in_progress",
+	}
+	w2Kickoff := week2Game.KickoffTime
+	nowW2 := time.Date(2026, 9, 17, 1, 0, 0, 0, time.UTC)
+	if !week2Game.IsGameOrWeekLocked(nowW2, "per_game", &w2Kickoff) {
+		t.Errorf("Expected Week 2 in-progress game to be locked")
+	}
+}
