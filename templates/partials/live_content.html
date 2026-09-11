@@ -1,6 +1,6 @@
 <div id="live-content-container" 
      hx-get="/live/content?week={{.SelectedWeek.WeekNumber}}" 
-     hx-trigger="every 25s [!window.__whatIfOpen]" 
+     hx-trigger="every 25s [!window.__whatIfOpen && !window.__rivalsOpen]" 
      hx-swap="innerHTML"
      class="space-y-6"
      x-data="{ 
@@ -12,8 +12,18 @@
             try { localStorage.setItem('nfl_live_view_mode', mode); } catch(e) {}
         },
         rivalsModalOpen: false,
-        whatIfModalOpen: false
-     }">
+        whatIfModalOpen: false,
+        openRivals() {
+            this.rivalsModalOpen = true;
+            window.__rivalsOpen = true;
+        },
+        closeRivals() {
+            this.rivalsModalOpen = false;
+            window.__rivalsOpen = false;
+        }
+     }"
+     @open-rivals.window="openRivals()"
+     @close-rivals.window="closeRivals()">
 
     <!-- Top Week Switcher & Live Stats Strip -->
     <div class="vercel-card p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
@@ -261,10 +271,28 @@
                         </span>
                         {{if .FeaturedPicks}}
                             <button type="button" 
-                                    @click="rivalsModalOpen = true"
-                                    class="text-xs text-cyan-400 hover:text-cyan-300 font-medium flex items-center space-x-1 cursor-pointer">
-                                <span>Ver pronósticos de rivales ({{len .FeaturedPicks}})</span>
-                                <i class="fa-solid fa-chevron-right text-[9px]"></i>
+                                    @click="openRivals()"
+                                    title="Ver pronósticos detallados de los rivales en este partido"
+                                    class="group inline-flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-950/60 via-blue-950/40 to-zinc-900 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 hover:text-white text-xs font-bold transition-all shadow-sm hover:scale-[1.02] cursor-pointer">
+                                <!-- Overlapping mini avatars stack -->
+                                <div class="flex -space-x-1.5 items-center">
+                                    {{range $idx, $p := .FeaturedPicks}}
+                                        {{if lt $idx 3}}
+                                            <div class="w-5 h-5 rounded-full bg-zinc-800 border border-cyan-500/40 flex items-center justify-center text-[8px] font-bold text-white shadow-xs overflow-hidden">
+                                                {{if $p.User.AvatarURL}}
+                                                    <img src="{{$p.User.AvatarURL}}" class="w-full h-full object-cover">
+                                                {{else}}
+                                                    {{slice $p.User.Username 0 1}}
+                                                {{end}}
+                                            </div>
+                                        {{end}}
+                                    {{end}}
+                                </div>
+                                <span class="font-semibold">Ver picks de rivales</span>
+                                <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                    {{len .FeaturedPicks}}
+                                </span>
+                                <i class="fa-solid fa-chevron-right text-[9px] text-cyan-400 group-hover:translate-x-0.5 transition-transform"></i>
                             </button>
                         {{end}}
                     </div>
@@ -330,54 +358,342 @@
         </div>
 
         <!-- Rivals Picks Modal for Featured Game -->
-        <div x-show="rivalsModalOpen" 
+        <div id="rivals-modal"
+             x-show="rivalsModalOpen" 
              x-cloak 
              class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
-             @keydown.escape.window="rivalsModalOpen = false">
-            <div class="vercel-card rounded-2xl w-full max-w-md overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[85vh] bg-zinc-950"
-                 @click.away="rivalsModalOpen = false">
-                <div class="p-4 border-b border-zinc-800 flex items-center justify-between">
-                    <div class="text-sm font-bold text-white flex items-center space-x-2">
-                        <i class="fa-solid fa-users text-cyan-400"></i>
-                        <span>Pronósticos del Partido: {{$fg.AwayTeam.Code}} @ {{$fg.HomeTeam.Code}}</span>
-                    </div>
-                    <button type="button" @click="rivalsModalOpen = false" class="text-zinc-400 hover:text-white p-1">
-                        <i class="fa-solid fa-xmark text-base"></i>
-                    </button>
-                </div>
-                <div class="p-4 overflow-y-auto divide-y divide-zinc-900 text-xs">
-                    {{range .FeaturedPicks}}
-                        <div class="py-2.5 flex items-center justify-between">
-                            <div class="flex items-center space-x-2.5">
-                                <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-[10px] text-white">
-                                    {{slice .User.Username 0 1}}
+             @keydown.escape.window="closeRivals()">
+            
+            <div class="vercel-card rounded-2xl w-full max-w-2xl overflow-hidden border border-cyan-500/30 shadow-2xl flex flex-col max-h-[92vh] bg-zinc-950"
+                 x-data="{ rivalTab: 'all', rivalSearch: '' }"
+                 @click.away="closeRivals()">
+                
+                <!-- Modal Header & Matchup Banner -->
+                <div class="p-4 sm:p-5 border-b border-zinc-800/90 bg-gradient-to-r from-cyan-950/40 via-zinc-900 to-zinc-950 flex flex-col gap-3.5">
+                    
+                    <!-- Top Bar: Title & Close Button -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2.5">
+                            <div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-sm shrink-0">
+                                <i class="fa-solid fa-users-viewfinder"></i>
+                            </div>
+                            <div>
+                                <div class="text-sm font-extrabold text-white tracking-tight flex items-center space-x-2">
+                                    <span>Pronósticos de Rivales</span>
+                                    <span class="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                        {{len .FeaturedPicks}} PICKS
+                                    </span>
                                 </div>
-                                <span class="text-zinc-200 font-medium">{{.User.Username}}</span>
+                                <div class="text-[10px] font-mono text-zinc-400">
+                                    {{$fg.AwayTeam.Name}} vs {{$fg.HomeTeam.Name}}
+                                </div>
                             </div>
-                            <div class="flex items-center space-x-2">
-                                {{if .IsPickedTeam $fg.AwayTeamID}}
-                                    <span class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-mono font-bold">
-                                        <img src="{{$fg.AwayTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
-                                        <span>{{$fg.AwayTeam.Code}}</span>
-                                    </span>
-                                {{else if .IsPickedTeam $fg.HomeTeamID}}
-                                    <span class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-mono font-bold">
-                                        <img src="{{$fg.HomeTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
-                                        <span>{{$fg.HomeTeam.Code}}</span>
-                                    </span>
-                                {{else}}
-                                    <span class="text-zinc-600 font-mono text-[11px]">Sin pick</span>
-                                {{end}}
+                        </div>
 
-                                {{if and .PredictedAwayScore .PredictedHomeScore}}
-                                    <span class="font-mono text-zinc-400 text-[10px]">
-                                        ({{.AwayScoreStr}} - {{.HomeScoreStr}})
-                                    </span>
+                        <button type="button" 
+                                @click="closeRivals()" 
+                                class="p-2 text-zinc-400 hover:text-white rounded-xl hover:bg-zinc-800/80 transition-colors cursor-pointer"
+                                title="Cerrar modal (Esc)">
+                            <i class="fa-solid fa-xmark text-base"></i>
+                        </button>
+                    </div>
+
+                    <!-- Mini Live Scoreboard Header -->
+                    <div class="p-3 rounded-xl bg-zinc-950/90 border border-zinc-800/80 flex items-center justify-between gap-2 shadow-inner">
+                        <!-- Away Team Column -->
+                        <div class="flex items-center space-x-2.5 min-w-0 flex-1">
+                            <img src="{{$fg.AwayTeam.LogoURL}}" alt="{{$fg.AwayTeam.Code}}" class="w-9 h-9 sm:w-11 sm:h-11 object-contain shrink-0 drop-shadow">
+                            <div class="truncate">
+                                <div class="text-xs sm:text-sm font-black text-white flex items-center space-x-1.5">
+                                    <span>{{$fg.AwayTeam.Code}}</span>
+                                    <span class="text-[10px] font-mono font-semibold text-cyan-400">({{$fg.AwayPickPercent}}%)</span>
+                                </div>
+                                <div class="text-[10px] text-zinc-400 truncate hidden sm:block">{{$fg.AwayTeam.Name}}</div>
+                                <div class="text-[9px] font-mono text-zinc-500">{{$fg.AwayPickCount}} picks</div>
+                            </div>
+                        </div>
+
+                        <!-- Center Status & Score -->
+                        <div class="px-2 sm:px-4 text-center shrink-0">
+                            {{if eq $fg.Status "in_progress"}}
+                                <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse mb-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                    <span>EN VIVO</span>
+                                    {{if $fg.StatusDetail}}<span>• {{$fg.StatusDetail}}</span>{{end}}
+                                </span>
+                                <div class="font-mono font-black text-lg sm:text-xl text-white tracking-wider">
+                                    {{if $fg.AwayScore}}{{$fg.AwayScore}}{{else}}0{{end}} - {{if $fg.HomeScore}}{{$fg.HomeScore}}{{else}}0{{end}}
+                                </div>
+                            {{else if eq $fg.Status "final"}}
+                                <span class="inline-block px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-zinc-900 text-zinc-400 border border-zinc-800 mb-1">
+                                    FINAL
+                                </span>
+                                <div class="font-mono font-black text-lg sm:text-xl text-white tracking-wider">
+                                    {{if $fg.AwayScore}}{{$fg.AwayScore}}{{else}}0{{end}} - {{if $fg.HomeScore}}{{$fg.HomeScore}}{{else}}0{{end}}
+                                </div>
+                            {{else}}
+                                <span class="inline-block px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-zinc-900 text-zinc-400 border border-zinc-800 mb-1">
+                                    KICKOFF
+                                </span>
+                                <div class="font-mono font-bold text-xs sm:text-sm text-zinc-300">
+                                    {{formatDate $fg.KickoffTime}}
+                                </div>
+                            {{end}}
+                        </div>
+
+                        <!-- Home Team Column -->
+                        <div class="flex items-center space-x-2.5 min-w-0 flex-1 justify-end text-right">
+                            <div class="truncate">
+                                <div class="text-xs sm:text-sm font-black text-white flex items-center justify-end space-x-1.5">
+                                    <span class="text-[10px] font-mono font-semibold text-amber-400">({{$fg.HomePickPercent}}%)</span>
+                                    <span>{{$fg.HomeTeam.Code}}</span>
+                                </div>
+                                <div class="text-[10px] text-zinc-400 truncate hidden sm:block">{{$fg.HomeTeam.Name}}</div>
+                                <div class="text-[9px] font-mono text-zinc-500">{{$fg.HomePickCount}} picks</div>
+                            </div>
+                            <img src="{{$fg.HomeTeam.LogoURL}}" alt="{{$fg.HomeTeam.Code}}" class="w-9 h-9 sm:w-11 sm:h-11 object-contain shrink-0 drop-shadow">
+                        </div>
+                    </div>
+
+                    <!-- 2-Tone Distribution Progress Bar -->
+                    <div class="space-y-1">
+                        <div class="w-full h-2.5 rounded-full overflow-hidden flex bg-zinc-900 border border-zinc-800">
+                            <div class="h-full bg-gradient-to-r from-cyan-600 to-blue-500 flex items-center justify-start pl-2 text-[8px] font-bold text-white transition-all duration-500"
+                                 style="width: {{$fg.AwayPickPercent}}%;">
+                                {{if gt $fg.AwayPickPercent 15}}{{$fg.AwayPickPercent}}%{{end}}
+                            </div>
+                            <div class="h-full bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-end pr-2 text-[8px] font-bold text-white transition-all duration-500"
+                                 style="width: {{$fg.HomePickPercent}}%;">
+                                {{if gt $fg.HomePickPercent 15}}{{$fg.HomePickPercent}}%{{end}}
+                            </div>
+                        </div>
+                    </div>
+
+                    {{if and .FeaturedStats (and .FeaturedStats.AvgAwayScore .FeaturedStats.AvgHomeScore)}}
+                        <div class="text-center py-1 px-3 rounded-lg bg-zinc-900/80 border border-zinc-800 text-[10px] text-zinc-400 flex items-center justify-center space-x-2">
+                            <span class="text-amber-400 font-semibold"><i class="fa-solid fa-bullseye mr-1"></i> Marcador promedio pronosticado:</span>
+                            <span class="font-mono text-white font-bold">{{$fg.AwayTeam.Code}} {{.FeaturedStats.AvgAwayScore}} - {{.FeaturedStats.AvgHomeScore}} {{$fg.HomeTeam.Code}}</span>
+                        </div>
+                    {{end}}
+
+                </div>
+
+                <!-- Filter Pills Toolbar & Quick Search -->
+                <div class="p-3 bg-zinc-900/80 border-b border-zinc-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar">
+                        <button type="button"
+                                @click="rivalTab = 'all'"
+                                :class="rivalTab === 'all' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
+                                class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1">
+                            <span>Todos</span>
+                            <span class="px-1 py-0.2 rounded text-[9px] bg-white/10 font-mono">{{len .FeaturedPicks}}</span>
+                        </button>
+
+                        <button type="button"
+                                @click="rivalTab = 'away'"
+                                :class="rivalTab === 'away' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
+                                class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5">
+                            <img src="{{$fg.AwayTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
+                            <span>{{$fg.AwayTeam.Code}}</span>
+                            <span class="px-1 py-0.2 rounded text-[9px] bg-white/10 font-mono">{{$fg.AwayPickCount}}</span>
+                        </button>
+
+                        <button type="button"
+                                @click="rivalTab = 'home'"
+                                :class="rivalTab === 'home' ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
+                                class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5">
+                            <img src="{{$fg.HomeTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
+                            <span>{{$fg.HomeTeam.Code}}</span>
+                            <span class="px-1 py-0.2 rounded text-[9px] bg-white/10 font-mono">{{$fg.HomePickCount}}</span>
+                        </button>
+
+                        {{if $fg.UserPick}}
+                            <button type="button"
+                                    @click="rivalTab = 'rivals'"
+                                    :class="rivalTab === 'rivals' ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
+                                    class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1">
+                                <span>⚔️ Rivales Directos</span>
+                            </button>
+                            <button type="button"
+                                    @click="rivalTab = 'allies'"
+                                    :class="rivalTab === 'allies' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
+                                    class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1">
+                                <span>🤝 Aliados</span>
+                            </button>
+                        {{end}}
+                    </div>
+
+                    <!-- Search by username -->
+                    <div class="relative min-w-[130px] max-w-[190px] flex-1 sm:flex-initial">
+                        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 text-[10px]"></i>
+                        <input type="text"
+                               x-model="rivalSearch"
+                               placeholder="Buscar rival..."
+                               class="w-full pl-7 pr-2.5 py-1 rounded-lg bg-zinc-950 border border-zinc-800 focus:border-cyan-500 text-[11px] text-white placeholder-zinc-500 focus:outline-none transition-colors">
+                    </div>
+                </div>
+
+                <!-- Visual Grid of Rival Picks -->
+                <div class="p-3 sm:p-4 overflow-y-auto max-h-[55vh] grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {{$myPickIsAway := and $fg.UserPick ($fg.UserPick.IsPickedTeam $fg.AwayTeamID)}}
+                    {{$myPickIsHome := and $fg.UserPick ($fg.UserPick.IsPickedTeam $fg.HomeTeamID)}}
+                    
+                    {{range .FeaturedPicks}}
+                        {{$isUserAway := .IsPickedTeam $fg.AwayTeamID}}
+                        {{$isUserHome := .IsPickedTeam $fg.HomeTeamID}}
+                        {{$isCurrent := and $.User (eq .User.ID $.User.ID)}}
+                        {{$isDirectRival := or (and $myPickIsAway $isUserHome) (and $myPickIsHome $isUserAway)}}
+                        {{$isAlly := or (and $myPickIsAway $isUserAway) (and $myPickIsHome $isUserHome)}}
+                        {{$isLiveWinning := and (eq $fg.Status "in_progress") (.IsProvisionalWinner $fg)}}
+                        {{$isLiveLosing := and (eq $fg.Status "in_progress") (.IsProvisionalLoser $fg)}}
+
+                        <div x-show="(rivalTab === 'all' || 
+                                     (rivalTab === 'away' && {{if $isUserAway}}true{{else}}false{{end}}) || 
+                                     (rivalTab === 'home' && {{if $isUserHome}}true{{else}}false{{end}}) || 
+                                     (rivalTab === 'rivals' && {{if $isDirectRival}}true{{else}}false{{end}}) || 
+                                     (rivalTab === 'allies' && {{if $isAlly}}true{{else}}false{{end}})) && 
+                                     (rivalSearch === '' || '{{.User.Username}}'.toLowerCase().includes(rivalSearch.toLowerCase()))"
+                             class="p-3 rounded-xl border transition-all relative flex flex-col justify-between gap-2.5 
+                                    {{if $isCurrent}}bg-cyan-950/25 border-cyan-500/50 ring-1 ring-cyan-500/30 shadow-md{{else if $isUserAway}}bg-zinc-900/60 border-zinc-800/90 hover:border-cyan-500/30{{else if $isUserHome}}bg-zinc-900/60 border-zinc-800/90 hover:border-amber-500/30{{else}}bg-zinc-900/30 border-zinc-800/40{{end}}">
+                            
+                            <!-- Player Header -->
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex items-center space-x-2.5 min-w-0">
+                                    <div class="w-8 h-8 rounded-xl {{if $isCurrent}}bg-gradient-to-br from-cyan-500 to-blue-600 border-2 border-white text-white{{else}}bg-zinc-800 border border-zinc-700 text-zinc-300{{end}} flex items-center justify-center font-black text-xs shrink-0 overflow-hidden shadow-xs">
+                                        {{if .User.AvatarURL}}
+                                            <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-full h-full object-cover">
+                                        {{else}}
+                                            {{slice .User.Username 0 1}}
+                                        {{end}}
+                                    </div>
+                                    <div class="truncate">
+                                        <div class="flex items-center space-x-1.5">
+                                            <span class="font-bold text-white text-xs truncate">{{.User.Username}}</span>
+                                            {{if $isCurrent}}
+                                                <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-black bg-cyan-400 text-black">TÚ</span>
+                                            {{end}}
+                                        </div>
+                                        <div class="flex items-center space-x-1 mt-0.5">
+                                            {{if $isDirectRival}}
+                                                <span class="text-[9px] font-bold text-rose-400 flex items-center">
+                                                    <i class="fa-solid fa-skull-crossbones mr-1 text-[8px]"></i> Rival directo
+                                                </span>
+                                            {{else if $isAlly}}
+                                                <span class="text-[9px] font-bold text-emerald-400 flex items-center">
+                                                    <i class="fa-solid fa-handshake mr-1 text-[8px]"></i> Aliado
+                                                </span>
+                                            {{else}}
+                                                <span class="text-[9px] font-mono text-zinc-500">Participante</span>
+                                            {{end}}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Head-to-Head Compare Action -->
+                                {{if and $.User (ne .User.ID $.User.ID)}}
+                                    <button type="button"
+                                            hx-get="/picks/compare?rival_id={{.User.ID}}&week_id={{$fg.WeekID}}"
+                                            hx-target="#h2h-modal-container"
+                                            title="Comparar quiniela completa contra {{.User.Username}}"
+                                            class="p-1.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700 text-[10px] transition-all cursor-pointer flex items-center space-x-1">
+                                        <i class="fa-solid fa-code-compare text-[9px]"></i>
+                                        <span class="text-[9px] font-semibold hidden sm:inline">Duelo</span>
+                                    </button>
                                 {{end}}
                             </div>
+
+                            <!-- Pick Box -->
+                            <div class="p-2 rounded-lg bg-zinc-950/70 border border-zinc-800/80 flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    {{if $isUserAway}}
+                                        <img src="{{$fg.AwayTeam.LogoURL}}" alt="{{$fg.AwayTeam.Code}}" class="w-6 h-6 object-contain drop-shadow-xs">
+                                        <div>
+                                            <div class="text-xs font-black text-cyan-400 leading-tight">{{$fg.AwayTeam.Code}}</div>
+                                            <div class="text-[9px] font-mono text-zinc-500 leading-tight">Visitante</div>
+                                        </div>
+                                    {{else if $isUserHome}}
+                                        <img src="{{$fg.HomeTeam.LogoURL}}" alt="{{$fg.HomeTeam.Code}}" class="w-6 h-6 object-contain drop-shadow-xs">
+                                        <div>
+                                            <div class="text-xs font-black text-amber-400 leading-tight">{{$fg.HomeTeam.Code}}</div>
+                                            <div class="text-[9px] font-mono text-zinc-500 leading-tight">Local</div>
+                                        </div>
+                                    {{else}}
+                                        <span class="text-zinc-600 font-mono text-[11px] italic">Sin pick</span>
+                                    {{end}}
+                                </div>
+
+                                <!-- Predicted Score -->
+                                {{if and .PredictedAwayScore .PredictedHomeScore}}
+                                    <div class="px-2 py-1 rounded-md bg-zinc-900 border border-zinc-800 text-right">
+                                        <div class="text-[8px] font-mono text-zinc-500 uppercase tracking-widest">Predicción</div>
+                                        <div class="text-[11px] font-mono font-black text-white">
+                                            {{.AwayScoreStr}} - {{.HomeScoreStr}}
+                                        </div>
+                                    </div>
+                                {{end}}
+                            </div>
+
+                            <!-- Live / Final Game Outcome Tag -->
+                            <div class="flex items-center justify-between text-[10px] pt-1 border-t border-zinc-800/50">
+                                <span class="text-zinc-500 font-mono">Estado:</span>
+                                <div>
+                                    {{if eq $fg.Status "final"}}
+                                        {{if .HasCorrectWinner}}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                                <i class="fa-solid fa-circle-check text-[9px] mr-1"></i> Acierto (+{{.TotalPoints}} pts)
+                                            </span>
+                                        {{else if .HasIncorrectWinner}}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-red-500/15 text-red-400 border border-red-500/30 opacity-80">
+                                                <i class="fa-solid fa-circle-xmark text-[9px] mr-1"></i> Fallado (0 pts)
+                                            </span>
+                                        {{else}}
+                                            <span class="text-zinc-500 font-mono">Sin resolver</span>
+                                        {{end}}
+                                    {{else if eq $fg.Status "in_progress"}}
+                                        {{if $isLiveWinning}}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse">
+                                                <i class="fa-solid fa-bolt text-[9px] mr-1"></i> Ganando al momento
+                                            </span>
+                                        {{else if $isLiveLosing}}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                                <i class="fa-solid fa-triangle-exclamation text-[9px] mr-1"></i> Perdiendo al momento
+                                            </span>
+                                        {{else}}
+                                            <span class="text-zinc-400 font-mono text-[10px]">Empatado al momento</span>
+                                        {{end}}
+                                    {{else}}
+                                        <span class="text-zinc-500 font-mono text-[10px]">Por disputarse</span>
+                                    {{end}}
+                                </div>
+                            </div>
+
+                        </div>
+                    {{else}}
+                        <div class="col-span-full py-10 text-center text-zinc-500">
+                            <i class="fa-solid fa-users-slash text-3xl mb-2 text-zinc-600"></i>
+                            <p class="text-xs font-semibold text-zinc-400">Aún no hay pronósticos registrados para este partido</p>
                         </div>
                     {{end}}
                 </div>
+
+                <!-- Modal Footer -->
+                <div class="p-3.5 sm:p-4 border-t border-zinc-800/90 bg-zinc-900/90 flex items-center justify-between gap-3 text-xs">
+                    <div class="text-[11px] font-mono text-zinc-400 flex items-center space-x-2">
+                        <span>Total: <strong class="text-white">{{len .FeaturedPicks}}</strong> participantes</span>
+                        <span>•</span>
+                        <span class="text-cyan-400 font-semibold">{{$fg.AwayPickCount}} {{$fg.AwayTeam.Code}}</span>
+                        <span>/</span>
+                        <span class="text-amber-400 font-semibold">{{$fg.HomePickCount}} {{$fg.HomeTeam.Code}}</span>
+                    </div>
+
+                    <button type="button"
+                            @click="closeRivals()"
+                            class="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700 text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5">
+                        <span>Cerrar</span>
+                        <span class="text-[10px] text-zinc-500 font-mono hidden sm:inline">(Esc)</span>
+                    </button>
+                </div>
+
             </div>
         </div>
     {{end}}
@@ -630,6 +946,35 @@
                                 {{else}}
                                     <span class="text-zinc-400 font-mono text-[10px]">Pendiente de inicio</span>
                                 {{end}}
+                            </div>
+                        </div>
+                    {{end}}
+
+                    <!-- Rivals Picks Drawer for each Game (if in_progress or final) -->
+                    {{if or (eq $g.Status "in_progress") (eq $g.Status "final")}}
+                        <div x-data="{ openCommunity: false }" class="mt-2 pt-2 border-t border-zinc-900/90">
+                            <button type="button" 
+                                    @click="openCommunity = !openCommunity" 
+                                    hx-get="/picks/community/{{$g.ID}}"
+                                    hx-target="#live-community-{{$g.ID}}"
+                                    hx-trigger="click once"
+                                    class="w-full flex items-center justify-between text-[11px] text-zinc-400 hover:text-cyan-300 py-1 transition-colors cursor-pointer group">
+                                <span class="flex items-center space-x-1.5 font-medium">
+                                    <i class="fa-solid fa-users-viewfinder text-zinc-500 group-hover:text-cyan-400 transition-colors"></i>
+                                    <span>Pronósticos de rivales</span>
+                                    {{if gt $g.TotalPicks 0}}
+                                        <span class="text-[10px] font-mono text-zinc-500">({{$g.TotalPicks}})</span>
+                                    {{end}}
+                                </span>
+                                <i class="fa-solid text-[9px] text-zinc-500 group-hover:text-cyan-400 transition-transform duration-200" :class="openCommunity ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                            </button>
+
+                            <div x-show="openCommunity" x-cloak class="mt-2 pt-2 border-t border-zinc-900">
+                                <div id="live-community-{{$g.ID}}" class="space-y-1.5 text-xs text-zinc-300">
+                                    <div class="py-2.5 text-center text-zinc-500 text-xs">
+                                        <i class="fa-solid fa-spinner fa-spin mr-1 text-cyan-400"></i> Cargando pronósticos de rivales...
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     {{end}}

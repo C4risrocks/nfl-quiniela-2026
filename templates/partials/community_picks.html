@@ -37,77 +37,97 @@
     {{end}}
 
     <!-- Detailed List of Players -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
         {{range .Picks}}
             {{$isLiveWinning := and (eq $.Game.Status "in_progress") (.IsProvisionalWinner $.Game)}}
             {{$isLiveLosing := and (eq $.Game.Status "in_progress") (.IsProvisionalLoser $.Game)}}
+            {{$isAway := .IsPickedTeam $.Game.AwayTeamID}}
+            {{$isHome := .IsPickedTeam $.Game.HomeTeamID}}
 
-            <div class="flex items-center justify-between p-2 rounded-xl bg-zinc-900/90 border border-zinc-800 text-xs hover:border-zinc-700 transition-colors">
-                <div class="flex items-center space-x-2 min-w-0">
-                    <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-[10px] text-zinc-300 flex-shrink-0">
-                        {{if .User.AvatarURL}}
-                            <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-full h-full rounded-full object-cover">
-                        {{else}}
-                            {{slice .User.Username 0 1}}
-                        {{end}}
+            <div class="p-2.5 rounded-xl bg-zinc-900/90 border border-zinc-800 text-xs hover:border-zinc-700 transition-colors flex flex-col justify-between gap-2 shadow-xs">
+                <!-- User row -->
+                <div class="flex items-center justify-between gap-1.5">
+                    <div class="flex items-center space-x-2 min-w-0">
+                        <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-[10px] text-zinc-300 shrink-0 overflow-hidden">
+                            {{if .User.AvatarURL}}
+                                <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-full h-full object-cover">
+                            {{else}}
+                                {{slice .User.Username 0 1}}
+                            {{end}}
+                        </div>
+                        <span class="font-bold text-zinc-200 truncate text-[11px]">{{.User.Username}}</span>
                     </div>
-                    <span class="font-semibold text-zinc-200 truncate text-[11px]">{{.User.Username}}</span>
-                </div>
-
-                <div class="flex items-center space-x-1.5 flex-shrink-0">
-                    {{if .PickedTeamID}}
-                        {{if eq $.Game.Status "final"}}
-                            {{if .HasCorrectWinner}}
-                                <span class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center">
-                                    <i class="fa-solid fa-check text-[9px] mr-1"></i>{{.TeamCode}}
-                                </span>
-                            {{else if .HasIncorrectWinner}}
-                                <span class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 opacity-70">
-                                    {{.TeamCode}} ✗
-                                </span>
-                            {{else}}
-                                <span class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-zinc-800 text-zinc-300 border border-zinc-700">
-                                    {{.TeamCode}}
-                                </span>
-                            {{end}}
-                        {{else if eq $.Game.Status "in_progress"}}
-                            {{if $isLiveWinning}}
-                                <span class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center animate-pulse">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1"></span>{{.TeamCode}}
-                                </span>
-                            {{else if $isLiveLosing}}
-                                <span class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-zinc-900 text-zinc-400 border border-zinc-800">
-                                    {{.TeamCode}}
-                                </span>
-                            {{else}}
-                                <span class="px-2 py-0.5 rounded-md font-bold text-[10px] bg-zinc-800 text-zinc-300 border border-zinc-700">
-                                    {{.TeamCode}}
-                                </span>
-                            {{end}}
-                        {{else}}
-                            <span class="px-2 py-0.5 rounded-md font-black text-[10px] bg-zinc-800 text-zinc-200 border border-zinc-700">
-                                {{.TeamCode}}
-                            </span>
-                        {{end}}
-                    {{else}}
-                        <span class="text-zinc-600 text-[10px] italic">Sin pick</span>
-                    {{end}}
-
-                    {{if and .PredictedAwayScore .PredictedHomeScore}}
-                        <span class="text-zinc-400 font-mono text-[10px]">
-                            ({{.PredictedAwayScore}}-{{.PredictedHomeScore}})
-                        </span>
-                    {{end}}
 
                     <!-- Head-to-Head Compare Button -->
                     <button type="button" 
                             hx-get="/picks/compare?rival_id={{.User.ID}}&week_id={{$.Game.WeekID}}"
                             hx-target="#h2h-modal-container"
-                            title="Comparar pronósticos contra {{.User.Username}}"
-                            class="p-1 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded transition-colors ml-0.5">
+                            title="Comparar quiniela contra {{.User.Username}}"
+                            class="p-1 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded transition-colors cursor-pointer"
+                            onclick="event.stopPropagation()">
                         <i class="fa-solid fa-code-compare text-[10px]"></i>
                     </button>
                 </div>
+
+                <!-- Pick & Score Row -->
+                <div class="flex items-center justify-between p-1.5 rounded-lg bg-zinc-950/80 border border-zinc-850">
+                    <div class="flex items-center space-x-1.5">
+                        {{if $isAway}}
+                            <img src="{{$.Game.AwayTeam.LogoURL}}" alt="{{$.Game.AwayTeam.Code}}" class="w-4 h-4 object-contain">
+                            <span class="font-black text-cyan-400 text-[11px]">{{$.Game.AwayTeam.Code}}</span>
+                            <span class="text-[9px] font-mono text-zinc-500">(Vis)</span>
+                        {{else if $isHome}}
+                            <img src="{{$.Game.HomeTeam.LogoURL}}" alt="{{$.Game.HomeTeam.Code}}" class="w-4 h-4 object-contain">
+                            <span class="font-black text-amber-400 text-[11px]">{{$.Game.HomeTeam.Code}}</span>
+                            <span class="text-[9px] font-mono text-zinc-500">(Loc)</span>
+                        {{else if .PickedTeamID}}
+                            <span class="font-black text-zinc-300 text-[11px]">{{.TeamCode}}</span>
+                        {{else}}
+                            <span class="text-zinc-600 text-[10px] italic">Sin pick</span>
+                        {{end}}
+                    </div>
+
+                    {{if and .PredictedAwayScore .PredictedHomeScore}}
+                        <div class="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[10px] font-mono font-bold text-zinc-300">
+                            {{.PredictedAwayScore}} - {{.PredictedHomeScore}}
+                        </div>
+                    {{end}}
+                </div>
+
+                <!-- Status Badge -->
+                <div class="flex items-center justify-between text-[10px] pt-1 border-t border-zinc-800/40">
+                    <span class="text-zinc-500 font-mono text-[9px]">Estado:</span>
+                    <div>
+                        {{if eq $.Game.Status "final"}}
+                            {{if .HasCorrectWinner}}
+                                <span class="px-1.5 py-0.2 rounded font-bold text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center">
+                                    <i class="fa-solid fa-check text-[8px] mr-1"></i> Acertó (+{{.TotalPoints}} pts)
+                                </span>
+                            {{else if .HasIncorrectWinner}}
+                                <span class="px-1.5 py-0.2 rounded font-bold text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 opacity-80">
+                                    Falló (0 pts)
+                                </span>
+                            {{else}}
+                                <span class="text-zinc-500 font-mono text-[9px]">Finalizado</span>
+                            {{end}}
+                        {{else if eq $.Game.Status "in_progress"}}
+                            {{if $isLiveWinning}}
+                                <span class="px-1.5 py-0.2 rounded font-bold text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center animate-pulse">
+                                    <i class="fa-solid fa-bolt text-[8px] mr-1"></i> Ganando al momento
+                                </span>
+                            {{else if $isLiveLosing}}
+                                <span class="px-1.5 py-0.2 rounded font-bold text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center">
+                                    <i class="fa-solid fa-triangle-exclamation text-[8px] mr-1"></i> Perdiendo
+                                </span>
+                            {{else}}
+                                <span class="text-zinc-400 font-mono text-[9px]">Empate al momento</span>
+                            {{end}}
+                        {{else}}
+                            <span class="text-zinc-500 font-mono text-[9px]">Pendiente</span>
+                        {{end}}
+                    </div>
+                </div>
+
             </div>
         {{end}}
     </div>
