@@ -30,6 +30,7 @@
                     const awayInput = card.querySelector('input[name^=\'away_score_\']');
                     const homeInput = card.querySelector('input[name^=\'home_score_\']');
                     const isTiebreaker = card.getAttribute('data-is-tiebreaker') === 'true';
+                    const scoringMode = card.getAttribute('data-scoring-mode') || 'pure_tiebreaker';
 
                     const hasPick = pickInput && pickInput.value && pickInput.value.trim() !== '';
                     const hasAway = awayInput && awayInput.value && awayInput.value.trim() !== '';
@@ -44,8 +45,10 @@
                             picked++;
                         }
                     } else {
-                        if (hasPick || hasScores) {
-                            picked++;
+                        if (scoringMode === 'pure_tiebreaker') {
+                            if (hasPick) picked++;
+                        } else {
+                            if (hasPick || hasScores) picked++;
                         }
                     }
                 }
@@ -76,6 +79,7 @@
                     const awayInput = card.querySelector('input[name^=\'away_score_\']');
                     const homeInput = card.querySelector('input[name^=\'home_score_\']');
                     const isTiebreaker = card.getAttribute('data-is-tiebreaker') === 'true';
+                    const scoringMode = card.getAttribute('data-scoring-mode') || 'pure_tiebreaker';
 
                     const hasPick = pickInput && pickInput.value && pickInput.value.trim() !== '';
                     const hasScores = awayInput && homeInput && awayInput.value.trim() !== '' && homeInput.value.trim() !== '';
@@ -84,7 +88,11 @@
                     if (isTiebreaker) {
                         isMissing = !hasPick || !hasScores;
                     } else {
-                        isMissing = !hasPick && !hasScores;
+                        if (scoringMode === 'pure_tiebreaker') {
+                            isMissing = !hasPick;
+                        } else {
+                            isMissing = !hasPick && !hasScores;
+                        }
                     }
 
                     if (isMissing) {
@@ -140,6 +148,11 @@
                 </select>
             </div>
             <div class="flex items-center space-x-2">
+                <a href="/picks/matrix?week={{.SelectedWeek.WeekNumber}}" 
+                   title="Ver matriz comunitaria de pronósticos"
+                   class="inline-flex items-center px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-cyan-500/50 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer shrink-0">
+                    <i class="fa-solid fa-table-cells mr-1.5 text-cyan-400"></i> Matriz
+                </a>
                 {{if .Games}}
                     <button type="button" 
                             @click="summaryModalOpen = true"
@@ -199,8 +212,27 @@
         </div>
     {{end}}
 
-    <!-- Stat Metrics Row -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <!-- Mobile HUD Bar (Height ~48px, ultra-clean mobile-first) -->
+    <div class="block sm:hidden vercel-card p-3 rounded-2xl bg-zinc-950 border border-zinc-800">
+        <div class="flex items-center justify-between text-xs mb-2">
+            <div class="flex items-center space-x-2 font-mono">
+                <span class="font-bold text-white"><span id="mobile-picked-count">{{.PicksCount}}</span>/{{len .Games}}</span>
+                <span class="text-zinc-500 text-[11px]">pronosticados</span>
+            </div>
+            <div class="flex items-center space-x-3 font-mono text-[11px]">
+                <span class="text-amber-400 font-bold">{{.UserWeeklyPoints}} pts</span>
+                <span class="text-emerald-400 font-bold">{{.UserCorrectPicks}} aciertos</span>
+            </div>
+        </div>
+        <div class="w-full bg-zinc-800/80 h-1.5 rounded-full overflow-hidden">
+            <div id="mobile-progress-bar" 
+                 class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all duration-300"
+                 style="width: {{if .Games}}{{div (mul .PicksCount 100) (len .Games)}}%{{else}}0%{{end}};"></div>
+        </div>
+    </div>
+
+    <!-- Desktop Stat Metrics Row (Hidden on Mobile to avoid 350px vertical block) -->
+    <div class="hidden sm:grid sm:grid-cols-4 gap-3">
         <div class="vercel-card p-4 rounded-xl">
             <div class="text-[11px] font-mono font-medium text-zinc-500 uppercase tracking-wider">Partidos</div>
             <div class="text-2xl font-bold font-mono text-white mt-1">{{len .Games}}</div>
@@ -331,7 +363,7 @@
                  class="grid gap-3.5 transition-all"
                  :class="viewMode === 'compact' ? 'grid-cols-1 !gap-2 max-w-3xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'">
                 {{range .Games}}
-                    {{template "game_card.html" (dict "Game" . "CurrentTime" $.CurrentTime "FormattedKickoff" (formatDate .KickoffTime) "LockMode" $.LockMode "FirstKickoff" $.FirstKickoff)}}
+                    {{template "game_card.html" (dict "Game" . "CurrentTime" $.CurrentTime "FormattedKickoff" (formatDate .KickoffTime) "LockMode" $.LockMode "FirstKickoff" $.FirstKickoff "ScoringMode" $.ScoringConfig.ScoringMode "ScoringConfig" $.ScoringConfig)}}
                 {{end}}
             </div>
 
@@ -491,16 +523,31 @@ function updatePicksCounter() {
             const homeInput = card.querySelector('input[name^="home_score_"]');
             const hasScores = awayInput && homeInput && awayInput.value.trim() !== '' && homeInput.value.trim() !== '';
             const isTiebreaker = card.getAttribute('data-is-tiebreaker') === 'true';
+            const scoringMode = card.getAttribute('data-scoring-mode') || 'pure_tiebreaker';
 
             if (isTiebreaker) {
                 if (hasPick && hasScores) count++;
             } else {
-                if (hasPick || hasScores) count++;
+                if (scoringMode === 'pure_tiebreaker') {
+                    if (hasPick) count++;
+                } else {
+                    if (hasPick || hasScores) count++;
+                }
             }
         }
     });
     const counter = document.getElementById('picked-games-count');
     if (counter) counter.innerText = count;
+
+    const mobileCounter = document.getElementById('mobile-picked-count');
+    if (mobileCounter) mobileCounter.innerText = count;
+
+    const totalGames = {{len .Games}};
+    const mobileProgress = document.getElementById('mobile-progress-bar');
+    if (mobileProgress && totalGames > 0) {
+        const pct = Math.round((count / totalGames) * 100);
+        mobileProgress.style.width = pct + '%';
+    }
 
     const missingBadge = document.getElementById('missing-games-badge');
     const missingNum = document.getElementById('missing-games-num');

@@ -1,0 +1,144 @@
+<div class="w-full overflow-x-auto relative rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+    <table class="w-full text-left border-collapse text-xs">
+        <!-- Table Header -->
+        <thead>
+            <tr class="border-b border-zinc-800 bg-zinc-900/90 text-zinc-400 font-mono text-[11px]">
+                
+                <!-- Sticky Player Header Cell (Top-Left corner) -->
+                <th scope="col" class="sticky left-0 z-30 bg-zinc-900 px-4 py-3 min-w-[160px] sm:min-w-[200px] border-r border-zinc-800 font-bold uppercase tracking-wider text-white shadow-[2px_0_10px_rgba(0,0,0,0.5)]">
+                    <div class="flex items-center justify-between">
+                        <span>Participante</span>
+                        <span class="text-[9px] text-zinc-500 font-normal">Rank</span>
+                    </div>
+                </th>
+
+                <!-- Games Columns -->
+                {{range .Matrix.Games}}
+                    <th scope="col" class="px-3 py-3 min-w-[105px] text-center font-normal border-r border-zinc-800/60 {{if .IsTiebreaker}}bg-amber-500/10 border-t-2 border-t-amber-400{{end}}">
+                        <div class="flex flex-col items-center">
+                            <!-- Matchup with mini logos -->
+                            <div class="flex items-center space-x-1 font-bold text-white text-xs mb-1">
+                                <span class="font-mono">{{.AwayTeam.Code}}</span>
+                                <span class="text-zinc-500 font-mono text-[10px]">@</span>
+                                <span class="font-mono">{{.HomeTeam.Code}}</span>
+                            </div>
+                            
+                            <!-- Game Status or Time -->
+                            {{if eq .Status "in_progress"}}
+                                <span class="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/40 animate-pulse">
+                                    {{if .AwayScore}}{{.AwayScore}}{{else}}0{{end}}-{{if .HomeScore}}{{.HomeScore}}{{else}}0{{end}}
+                                </span>
+                            {{else if eq .Status "final"}}
+                                <span class="text-[9px] font-mono text-zinc-400 font-semibold">
+                                    {{if .AwayScore}}{{.AwayScore}}{{else}}0{{end}}-{{if .HomeScore}}{{.HomeScore}}{{else}}0{{end}}
+                                </span>
+                            {{else}}
+                                <span class="text-[9px] font-mono text-zinc-500 truncate max-w-[90px]">
+                                    {{formatShortDate .KickoffTime}}
+                                </span>
+                            {{end}}
+
+                            {{if .IsTiebreaker}}
+                                <span class="text-[8px] font-mono font-bold uppercase text-amber-400 mt-0.5 tracking-tighter">
+                                    ⭐ MNF
+                                </span>
+                            {{end}}
+                        </div>
+                    </th>
+                {{end}}
+
+                <!-- Totals Columns (Right) -->
+                <th scope="col" class="px-3 py-3 min-w-[75px] text-center font-bold text-emerald-400 border-r border-zinc-800/60 uppercase text-[10px]">
+                    Aciertos
+                </th>
+                <th scope="col" class="px-3 py-3 min-w-[80px] text-center font-bold text-amber-400 uppercase text-[10px]">
+                    Puntos
+                </th>
+            </tr>
+        </thead>
+
+        <!-- Table Body -->
+        <tbody class="divide-y divide-zinc-900 font-sans">
+            {{range $rowIndex, $row := .Matrix.Rows}}
+                <tr class="transition-colors hover:bg-zinc-900/40 {{if $row.IsCurrent}}bg-white/[0.04] font-medium{{end}}">
+                    
+                    <!-- Sticky Left Column: Player Info -->
+                    <td class="sticky left-0 z-20 bg-zinc-950 px-3 py-2.5 min-w-[160px] sm:min-w-[200px] border-r border-zinc-800 shadow-[2px_0_10px_rgba(0,0,0,0.5)]">
+                        <div class="flex items-center space-x-2.5">
+                            <!-- Rank Number -->
+                            <span class="w-5 text-center font-mono font-bold text-xs {{if eq $row.Rank 1}}text-amber-400{{else if eq $row.Rank 2}}text-zinc-300{{else if eq $row.Rank 3}}text-amber-600{{else}}text-zinc-500{{end}}">
+                                #{{$row.Rank}}
+                            </span>
+
+                            <!-- Avatar -->
+                            {{if $row.User.AvatarURL}}
+                                <img src="{{$row.User.AvatarURL}}" alt="{{$row.User.Username}}" class="w-6 h-6 rounded-full object-cover border border-zinc-700 shrink-0">
+                            {{else}}
+                                <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white font-bold text-[10px] uppercase shrink-0 leading-none">
+                                    {{slice $row.User.Username 0 1}}
+                                </div>
+                            {{end}}
+
+                            <!-- Username & Current Player Tag -->
+                            <div class="min-w-0 flex-1 flex items-center space-x-1">
+                                <span class="font-bold text-xs truncate max-w-[100px] sm:max-w-[120px] {{if $row.IsCurrent}}text-white font-black{{else}}text-zinc-300{{end}}">
+                                    {{$row.User.Username}}
+                                </span>
+                                {{if $row.IsCurrent}}
+                                    <span class="px-1 py-0.2 rounded bg-white text-black text-[8px] font-black leading-none uppercase shrink-0">TÚ</span>
+                                {{end}}
+                            </div>
+                        </div>
+                    </td>
+
+                    <!-- Game Pick Cells -->
+                    {{range $row.Cells}}
+                        <td class="px-2 py-2 text-center border-r border-zinc-900 {{if .IsTiebreaker}}bg-amber-500/[0.03]{{end}}">
+                            {{if not .HasPick}}
+                                <span class="text-zinc-600 font-mono text-[11px]">--</span>
+                            {{else if not .IsRevealed}}
+                                <span class="inline-flex items-center space-x-1 px-2 py-1 rounded-lg bg-zinc-900 border border-zinc-800/80 text-zinc-500 text-[10px] font-mono select-none" title="Se revela al comenzar el partido">
+                                    <i class="fa-solid fa-lock text-[9px] text-zinc-400"></i>
+                                    <span>🔒</span>
+                                </span>
+                            {{else}}
+                                <!-- Revealed Pick -->
+                                <div class="inline-flex flex-col items-center justify-center px-2 py-1 rounded-lg transition-all {{if .HasResult}}{{if .IsWon}}bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 shadow-sm{{else}}bg-rose-500/10 border border-rose-500/20 text-rose-400 opacity-75{{end}}{{else}}bg-zinc-900 border border-zinc-800 text-zinc-200{{end}}">
+                                    <div class="flex items-center space-x-1">
+                                        {{if .PickedTeamLogo}}
+                                            <img src="{{.PickedTeamLogo}}" alt="{{.PickedTeamCode}}" class="w-4 h-4 object-contain shrink-0" loading="lazy">
+                                        {{end}}
+                                        <span class="font-mono font-bold text-xs">{{.PickedTeamCode}}</span>
+                                        {{if .HasResult}}
+                                            {{if .IsWon}}
+                                                <span class="text-emerald-400 font-black text-[10px] ml-0.5">✓</span>
+                                            {{else}}
+                                                <span class="text-rose-400 font-black text-[10px] ml-0.5">✕</span>
+                                            {{end}}
+                                        {{end}}
+                                    </div>
+                                    {{if and .IsTiebreaker .AwayScore .HomeScore}}
+                                        <div class="text-[9px] font-mono font-bold text-amber-400 leading-none mt-0.5">
+                                            {{.AwayScore}}-{{.HomeScore}}
+                                        </div>
+                                    {{end}}
+                                </div>
+                            {{end}}
+                        </td>
+                    {{end}}
+
+                    <!-- Total Correct Column -->
+                    <td class="px-3 py-2.5 text-center font-mono font-bold text-xs text-emerald-400 border-r border-zinc-900">
+                        {{$row.TotalCorrect}}
+                    </td>
+
+                    <!-- Total Points Column -->
+                    <td class="px-3 py-2.5 text-center font-mono font-black text-xs text-amber-400">
+                        {{$row.TotalPoints}}
+                    </td>
+
+                </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>

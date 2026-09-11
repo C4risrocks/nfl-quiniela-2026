@@ -701,18 +701,33 @@ func (g *Game) HasPickCompleted() bool {
 
 // LeaderboardEntry represents a user's standings in a week or season
 type LeaderboardEntry struct {
-	Rank                int     `json:"rank"`
-	UserID              int64   `json:"user_id"`
-	Username            string  `json:"username"`
-	AvatarURL           string  `json:"avatar_url"`
-	TotalPoints         int     `json:"total_points"`
-	LiveProjectedPoints int     `json:"live_projected_points"`
-	CorrectPicks        int     `json:"correct_picks"`
-	TotalPicks          int     `json:"total_picks"`
-	TiebreakerError     int     `json:"tiebreaker_error"`
-	WinPercentage       float64 `json:"win_percentage"`
-	HasTiebreaker       bool    `json:"has_tiebreaker"`
-	HasLiveGames        bool    `json:"has_live_games"`
+	Rank                int                `json:"rank"`
+	UserID              int64              `json:"user_id"`
+	Username            string             `json:"username"`
+	AvatarURL           string             `json:"avatar_url"`
+	TotalPoints         int                `json:"total_points"`
+	LiveProjectedPoints int                `json:"live_projected_points"`
+	CorrectPicks        int                `json:"correct_picks"`
+	TotalPicks          int                `json:"total_picks"`
+	TiebreakerError     int                `json:"tiebreaker_error"`
+	WinPercentage       float64            `json:"win_percentage"`
+	HasTiebreaker       bool               `json:"has_tiebreaker"`
+	HasLiveGames        bool               `json:"has_live_games"`
+	Achievements        []*UserAchievement `json:"achievements,omitempty"`
+}
+
+func (e *LeaderboardEntry) TopAchievements(limit int) []*UserAchievement {
+	if len(e.Achievements) <= limit {
+		return e.Achievements
+	}
+	return e.Achievements[:limit]
+}
+
+func (e *LeaderboardEntry) ExtraAchievementsCount(limit int) int {
+	if len(e.Achievements) > limit {
+		return len(e.Achievements) - limit
+	}
+	return 0
 }
 
 // ScoringConfig holds active pool scoring settings and lock timing
@@ -798,3 +813,151 @@ type UserWeekSimulationData struct {
 	Picks     map[int64]int64 `json:"picks"` // game_id -> picked_team_id
 }
 
+// PicksMatrixCell represents a single cell in the Picks Matrix
+type PicksMatrixCell struct {
+	GameID         int64  `json:"game_id"`
+	HasPick        bool   `json:"has_pick"`
+	IsRevealed     bool   `json:"is_revealed"`
+	PickedTeamID   *int64 `json:"picked_team_id"`
+	PickedTeamCode string `json:"picked_team_code"`
+	PickedTeamLogo string `json:"picked_team_logo"`
+	AwayScore      *int   `json:"away_score"`
+	HomeScore      *int   `json:"home_score"`
+	IsCorrect      *bool  `json:"is_correct"`
+	IsTiebreaker   bool   `json:"is_tiebreaker"`
+}
+
+func (c *PicksMatrixCell) HasResult() bool {
+	return c != nil && c.IsCorrect != nil
+}
+
+func (c *PicksMatrixCell) IsWon() bool {
+	return c != nil && c.IsCorrect != nil && *c.IsCorrect
+}
+
+// PicksMatrixRow represents a player's row in the matrix
+type PicksMatrixRow struct {
+	User         *User              `json:"user"`
+	Cells        []*PicksMatrixCell `json:"cells"`
+	TotalCorrect int                `json:"total_correct"`
+	TotalPoints  int                `json:"total_points"`
+	Rank         int                `json:"rank"`
+	IsCurrent    bool               `json:"is_current"`
+}
+
+// PicksMatrixData represents the entire matrix view data
+type PicksMatrixData struct {
+	Week             *Week             `json:"week"`
+	Weeks            []*Week           `json:"weeks"`
+	Games            []*Game           `json:"games"`
+	Rows             []*PicksMatrixRow `json:"rows"`
+	TotalPlayers     int               `json:"total_players"`
+	IsFullWeekLocked bool              `json:"is_full_week_locked"`
+	User             *User             `json:"user"`
+}
+
+// UserAchievement represents an unlocked badge by a player
+type UserAchievement struct {
+	ID         int64     `json:"id"`
+	UserID     int64     `json:"user_id"`
+	BadgeCode  string    `json:"badge_code"`
+	BadgeName  string    `json:"badge_name"`
+	BadgeDesc  string    `json:"badge_desc"`
+	Icon       string    `json:"icon"`
+	WeekNumber *int      `json:"week_number"`
+	UnlockedAt time.Time `json:"unlocked_at"`
+}
+
+// H2HWeekResult represents a single completed week matchup between two players
+type H2HWeekResult struct {
+	WeekNumber  int    `json:"week_number"`
+	WeekName    string `json:"week_name"`
+	UserAPoints int    `json:"user_a_points"`
+	UserBPoints int    `json:"user_b_points"`
+	Winner      string `json:"winner"` // "user_a", "user_b", or "tie"
+}
+
+// H2HSeasonHistory aggregates all finished head-to-head weeks in the season
+type H2HSeasonHistory struct {
+	UserA            *User            `json:"user_a"`
+	UserB            *User            `json:"user_b"`
+	UserAWins        int              `json:"user_a_wins"`
+	UserBWins        int              `json:"user_b_wins"`
+	Ties             int              `json:"ties"`
+	UserATotalPoints int              `json:"user_a_total_points"`
+	UserBTotalPoints int              `json:"user_b_total_points"`
+	WeekResults      []*H2HWeekResult `json:"week_results"`
+	LeaderStatus     string           `json:"leader_status"` // "a_leads", "b_leads", or "tied"
+}
+
+// BadgeDefinition represents the catalog definition of an achievement
+type BadgeDefinition struct {
+	Code        string `json:"code"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Icon        string `json:"icon"`
+	Rarity      string `json:"rarity"` // "legendary", "epic", "rare", "common"
+}
+
+// GetAllBadgeDefinitions returns the full catalog of achievements
+func GetAllBadgeDefinitions() []BadgeDefinition {
+	return []BadgeDefinition{
+		{
+			Code:        "perfect_week",
+			Name:        "Pleno Perfecto",
+			Description: "Acertaste el 100% de los partidos en una jornada completa (mín. 10 partidos).",
+			Icon:        "🎯",
+			Rarity:      "legendary",
+		},
+		{
+			Code:        "week_champion",
+			Name:        "Campeón de Jornada",
+			Description: "Conquistaste el 1er lugar de la tabla semanal en una jornada finalizada.",
+			Icon:        "👑",
+			Rarity:      "epic",
+		},
+		{
+			Code:        "sniper_mnf",
+			Name:        "Francotirador MNF",
+			Description: "Acertaste con exactitud la suma total de puntos en el partido de desempate.",
+			Icon:        "🎯",
+			Rarity:      "epic",
+		},
+		{
+			Code:        "underdog_king",
+			Name:        "Rey Underdog",
+			Description: "Acertaste 2 o más victorias sorpresa (< 35% de selecciones comunitarias).",
+			Icon:        "🐺",
+			Rarity:      "rare",
+		},
+		{
+			Code:        "fire_streak",
+			Name:        "Racha de Fuego",
+			Description: "Hilvanaste 5 o más aciertos consecutivos dentro de una misma semana.",
+			Icon:        "🔥",
+			Rarity:      "rare",
+		},
+		{
+			Code:        "elite_accuracy",
+			Name:        "Efectividad Élite",
+			Description: "Superaste el 75% de efectividad en pronósticos de una jornada (mín. 12 partidos).",
+			Icon:        "⚡",
+			Rarity:      "rare",
+		},
+		{
+			Code:        "iron_streak",
+			Name:        "Veterano de Acero",
+			Description: "Completaste puntualmente tus pronósticos durante 4 jornadas consecutivas.",
+			Icon:        "🛡️",
+			Rarity:      "common",
+		},
+	}
+}
+
+// UserAchievementDisplay models a badge slot for the profile showcase
+type UserAchievementDisplay struct {
+	Definition BadgeDefinition
+	IsUnlocked bool
+	UnlockedAt *time.Time
+	WeekNumber *int
+}

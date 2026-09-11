@@ -123,3 +123,18 @@ CREATE TABLE IF NOT EXISTS notification_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user_week ON notification_logs(user_id, week_id);
+
+CREATE TABLE IF NOT EXISTS user_achievements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    badge_code TEXT NOT NULL,
+    badge_name TEXT NOT NULL,
+    badge_desc TEXT NOT NULL,
+    icon TEXT NOT NULL,
+    week_number INTEGER DEFAULT NULL,
+    unlocked_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, badge_code, week_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_achievements_user ON user_achievements(user_id);
+CREATE INDEX IF NOT EXISTS idx_achievements_badge ON user_achievements(badge_code);

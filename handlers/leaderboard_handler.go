@@ -61,6 +61,7 @@ func (h *LeaderboardHandler) ShowLeaderboard(w http.ResponseWriter, r *http.Requ
 	} else {
 		leaderboard, _ = h.repo.GetSeasonLeaderboard(season.ID)
 	}
+	h.enrichWithAchievements(leaderboard)
 
 	scoringCfg, _ := h.repo.GetScoringConfig()
 
@@ -105,12 +106,26 @@ func (h *LeaderboardHandler) LeaderboardTable(w http.ResponseWriter, r *http.Req
 	} else {
 		leaderboard, _ = h.repo.GetSeasonLeaderboard(season.ID)
 	}
+	h.enrichWithAchievements(leaderboard)
 
 	h.renderer.RenderPartial(w, "leaderboard_table.html", map[string]interface{}{
 		"Leaderboard":  leaderboard,
 		"CurrentUser":  user,
 		"SelectedWeek": selectedWeek,
 	})
+}
+
+func (h *LeaderboardHandler) enrichWithAchievements(entries []*db.LeaderboardEntry) {
+	if len(entries) == 0 {
+		return
+	}
+	achMap, err := h.repo.GetAllUserAchievements()
+	if err != nil || achMap == nil {
+		return
+	}
+	for _, e := range entries {
+		e.Achievements = achMap[e.UserID]
+	}
 }
 
 func (h *LeaderboardHandler) enrichWithLiveProjected(weekID int64, entries []*db.LeaderboardEntry) {

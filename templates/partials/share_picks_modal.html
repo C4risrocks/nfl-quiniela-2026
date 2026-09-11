@@ -26,9 +26,12 @@
                 clone.style.minHeight = targetHeight + 'px';
             }
             clone.style.position = 'fixed';
-            clone.style.left = '-9999px';
+            clone.style.left = '0';
             clone.style.top = '0';
             clone.style.zIndex = '-9999';
+            clone.style.opacity = '1';
+            clone.style.pointerEvents = 'none';
+            clone.style.transform = 'none';
             clone.style.display = 'flex';
             clone.style.flexDirection = 'column';
 
@@ -53,6 +56,10 @@
                     allowTaint: true,
                     backgroundColor: '#09090b',
                     logging: false,
+                    x: 0,
+                    y: 0,
+                    scrollX: 0,
+                    scrollY: 0,
                     windowWidth: targetWidth,
                     width: targetWidth,
                     height: isStory ? targetHeight : clone.offsetHeight
@@ -174,10 +181,9 @@
                         {{if .User.AvatarURL}}
                             <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-9 h-9 rounded-full object-cover border border-zinc-600 shadow shrink-0" crossorigin="anonymous">
                         {{else}}
-                            <svg width="36" height="36" viewBox="0 0 36 36" class="w-9 h-9 shrink-0 shadow rounded-full">
-                                <circle cx="18" cy="18" r="17" fill="#27272a" stroke="#52525b" stroke-width="1.5"/>
-                                <text x="18" y="19" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="800" font-size="14">{{slice .User.Username 0 1}}</text>
-                            </svg>
+                            <div class="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white font-black text-sm uppercase shadow shrink-0 leading-none">
+                                {{slice .User.Username 0 1}}
+                            </div>
                         {{end}}
                         <div>
                             <div class="text-sm font-extrabold text-white tracking-tight leading-none mb-1">{{.User.Username}}</div>
@@ -186,12 +192,9 @@
                     </div>
 
                     <div class="flex flex-col items-end">
-                        <svg width="90" height="24" viewBox="0 0 90 24" class="shrink-0 shadow-sm">
-                            <rect width="90" height="24" rx="12" fill="#ffffff"/>
-                            <text x="45" y="13" text-anchor="middle" dominant-baseline="central" fill="#000000" font-family="system-ui, sans-serif" font-weight="900" font-size="10.5">
-                                {{.SelectedWeek.Name}}
-                            </text>
-                        </svg>
+                        <span class="inline-flex items-center justify-center px-3 py-1 rounded-full bg-white text-black font-black text-[10.5px] uppercase tracking-wider leading-none shadow-sm whitespace-nowrap">
+                            {{.SelectedWeek.Name}}
+                        </span>
                         <div class="text-[9px] font-mono text-zinc-400 mt-1 leading-none">{{.PicksCount}} de {{len .Games}} pronosticados</div>
                     </div>
                 </div>
@@ -273,12 +276,9 @@
                             </div>
                             <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-bold">NFL Quiniela 2026</span>
                         </div>
-                        <svg width="86" height="22" viewBox="0 0 86 22" class="shrink-0 shadow-sm">
-                            <rect width="86" height="22" rx="11" fill="#ffffff"/>
-                            <text x="43" y="12" text-anchor="middle" dominant-baseline="central" fill="#000000" font-family="system-ui, sans-serif" font-weight="900" font-size="10">
-                                {{.SelectedWeek.Name}}
-                            </text>
-                        </svg>
+                        <span class="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-white text-black font-black text-[10px] uppercase tracking-wider leading-none shadow-sm whitespace-nowrap">
+                            {{.SelectedWeek.Name}}
+                        </span>
                     </div>
 
                     <div class="flex items-center justify-between mt-2">

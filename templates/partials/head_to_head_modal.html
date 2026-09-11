@@ -7,36 +7,45 @@
              if (!card) return null;
 
              const clone = card.cloneNode(true);
-             clone.id = 'shareable-h2h-card-clone';
-             clone.style.width = '640px';
-             clone.style.maxWidth = '640px';
-             clone.style.minWidth = '640px';
-             clone.style.position = 'fixed';
-             clone.style.left = '-9999px';
-             clone.style.top = '0';
-             clone.style.zIndex = '-9999';
+            clone.id = 'shareable-h2h-card-clone';
+            clone.style.width = '640px';
+            clone.style.maxWidth = '640px';
+            clone.style.minWidth = '640px';
+            clone.style.position = 'fixed';
+            clone.style.left = '0';
+            clone.style.top = '0';
+            clone.style.zIndex = '-9999';
+            clone.style.opacity = '1';
+            clone.style.pointerEvents = 'none';
+            clone.style.transform = 'none';
+            clone.style.display = 'block';
 
-             document.body.appendChild(clone);
-             if (document.fonts && document.fonts.ready) {
-                 await document.fonts.ready;
-             }
-             await new Promise(r => setTimeout(r, 140));
+            document.body.appendChild(clone);
+            if (document.fonts && document.fonts.ready) {
+                await document.fonts.ready;
+            }
+            await new Promise(r => setTimeout(r, 140));
 
-             try {
-                 const canvas = await html2canvas(clone, {
-                     scale: 2.5,
-                     useCORS: true,
-                     allowTaint: true,
-                     backgroundColor: '#09090b',
-                     logging: false,
-                     windowWidth: 640
-                 });
-                 return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-             } finally {
-                 if (clone.parentNode) {
-                     clone.parentNode.removeChild(clone);
-                 }
-             }
+            try {
+                const canvas = await html2canvas(clone, {
+                    scale: 2.5,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#09090b',
+                    logging: false,
+                    x: 0,
+                    y: 0,
+                    scrollX: 0,
+                    scrollY: 0,
+                    windowWidth: 640,
+                    width: 640
+                });
+                return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+            } finally {
+                if (clone.parentNode) {
+                    clone.parentNode.removeChild(clone);
+                }
+            }
          },
          async shareH2HImage() {
              this.generating = true;
@@ -186,6 +195,57 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Season Rivalry History Banner -->
+            {{if and .SeasonHistory .SeasonHistory.WeekResults}}
+            <div class="mt-3 p-3 rounded-2xl bg-zinc-950 border border-zinc-800/90 space-y-2">
+                <div class="flex items-center justify-between text-xs">
+                    <div class="flex items-center space-x-1.5 font-bold text-white">
+                        <i class="fa-solid fa-clock-rotate-left text-amber-400 text-[11px]"></i>
+                        <span class="text-[11px] uppercase tracking-wider font-mono">Serie de la Temporada</span>
+                    </div>
+                    <div class="font-mono text-xs font-bold">
+                        <span class="text-white">{{.SeasonHistory.UserAWins}}G</span>
+                        <span class="text-zinc-600">-</span>
+                        <span class="text-zinc-400">{{.SeasonHistory.UserBWins}}P</span>
+                        {{if gt .SeasonHistory.Ties 0}}
+                            <span class="text-zinc-600">-</span>
+                            <span class="text-zinc-500">{{.SeasonHistory.Ties}}E</span>
+                        {{end}}
+                        <span class="text-[10px] text-zinc-500 ml-1.5 font-normal">({{.SeasonHistory.UserATotalPoints}} vs {{.SeasonHistory.UserBTotalPoints}} pts)</span>
+                    </div>
+                </div>
+
+                <!-- Matchup Series Status Tag & Week Results Badges -->
+                <div class="flex flex-wrap items-center justify-between gap-1.5 pt-1.5 border-t border-zinc-900 text-[10px] font-mono">
+                    <div>
+                        {{if eq .SeasonHistory.LeaderStatus "a_leads"}}
+                            <span class="text-emerald-400 font-bold flex items-center">
+                                <i class="fa-solid fa-caret-up mr-1 text-xs"></i> Lideras la serie anual
+                            </span>
+                        {{else if eq .SeasonHistory.LeaderStatus "b_leads"}}
+                            <span class="text-rose-400 font-bold flex items-center">
+                                <i class="fa-solid fa-caret-down mr-1 text-xs"></i> Lidera {{.SeasonHistory.UserB.Username}}
+                            </span>
+                        {{else}}
+                            <span class="text-zinc-400 font-bold flex items-center">
+                                <i class="fa-solid fa-minus mr-1"></i> Serie empatada
+                            </span>
+                        {{end}}
+                    </div>
+
+                    <!-- Week-by-week pill badges -->
+                    <div class="flex items-center space-x-1">
+                        {{range .SeasonHistory.WeekResults}}
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold {{if eq .Winner "user_a"}}bg-emerald-500/15 text-emerald-400 border border-emerald-500/30{{else if eq .Winner "user_b"}}bg-rose-500/15 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400 border border-zinc-700{{end}}"
+                                  title="S{{.WeekNumber}}: {{.UserAPoints}} vs {{.UserBPoints}} pts">
+                                S{{.WeekNumber}}: {{if eq .Winner "user_a"}}G{{else if eq .Winner "user_b"}}P{{else}}E{{end}}
+                            </span>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+            {{end}}
         </div>
 
         <!-- Scrollable Matchups List -->
@@ -291,21 +351,17 @@
                             <div class="text-base font-black text-white leading-none">Duelo Cara a Cara</div>
                         </div>
                     </div>
-                    <svg width="90" height="24" viewBox="0 0 90 24" class="shrink-0 shadow-sm">
-                        <rect width="90" height="24" rx="12" fill="#e11d48"/>
-                        <text x="45" y="13" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="900" font-size="10.5">
-                            {{.Comparison.Week.Name}}
-                        </text>
-                    </svg>
+                    <span class="inline-flex items-center justify-center px-3 py-1 rounded-full bg-rose-600 text-white font-black text-[10.5px] uppercase tracking-wider leading-none shadow-sm whitespace-nowrap">
+                        {{.Comparison.Week.Name}}
+                    </span>
                 </div>
 
                 <!-- 1v1 Battle Banner (Rock-solid flex layout) -->
                 <div class="flex items-center justify-between p-4 rounded-2xl bg-zinc-950 border border-zinc-800 mb-4 relative z-10">
                     <div class="flex items-center space-x-3 min-w-0 flex-1">
-                        <svg width="36" height="36" viewBox="0 0 36 36" class="shrink-0 shadow">
-                            <circle cx="18" cy="18" r="17" fill="#27272a" stroke="#ffffff" stroke-width="1.5"/>
-                            <text x="18" y="19" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="800" font-size="14">{{slice .Comparison.UserA.Username 0 1}}</text>
-                        </svg>
+                        <div class="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-500 flex items-center justify-center text-white font-black text-sm uppercase shadow shrink-0 leading-none">
+                            {{slice .Comparison.UserA.Username 0 1}}
+                        </div>
                         <div class="min-w-0">
                             <div class="text-[10px] text-zinc-400 leading-none mb-1">Tú</div>
                             <div class="text-sm font-black text-white truncate">{{.Comparison.UserA.Username}}</div>
@@ -320,10 +376,9 @@
                     </div>
 
                     <div class="flex items-center justify-end space-x-3 space-x-reverse text-right min-w-0 flex-1">
-                        <svg width="36" height="36" viewBox="0 0 36 36" class="shrink-0 shadow">
-                            <circle cx="18" cy="18" r="17" fill="#27272a" stroke="#71717a" stroke-width="1.5"/>
-                            <text x="18" y="19" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="800" font-size="14">{{slice .Comparison.UserB.Username 0 1}}</text>
-                        </svg>
+                        <div class="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-600 flex items-center justify-center text-white font-black text-sm uppercase shadow shrink-0 leading-none">
+                            {{slice .Comparison.UserB.Username 0 1}}
+                        </div>
                         <div class="min-w-0">
                             <div class="text-[10px] text-zinc-400 leading-none mb-1">Rival</div>
                             <div class="text-sm font-black text-white truncate">{{.Comparison.UserB.Username}}</div>
@@ -347,6 +402,18 @@
                         <div class="font-bold text-amber-400 text-xs mt-0.5">{{.Comparison.PointsAtStake}} pts</div>
                     </div>
                 </div>
+
+                {{if and .SeasonHistory .SeasonHistory.WeekResults}}
+                <div class="mb-4 p-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-[11px] font-mono flex items-center justify-between relative z-10">
+                    <span class="text-zinc-400 font-bold flex items-center">
+                        <i class="fa-solid fa-clock-rotate-left text-amber-400 mr-1.5 text-[10px]"></i> Serie Anual
+                    </span>
+                    <span class="font-bold text-white">
+                        {{.SeasonHistory.UserAWins}}G - {{.SeasonHistory.UserBWins}}P{{if gt .SeasonHistory.Ties 0}} - {{.SeasonHistory.Ties}}E{{end}}
+                        <span class="text-zinc-500 font-normal">({{.SeasonHistory.UserATotalPoints}} - {{.SeasonHistory.UserBTotalPoints}} pts)</span>
+                    </span>
+                </div>
+                {{end}}
 
                 <!-- Divergent Matchups (Direct Duels) -->
                 <div class="space-y-1.5 relative z-10">

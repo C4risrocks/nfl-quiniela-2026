@@ -61,6 +61,28 @@ func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	userAchievements, _ := h.repo.GetUserAchievements(user.ID)
+	achMap := make(map[string]*db.UserAchievement)
+	for _, a := range userAchievements {
+		achMap[a.BadgeCode] = a
+	}
+
+	allBadges := db.GetAllBadgeDefinitions()
+	achievementDisplays := make([]db.UserAchievementDisplay, 0, len(allBadges))
+	unlockedCount := 0
+	for _, b := range allBadges {
+		disp := db.UserAchievementDisplay{
+			Definition: b,
+		}
+		if ach, exists := achMap[b.Code]; exists {
+			disp.IsUnlocked = true
+			disp.UnlockedAt = &ach.UnlockedAt
+			disp.WeekNumber = ach.WeekNumber
+			unlockedCount++
+		}
+		achievementDisplays = append(achievementDisplays, disp)
+	}
+
 	var successMsg, errorMsg string
 	if r.URL.Query().Get("updated") == "1" {
 		successMsg = "Tus preferencias han sido guardadas exitosamente."
@@ -73,17 +95,20 @@ func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.renderer.RenderPage(w, "profile.html", map[string]interface{}{
-		"ActiveNav":     "profile",
-		"User":          freshUser,
-		"Stats":         stats,
-		"AdvancedStats": advStats,
-		"Teams":         teams,
-		"Rank":          rank,
-		"TotalPlayers":  totalPlayers,
-		"WeeklyHistory": weeklyHistory,
-		"BestWeek":      bestWeek,
-		"Success":       successMsg,
-		"Error":         errorMsg,
+		"ActiveNav":                 "profile",
+		"User":                      freshUser,
+		"Stats":                     stats,
+		"AdvancedStats":             advStats,
+		"Teams":                     teams,
+		"Rank":                      rank,
+		"TotalPlayers":              totalPlayers,
+		"WeeklyHistory":             weeklyHistory,
+		"BestWeek":                  bestWeek,
+		"AchievementDisplays":       achievementDisplays,
+		"UnlockedAchievementsCount": unlockedCount,
+		"TotalBadgesCount":          len(allBadges),
+		"Success":                   successMsg,
+		"Error":                     errorMsg,
 	})
 }
 

@@ -136,12 +136,16 @@
                     if (!target) return null;
                     const clone = target.cloneNode(true);
                     clone.style.position = 'fixed';
-                    clone.style.left = '-9999px';
+                    clone.style.left = '0';
                     clone.style.top = '0';
                     clone.style.width = '600px';
                     clone.style.maxWidth = '600px';
                     clone.style.minWidth = '600px';
                     clone.style.zIndex = '-9999';
+                    clone.style.opacity = '1';
+                    clone.style.pointerEvents = 'none';
+                    clone.style.transform = 'none';
+                    clone.style.display = 'block';
                     document.body.appendChild(clone);
 
                     if (document.fonts && document.fonts.ready) {
@@ -156,7 +160,12 @@
                             allowTaint: true,
                             backgroundColor: '#09090b',
                             logging: false,
-                            windowWidth: 600
+                            x: 0,
+                            y: 0,
+                            scrollX: 0,
+                            scrollY: 0,
+                            windowWidth: 600,
+                            width: 600
                         });
                         return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
                     } finally {

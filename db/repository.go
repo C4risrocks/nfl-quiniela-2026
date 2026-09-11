@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -1541,5 +1542,314 @@ func (r *Repository) GetUserWeeklyBreakdown(userID int64, seasonID int64) ([]*Us
 		result = append(result, &p)
 	}
 	return result, nil
+}
+
+// ----------------------------------------------------
+// Picks Matrix
+// ----------------------------------------------------
+
+// GetPicksMatrixForWeek compiles all participants and their picks across all games of a week
+func (r *Repository) GetPicksMatrixForWeek(weekID int64, currentUserID int64) (*PicksMatrixData, error) {
+	week, err := r.GetWeekByID(weekID)
+	if err != nil || week == nil {
+		return nil, fmt.Errorf("semana no encontrada")
+	}
+
+	games, err := r.ListGamesByWeek(weekID)
+	if err != nil {
+		return nil, err
+	}
+
+	scoringCfg, _ := r.GetScoringConfig()
+	now := time.Now()
+
+	var firstKickoff *time.Time
+	for _, g := range games {
+		if !g.KickoffTime.IsZero() {
+			if firstKickoff == nil || g.KickoffTime.Before(*firstKickoff) {
+				t := g.KickoffTime
+				firstKickoff = &t
+			}
+		}
+	}
+
+	effectiveFirstKickoff := firstKickoff
+	if week.WeekNumber == 1 && effectiveFirstKickoff != nil && effectiveFirstKickoff.Before(Week1GraceDeadline) && now.Before(Week1GraceDeadline) {
+		effectiveFirstKickoff = &Week1GraceDeadline
+	}
+
+	isFullWeekLocked := false
+	if scoringCfg.LockMode == "full_week" && effectiveFirstKickoff != nil {
+		isFullWeekLocked = now.After(*effectiveFirstKickoff) || now.Equal(*effectiveFirstKickoff)
+	}
+
+	// Fetch players (excluding admin accounts)
+	usersQuery := `
+	SELECT id, username, email, COALESCE(avatar_url, ''), role
+	FROM users
+	WHERE COALESCE(role, 'player') != 'admin'
+	ORDER BY username ASC`
+	uRows, err := r.db.Query(usersQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer uRows.Close()
+
+	var players []*User
+	for uRows.Next() {
+		var u User
+		if err := uRows.Scan(&u.ID, &u.Username, &u.Email, &u.AvatarURL, &u.Role); err != nil {
+			return nil, err
+		}
+		players = append(players, &u)
+	}
+
+	// Fetch all picks for games in this week
+	picksQuery := `
+	SELECT p.id, p.user_id, p.game_id, p.picked_team_id, p.predicted_away_score, p.predicted_home_score,
+	       p.points_earned, p.bonus_points, p.is_correct
+	FROM picks p
+	JOIN games g ON p.game_id = g.id
+	WHERE g.week_id = ?`
+	pRows, err := r.db.Query(picksQuery, weekID)
+	if err != nil {
+		return nil, err
+	}
+	defer pRows.Close()
+
+	picksMap := make(map[int64]map[int64]*Pick)
+	for pRows.Next() {
+		var p Pick
+		if err := pRows.Scan(&p.ID, &p.UserID, &p.GameID, &p.PickedTeamID, &p.PredictedAwayScore, &p.PredictedHomeScore,
+			&p.PointsEarned, &p.BonusPoints, &p.IsCorrect); err != nil {
+			return nil, err
+		}
+		if picksMap[p.UserID] == nil {
+			picksMap[p.UserID] = make(map[int64]*Pick)
+		}
+		picksMap[p.UserID][p.GameID] = &p
+	}
+
+	var rows []*PicksMatrixRow
+	for _, player := range players {
+		row := &PicksMatrixRow{
+			User:      player,
+			IsCurrent: currentUserID > 0 && currentUserID == player.ID,
+			Cells:     make([]*PicksMatrixCell, 0, len(games)),
+		}
+
+		userPicks := picksMap[player.ID]
+		for _, g := range games {
+			isGameLocked := g.IsGameOrWeekLocked(now, scoringCfg.LockMode, firstKickoff)
+			isRevealed := isGameLocked || isFullWeekLocked || (currentUserID > 0 && currentUserID == player.ID)
+
+			cell := &PicksMatrixCell{
+				GameID:       g.ID,
+				IsTiebreaker: g.IsTiebreaker,
+				IsRevealed:   isRevealed,
+			}
+
+			if userPicks != nil {
+				if pick, ok := userPicks[g.ID]; ok {
+					cell.HasPick = true
+					pick.InferWinnerFromScores(g)
+
+					if isRevealed {
+						cell.PickedTeamID = pick.PickedTeamID
+						if pick.PickedTeamID != nil {
+							if *pick.PickedTeamID == g.HomeTeamID && g.HomeTeam != nil {
+								cell.PickedTeamCode = g.HomeTeam.Code
+								cell.PickedTeamLogo = g.HomeTeam.LogoURL
+							} else if *pick.PickedTeamID == g.AwayTeamID && g.AwayTeam != nil {
+								cell.PickedTeamCode = g.AwayTeam.Code
+								cell.PickedTeamLogo = g.AwayTeam.LogoURL
+							}
+						}
+						if g.IsTiebreaker {
+							cell.AwayScore = pick.PredictedAwayScore
+							cell.HomeScore = pick.PredictedHomeScore
+						}
+						cell.IsCorrect = pick.IsCorrect
+						row.TotalPoints += pick.PointsEarned + pick.BonusPoints
+						if pick.IsCorrect != nil && *pick.IsCorrect {
+							row.TotalCorrect++
+						}
+					}
+				}
+			}
+			row.Cells = append(row.Cells, cell)
+		}
+		rows = append(rows, row)
+	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].TotalPoints != rows[j].TotalPoints {
+			return rows[i].TotalPoints > rows[j].TotalPoints
+		}
+		if rows[i].TotalCorrect != rows[j].TotalCorrect {
+			return rows[i].TotalCorrect > rows[j].TotalCorrect
+		}
+		return rows[i].User.Username < rows[j].User.Username
+	})
+
+	for idx, rRow := range rows {
+		rRow.Rank = idx + 1
+	}
+
+	weeks, _ := r.ListWeeks(week.SeasonID)
+
+	return &PicksMatrixData{
+		Week:             week,
+		Weeks:            weeks,
+		Games:            games,
+		Rows:             rows,
+		TotalPlayers:     len(rows),
+		IsFullWeekLocked: isFullWeekLocked,
+	}, nil
+}
+
+// ----------------------------------------------------
+// Gamification & Achievements
+// ----------------------------------------------------
+
+// AwardAchievement grants an achievement to a user if not already earned
+func (r *Repository) AwardAchievement(userID int64, badgeCode, badgeName, badgeDesc, icon string, weekNumber *int) (bool, error) {
+	query := `
+	INSERT INTO user_achievements (user_id, badge_code, badge_name, badge_desc, icon, week_number, unlocked_at)
+	VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	ON CONFLICT(user_id, badge_code, week_number) DO NOTHING`
+
+	res, err := r.db.Exec(query, userID, badgeCode, badgeName, badgeDesc, icon, weekNumber)
+	if err != nil {
+		return false, err
+	}
+	affected, _ := res.RowsAffected()
+	return affected > 0, nil
+}
+
+// GetUserAchievements returns all unlocked achievements for a specific user
+func (r *Repository) GetUserAchievements(userID int64) ([]*UserAchievement, error) {
+	query := `
+	SELECT id, user_id, badge_code, badge_name, badge_desc, icon, week_number, unlocked_at
+	FROM user_achievements
+	WHERE user_id = ?
+	ORDER BY unlocked_at DESC, id DESC`
+
+	rows, err := r.db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var achievements []*UserAchievement
+	for rows.Next() {
+		var a UserAchievement
+		var unlockedStr string
+		if err := rows.Scan(&a.ID, &a.UserID, &a.BadgeCode, &a.BadgeName, &a.BadgeDesc, &a.Icon, &a.WeekNumber, &unlockedStr); err != nil {
+			return nil, err
+		}
+		a.UnlockedAt = parseTimeSafe(unlockedStr)
+		achievements = append(achievements, &a)
+	}
+	return achievements, nil
+}
+
+// GetAllUserAchievements returns a map of user_id -> slice of achievements
+func (r *Repository) GetAllUserAchievements() (map[int64][]*UserAchievement, error) {
+	query := `
+	SELECT id, user_id, badge_code, badge_name, badge_desc, icon, week_number, unlocked_at
+	FROM user_achievements
+	ORDER BY unlocked_at DESC`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[int64][]*UserAchievement)
+	for rows.Next() {
+		var a UserAchievement
+		var unlockedStr string
+		if err := rows.Scan(&a.ID, &a.UserID, &a.BadgeCode, &a.BadgeName, &a.BadgeDesc, &a.Icon, &a.WeekNumber, &unlockedStr); err != nil {
+			return nil, err
+		}
+		a.UnlockedAt = parseTimeSafe(unlockedStr)
+		result[a.UserID] = append(result[a.UserID], &a)
+	}
+	return result, nil
+}
+
+// ----------------------------------------------------
+// Head-to-Head Season History
+// ----------------------------------------------------
+
+// GetHeadToHeadSeasonHistory compiles head-to-head records across all finished weeks of a season
+func (r *Repository) GetHeadToHeadSeasonHistory(userAID, userBID, seasonID int64) (*H2HSeasonHistory, error) {
+	userA, err := r.GetUserByID(userAID)
+	if err != nil || userA == nil {
+		return nil, fmt.Errorf("usuario A no encontrado")
+	}
+	userB, err := r.GetUserByID(userBID)
+	if err != nil || userB == nil {
+		return nil, fmt.Errorf("usuario B no encontrado")
+	}
+
+	query := `
+	SELECT w.week_number, w.name,
+	       COALESCE(wlA.total_points, 0) as a_pts,
+	       COALESCE(wlB.total_points, 0) as b_pts
+	FROM weeks w
+	LEFT JOIN weekly_leaderboard wlA ON w.id = wlA.week_id AND wlA.user_id = ?
+	LEFT JOIN weekly_leaderboard wlB ON w.id = wlB.week_id AND wlB.user_id = ?
+	WHERE w.season_id = ?
+	  AND (wlA.user_id IS NOT NULL OR wlB.user_id IS NOT NULL)
+	  AND (
+	      w.status = 'final'
+	      OR NOT EXISTS (SELECT 1 FROM games g WHERE g.week_id = w.id AND g.status != 'final')
+	  )
+	ORDER BY w.week_number ASC`
+
+	rows, err := r.db.Query(query, userAID, userBID, seasonID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	history := &H2HSeasonHistory{
+		UserA: userA,
+		UserB: userB,
+	}
+
+	for rows.Next() {
+		var res H2HWeekResult
+		if err := rows.Scan(&res.WeekNumber, &res.WeekName, &res.UserAPoints, &res.UserBPoints); err != nil {
+			return nil, err
+		}
+		history.UserATotalPoints += res.UserAPoints
+		history.UserBTotalPoints += res.UserBPoints
+
+		if res.UserAPoints > res.UserBPoints {
+			res.Winner = "user_a"
+			history.UserAWins++
+		} else if res.UserBPoints > res.UserAPoints {
+			res.Winner = "user_b"
+			history.UserBWins++
+		} else {
+			res.Winner = "tie"
+			history.Ties++
+		}
+		history.WeekResults = append(history.WeekResults, &res)
+	}
+
+	if history.UserAWins > history.UserBWins {
+		history.LeaderStatus = "a_leads"
+	} else if history.UserBWins > history.UserAWins {
+		history.LeaderStatus = "b_leads"
+	} else {
+		history.LeaderStatus = "tied"
+	}
+
+	return history, nil
 }
 

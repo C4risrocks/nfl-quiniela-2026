@@ -213,6 +213,14 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 		}
 	}
 
+	// Evaluate gamification achievements
+	week, err := c.repo.GetWeekByID(weekID)
+	if err != nil {
+		log.Printf("[Scoring] Warning: could not load week #%d for achievements: %v", weekID, err)
+	} else {
+		c.evaluateAchievements(week, games, leaderboardEntries, userPicks)
+	}
+
 	log.Printf("[Scoring] Calculated leaderboard for Week ID #%d (%d players ranked).", weekID, len(leaderboardEntries))
 	return nil
 }

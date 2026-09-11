@@ -480,9 +480,20 @@ func (h *PicksHandler) ComparePicks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var seasonID int64
+	season, err := h.repo.GetActiveSeason(h.seasonYear)
+	if err == nil && season != nil {
+		seasonID = season.ID
+	} else if comparison.Week != nil {
+		seasonID = comparison.Week.SeasonID
+	}
+
+	seasonHistory, _ := h.repo.GetHeadToHeadSeasonHistory(currentUser.ID, rivalID, seasonID)
+
 	h.renderer.RenderPartial(w, "head_to_head_modal.html", map[string]interface{}{
-		"Comparison":  comparison,
-		"CurrentUser": currentUser,
+		"Comparison":    comparison,
+		"CurrentUser":   currentUser,
+		"SeasonHistory": seasonHistory,
 	})
 }
 
@@ -509,4 +520,74 @@ func (h *PicksHandler) formatKickoff(t time.Time) string {
 	dayAbbr := map[string]string{"Mon": "Lun", "Tue": "Mar", "Wed": "Mié", "Thu": "Jue", "Fri": "Vie", "Sat": "Sáb", "Sun": "Dom"}[t.Format("Mon")]
 	monthAbbr := map[string]string{"Jan": "Ene", "Feb": "Feb", "Mar": "Mar", "Apr": "Abr", "May": "May", "Jun": "Jun", "Jul": "Jul", "Aug": "Ago", "Sep": "Sep", "Oct": "Oct", "Nov": "Nov", "Dec": "Dic"}[t.Format("Jan")]
 	return dayAbbr + ", " + t.Format("2") + " " + monthAbbr + " - " + t.Format("3:04 PM")
+}
+
+// ShowPicksMatrix displays the full community picks matrix (sábana)
+func (h *PicksHandler) ShowPicksMatrix(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromContext(r.Context())
+	season, err := h.repo.GetActiveSeason(2026)
+	if err != nil {
+		http.Error(w, "Error loading season", http.StatusInternalServerError)
+		return
+	}
+
+	weeks, err := h.repo.ListWeeks(season.ID)
+	if err != nil || len(weeks) == 0 {
+		http.Error(w, "No weeks found", http.StatusNotFound)
+		return
+	}
+
+	weekNumStr := r.URL.Query().Get("week")
+	var selectedWeek *db.Week
+	if weekNumStr != "" {
+		wn, _ := strconv.Atoi(weekNumStr)
+		for _, wk := range weeks {
+			if wk.WeekNumber == wn {
+				selectedWeek = wk
+				break
+			}
+		}
+	}
+	if selectedWeek == nil {
+		for _, wk := range weeks {
+			if wk.Status == "active" {
+				selectedWeek = wk
+				break
+			}
+		}
+		if selectedWeek == nil {
+			selectedWeek = weeks[0]
+		}
+	}
+
+	var currentUserID int64 = 0
+	if user != nil {
+		currentUserID = user.ID
+	}
+
+	matrixData, err := h.repo.GetPicksMatrixForWeek(selectedWeek.ID, currentUserID)
+	if err != nil {
+		http.Error(w, "Error loading picks matrix: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	matrixData.User = user
+
+	if r.Header.Get("HX-Request") == "true" && r.URL.Query().Get("partial") == "1" {
+		h.renderer.RenderPartial(w, "picks_matrix_table.html", map[string]interface{}{
+			"Matrix":       matrixData,
+			"User":         user,
+			"SelectedWeek": selectedWeek,
+			"Weeks":        weeks,
+		})
+		return
+	}
+
+	h.renderer.RenderPage(w, "picks_matrix.html", map[string]interface{}{
+		"ActiveNav":    "picks",
+		"User":         user,
+		"Matrix":       matrixData,
+		"SelectedWeek": selectedWeek,
+		"Weeks":        weeks,
+	})
 }

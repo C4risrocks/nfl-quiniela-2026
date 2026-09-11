@@ -25,9 +25,12 @@
                  clone.style.minHeight = targetHeight + 'px';
              }
              clone.style.position = 'fixed';
-             clone.style.left = '-9999px';
+             clone.style.left = '0';
              clone.style.top = '0';
              clone.style.zIndex = '-9999';
+             clone.style.opacity = '1';
+             clone.style.pointerEvents = 'none';
+             clone.style.transform = 'none';
              clone.style.display = 'flex';
              clone.style.flexDirection = 'column';
 
@@ -44,6 +47,10 @@
                      allowTaint: true,
                      backgroundColor: '#09090b',
                      logging: false,
+                     x: 0,
+                     y: 0,
+                     scrollX: 0,
+                     scrollY: 0,
                      windowWidth: targetWidth,
                      width: targetWidth,
                      height: isStory ? targetHeight : clone.offsetHeight
@@ -173,14 +180,11 @@
                         </div>
                     </div>
 
-                    <!-- Week Vector Pill Badge (Zero Font-Shift Bug) -->
+                    <!-- Week Pill Badge -->
                     <div class="flex flex-col items-end">
-                        <svg width="110" height="26" viewBox="0 0 110 26" class="shrink-0 shadow-sm">
-                            <rect width="110" height="26" rx="13" fill="#ffffff"/>
-                            <text x="55" y="14" text-anchor="middle" dominant-baseline="central" fill="#000000" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="11" letter-spacing="0.5">
-                                {{if eq .ViewMode "season"}}GENERAL 2026{{else}}{{.SelectedWeek.Name}}{{end}}
-                            </text>
-                        </svg>
+                        <span class="inline-flex items-center justify-center px-3 py-1 rounded-full bg-white text-black font-black text-[11px] uppercase tracking-wider leading-none shadow-sm whitespace-nowrap">
+                            {{if eq .ViewMode "season"}}GENERAL 2026{{else}}{{.SelectedWeek.Name}}{{end}}
+                        </span>
                         <span class="text-[9px] font-mono text-zinc-500 mt-1 leading-none">Clasificación Oficial</span>
                     </div>
                 </div>
@@ -193,44 +197,29 @@
                                 
                                 <!-- Left: Rank + Avatar + Username -->
                                 <div class="flex items-center space-x-2.5 min-w-0 flex-1">
-                                    <!-- Vector Rank Badge (Zero baseline shift) -->
+                                    <!-- Rank Badge -->
                                     <div class="w-6 flex items-center justify-center shrink-0">
                                         {{if eq $entry.Rank 1}}
-                                            <svg width="22" height="22" viewBox="0 0 22 22" class="shrink-0">
-                                                <circle cx="11" cy="11" r="10" fill="#f59e0b" stroke="#fbbf24" stroke-width="1"/>
-                                                <text x="11" y="12" text-anchor="middle" dominant-baseline="central" fill="#000000" font-family="system-ui, sans-serif" font-weight="900" font-size="11">1</text>
-                                            </svg>
+                                            <span class="w-[22px] h-[22px] rounded-full bg-amber-400 border border-amber-300 flex items-center justify-center text-black font-black text-[11px] leading-none shrink-0 shadow-sm">1</span>
                                         {{else if eq $entry.Rank 2}}
-                                            <svg width="22" height="22" viewBox="0 0 22 22" class="shrink-0">
-                                                <circle cx="11" cy="11" r="10" fill="#d4d4d8" stroke="#f4f4f5" stroke-width="1"/>
-                                                <text x="11" y="12" text-anchor="middle" dominant-baseline="central" fill="#000000" font-family="system-ui, sans-serif" font-weight="900" font-size="11">2</text>
-                                            </svg>
+                                            <span class="w-[22px] h-[22px] rounded-full bg-zinc-300 border border-zinc-200 flex items-center justify-center text-black font-black text-[11px] leading-none shrink-0 shadow-sm">2</span>
                                         {{else if eq $entry.Rank 3}}
-                                            <svg width="22" height="22" viewBox="0 0 22 22" class="shrink-0">
-                                                <circle cx="11" cy="11" r="10" fill="#b45309" stroke="#d97706" stroke-width="1"/>
-                                                <text x="11" y="12" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="900" font-size="11">3</text>
-                                            </svg>
+                                            <span class="w-[22px] h-[22px] rounded-full bg-amber-700 border border-amber-600 flex items-center justify-center text-white font-black text-[11px] leading-none shrink-0 shadow-sm">3</span>
                                         {{else}}
-                                            <svg width="22" height="22" viewBox="0 0 22 22" class="shrink-0">
-                                                <text x="11" y="12" text-anchor="middle" dominant-baseline="central" fill="#a1a1aa" font-family="monospace, sans-serif" font-weight="700" font-size="10.5">#{{$entry.Rank}}</text>
-                                            </svg>
+                                            <span class="font-mono font-bold text-[11px] text-zinc-400 leading-none">#{{$entry.Rank}}</span>
                                         {{end}}
                                     </div>
 
-                                    <!-- Vector Initial Avatar (Perfect vertical centering) -->
-                                    <svg width="26" height="26" viewBox="0 0 26 26" class="shrink-0 shadow">
-                                        <circle cx="13" cy="13" r="12" fill="#27272a" stroke="#3f3f46" stroke-width="1"/>
-                                        <text x="13" y="14" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="11">{{slice $entry.Username 0 1}}</text>
-                                    </svg>
+                                    <!-- Initial Avatar -->
+                                    <div class="w-[26px] h-[26px] rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white font-black text-[11px] leading-none shrink-0 uppercase shadow-sm">
+                                        {{slice $entry.Username 0 1}}
+                                    </div>
 
                                     <!-- Username + You Indicator -->
                                     <div class="min-w-0 flex items-center space-x-1.5 flex-1">
                                         <span class="font-bold text-xs text-white truncate max-w-[220px] leading-tight">{{$entry.Username}}</span>
                                         {{if and $.User (eq $entry.UserID $.User.ID)}}
-                                            <svg width="24" height="15" viewBox="0 0 24 15" class="shrink-0">
-                                                <rect width="24" height="15" rx="3" fill="#ffffff"/>
-                                                <text x="12" y="8.5" text-anchor="middle" dominant-baseline="central" fill="#000000" font-family="system-ui, sans-serif" font-weight="900" font-size="8.5">TÚ</text>
-                                            </svg>
+                                            <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded bg-white text-black font-black text-[8px] leading-none shrink-0 uppercase">TÚ</span>
                                         {{end}}
                                     </div>
                                 </div>
@@ -274,12 +263,9 @@
                         <div class="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-700/80 flex items-center justify-center p-1.5 shadow">
                             <img src="https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png" alt="NFL" class="w-full h-full object-contain" crossorigin="anonymous">
                         </div>
-                        <svg width="116" height="28" viewBox="0 0 116 28" class="shrink-0 shadow-sm">
-                            <rect width="116" height="28" rx="14" fill="#ffffff"/>
-                            <text x="58" y="15" text-anchor="middle" dominant-baseline="central" fill="#000000" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="11" letter-spacing="0.5">
-                                {{if eq .ViewMode "season"}}GENERAL 2026{{else}}{{.SelectedWeek.Name}}{{end}}
-                            </text>
-                        </svg>
+                        <span class="inline-flex items-center justify-center px-3 py-1 rounded-full bg-white text-black font-black text-[11px] uppercase tracking-wider leading-none shadow-sm whitespace-nowrap">
+                            {{if eq .ViewMode "season"}}GENERAL 2026{{else}}{{.SelectedWeek.Name}}{{end}}
+                        </span>
                     </div>
 
                     <div class="text-[11px] font-mono uppercase tracking-widest text-zinc-400 font-bold mb-0.5">NFL Quiniela 2026</div>
@@ -328,10 +314,7 @@
                                     </div>
                                     <span class="font-bold text-xs text-white truncate max-w-[160px]">{{$entry.Username}}</span>
                                     {{if and $.User (eq $entry.UserID $.User.ID)}}
-                                        <svg width="22" height="14" viewBox="0 0 22 14" class="shrink-0">
-                                            <rect width="22" height="14" rx="3" fill="#ffffff"/>
-                                            <text x="11" y="8" text-anchor="middle" dominant-baseline="central" fill="#000000" font-family="system-ui, sans-serif" font-weight="900" font-size="8">TÚ</text>
-                                        </svg>
+                                        <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded bg-white text-black font-black text-[8px] leading-none shrink-0 uppercase">TÚ</span>
                                     {{end}}
                                 </div>
                                 <div class="flex items-center space-x-2 font-mono text-right shrink-0">

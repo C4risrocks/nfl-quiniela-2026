@@ -70,6 +70,18 @@ func (r *Renderer) FuncMap() template.FuncMap {
 			}
 			return a / b
 		},
+		"min": func(a, b int) int {
+			if a < b {
+				return a
+			}
+			return b
+		},
+		"max": func(a, b int) int {
+			if a > b {
+				return a
+			}
+			return b
+		},
 		"slice": func(s string, start, end int) string {
 			if len(s) == 0 {
 				return ""

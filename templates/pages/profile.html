@@ -93,6 +93,57 @@
         </div>
     </div>
 
+    <!-- Vitrina de Logros y Condecoraciones -->
+    <div class="vercel-card p-5 sm:p-6 rounded-2xl shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-zinc-800/80">
+            <div>
+                <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center">
+                    <i class="fa-solid fa-medal text-amber-400 mr-2"></i> Vitrina de Logros y Condecoraciones
+                </h2>
+                <p class="text-xs text-zinc-400 mt-0.5">Insignias exclusivas desbloqueadas por hitos excepcionales durante la temporada.</p>
+            </div>
+            <div class="inline-flex items-center px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300">
+                <span class="text-amber-400 font-bold mr-1.5">{{.UnlockedAchievementsCount}}</span> / {{.TotalBadgesCount}} Desbloqueados
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {{range .AchievementDisplays}}
+                <div class="p-3.5 rounded-xl border transition-all flex items-start space-x-3 {{if .IsUnlocked}}bg-gradient-to-b from-amber-500/10 via-zinc-900/60 to-zinc-950 border-amber-500/40 shadow-sm{{else}}bg-zinc-950/40 border-zinc-800/60 opacity-50{{end}}">
+                    <!-- Badge Icon Box -->
+                    <div class="w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0 {{if .IsUnlocked}}bg-amber-500/20 border border-amber-500/40 shadow-inner{{else}}bg-zinc-900 border border-zinc-800 text-zinc-600 grayscale{{end}}">
+                        {{if .IsUnlocked}}
+                            <span>{{.Definition.Icon}}</span>
+                        {{else}}
+                            <i class="fa-solid fa-lock text-sm text-zinc-600"></i>
+                        {{end}}
+                    </div>
+
+                    <!-- Badge Details -->
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center justify-between gap-1">
+                            <h3 class="text-xs font-bold truncate {{if .IsUnlocked}}text-white{{else}}text-zinc-500{{end}}">
+                                {{.Definition.Name}}
+                            </h3>
+                            {{if .IsUnlocked}}
+                                <span class="text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+                                    {{if .WeekNumber}}Sem {{.WeekNumber}}{{else}}Obtenido{{end}}
+                                </span>
+                            {{else}}
+                                <span class="text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-zinc-900 text-zinc-600 border border-zinc-800 shrink-0">
+                                    Bloqueado
+                                </span>
+                            {{end}}
+                        </div>
+                        <p class="text-[11px] leading-relaxed mt-1 {{if .IsUnlocked}}text-zinc-300{{else}}text-zinc-500{{end}}">
+                            {{.Definition.Description}}
+                        </p>
+                    </div>
+                </div>
+            {{end}}
+        </div>
+    </div>
+
     <!-- Advanced Analytics & Tendencies Card -->
     {{if .AdvancedStats}}
     <div class="vercel-card p-5 sm:p-6 rounded-2xl shadow-sm space-y-5">

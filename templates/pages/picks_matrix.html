@@ -1,0 +1,85 @@
+{{template "base.html" .}}
+
+{{define "title"}}Matriz de Pronósticos - Quiniela NFL 2026{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+
+    <!-- Header Card with Week Selector -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 vercel-card p-5 sm:p-6 rounded-2xl shadow-sm">
+        <div>
+            <div class="flex items-center space-x-2 mb-1">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+                    <i class="fa-solid fa-table-cells mr-1"></i> Sábana Comunitaria
+                </span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700/60">
+                    Jornada {{.SelectedWeek.WeekNumber}} de 22
+                </span>
+            </div>
+            <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center">
+                Matriz de Pronósticos
+            </h1>
+            <p class="text-xs text-zinc-400 mt-1 max-w-xl">
+                Compara las selecciones de todos los jugadores partido a partido en tiempo real.
+            </p>
+        </div>
+
+        <!-- Navigation Buttons & Week Dropdown -->
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3 justify-between md:justify-end w-full md:w-auto">
+            <div class="flex items-center space-x-2">
+                <span class="text-xs font-mono text-zinc-400 uppercase tracking-wider">Jornada:</span>
+                <select id="matrix-week-select" 
+                        onchange="window.location.href = '/picks/matrix?week=' + this.value"
+                        class="bg-zinc-900 border border-zinc-700/80 text-white text-xs font-semibold rounded-xl px-3 py-2 focus:ring-1 focus:ring-white focus:border-white transition-all shadow-inner">
+                    {{range .Weeks}}
+                        <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
+                            {{.Name}} {{if eq .Status "active"}}⚡{{end}}
+                        </option>
+                    {{end}}
+                </select>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <a href="/picks?week={{.SelectedWeek.WeekNumber}}" 
+                   class="inline-flex items-center px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-zinc-500 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer">
+                    <i class="fa-solid fa-list-check mr-1.5 text-zinc-400"></i> Mis Picks
+                </a>
+                <a href="/leaderboard?week={{.SelectedWeek.WeekNumber}}" 
+                   class="inline-flex items-center px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-amber-500/50 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer">
+                    <i class="fa-solid fa-trophy mr-1.5 text-amber-400"></i> Posiciones
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fair Play & Rules Notice -->
+    <div class="p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800 text-xs text-zinc-300 flex items-center justify-between gap-3 shadow-sm">
+        <div class="flex items-center space-x-2.5">
+            <i class="fa-solid fa-shield-halved text-cyan-400 text-sm shrink-0"></i>
+            <span>
+                <strong class="text-white">Fair Play y Privacidad Anti-Copia:</strong> 
+                Los pronósticos de tus rivales se revelan automáticamente en cuanto inicia cada partido (🔒 hasta el kickoff).
+            </span>
+        </div>
+        <div class="hidden sm:flex items-center space-x-3 font-mono text-[11px] text-zinc-400 shrink-0">
+            <span><strong>{{.Matrix.TotalPlayers}}</strong> participantes</span>
+            <span>•</span>
+            <span><strong>{{len .Matrix.Games}}</strong> partidos</span>
+        </div>
+    </div>
+
+    <!-- Mobile Scroll Helper Hint -->
+    <div class="block sm:hidden text-center text-[11px] font-mono text-zinc-400 bg-zinc-950/60 py-1.5 px-3 rounded-lg border border-zinc-800/80">
+        <i class="fa-solid fa-arrows-left-right text-cyan-400 mr-1"></i> Desliza hacia la derecha para ver todos los partidos
+    </div>
+
+    <!-- Live Updating Table Container -->
+    <div id="matrix-table-container"
+         hx-get="/picks/matrix?week={{.SelectedWeek.WeekNumber}}&partial=1"
+         hx-trigger="every 45s"
+         hx-swap="innerHTML">
+        {{template "picks_matrix_table.html" .}}
+    </div>
+
+</div>
+{{end}}

@@ -4,11 +4,15 @@
 {{$isTbScoresMissing := and $pick ($pick.HasMissingTiebreakerScores .Game)}}
 {{$homePicked := and $pick ($pick.IsPickedTeam .Game.HomeTeamID)}}
 {{$awayPicked := and $pick ($pick.IsPickedTeam .Game.AwayTeamID)}}
+{{$scoringMode := .ScoringMode}}
+{{if not $scoringMode}}{{$scoringMode = "pure_tiebreaker"}}{{end}}
+{{$showScoreInputs := or (eq $scoringMode "weighted") .Game.IsTiebreaker}}
 
 <div id="game-card-{{.Game.ID}}" 
      data-game-id="{{.Game.ID}}"
      data-is-tiebreaker="{{.Game.IsTiebreaker}}"
      data-locked="{{$locked}}"
+     data-scoring-mode="{{$scoringMode}}"
      data-broadcasts="{{range .Game.MexicoBroadcastOptions}}{{.Name}},{{end}}"
      x-show="typeof activePlatform === 'undefined' || activePlatform === 'all' || '{{range .Game.MexicoBroadcastOptions}}{{.Name}},{{end}}'.toLowerCase().includes(activePlatform)"
      x-data="{ 
@@ -18,6 +22,7 @@
          awayScore: '{{if $pick}}{{$pick.AwayScoreStr}}{{end}}',
          homeScore: '{{if $pick}}{{$pick.HomeScoreStr}}{{end}}',
          isTiebreaker: {{if .Game.IsTiebreaker}}true{{else}}false{{end}},
+         scoringMode: '{{$scoringMode}}',
          isLocked: {{$locked}},
          get isComplete() {
              const hasPick = this.pickedTeam && this.pickedTeam !== '';
@@ -25,6 +30,9 @@
              const hasHome = this.homeScore && this.homeScore.trim() !== '';
              if (this.isTiebreaker) {
                  return hasPick && hasAway && hasHome;
+             }
+             if (this.scoringMode === 'pure_tiebreaker') {
+                 return hasPick;
              }
              return hasPick || (hasAway && hasHome && this.awayScore !== this.homeScore);
          },
@@ -70,7 +78,7 @@
              if (typeof updatePicksCounter === 'function') updatePicksCounter();
          }
      }"
-     class="vercel-card rounded-2xl relative transition-all duration-150 shadow-sm {{if .Game.IsTiebreaker}}ring-1 ring-amber-500/30 bg-gradient-to-b from-amber-500/5 via-transparent to-transparent{{end}}"
+     class="vercel-card rounded-2xl relative transition-all duration-150 shadow-sm {{if .Game.IsTiebreaker}}ring-2 ring-amber-500/40 bg-gradient-to-b from-amber-500/10 via-zinc-950 to-zinc-950 border-amber-500/40 shadow-lg shadow-amber-500/5{{end}}"
      :class="typeof viewMode !== 'undefined' && viewMode === 'compact' ? 'p-3 sm:p-3.5 !rounded-xl' : 'p-4 sm:p-5'">
     
     <input type="hidden" 
@@ -238,16 +246,17 @@
         </div>
     </div>
 
+    {{if $showScoreInputs}}
     <!-- Score Prediction Inputs (Extra Points & Tiebreaker) -->
-    <div class="mt-3 pt-3 border-t border-[#1f1f1f] bg-black/40 rounded-xl p-3 border border-[#1a1a1a]"
+    <div class="mt-3 pt-3 border-t border-[#1f1f1f] rounded-xl p-3 border {{if .Game.IsTiebreaker}}border-amber-500/40 bg-amber-500/10 ring-1 ring-amber-500/20{{else}}border-[#1a1a1a] bg-black/40{{end}}"
          :class="typeof viewMode !== 'undefined' && viewMode === 'compact' ? '!mt-1.5 !pt-1.5 !p-2' : 'mt-3 pt-3 p-3'">
         <div class="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <div class="flex items-center space-x-2 text-zinc-400">
                 <i class="fa-solid fa-calculator text-zinc-500"></i>
                 <span class="font-medium text-[11px]">
                     {{if .Game.IsTiebreaker}}
-                        <span class="text-amber-300 font-semibold flex items-center">
-                            <i class="fa-solid fa-star text-[9px] mr-1 text-amber-400"></i> Marcador Desempate MNF:
+                        <span class="text-amber-300 font-bold flex items-center">
+                            <i class="fa-solid fa-star text-[10px] mr-1.5 text-amber-400"></i> Marcador Desempate MNF (Oficial):
                         </span>
                     {{else}}
                         Pronóstico de Marcador:
@@ -318,9 +327,15 @@
                     </button>
                     {{end}}
                     <span class="font-mono font-bold text-xs text-zinc-300 ml-1">{{.Game.HomeTeam.Code}}</span>
+                </div>
             </div>
         </div>
     </div>
+    {{else}}
+    <!-- Hidden Inputs for Pure Tiebreaker Regular Games (Score not required) -->
+    <input type="hidden" name="away_score_{{.Game.ID}}" value="{{if $pick}}{{$pick.AwayScoreStr}}{{end}}">
+    <input type="hidden" name="home_score_{{.Game.ID}}" value="{{if $pick}}{{$pick.HomeScoreStr}}{{end}}">
+    {{end}}
 
     <!-- Game Live In-Progress Status Banner -->
     {{if and (eq .Game.Status "in_progress") $locked}}

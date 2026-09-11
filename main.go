@@ -193,6 +193,7 @@ func main() {
 		player.Post("/picks/save-all", picksHandler.SaveAll)
 		player.Get("/picks/community/{gameId}", picksHandler.CommunityPicks)
 		player.Get("/picks/compare", picksHandler.ComparePicks)
+		player.Get("/picks/matrix", picksHandler.ShowPicksMatrix)
 
 		// Profile & Preferences
 		player.Get("/profile", profileHandler.ShowProfile)

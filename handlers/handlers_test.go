@@ -1098,4 +1098,81 @@ func TestAdminRecalculateScores(t *testing.T) {
 	}
 }
 
+func TestPicksMatrixHandler(t *testing.T) {
+	repo, _, renderer, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	picksHandler := NewPicksHandler(repo, renderer, nil, 2026)
+
+	user, err := repo.CreateUser("matrix_tester", "matrix@test.com", "secret123", "player")
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	// 1. GET /picks/matrix as full page
+	req := httptest.NewRequest(http.MethodGet, "/picks/matrix?week=1", nil)
+	ctx := context.WithValue(req.Context(), auth.UserContextKey, user)
+	req = req.WithContext(ctx)
+
+	rr := httptest.NewRecorder()
+	picksHandler.ShowPicksMatrix(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from ShowPicksMatrix, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	body := rr.Body.String()
+	if !strings.Contains(body, "Matriz de Pronósticos") {
+		t.Errorf("Expected page to contain 'Matriz de Pronósticos'")
+	}
+	if !strings.Contains(body, "matrix-table-container") {
+		t.Errorf("Expected page to contain 'matrix-table-container'")
+	}
+
+	// 2. GET /picks/matrix as HTMX partial
+	reqHTMX := httptest.NewRequest(http.MethodGet, "/picks/matrix?week=1", nil)
+	reqHTMX.Header.Set("HX-Request", "true")
+	reqHTMX = reqHTMX.WithContext(ctx)
+
+	rrHTMX := httptest.NewRecorder()
+	picksHandler.ShowPicksMatrix(rrHTMX, reqHTMX)
+
+	if rrHTMX.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from HTMX ShowPicksMatrix, got %d", rrHTMX.Code)
+	}
+	bodyHTMX := rrHTMX.Body.String()
+	if !strings.Contains(bodyHTMX, "sticky left-0") {
+		t.Errorf("Expected partial to contain sticky mobile column 'sticky left-0'")
+	}
+}
+
+func TestComparePicksHandler(t *testing.T) {
+	repo, _, renderer, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	picksHandler := NewPicksHandler(repo, renderer, nil, 2026)
+
+	userA, _ := repo.CreateUser("user_a", "a@test.com", "pass", "player")
+	userB, _ := repo.CreateUser("user_b", "b@test.com", "pass", "player")
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/picks/compare?rival_id=%d", userB.ID), nil)
+	ctx := context.WithValue(req.Context(), auth.UserContextKey, userA)
+	req = req.WithContext(ctx)
+
+	rr := httptest.NewRecorder()
+	picksHandler.ComparePicks(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from ComparePicks, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	body := rr.Body.String()
+	if !strings.Contains(body, "Duelo Cara a Cara") {
+		t.Errorf("Expected modal to contain 'Duelo Cara a Cara'")
+	}
+	if !strings.Contains(body, userB.Username) {
+		t.Errorf("Expected modal to contain rival username '%s'", userB.Username)
+	}
+}
+
 

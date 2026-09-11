@@ -34,6 +34,16 @@
                                     {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}
                                         <span class="ml-1.5 text-[9px] font-mono uppercase font-black bg-white text-black px-1.5 py-0.2 rounded-full shrink-0">Tú</span>
                                     {{end}}
+                                    {{if .Achievements}}
+                                        <div class="flex items-center space-x-0.5 ml-1.5 shrink-0" title="{{len .Achievements}} insignias">
+                                            {{range .TopAchievements 3}}
+                                                <span class="text-[11px] leading-none select-none" title="{{.BadgeName}}">{{.Icon}}</span>
+                                            {{end}}
+                                            {{if gt (.ExtraAchievementsCount 3) 0}}
+                                                <span class="text-[9px] text-zinc-500 font-mono font-bold">+{{.ExtraAchievementsCount 3}}</span>
+                                            {{end}}
+                                        </div>
+                                    {{end}}
                                 </div>
                                 <div class="text-[11px] font-mono text-zinc-400 flex items-center space-x-1.5 mt-0.5">
                                     <span>{{.CorrectPicks}}/{{.TotalPicks}} aciertos</span>
@@ -134,9 +144,19 @@
                                         {{slice .Username 0 1}}
                                     </div>
                                     <div class="font-medium text-white flex items-center">
-                                        {{.Username}}
+                                        <span>{{.Username}}</span>
                                         {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}
                                             <span class="ml-2 text-[9px] font-mono uppercase font-bold bg-white text-black px-1.5 py-0.2 rounded-full">Tú</span>
+                                        {{end}}
+                                        {{if .Achievements}}
+                                            <div class="flex items-center space-x-1 ml-2 shrink-0" title="{{len .Achievements}} logros desbloqueados">
+                                                {{range .TopAchievements 3}}
+                                                    <span class="text-xs leading-none select-none hover:scale-125 transition-transform" title="{{.BadgeName}}: {{.BadgeDesc}}">{{.Icon}}</span>
+                                                {{end}}
+                                                {{if gt (.ExtraAchievementsCount 3) 0}}
+                                                    <span class="text-[9px] text-zinc-500 font-mono font-semibold">+{{.ExtraAchievementsCount 3}}</span>
+                                                {{end}}
+                                            </div>
                                         {{end}}
                                     </div>
                                 </div>

@@ -741,5 +741,226 @@ func TestLeaderboardExcludesAdmins(t *testing.T) {
 	}
 }
 
+func TestPicksMatrixAndPrivacy(t *testing.T) {
+	testDBPath := "test_matrix.db"
+	defer os.Remove(testDBPath)
 
+	database, err := InitDB("sqlite", testDBPath)
+	if err != nil {
+		t.Fatalf("Failed to init db: %v", err)
+	}
+	defer database.Close()
 
+	repo := NewRepository(database)
+	_ = SeedDatabase(repo, "admin", "admin@test.com", "pass123", 2026)
+
+	season, _ := repo.GetActiveSeason(2026)
+	weeks, _ := repo.ListWeeks(season.ID)
+	week1 := weeks[0]
+
+	teams, _ := repo.ListTeams()
+	kc := teams[0]
+	bal := teams[1]
+
+	// Game 1: scheduled in future (locked = false)
+	gFuture, err := repo.CreateManualGame(&Game{
+		WeekID:       week1.ID,
+		HomeTeamID:   kc.ID,
+		AwayTeamID:   bal.ID,
+		KickoffTime:  time.Now().Add(24 * time.Hour),
+		Status:       "scheduled",
+		IsTiebreaker: false,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create future game: %v", err)
+	}
+
+	// Game 2: final (locked = true)
+	scoreHome := 24
+	scoreAway := 20
+	gFinal, err := repo.CreateManualGame(&Game{
+		WeekID:       week1.ID,
+		HomeTeamID:   kc.ID,
+		AwayTeamID:   bal.ID,
+		KickoffTime:  time.Now().Add(-2 * time.Hour),
+		Status:       "final",
+		HomeScore:    &scoreHome,
+		AwayScore:    &scoreAway,
+		IsTiebreaker: true,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create final game: %v", err)
+	}
+
+	// Two players
+	user1, _ := repo.CreateUser("matrix_p1", "p1@test.com", "hash", "player")
+	user2, _ := repo.CreateUser("matrix_p2", "p2@test.com", "hash", "player")
+
+	// P1 picks KC for both games
+	_, _ = repo.SavePick(user1.ID, gFuture.ID, &kc.ID, nil, nil)
+	_, _ = repo.SavePick(user1.ID, gFinal.ID, &kc.ID, &scoreHome, &scoreAway)
+
+	// P2 picks BAL for both games
+	_, _ = repo.SavePick(user2.ID, gFuture.ID, &bal.ID, nil, nil)
+	_, _ = repo.SavePick(user2.ID, gFinal.ID, &bal.ID, &scoreAway, &scoreHome)
+
+	// Request matrix as User 1
+	matrixData, err := repo.GetPicksMatrixForWeek(week1.ID, user1.ID)
+	if err != nil {
+		t.Fatalf("GetPicksMatrixForWeek failed: %v", err)
+	}
+
+	if len(matrixData.Rows) != 2 {
+		t.Fatalf("Expected 2 player rows in matrix, got %d", len(matrixData.Rows))
+	}
+
+	// Verify privacy:
+	// In User 1 row: both picks should be revealed (it's user1 viewing their own picks)
+	// In User 2 row: future game pick should NOT be revealed (is_revealed == false), but final game should be revealed
+	var row1, row2 *PicksMatrixRow
+	for _, r := range matrixData.Rows {
+		if r.User.ID == user1.ID {
+			row1 = r
+		} else if r.User.ID == user2.ID {
+			row2 = r
+		}
+	}
+
+	if row1 == nil || row2 == nil {
+		t.Fatalf("Missing player rows in matrix")
+	}
+
+	// User 1 own picks
+	for _, cell := range row1.Cells {
+		if !cell.IsRevealed {
+			t.Errorf("User 1 should see their own pick revealed for game %d", cell.GameID)
+		}
+	}
+
+	// User 2 picks viewed by User 1
+	for _, cell := range row2.Cells {
+		if cell.GameID == gFuture.ID {
+			if cell.IsRevealed {
+				t.Errorf("Fair Play violation: Future game pick of rival should NOT be revealed")
+			}
+			if cell.PickedTeamID != nil {
+				t.Errorf("Fair Play violation: PickedTeamID should be nil when not revealed")
+			}
+		} else if cell.GameID == gFinal.ID {
+			if !cell.IsRevealed {
+				t.Errorf("Final game pick should be revealed for all players")
+			}
+			if cell.PickedTeamID == nil || *cell.PickedTeamID != bal.ID {
+				t.Errorf("Expected rival's final pick to be BAL")
+			}
+		}
+	}
+}
+
+func TestUserAchievementsCRUD(t *testing.T) {
+	testDBPath := "test_achievements.db"
+	defer os.Remove(testDBPath)
+
+	database, err := InitDB("sqlite", testDBPath)
+	if err != nil {
+		t.Fatalf("Failed to init db: %v", err)
+	}
+	defer database.Close()
+
+	repo := NewRepository(database)
+	_ = SeedDatabase(repo, "admin", "admin@test.com", "pass123", 2026)
+
+	user, _ := repo.CreateUser("ach_user", "ach@test.com", "hash", "player")
+
+	weekNum := 1
+	awarded, err := repo.AwardAchievement(user.ID, "perfect_week", "Pleno Perfecto", "100% de aciertos", "🎯", &weekNum)
+	if err != nil {
+		t.Fatalf("AwardAchievement failed: %v", err)
+	}
+	if !awarded {
+		t.Fatalf("Expected achievement to be awarded first time")
+	}
+
+	// Awarding same badge again should be idempotent
+	awardedAgain, err := repo.AwardAchievement(user.ID, "perfect_week", "Pleno Perfecto", "100% de aciertos", "🎯", &weekNum)
+	if err != nil {
+		t.Fatalf("AwardAchievement duplicate failed: %v", err)
+	}
+	if awardedAgain {
+		t.Fatalf("Expected duplicate achievement award to return false")
+	}
+
+	// Fetch user achievements
+	achs, err := repo.GetUserAchievements(user.ID)
+	if err != nil {
+		t.Fatalf("GetUserAchievements failed: %v", err)
+	}
+	if len(achs) != 1 || achs[0].BadgeCode != "perfect_week" {
+		t.Fatalf("Expected 1 achievement with code 'perfect_week', got %+v", achs)
+	}
+
+	// Fetch all user achievements map
+	allMap, err := repo.GetAllUserAchievements()
+	if err != nil {
+		t.Fatalf("GetAllUserAchievements failed: %v", err)
+	}
+	if len(allMap[user.ID]) != 1 {
+		t.Fatalf("Expected 1 achievement in map for user %d", user.ID)
+	}
+}
+
+func TestHeadToHeadSeasonHistoryCalculation(t *testing.T) {
+	testDBPath := "test_h2h_history.db"
+	defer os.Remove(testDBPath)
+
+	database, err := InitDB("sqlite", testDBPath)
+	if err != nil {
+		t.Fatalf("Failed to init db: %v", err)
+	}
+	defer database.Close()
+
+	repo := NewRepository(database)
+	_ = SeedDatabase(repo, "admin", "admin@test.com", "pass123", 2026)
+
+	season, _ := repo.GetActiveSeason(2026)
+	weeks, _ := repo.ListWeeks(season.ID)
+
+	uA, _ := repo.CreateUser("player_a", "a@test.com", "hash", "player")
+	uB, _ := repo.CreateUser("player_b", "b@test.com", "hash", "player")
+
+	// Mark games in week 1 as final so week 1 is considered completed
+	_, _ = database.Exec("UPDATE games SET status = 'final' WHERE week_id = ?", weeks[0].ID)
+
+	// Week 1: UA wins (10 vs 5)
+	_ = repo.UpsertWeeklyLeaderboard(&LeaderboardEntry{UserID: uA.ID, TotalPoints: 10, Rank: 1}, weeks[0].ID)
+	_ = repo.UpsertWeeklyLeaderboard(&LeaderboardEntry{UserID: uB.ID, TotalPoints: 5, Rank: 2}, weeks[0].ID)
+
+	// Week 2: UB wins (7 vs 12)
+	_ = repo.UpsertWeeklyLeaderboard(&LeaderboardEntry{UserID: uA.ID, TotalPoints: 7, Rank: 2}, weeks[1].ID)
+	_ = repo.UpsertWeeklyLeaderboard(&LeaderboardEntry{UserID: uB.ID, TotalPoints: 12, Rank: 1}, weeks[1].ID)
+
+	// Week 3: Tie (8 vs 8)
+	_ = repo.UpsertWeeklyLeaderboard(&LeaderboardEntry{UserID: uA.ID, TotalPoints: 8, Rank: 1}, weeks[2].ID)
+	_ = repo.UpsertWeeklyLeaderboard(&LeaderboardEntry{UserID: uB.ID, TotalPoints: 8, Rank: 1}, weeks[2].ID)
+
+	h2h, err := repo.GetHeadToHeadSeasonHistory(uA.ID, uB.ID, season.ID)
+	if err != nil {
+		t.Fatalf("GetHeadToHeadSeasonHistory failed: %v", err)
+	}
+
+	if h2h.UserAWins != 1 || h2h.UserBWins != 1 || h2h.Ties != 1 {
+		t.Errorf("Expected 1 win, 1 loss, 1 tie. Got: A=%d, B=%d, Ties=%d", h2h.UserAWins, h2h.UserBWins, h2h.Ties)
+	}
+
+	if h2h.UserATotalPoints != 25 || h2h.UserBTotalPoints != 25 {
+		t.Errorf("Expected 25 total pts each, got A=%d, B=%d", h2h.UserATotalPoints, h2h.UserBTotalPoints)
+	}
+
+	if h2h.LeaderStatus != "tied" {
+		t.Errorf("Expected LeaderStatus 'tied', got '%s'", h2h.LeaderStatus)
+	}
+
+	if len(h2h.WeekResults) != 3 {
+		t.Errorf("Expected 3 week results, got %d", len(h2h.WeekResults))
+	}
+}
