@@ -50,6 +50,8 @@ type ESPNCompetition struct {
 	Situation *struct {
 		DownDistanceText      string `json:"downDistanceText"`
 		ShortDownDistanceText string `json:"shortDownDistanceText"`
+		Possession            string `json:"possession"`
+		IsRedZone             bool   `json:"isRedZone"`
 		LastPlay              struct {
 			Text string `json:"text"`
 		} `json:"lastPlay"`
@@ -92,3 +94,43 @@ type ESPNEventStatus struct {
 		ShortDetail string `json:"shortDetail"`
 	} `json:"type"`
 }
+
+// ESPNSummaryResponse represents the JSON response from ESPN NFL game summary API
+type ESPNSummaryResponse struct {
+	Boxscore struct {
+		Teams []struct {
+			Team struct {
+				ID           string `json:"id"`
+				Abbreviation string `json:"abbreviation"`
+				DisplayName  string `json:"displayName"`
+				Logo         string `json:"logo"`
+			} `json:"team"`
+			Statistics []struct {
+				Name         string `json:"name"`
+				DisplayValue string `json:"displayValue"`
+				Label        string `json:"label"`
+			} `json:"statistics"`
+		} `json:"teams"`
+	} `json:"boxscore"`
+	ScoringPlays []struct {
+		ID     string `json:"id"`
+		Type   struct {
+			Text string `json:"text"`
+		} `json:"type"`
+		Text      string `json:"text"`
+		AwayScore int    `json:"awayScore"`
+		HomeScore int    `json:"homeScore"`
+		Period    struct {
+			Number int `json:"number"`
+		} `json:"period"`
+		Clock struct {
+			DisplayValue string `json:"displayValue"`
+		} `json:"clock"`
+		Team struct {
+			ID           string `json:"id"`
+			Abbreviation string `json:"abbreviation"`
+			Logo         string `json:"logo"`
+		} `json:"team"`
+	} `json:"scoringPlays"`
+}
+

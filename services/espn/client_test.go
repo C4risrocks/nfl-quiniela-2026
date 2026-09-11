@@ -130,3 +130,23 @@ func TestLiveFetchWeekScoreboard(t *testing.T) {
 	t.Logf("Successfully fetched %d ESPN events for 2026 Week 1", len(sb.Events))
 }
 
+func TestFetchGameSummary(t *testing.T) {
+	client := NewClient()
+	// Test with a known NFL game ID
+	summary, err := client.FetchGameSummary("401671788")
+	if err != nil {
+		t.Logf("Notice: live fetch game summary returned: %v (network or ESPN availability)", err)
+		return
+	}
+	if summary == nil {
+		t.Fatalf("Expected non-nil summary")
+	}
+	if summary.HasStats {
+		t.Logf("Successfully fetched boxscore stats: Away=%s (%s total yds), Home=%s (%s total yds)",
+			summary.AwayStats.TeamCode, summary.AwayStats.TotalYards,
+			summary.HomeStats.TeamCode, summary.HomeStats.TotalYards)
+	}
+	t.Logf("Found %d scoring plays", len(summary.ScoringPlays))
+}
+
+

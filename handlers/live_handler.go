@@ -10,12 +10,14 @@ import (
 
 	"nfl-quiniela-2026/db"
 	"nfl-quiniela-2026/services/auth"
+	"nfl-quiniela-2026/services/espn"
 )
 
 type LiveHandler struct {
 	repo       *db.Repository
 	renderer   *Renderer
 	seasonYear int
+	espnClient *espn.Client
 }
 
 func NewLiveHandler(repo *db.Repository, renderer *Renderer, seasonYear int) *LiveHandler {
@@ -23,6 +25,7 @@ func NewLiveHandler(repo *db.Repository, renderer *Renderer, seasonYear int) *Li
 		repo:       repo,
 		renderer:   renderer,
 		seasonYear: seasonYear,
+		espnClient: espn.NewClient(),
 	}
 }
 
@@ -74,6 +77,7 @@ type LiveViewData struct {
 	FeaturedGame        *db.Game
 	FeaturedStats       *db.GameCommunityStats
 	FeaturedPicks       []*db.Pick
+	FeaturedSummary     *db.GameDetailedSummary
 	LiveGamesCount      int
 	FinalGamesCount     int
 	UpcomingGamesCount  int
@@ -177,11 +181,26 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 
 	// Select featured game for Matchcast
 	var featuredGame *db.Game
+
+	// 0. Did the user request a specific game via query param?
+	if reqIDStr := r.URL.Query().Get("game_id"); reqIDStr != "" {
+		if reqID, err := strconv.ParseInt(reqIDStr, 10, 64); err == nil {
+			for _, g := range games {
+				if g.ID == reqID {
+					featuredGame = g
+					break
+				}
+			}
+		}
+	}
+
 	// 1. First in_progress game
-	for _, g := range games {
-		if g.Status == "in_progress" {
-			featuredGame = g
-			break
+	if featuredGame == nil {
+		for _, g := range games {
+			if g.Status == "in_progress" {
+				featuredGame = g
+				break
+			}
 		}
 	}
 	// 2. Otherwise, first tiebreaker game
@@ -209,6 +228,7 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 
 	var featuredStats *db.GameCommunityStats
 	var featuredPicks []*db.Pick
+	var featuredSummary *db.GameDetailedSummary
 	if featuredGame != nil {
 		featuredStats, _ = h.repo.GetGameCommunityStats(featuredGame.ID)
 		featuredPicks, _ = h.repo.ListPicksForGame(featuredGame.ID)
@@ -219,6 +239,13 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 			}
 			return featuredPicks[i].User.Username < featuredPicks[j].User.Username
 		})
+
+		// Fetch full boxscore and scoring plays if ESPNGameID exists
+		if featuredGame.ESPNGameID != "" {
+			if summary, err := h.espnClient.FetchGameSummary(featuredGame.ESPNGameID); err == nil && summary != nil {
+				featuredSummary = summary
+			}
+		}
 	}
 
 	// ----------------------------------------------------
@@ -389,6 +416,7 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 		FeaturedGame:        featuredGame,
 		FeaturedStats:       featuredStats,
 		FeaturedPicks:       featuredPicks,
+		FeaturedSummary:     featuredSummary,
 		LiveGamesCount:      liveCount,
 		FinalGamesCount:     finalCount,
 		UpcomingGamesCount:  upcomingCount,

@@ -3,7 +3,7 @@
 {{define "title"}}Mi Perfil - NFL Quiniela 2026{{end}}
 
 {{define "content"}}
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-4xl mx-auto space-y-6" x-data="{ shareProfileModalOpen: false }">
 
     <!-- Profile Header Card -->
     <div class="vercel-card p-6 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -36,17 +36,26 @@
             </div>
         </div>
 
-        {{if not .User.EmailVerified}}
-        <div id="resend-profile-container">
-            <button hx-post="/verify-email/resend"
-                    hx-target="#resend-profile-container"
-                    hx-swap="innerHTML"
-                    class="py-2 px-3.5 rounded-xl bg-zinc-900 border border-amber-500/30 text-amber-300 hover:bg-amber-500/10 text-xs font-semibold transition-colors flex items-center space-x-1.5">
-                <i class="fa-solid fa-paper-plane text-[10px]"></i>
-                <span>Reenviar Confirmación</span>
+        <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
+            <button type="button"
+                    @click="shareProfileModalOpen = true"
+                    class="py-2 px-3.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 border border-amber-500/40 text-amber-300 font-bold text-xs flex items-center space-x-1.5 transition-all shadow-sm cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
+                <i class="fa-solid fa-share-nodes text-xs"></i>
+                <span>Compartir Perfil & Logros</span>
             </button>
+
+            {{if not .User.EmailVerified}}
+            <div id="resend-profile-container">
+                <button hx-post="/verify-email/resend"
+                        hx-target="#resend-profile-container"
+                        hx-swap="innerHTML"
+                        class="py-2 px-3.5 rounded-xl bg-zinc-900 border border-amber-500/30 text-amber-300 hover:bg-amber-500/10 text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer">
+                    <i class="fa-solid fa-paper-plane text-[10px]"></i>
+                    <span>Reenviar Confirmación</span>
+                </button>
+            </div>
+            {{end}}
         </div>
-        {{end}}
     </div>
 
     {{if .Success}}
@@ -436,6 +445,9 @@
         </div>
 
     </div>
+
+    <!-- Share Profile & Trophies Card Modal -->
+    {{template "share_profile_modal.html" .}}
 
 </div>
 {{end}}

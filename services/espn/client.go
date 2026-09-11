@@ -3,9 +3,11 @@ package espn
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"nfl-quiniela-2026/db"
@@ -140,15 +142,35 @@ func MapESPNEventToGame(event *ESPNEvent, weekID int64, teamMap map[string]*db.T
 		broadcast = comp.GeoBroadcasts[0].Media.ShortName
 	}
 
-	// Game situation / Down & Distance
+	// Game situation / Down & Distance & Possession
 	situation := ""
 	if comp.Situation != nil {
-		if comp.Situation.DownDistanceText != "" {
-			situation = comp.Situation.DownDistanceText
-		} else if comp.Situation.ShortDownDistanceText != "" {
-			situation = comp.Situation.ShortDownDistanceText
-		} else if comp.Situation.LastPlay.Text != "" {
-			situation = comp.Situation.LastPlay.Text
+		downDist := comp.Situation.DownDistanceText
+		if downDist == "" {
+			downDist = comp.Situation.ShortDownDistanceText
+		}
+		lastPlay := comp.Situation.LastPlay.Text
+		possessionCode := ""
+		if comp.Situation.Possession != "" {
+			if homeComp.ID == comp.Situation.Possession || homeComp.Team.ID == comp.Situation.Possession {
+				possessionCode = homeCode
+			} else if awayComp.ID == comp.Situation.Possession || awayComp.Team.ID == comp.Situation.Possession {
+				possessionCode = awayCode
+			}
+		}
+
+		sitObj := db.GameSituation{
+			DownDistanceText: downDist,
+			LastPlay:         lastPlay,
+			PossessionCode:   possessionCode,
+			IsRedZone:        comp.Situation.IsRedZone,
+		}
+		if b, err := json.Marshal(sitObj); err == nil {
+			situation = string(b)
+		} else if downDist != "" {
+			situation = downDist
+		} else if lastPlay != "" {
+			situation = lastPlay
 		}
 	}
 
@@ -209,3 +231,153 @@ func ParseKickoffTime(dateStr string) (time.Time, error) {
 	}
 	return time.Time{}, fmt.Errorf("unable to parse kickoff date: %s", dateStr)
 }
+
+type summaryCacheEntry struct {
+	data      *db.GameDetailedSummary
+	expiresAt time.Time
+}
+
+var (
+	summaryCache   = make(map[string]summaryCacheEntry)
+	summaryCacheMu sync.Mutex
+)
+
+// FetchGameSummary fetches detailed boxscore team statistics and scoring plays for an ESPN event
+func (c *Client) FetchGameSummary(espnGameID string) (*db.GameDetailedSummary, error) {
+	if espnGameID == "" {
+		return nil, nil
+	}
+
+	summaryCacheMu.Lock()
+	if entry, found := summaryCache[espnGameID]; found && time.Now().Before(entry.expiresAt) {
+		summaryCacheMu.Unlock()
+		return entry.data, nil
+	}
+	summaryCacheMu.Unlock()
+
+	url := fmt.Sprintf("https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=%s", espnGameID)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "NFL-Quiniela-2026/1.0")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetching espn game summary: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("espn summary api returned status: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading espn summary response: %w", err)
+	}
+
+	var espnResp ESPNSummaryResponse
+	if err := json.Unmarshal(body, &espnResp); err != nil {
+		return nil, fmt.Errorf("parsing espn summary json: %w", err)
+	}
+
+	result := &db.GameDetailedSummary{
+		ScoringPlays: make([]db.ScoringPlayItem, 0, len(espnResp.ScoringPlays)),
+	}
+
+	for _, sp := range espnResp.ScoringPlays {
+		result.ScoringPlays = append(result.ScoringPlays, db.ScoringPlayItem{
+			Quarter:     sp.Period.Number,
+			Clock:       sp.Clock.DisplayValue,
+			Text:        sp.Text,
+			AwayScore:   sp.AwayScore,
+			HomeScore:   sp.HomeScore,
+			TeamCode:    NormalizeTeamCode(sp.Team.Abbreviation),
+			TeamLogoURL: sp.Team.Logo,
+		})
+	}
+
+	// Parse team boxscore stats
+	for idx, t := range espnResp.Boxscore.Teams {
+		statsMap := make(map[string]string)
+		for _, s := range t.Statistics {
+			if s.Name != "" {
+				statsMap[s.Name] = s.DisplayValue
+			}
+			if s.Label != "" {
+				statsMap[s.Label] = s.DisplayValue
+			}
+		}
+
+		tbStats := &db.TeamBoxscoreStats{
+			TeamCode:        NormalizeTeamCode(t.Team.Abbreviation),
+			TeamName:        t.Team.DisplayName,
+			TeamLogoURL:     t.Team.Logo,
+			FirstDowns:      statsMap["firstDowns"],
+			ThirdDownEff:    statsMap["thirdDownEff"],
+			FourthDownEff:   statsMap["fourthDownEff"],
+			TotalPlays:      statsMap["totalPlays"],
+			TotalYards:      statsMap["totalYards"],
+			YardsPerPlay:    statsMap["yardsPerPlay"],
+			PassingYards:    statsMap["netPassingYards"],
+			CompAtt:         statsMap["completionAttempts"],
+			RushingYards:    statsMap["rushingYards"],
+			RushingAttempts: statsMap["rushingAttempts"],
+			Turnovers:       statsMap["turnovers"],
+			Penalties:       statsMap["totalPenaltiesYards"],
+			PossessionTime:  statsMap["possessionTime"],
+		}
+
+		// Fallback for label names
+		if tbStats.FirstDowns == "" {
+			tbStats.FirstDowns = statsMap["1st Downs"]
+		}
+		if tbStats.ThirdDownEff == "" {
+			tbStats.ThirdDownEff = statsMap["3rd down efficiency"]
+		}
+		if tbStats.FourthDownEff == "" {
+			tbStats.FourthDownEff = statsMap["4th down efficiency"]
+		}
+		if tbStats.TotalYards == "" {
+			tbStats.TotalYards = statsMap["Total Yards"]
+		}
+		if tbStats.PassingYards == "" {
+			tbStats.PassingYards = statsMap["Passing"]
+		}
+		if tbStats.CompAtt == "" {
+			tbStats.CompAtt = statsMap["Comp/Att"]
+		}
+		if tbStats.RushingYards == "" {
+			tbStats.RushingYards = statsMap["Rushing"]
+		}
+		if tbStats.Turnovers == "" {
+			tbStats.Turnovers = statsMap["Turnovers"]
+		}
+		if tbStats.Penalties == "" {
+			tbStats.Penalties = statsMap["Penalties"]
+		}
+		if tbStats.PossessionTime == "" {
+			tbStats.PossessionTime = statsMap["Possession Time"]
+		}
+
+		if idx == 0 {
+			result.AwayStats = tbStats
+		} else if idx == 1 {
+			result.HomeStats = tbStats
+		}
+	}
+
+	result.HasStats = result.AwayStats != nil && result.HomeStats != nil
+
+	summaryCacheMu.Lock()
+	summaryCache[espnGameID] = summaryCacheEntry{
+		data:      result,
+		expiresAt: time.Now().Add(20 * time.Second),
+	}
+	summaryCacheMu.Unlock()
+
+	return result, nil
+}
+

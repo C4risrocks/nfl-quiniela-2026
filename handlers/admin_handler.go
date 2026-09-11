@@ -269,10 +269,17 @@ func (h *AdminHandler) SaveGameScore(w http.ResponseWriter, r *http.Request) {
 
 	updatedGame, _ := h.repo.GetGameByID(gameID)
 	w.Header().Set("HX-Trigger", `{"show-toast": {"message": "¡Marcador y estado actualizados!", "type": "success"}}`)
-	h.renderer.RenderPartial(w, "admin_game_row.html", map[string]interface{}{
+	h.renderer.RenderPartial(w, h.gameTemplate(r), map[string]interface{}{
 		"Game":             updatedGame,
 		"FormattedKickoff": h.formatKickoff(updatedGame.KickoffTime),
 	})
+}
+
+func (h *AdminHandler) gameTemplate(r *http.Request) string {
+	if r.FormValue("view") == "card" {
+		return "admin_game_card.html"
+	}
+	return "admin_game_row.html"
 }
 
 func (h *AdminHandler) ToggleGameLock(w http.ResponseWriter, r *http.Request) {
@@ -310,7 +317,7 @@ func (h *AdminHandler) ToggleGameLock(w http.ResponseWriter, r *http.Request) {
 		statusMsg = "Partido bloqueado para pronósticos"
 	}
 	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "%s", "type": "info"}}`, statusMsg))
-	h.renderer.RenderPartial(w, "admin_game_row.html", map[string]interface{}{
+	h.renderer.RenderPartial(w, h.gameTemplate(r), map[string]interface{}{
 		"Game":             updatedGame,
 		"FormattedKickoff": h.formatKickoff(updatedGame.KickoffTime),
 	})
@@ -354,7 +361,7 @@ func (h *AdminHandler) ToggleTiebreaker(w http.ResponseWriter, r *http.Request) 
 		tbMsg = "Partido configurado como desempate (Tiebreaker)"
 	}
 	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "%s", "type": "info"}}`, tbMsg))
-	h.renderer.RenderPartial(w, "admin_game_row.html", map[string]interface{}{
+	h.renderer.RenderPartial(w, h.gameTemplate(r), map[string]interface{}{
 		"Game":             updatedGame,
 		"FormattedKickoff": h.formatKickoff(updatedGame.KickoffTime),
 	})

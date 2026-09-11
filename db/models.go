@@ -165,6 +165,107 @@ func (g *Game) LinescoreData() *LinescoreMatrix {
 	return &matrix
 }
 
+// GameSituation represents live on-field drive status and situation
+type GameSituation struct {
+	DownDistanceText string `json:"down_distance"`
+	LastPlay         string `json:"last_play"`
+	PossessionCode   string `json:"possession_code"`
+	IsRedZone        bool   `json:"is_red_zone"`
+}
+
+func (g *Game) SituationData() *GameSituation {
+	if g == nil || g.Situation == "" {
+		return nil
+	}
+	trimmed := strings.TrimSpace(g.Situation)
+	if strings.HasPrefix(trimmed, "{") {
+		var sit GameSituation
+		if err := json.Unmarshal([]byte(trimmed), &sit); err == nil {
+			return &sit
+		}
+	}
+	return &GameSituation{
+		DownDistanceText: g.Situation,
+	}
+}
+
+func (g *Game) DownDistance() string {
+	sit := g.SituationData()
+	if sit != nil {
+		return sit.DownDistanceText
+	}
+	return ""
+}
+
+func (g *Game) LastPlay() string {
+	sit := g.SituationData()
+	if sit != nil {
+		return sit.LastPlay
+	}
+	return ""
+}
+
+func (g *Game) IsRedZone() bool {
+	sit := g.SituationData()
+	return sit != nil && sit.IsRedZone
+}
+
+func (g *Game) IsAwayPossession() bool {
+	sit := g.SituationData()
+	if sit != nil && sit.PossessionCode != "" && g.AwayTeam != nil {
+		return strings.EqualFold(sit.PossessionCode, g.AwayTeam.Code)
+	}
+	return false
+}
+
+func (g *Game) IsHomePossession() bool {
+	sit := g.SituationData()
+	if sit != nil && sit.PossessionCode != "" && g.HomeTeam != nil {
+		return strings.EqualFold(sit.PossessionCode, g.HomeTeam.Code)
+	}
+	return false
+}
+
+// TeamBoxscoreStats holds head-to-head match stats
+type TeamBoxscoreStats struct {
+	TeamCode        string `json:"team_code"`
+	TeamName        string `json:"team_name"`
+	TeamLogoURL     string `json:"team_logo_url"`
+	FirstDowns      string `json:"first_downs"`
+	ThirdDownEff    string `json:"third_down_eff"`
+	FourthDownEff   string `json:"fourth_down_eff"`
+	TotalPlays      string `json:"total_plays"`
+	TotalYards      string `json:"total_yards"`
+	YardsPerPlay    string `json:"yards_per_play"`
+	PassingYards    string `json:"passing_yards"`
+	CompAtt         string `json:"comp_att"`
+	RushingYards    string `json:"rushing_yards"`
+	RushingAttempts string `json:"rushing_attempts"`
+	Turnovers       string `json:"turnovers"`
+	Penalties       string `json:"penalties"`
+	PossessionTime  string `json:"possession_time"`
+}
+
+// ScoringPlayItem represents a single score event in the game
+type ScoringPlayItem struct {
+	Quarter     int    `json:"quarter"`
+	Clock       string `json:"clock"`
+	Text        string `json:"text"`
+	AwayScore   int    `json:"away_score"`
+	HomeScore   int    `json:"home_score"`
+	TeamCode    string `json:"team_code"`
+	TeamLogoURL string `json:"team_logo_url"`
+}
+
+// GameDetailedSummary combines boxscore team statistics and scoring plays
+type GameDetailedSummary struct {
+	AwayStats    *TeamBoxscoreStats `json:"away_stats,omitempty"`
+	HomeStats    *TeamBoxscoreStats `json:"home_stats,omitempty"`
+	ScoringPlays []ScoringPlayItem  `json:"scoring_plays,omitempty"`
+	HasStats     bool               `json:"has_stats"`
+}
+
+
 func (g *Game) HomeScoreVal() int {
 	if g != nil && g.HomeScore != nil {
 		return *g.HomeScore

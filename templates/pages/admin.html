@@ -304,8 +304,21 @@
                 </select>
             </div>
 
-            <!-- Games Table -->
-            <div class="overflow-x-auto rounded-xl border border-[#222222]">
+            <!-- Mobile Games Cards View (md:hidden) -->
+            <div class="md:hidden space-y-3">
+                {{if .Games}}
+                    {{range .Games}}
+                        {{template "admin_game_card.html" (dict "Game" . "FormattedKickoff" (formatDate .KickoffTime))}}
+                    {{end}}
+                {{else}}
+                    <div class="py-8 text-center text-zinc-500 text-xs">
+                        No hay partidos para esta semana. Sincroniza con ESPN arriba.
+                    </div>
+                {{end}}
+            </div>
+
+            <!-- Desktop Games Table (hidden md:block) -->
+            <div class="hidden md:block overflow-x-auto rounded-xl border border-[#222222]">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead>
                         <tr class="border-b border-[#1f1f1f] bg-black/40 text-zinc-500 font-mono text-[11px] uppercase tracking-wider">

@@ -1,0 +1,105 @@
+<div id="admin-game-card-{{.Game.ID}}" class="p-3.5 sm:p-4 rounded-xl bg-zinc-950/90 border border-zinc-800 space-y-3 shadow-sm">
+    
+    <!-- Top Row: Teams & Kickoff -->
+    <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center space-x-2 min-w-0 flex-1">
+            <div class="flex items-center -space-x-1 shrink-0">
+                <img src="{{.Game.AwayTeam.LogoURL}}" alt="{{.Game.AwayTeam.Code}}" class="w-6 h-6 object-contain">
+                <img src="{{.Game.HomeTeam.LogoURL}}" alt="{{.Game.HomeTeam.Code}}" class="w-6 h-6 object-contain">
+            </div>
+            <div class="min-w-0 flex-1">
+                <div class="text-xs font-bold text-white flex items-center space-x-1">
+                    <span>{{.Game.AwayTeam.Code}}</span>
+                    <span class="text-zinc-500 font-normal">@</span>
+                    <span>{{.Game.HomeTeam.Code}}</span>
+                </div>
+                <div class="text-[10px] font-mono text-zinc-400 mt-0.5">{{.FormattedKickoff}}</div>
+            </div>
+        </div>
+
+        <!-- TV Broadcast badges -->
+        {{if .Game.MexicoBroadcastOptions}}
+            <div class="flex flex-wrap items-center justify-end gap-1 shrink-0">
+                {{range .Game.MexicoBroadcastOptions}}
+                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[8px] font-mono font-bold border {{.BadgeCSS}}">
+                        {{.Name}}
+                    </span>
+                {{end}}
+            </div>
+        {{end}}
+    </div>
+
+    <!-- Score Editing Form with touch friendly controls -->
+    <form hx-post="/admin/games/save-score"
+          hx-target="#admin-game-card-{{.Game.ID}}"
+          hx-swap="outerHTML"
+          class="space-y-2.5 pt-2 border-t border-zinc-800/80">
+        
+        <input type="hidden" name="game_id" value="{{.Game.ID}}">
+        <input type="hidden" name="view" value="card">
+
+        <!-- Scores Input Grid -->
+        <div class="grid grid-cols-2 gap-2">
+            <!-- Away Score Input -->
+            <div class="bg-zinc-900/90 p-2 rounded-xl border border-zinc-800">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-mono text-zinc-400 font-bold uppercase">{{.Game.AwayTeam.Code}} (Vis)</span>
+                </div>
+                <input type="number" name="away_score" min="0" max="99" 
+                       value="{{if .Game.AwayScore}}{{.Game.AwayScore}}{{end}}"
+                       placeholder="0" 
+                       class="w-full text-center font-mono font-black text-base py-1.5 bg-zinc-950 border border-zinc-700/80 rounded-lg text-white focus:border-white focus:outline-none">
+            </div>
+
+            <!-- Home Score Input -->
+            <div class="bg-zinc-900/90 p-2 rounded-xl border border-zinc-800">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-mono text-zinc-400 font-bold uppercase">{{.Game.HomeTeam.Code}} (Loc)</span>
+                </div>
+                <input type="number" name="home_score" min="0" max="99" 
+                       value="{{if .Game.HomeScore}}{{.Game.HomeScore}}{{end}}"
+                       placeholder="0" 
+                       class="w-full text-center font-mono font-black text-base py-1.5 bg-zinc-950 border border-zinc-700/80 rounded-lg text-white focus:border-white focus:outline-none">
+            </div>
+        </div>
+
+        <!-- Status & Save Button Row -->
+        <div class="flex items-center space-x-2">
+            <select name="status" class="flex-1 bg-zinc-900 border border-zinc-700 text-xs font-semibold rounded-xl px-2.5 py-2 text-zinc-200 focus:border-white">
+                <option value="scheduled" {{if eq .Game.Status "scheduled"}}selected{{end}}>Programado</option>
+                <option value="in_progress" {{if eq .Game.Status "in_progress"}}selected{{end}}>En Juego</option>
+                <option value="final" {{if eq .Game.Status "final"}}selected{{end}}>Finalizado</option>
+            </select>
+
+            <button type="submit" 
+                    class="px-4 py-2 bg-white hover:bg-zinc-200 text-black rounded-xl text-xs font-bold transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer shrink-0">
+                <i class="fa-solid fa-floppy-disk text-xs"></i>
+                <span>Guardar</span>
+            </button>
+        </div>
+    </form>
+
+    <!-- Bottom Toggles: Tiebreaker & Lock -->
+    <div class="flex items-center justify-between pt-2 border-t border-zinc-800/60 text-xs">
+        <!-- Tiebreaker Toggle -->
+        <button hx-post="/admin/games/toggle-tiebreaker"
+                hx-vals='{"game_id": "{{.Game.ID}}", "view": "card"}'
+                hx-target="#admin-game-card-{{.Game.ID}}"
+                hx-swap="outerHTML"
+                class="px-3 py-1 rounded-lg text-[10px] font-mono font-medium border transition-all cursor-pointer {{if .Game.IsTiebreaker}}bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold{{else}}bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white{{end}}">
+            <i class="fa-solid fa-star text-[9px] mr-1 text-amber-400"></i>
+            <span>{{if .Game.IsTiebreaker}}Desempate Activo{{else}}Desempate{{end}}</span>
+        </button>
+
+        <!-- Force Lock Toggle -->
+        <button hx-post="/admin/games/toggle-lock"
+                hx-vals='{"game_id": "{{.Game.ID}}", "view": "card"}'
+                hx-target="#admin-game-card-{{.Game.ID}}"
+                hx-swap="outerHTML"
+                class="px-3 py-1 rounded-lg text-[10px] font-mono font-medium border transition-all cursor-pointer {{if .Game.IsLocked}}bg-red-500/20 text-red-300 border-red-500/40 font-bold{{else}}bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white{{end}}">
+            <i class="fa-solid {{if .Game.IsLocked}}fa-lock text-red-400{{else}}fa-lock-open text-zinc-500{{end}} text-[9px] mr-1"></i>
+            <span>{{if .Game.IsLocked}}Bloqueado{{else}}Abierto{{end}}</span>
+        </button>
+    </div>
+
+</div>
