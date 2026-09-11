@@ -110,7 +110,7 @@
      }">
 
     <!-- Header Slot with Week Switcher -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 vercel-card p-5 sm:p-6 rounded-2xl shadow-sm">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 vercel-card p-4 sm:p-6 rounded-2xl shadow-sm min-w-0 max-w-full overflow-hidden">
         <div>
             <div class="flex items-center space-x-2 mb-1">
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700/60">
@@ -134,7 +134,7 @@
         </div>
 
         <!-- Week Dropdown Selector & Header Submit Button -->
-        <div class="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full sm:w-auto justify-between sm:justify-end">
+        <div class="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full sm:w-auto justify-between sm:justify-end min-w-0">
             <div class="flex items-center space-x-2">
                 <span class="text-xs font-mono text-zinc-400 uppercase tracking-wider">Jornada:</span>
                 <select id="week-select" 
@@ -147,24 +147,24 @@
                     {{end}}
                 </select>
             </div>
-            <div class="flex items-center space-x-2">
+            <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
                 <a href="/picks/matrix?week={{.SelectedWeek.WeekNumber}}" 
                    title="Ver matriz comunitaria de pronósticos"
-                   class="inline-flex items-center px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-cyan-500/50 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer shrink-0">
-                    <i class="fa-solid fa-table-cells mr-1.5 text-cyan-400"></i> Matriz
+                   class="inline-flex items-center px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-cyan-500/50 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer shrink-0">
+                    <i class="fa-solid fa-table-cells mr-1 sm:mr-1.5 text-cyan-400"></i> Matriz
                 </a>
                 {{if .Games}}
                     <button type="button" 
                             @click="summaryModalOpen = true"
                             title="Ver o compartir resumen completo de la jornada"
-                            class="inline-flex items-center px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-zinc-500 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer shrink-0">
-                        <i class="fa-solid fa-table-list mr-1.5 text-emerald-400"></i> Resumen
+                            class="inline-flex items-center px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-zinc-500 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer shrink-0">
+                        <i class="fa-solid fa-table-list mr-1 sm:mr-1.5 text-emerald-400"></i> Resumen
                     </button>
                     <button type="button" 
                             @click="shareModalOpen = true"
                             title="Descargar o compartir tarjeta de picks"
-                            class="inline-flex items-center px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-zinc-500 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer shrink-0">
-                        <i class="fa-solid fa-camera mr-1.5 text-zinc-400"></i> Compartir
+                            class="inline-flex items-center px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-zinc-500 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer shrink-0">
+                        <i class="fa-solid fa-camera mr-1 sm:mr-1.5 text-zinc-400"></i> Compartir
                     </button>
                 {{end}}
                 {{if and .Games (not .IsFullWeekLocked)}}
@@ -268,9 +268,9 @@
             <input type="hidden" name="week_id" value="{{.SelectedWeek.ID}}">
 
             <!-- Controls Bar: Signal Filters & View Mode Switcher -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 w-full max-w-full min-w-0">
                 <!-- Platform / Streaming Channel Filter Bar (Responsive horizontal scroll) -->
-                <div class="flex-1 flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-1 px-1 bg-zinc-950/60 p-2 rounded-xl border border-zinc-800/80 text-xs shadow-sm">
+                <div class="w-full sm:flex-1 min-w-0 max-w-full flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-1 px-1 bg-zinc-950/60 p-2 rounded-xl border border-zinc-800/80 text-xs shadow-sm">
                     <span class="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap mr-1 flex items-center">
                         <i class="fa-solid fa-satellite-dish text-[9px] mr-1 text-zinc-400"></i> Filtrar Señal:
                     </span>
@@ -360,22 +360,71 @@
             </div>
 
             <div id="games-grid" 
-                 class="grid gap-3.5 transition-all"
+                 class="grid gap-3.5 transition-all pb-24 sm:pb-0"
                  :class="viewMode === 'compact' ? 'grid-cols-1 !gap-2 max-w-3xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'">
                 {{range .Games}}
                     {{template "game_card.html" (dict "Game" . "CurrentTime" $.CurrentTime "FormattedKickoff" (formatDate .KickoffTime) "LockMode" $.LockMode "FirstKickoff" $.FirstKickoff "ScoringMode" $.ScoringConfig.ScoringMode "ScoringConfig" $.ScoringConfig)}}
                 {{end}}
             </div>
 
-            <!-- Sticky Bottom Submission & Share Bar -->
-            <div class="sticky bottom-20 sm:bottom-4 z-30 p-4 rounded-2xl bg-[#0e0e0e]/95 backdrop-blur-md border border-zinc-800 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div class="flex items-center space-x-3 w-full sm:w-auto">
+            <!-- Unified Bottom Action Bar: Docked above nav bar on mobile (< sm), floating card on desktop (>= sm) -->
+            
+            <!-- MOBILE VIEW (< sm): Docked 2nd tier directly above bottom navigation dock -->
+            <div class="sm:hidden fixed bottom-[57px] left-0 right-0 z-30 bg-zinc-950/95 backdrop-blur-2xl border-t border-zinc-800/90 px-3.5 py-2 shadow-[0_-4px_20px_rgba(0,0,0,0.8)]">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2 min-w-0">
+                        <div class="w-6 h-6 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-amber-400 text-xs shrink-0">
+                            <i class="fa-solid fa-football text-[10px]"></i>
+                        </div>
+                        <div class="flex items-center space-x-1.5 font-mono text-xs truncate">
+                            <span class="font-bold text-white"><span id="mobile-bottom-picked-count" class="text-emerald-400 font-black font-mono">{{.PicksCount}}</span>/{{len .Games}}</span>
+                            {{if not .IsFullWeekLocked}}
+                                <span id="mobile-bottom-missing-badge" class="hidden text-[10px] font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.2 rounded-full animate-pulse whitespace-nowrap">
+                                    faltan <span id="mobile-bottom-missing-num">0</span>
+                                </span>
+                            {{else}}
+                                <span class="text-[10px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800 px-1.5 py-0.2 rounded-full whitespace-nowrap">
+                                    <i class="fa-solid fa-lock text-[8px] mr-0.5"></i> Bloqueada
+                                </span>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-1.5 shrink-0">
+                        <button type="button" 
+                                @click="summaryModalOpen = true"
+                                title="Ver resumen de la jornada"
+                                class="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-emerald-400 text-xs flex items-center justify-center shadow-sm cursor-pointer active:scale-95 transition-transform">
+                            <i class="fa-solid fa-table-list text-xs"></i>
+                        </button>
+                        <button type="button" 
+                                @click="shareModalOpen = true"
+                                title="Compartir pronósticos"
+                                class="w-8 h-8 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 text-xs flex items-center justify-center shadow-sm cursor-pointer active:scale-95 transition-transform">
+                            <i class="fa-solid fa-camera text-xs"></i>
+                        </button>
+                        {{if not .IsFullWeekLocked}}
+                            <button type="button" 
+                                    id="mobile-submit-picks-btn"
+                                    @click="validateAndSubmit()"
+                                    class="px-3.5 py-1.5 bg-white text-black hover:bg-zinc-200 font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center space-x-1.5 active:scale-95 cursor-pointer">
+                                <i class="fa-solid fa-paper-plane text-[10px]"></i>
+                                <span>Enviar</span>
+                            </button>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+
+            <!-- DESKTOP VIEW (>= sm): Floating Vercel Card at sm:bottom-4 -->
+            <div class="hidden sm:flex sticky bottom-4 z-30 p-4 rounded-2xl bg-[#0e0e0e]/95 backdrop-blur-md border border-zinc-800 shadow-2xl items-center justify-between gap-3">
+                <div class="flex items-center space-x-3">
                     <div class="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-amber-400 text-sm shrink-0">
                         <i class="fa-solid fa-football"></i>
                     </div>
                     <div class="min-w-0">
                         <div class="text-xs font-bold text-white truncate">Tus Pronósticos de {{.SelectedWeek.Name}}</div>
-                        <div class="text-[11px] text-zinc-400 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                        <div class="text-[11px] text-zinc-400 flex items-center gap-2">
                             <span><span id="picked-games-count" class="font-mono font-bold text-emerald-400">{{.PicksCount}}</span> de {{len .Games}} partidos</span>
                             {{if not .IsFullWeekLocked}}
                                 <span id="missing-games-badge" class="hidden inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
@@ -389,18 +438,18 @@
                         </div>
                     </div>
                 </div>
-                <div class="flex items-center space-x-2 w-full sm:w-auto">
+                <div class="flex items-center space-x-2">
                     <button type="button" 
                             @click="summaryModalOpen = true"
                             title="Ver o compartir resumen completo de la jornada"
                             class="px-3 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-zinc-500 text-white font-semibold text-xs transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer shrink-0">
                         <i class="fa-solid fa-table-list text-emerald-400"></i>
-                        <span class="hidden sm:inline">Resumen</span>
+                        <span>Resumen</span>
                     </button>
                     <button type="button" 
                             @click="shareModalOpen = true"
                             title="Descargar o compartir tarjeta de picks"
-                            class="px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-zinc-500 text-white font-semibold text-xs transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer shrink-0 {{if .IsFullWeekLocked}}w-full sm:w-auto{{end}}">
+                            class="px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-zinc-500 text-white font-semibold text-xs transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer shrink-0">
                         <i class="fa-solid fa-camera text-zinc-400"></i>
                         <span>Compartir</span>
                     </button>
@@ -408,7 +457,7 @@
                         <button type="button" 
                                 id="submit-picks-btn"
                                 @click="validateAndSubmit()"
-                                class="flex-1 sm:flex-initial px-6 py-2.5 bg-white text-black hover:bg-zinc-200 font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
+                                class="px-6 py-2.5 bg-white text-black hover:bg-zinc-200 font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
                             <i class="fa-solid fa-paper-plane text-black"></i>
                             <span>Enviar Pronósticos</span>
                         </button>
@@ -542,6 +591,9 @@ function updatePicksCounter() {
     const mobileCounter = document.getElementById('mobile-picked-count');
     if (mobileCounter) mobileCounter.innerText = count;
 
+    const mobBottomCounter = document.getElementById('mobile-bottom-picked-count');
+    if (mobBottomCounter) mobBottomCounter.innerText = count;
+
     const totalGames = {{len .Games}};
     const mobileProgress = document.getElementById('mobile-progress-bar');
     if (mobileProgress && totalGames > 0) {
@@ -549,15 +601,26 @@ function updatePicksCounter() {
         mobileProgress.style.width = pct + '%';
     }
 
+    const missing = total - count;
     const missingBadge = document.getElementById('missing-games-badge');
     const missingNum = document.getElementById('missing-games-num');
-    const missing = total - count;
     if (missingBadge && missingNum) {
         if (missing > 0 && total > 0) {
             missingNum.innerText = missing;
             missingBadge.classList.remove('hidden');
         } else {
             missingBadge.classList.add('hidden');
+        }
+    }
+
+    const mobBottomMissingBadge = document.getElementById('mobile-bottom-missing-badge');
+    const mobBottomMissingNum = document.getElementById('mobile-bottom-missing-num');
+    if (mobBottomMissingBadge && mobBottomMissingNum) {
+        if (missing > 0 && total > 0) {
+            mobBottomMissingNum.innerText = missing;
+            mobBottomMissingBadge.classList.remove('hidden');
+        } else {
+            mobBottomMissingBadge.classList.add('hidden');
         }
     }
 }

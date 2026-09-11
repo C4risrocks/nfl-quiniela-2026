@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" class="h-full bg-black text-[#ededed]">
+<html lang="es" class="h-full bg-black text-[#ededed] overflow-x-hidden">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -123,7 +123,7 @@
         }
     </style>
 </head>
-<body class="min-h-full flex flex-col font-sans antialiased bg-black text-[#ededed] selection:bg-cyan-500 selection:text-black bg-grid" x-data="{ mobileMenuOpen: false }">
+<body class="min-h-full flex flex-col font-sans antialiased bg-black text-[#ededed] selection:bg-cyan-500 selection:text-black bg-grid overflow-x-hidden w-full max-w-full" x-data="{ mobileMenuOpen: false }">
     
     <!-- Top Minimalist Vercel-Style Navigation -->
     <nav class="sticky top-0 z-50 vercel-glass border-b border-[#222222] bg-black/80">
@@ -263,7 +263,7 @@
     </nav>
 
     <!-- Main Content Container -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 md:pb-8">
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 md:pb-8 min-w-0 overflow-x-clip">
         {{block "content" .}}{{end}}
     </main>
 
