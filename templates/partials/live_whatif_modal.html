@@ -1,36 +1,80 @@
-<!-- Live What-If Scenario Simulator Modal -->
-<div id="whatif-modal"
+<!-- Live What-If Scenario Simulator Interactive Banner (Mobile-First, Non-Intrusive) -->
+<div id="whatif-banner"
      x-data="whatIfSimulator()"
-     x-show="isOpen" 
-     x-cloak
-     class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
-     @open-whatif.window="openModal()"
-     @keydown.escape.window="closeModal()">
-    
-    <div class="vercel-card rounded-2xl w-full max-w-2xl overflow-hidden border border-purple-500/30 shadow-2xl flex flex-col max-h-[92vh] bg-zinc-950"
-         @click.away="isOpen && closeModal()">
+     class="vercel-card rounded-2xl overflow-hidden border border-purple-500/35 shadow-lg bg-gradient-to-b from-zinc-950 via-zinc-900 to-black transition-all duration-300 scroll-mt-20"
+     @open-whatif.window="openBanner()"
+     @close-whatif.window="closeBanner()"
+     @toggle-whatif.window="toggleBanner()">
+
+    <!-- Banner Header Strip (Always Visible - Acts as Toggle Bar) -->
+    <div class="p-3.5 sm:p-4 bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-zinc-900 flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none transition-colors hover:from-purple-950/60"
+         @click="toggleBanner()">
         
-        <!-- Modal Header -->
-        <div class="p-4 border-b border-zinc-800/90 bg-gradient-to-r from-purple-950/40 via-zinc-900 to-zinc-950 flex items-center justify-between">
-            <div class="flex items-center space-x-2.5">
-                <div class="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 text-sm shrink-0">
-                    <i class="fa-solid fa-wand-magic-sparkles animate-pulse"></i>
-                </div>
-                <div>
-                    <div class="text-sm font-extrabold text-white tracking-tight flex items-center space-x-2">
-                        <span>Simulador What-If en Vivo</span>
-                        <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">INTERACTIVO</span>
-                    </div>
-                    <div class="text-[10px] font-mono text-zinc-400">Simula resultados y proyecta tu posición en la quiniela</div>
-                </div>
+        <div class="flex items-center space-x-3 min-w-0">
+            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 text-sm sm:text-base shrink-0 shadow-inner">
+                <i class="fa-solid fa-wand-magic-sparkles animate-pulse"></i>
             </div>
-            
-            <button type="button" 
-                    @click="closeModal()"
-                    class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer">
-                <i class="fa-solid fa-xmark text-base"></i>
+            <div class="min-w-0">
+                <div class="flex items-center space-x-2">
+                    <h3 class="text-xs sm:text-sm font-extrabold text-white tracking-tight truncate">
+                        Simulador What-If en Vivo
+                    </h3>
+                    <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-purple-500/25 text-purple-300 border border-purple-500/40">
+                        INTERACTIVO
+                    </span>
+                </div>
+                <!-- Collapsed / Active Simulation Summary Subtitle -->
+                <p class="text-[11px] text-zinc-400 truncate mt-0.5" x-show="!isOpen">
+                    <template x-if="simulatedGamesCount === 0">
+                        <span>Simula quién gana y proyecta tu posición en la tabla al instante.</span>
+                    </template>
+                    <template x-if="simulatedGamesCount > 0">
+                        <span class="text-purple-300 font-medium flex items-center space-x-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping mr-1"></span>
+                            <span x-text="simulatedGamesCount + ' partidos configurados'"></span>
+                            <template x-if="currentUserSim">
+                                <span> • Proyección: <strong class="text-white" x-text="'#' + currentUserSim.sim_rank"></strong> (<span x-text="currentUserSim.sim_points + ' pts'"></span>)</span>
+                            </template>
+                        </span>
+                    </template>
+                </p>
+                <p class="text-[11px] text-zinc-400 truncate mt-0.5" x-show="isOpen">
+                    Configura los ganadores de cada partido o usa los accesos rápidos.
+                </p>
+            </div>
+        </div>
+
+        <!-- Toggle Button -->
+        <div class="flex items-center space-x-2 shrink-0">
+            <button type="button"
+                    @click.stop="toggleBanner()"
+                    class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer"
+                    :class="isOpen ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700' : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white border border-purple-400/40 hover:scale-[1.02]'">
+                <template x-if="!isOpen">
+                    <span class="flex items-center space-x-1">
+                        <span>Abrir Simulador</span>
+                        <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                    </span>
+                </template>
+                <template x-if="isOpen">
+                    <span class="flex items-center space-x-1">
+                        <span>Minimizar</span>
+                        <i class="fa-solid fa-chevron-up text-[10px]"></i>
+                    </span>
+                </template>
             </button>
         </div>
+    </div>
+
+    <!-- Expanded Interactive Body (Inline in Normal Flow, Non-Intrusive) -->
+    <div x-show="isOpen" 
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 -translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 -translate-y-2"
+         class="border-t border-purple-500/20 bg-zinc-950/95">
 
         <!-- Quick Scenario Presets Toolbar -->
         <div class="p-3 bg-zinc-900/60 border-b border-zinc-800/80 flex items-center justify-between gap-2 overflow-x-auto no-scrollbar text-xs">
@@ -290,17 +334,18 @@
             </template>
         </div>
 
-        <!-- Modal Footer Actions -->
-        <div class="p-4 border-t border-zinc-800/90 bg-zinc-900/80 flex items-center justify-between gap-3">
+        <!-- Banner Actions Footer -->
+        <div class="p-3 sm:p-4 border-t border-zinc-800/80 bg-zinc-900/80 flex items-center justify-between gap-2">
             <button type="button"
-                    @click="closeModal()"
-                    class="px-4 py-2 rounded-xl border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 text-xs font-semibold transition-colors cursor-pointer">
-                Cerrar
+                    @click="closeBanner()"
+                    class="px-3.5 py-1.5 rounded-xl border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 text-xs font-semibold transition-colors cursor-pointer flex items-center space-x-1">
+                <i class="fa-solid fa-chevron-up text-[10px]"></i>
+                <span>Minimizar Simulador</span>
             </button>
 
             <button type="button"
                     @click="shareScenarioWhatsApp()"
-                    class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs transition-all shadow-md flex items-center space-x-1.5 cursor-pointer">
+                    class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs transition-all shadow-md flex items-center space-x-1.5 cursor-pointer">
                 <i class="fa-brands fa-whatsapp text-sm"></i>
                 <span>Compartir Escenario</span>
             </button>
@@ -327,16 +372,26 @@ function whatIfSimulator() {
             return this.isOpen;
         },
         set whatIfModalOpen(val) {
-            if (val) this.openModal();
-            else this.closeModal();
+            if (val) this.openBanner();
+            else this.closeBanner();
         },
-        openModal() {
+        openBanner() {
             this.isOpen = true;
             window.__whatIfOpen = true;
         },
-        closeModal() {
+        closeBanner() {
             this.isOpen = false;
             window.__whatIfOpen = false;
+        },
+        toggleBanner() {
+            this.isOpen = !this.isOpen;
+            window.__whatIfOpen = this.isOpen;
+        },
+        openModal() {
+            this.openBanner();
+        },
+        closeModal() {
+            this.closeBanner();
         },
         init() {
             try {

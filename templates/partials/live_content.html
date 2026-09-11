@@ -57,8 +57,8 @@
         <!-- Week Dropdown Selector & What-If Button -->
         <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
             <button type="button" 
-                    @click="$dispatch('open-whatif'); whatIfModalOpen = true; window.__whatIfOpen = true;"
-                    title="Simulador de escenarios y proyección de tabla"
+                    @click="$dispatch('toggle-whatif'); document.getElementById('whatif-banner')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });"
+                    title="Simulador interactivo de escenarios y proyección de tabla"
                     class="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-purple-600/25 to-indigo-600/25 border border-purple-500/40 hover:border-purple-400 text-purple-200 hover:text-white text-xs font-bold transition-all shadow-sm hover:scale-[1.02] cursor-pointer">
                 <i class="fa-solid fa-wand-magic-sparkles text-purple-400 text-xs animate-pulse"></i>
                 <span>Simulador What-If</span>
@@ -119,6 +119,9 @@
             </div>
         </div>
     {{end}}
+
+    <!-- Live What-If Scenario Simulator Interactive Banner -->
+    {{template "live_whatif_modal.html" .}}
 
     <!-- Featured Live Matchcast Section (Partido en Transmisión) -->
     {{if .FeaturedGame}}
@@ -983,8 +986,5 @@
             {{end}}
         </div>
     </div>
-
-    <!-- Live What-If Scenario Simulator Modal -->
-    {{template "live_whatif_modal.html" .}}
 
 </div>
