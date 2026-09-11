@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"html/template"
 	"net/http"
 	"sort"
 	"strconv"
@@ -80,7 +81,7 @@ type LiveViewData struct {
 	UserProvisionalPts  int
 	CurrentTime         time.Time
 	LockMode            string
-	WhatIfJSON          string
+	WhatIfJSON          template.JS
 }
 
 func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
@@ -373,9 +374,9 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 		CurrentUserID: currentUserID,
 	}
 
-	var whatIfJSON string
+	var whatIfJSON template.JS
 	if jsonBytes, err := json.Marshal(payload); err == nil {
-		whatIfJSON = string(jsonBytes)
+		whatIfJSON = template.JS(jsonBytes)
 	}
 
 	return &LiveViewData{

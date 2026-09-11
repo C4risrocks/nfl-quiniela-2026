@@ -1,13 +1,14 @@
 <!-- Live What-If Scenario Simulator Modal -->
 <div id="whatif-modal"
-     x-show="whatIfModalOpen" 
+     x-data="whatIfSimulator()"
+     x-show="isOpen" 
      x-cloak
      class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
-     @keydown.escape.window="whatIfModalOpen = false; window.__whatIfOpen = false;"
-     x-data="whatIfSimulator()">
+     @open-whatif.window="openModal()"
+     @keydown.escape.window="closeModal()">
     
     <div class="vercel-card rounded-2xl w-full max-w-2xl overflow-hidden border border-purple-500/30 shadow-2xl flex flex-col max-h-[92vh] bg-zinc-950"
-         @click.away="whatIfModalOpen = false; window.__whatIfOpen = false;">
+         @click.away="isOpen && closeModal()">
         
         <!-- Modal Header -->
         <div class="p-4 border-b border-zinc-800/90 bg-gradient-to-r from-purple-950/40 via-zinc-900 to-zinc-950 flex items-center justify-between">
@@ -25,7 +26,7 @@
             </div>
             
             <button type="button" 
-                    @click="whatIfModalOpen = false; window.__whatIfOpen = false;"
+                    @click="closeModal()"
                     class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer">
                 <i class="fa-solid fa-xmark text-base"></i>
             </button>
@@ -292,7 +293,7 @@
         <!-- Modal Footer Actions -->
         <div class="p-4 border-t border-zinc-800/90 bg-zinc-900/80 flex items-center justify-between gap-3">
             <button type="button"
-                    @click="whatIfModalOpen = false; window.__whatIfOpen = false;"
+                    @click="closeModal()"
                     class="px-4 py-2 rounded-xl border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 text-xs font-semibold transition-colors cursor-pointer">
                 Cerrar
             </button>
@@ -310,26 +311,48 @@
 
 <!-- Embedded JSON Payload for Client-Side What-If Simulation -->
 <script id="whatif-payload-data" type="application/json">
-{{if .WhatIfJSON}}{{.WhatIfJSON}}{{else}}{}{"games":[],"users":[],"current_user_id":0}{{end}}
+{{if .WhatIfJSON}}{{.WhatIfJSON}}{{else}}{"games":[],"users":[],"current_user_id":0}{{end}}
 </script>
 
 <script>
 function whatIfSimulator() {
     return {
+        isOpen: false,
         activeTab: 'games',
         simWinners: {},
         games: [],
         users: [],
         currentUserId: 0,
+        get whatIfModalOpen() {
+            return this.isOpen;
+        },
+        set whatIfModalOpen(val) {
+            if (val) this.openModal();
+            else this.closeModal();
+        },
+        openModal() {
+            this.isOpen = true;
+            window.__whatIfOpen = true;
+        },
+        closeModal() {
+            this.isOpen = false;
+            window.__whatIfOpen = false;
+        },
         init() {
             try {
                 const el = document.getElementById('whatif-payload-data');
                 if (el && el.textContent) {
-                    const data = JSON.parse(el.textContent.trim());
-                    this.games = data.games || [];
-                    this.users = data.users || [];
-                    this.currentUserId = data.current_user_id || 0;
-                    this.simulateLiveScores();
+                    let text = el.textContent.trim();
+                    if (text) {
+                        let data = JSON.parse(text);
+                        if (typeof data === 'string') {
+                            data = JSON.parse(data);
+                        }
+                        this.games = data.games || [];
+                        this.users = data.users || [];
+                        this.currentUserId = data.current_user_id || 0;
+                        this.simulateLiveScores();
+                    }
                 }
             } catch(e) {
                 console.error('WhatIf init error:', e);
