@@ -44,12 +44,22 @@
             </div>
         </div>
 
-        <!-- Toggle Button -->
-        <div class="flex items-center space-x-2 shrink-0">
+        <!-- Toggle & Close Controls -->
+        <div class="flex items-center space-x-1.5 shrink-0">
+            <template x-if="isOpen">
+                <button type="button"
+                        @click.stop="closeBanner()"
+                        class="p-2 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold bg-zinc-800/90 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 transition-all flex items-center space-x-1 cursor-pointer"
+                        title="Cerrar simulador (X)">
+                    <i class="fa-solid fa-xmark text-xs"></i>
+                    <span class="hidden sm:inline">Cerrar</span>
+                </button>
+            </template>
+
             <button type="button"
                     @click.stop="toggleBanner()"
                     class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center space-x-1.5 cursor-pointer"
-                    :class="isOpen ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700' : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white border border-purple-400/40 hover:scale-[1.02]'">
+                    :class="isOpen ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800' : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white border border-purple-400/40 hover:scale-[1.02]'">
                 <template x-if="!isOpen">
                     <span class="flex items-center space-x-1">
                         <span>Abrir Simulador</span>
@@ -338,9 +348,9 @@
         <div class="p-3 sm:p-4 border-t border-zinc-800/80 bg-zinc-900/80 flex items-center justify-between gap-2">
             <button type="button"
                     @click="closeBanner()"
-                    class="px-3.5 py-1.5 rounded-xl border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 text-xs font-semibold transition-colors cursor-pointer flex items-center space-x-1">
-                <i class="fa-solid fa-chevron-up text-[10px]"></i>
-                <span>Minimizar Simulador</span>
+                    class="px-3.5 py-1.5 rounded-xl border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 text-xs font-semibold transition-colors cursor-pointer flex items-center space-x-1.5">
+                <i class="fa-solid fa-xmark text-xs"></i>
+                <span>Cerrar Simulador</span>
             </button>
 
             <button type="button"

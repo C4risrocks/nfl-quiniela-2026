@@ -122,6 +122,9 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 	var leaderboardEntries []*db.LeaderboardEntry
 
 	for _, u := range users {
+		if u.IsAdmin() {
+			continue
+		}
 		picksList := userPicks[u.ID]
 		totalPts := 0
 		correctCount := 0

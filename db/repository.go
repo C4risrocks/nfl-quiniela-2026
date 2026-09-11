@@ -939,7 +939,7 @@ func (r *Repository) GetAllUsersPicksForWeek(weekID int64) ([]*UserWeekSimulatio
 	FROM picks p
 	JOIN users u ON p.user_id = u.id
 	JOIN games g ON p.game_id = g.id
-	WHERE g.week_id = ?
+	WHERE g.week_id = ? AND COALESCE(u.role, 'player') != 'admin'
 	ORDER BY u.username ASC`
 
 	rows, err := r.db.Query(query, weekID)
@@ -1221,8 +1221,8 @@ func (r *Repository) GetWeeklyLeaderboard(weekID int64) ([]*LeaderboardEntry, er
 	SELECT wl.rank, wl.user_id, u.username, u.avatar_url, wl.total_points, wl.correct_picks, wl.total_picks, wl.tiebreaker_error
 	FROM weekly_leaderboard wl
 	JOIN users u ON wl.user_id = u.id
-	WHERE wl.week_id = ?
-	ORDER BY wl.rank ASC, wl.total_points DESC, wl.correct_picks DESC, wl.tiebreaker_error ASC`
+	WHERE wl.week_id = ? AND COALESCE(u.role, 'player') != 'admin'
+	ORDER BY wl.total_points DESC, wl.correct_picks DESC, wl.tiebreaker_error ASC, u.username ASC`
 
 	rows, err := r.db.Query(query, weekID)
 	if err != nil {
@@ -1231,16 +1231,19 @@ func (r *Repository) GetWeeklyLeaderboard(weekID int64) ([]*LeaderboardEntry, er
 	defer rows.Close()
 
 	var entries []*LeaderboardEntry
+	rank := 1
 	for rows.Next() {
 		var e LeaderboardEntry
 		if err := rows.Scan(&e.Rank, &e.UserID, &e.Username, &e.AvatarURL, &e.TotalPoints, &e.CorrectPicks, &e.TotalPicks, &e.TiebreakerError); err != nil {
 			return nil, err
 		}
+		e.Rank = rank
 		if e.TotalPicks > 0 {
 			e.WinPercentage = (float64(e.CorrectPicks) / float64(e.TotalPicks)) * 100.0
 		}
 		e.HasTiebreaker = e.TiebreakerError >= 0 && e.TiebreakerError < 999
 		entries = append(entries, &e)
+		rank++
 	}
 	return entries, nil
 }
@@ -1256,6 +1259,7 @@ func (r *Repository) GetSeasonLeaderboard(seasonID int64) ([]*LeaderboardEntry, 
 	FROM users u
 	LEFT JOIN weekly_leaderboard wl ON u.id = wl.user_id
 	LEFT JOIN weeks w ON wl.week_id = w.id AND w.season_id = ?
+	WHERE COALESCE(u.role, 'player') != 'admin'
 	GROUP BY u.id, u.username, u.avatar_url
 	ORDER BY grand_total_points DESC, grand_correct_picks DESC, grand_tiebreaker_error ASC, u.username ASC`
 

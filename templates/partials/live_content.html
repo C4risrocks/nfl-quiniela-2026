@@ -10,20 +10,8 @@
         setViewMode(mode) {
             this.viewMode = mode;
             try { localStorage.setItem('nfl_live_view_mode', mode); } catch(e) {}
-        },
-        rivalsModalOpen: false,
-        whatIfModalOpen: false,
-        openRivals() {
-            this.rivalsModalOpen = true;
-            window.__rivalsOpen = true;
-        },
-        closeRivals() {
-            this.rivalsModalOpen = false;
-            window.__rivalsOpen = false;
         }
-     }"
-     @open-rivals.window="openRivals()"
-     @close-rivals.window="closeRivals()">
+     }">
 
     <!-- Top Week Switcher & Live Stats Strip -->
     <div class="vercel-card p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
@@ -268,20 +256,23 @@
 
                 <!-- Community Consensus & Picks Breakdown Strip -->
                 <div class="mt-5 pt-4 border-t border-zinc-800/80 space-y-3">
-                    <div class="flex items-center justify-between text-xs">
-                        <span class="font-mono text-[11px] text-zinc-400 uppercase tracking-wider flex items-center">
-                            <i class="fa-solid fa-users mr-1.5 text-zinc-500"></i> Consenso Quiniela
-                        </span>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <div class="font-mono text-[11px] text-zinc-400 uppercase tracking-wider flex items-center">
+                                <i class="fa-solid fa-users mr-1.5 text-cyan-400"></i> Consenso Quiniela
+                            </div>
+                            <p class="text-[11px] text-zinc-500 mt-0.5">Distribución de votos de la comunidad en este partido</p>
+                        </div>
                         {{if .FeaturedPicks}}
                             <button type="button" 
-                                    @click="openRivals()"
+                                    @click="$dispatch('open-rivals')"
                                     title="Ver pronósticos detallados de los rivales en este partido"
-                                    class="group inline-flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-950/60 via-blue-950/40 to-zinc-900 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 hover:text-white text-xs font-bold transition-all shadow-sm hover:scale-[1.02] cursor-pointer">
+                                    class="group inline-flex items-center justify-between sm:justify-start space-x-3 px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-950/70 via-blue-950/50 to-zinc-900 border border-cyan-500/40 hover:border-cyan-400 text-white text-xs font-bold transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
                                 <!-- Overlapping mini avatars stack -->
-                                <div class="flex -space-x-1.5 items-center">
+                                <div class="flex -space-x-2 items-center">
                                     {{range $idx, $p := .FeaturedPicks}}
-                                        {{if lt $idx 3}}
-                                            <div class="w-5 h-5 rounded-full bg-zinc-800 border border-cyan-500/40 flex items-center justify-center text-[8px] font-bold text-white shadow-xs overflow-hidden">
+                                        {{if lt $idx 4}}
+                                            <div class="w-6 h-6 rounded-full bg-zinc-800 border-2 border-cyan-500/50 flex items-center justify-center text-[9px] font-bold text-white shadow-xs overflow-hidden shrink-0">
                                                 {{if $p.User.AvatarURL}}
                                                     <img src="{{$p.User.AvatarURL}}" class="w-full h-full object-cover">
                                                 {{else}}
@@ -291,37 +282,45 @@
                                         {{end}}
                                     {{end}}
                                 </div>
-                                <span class="font-semibold">Ver picks de rivales</span>
-                                <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                                    {{len .FeaturedPicks}}
-                                </span>
-                                <i class="fa-solid fa-chevron-right text-[9px] text-cyan-400 group-hover:translate-x-0.5 transition-transform"></i>
+                                <div class="flex items-center space-x-1.5">
+                                    <span>Ver picks de rivales</span>
+                                    <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black bg-cyan-500/25 text-cyan-300 border border-cyan-500/40">
+                                        {{len .FeaturedPicks}}
+                                    </span>
+                                </div>
+                                <i class="fa-solid fa-chevron-right text-[10px] text-cyan-400 group-hover:translate-x-0.5 transition-transform"></i>
                             </button>
                         {{end}}
                     </div>
 
-                    <!-- Progress Bar for Community Pick Spread -->
-                    <div class="space-y-1">
+                    <!-- Visual Progress Bar for Community Pick Spread -->
+                    <div class="space-y-1.5 bg-zinc-950/80 p-3 rounded-xl border border-zinc-800/80">
                         <div class="flex justify-between text-xs font-mono font-bold">
-                            <span class="text-white flex items-center space-x-1">
+                            <span class="text-cyan-300 flex items-center space-x-1.5">
+                                <img src="{{$fg.AwayTeam.LogoURL}}" alt="{{$fg.AwayTeam.Code}}" class="w-4 h-4 object-contain">
                                 <span>{{$fg.AwayTeam.Code}}</span>
-                                <span class="text-zinc-400 font-normal">({{$fg.AwayPickPercent}}%)</span>
+                                <span class="text-zinc-400 font-normal text-[11px]">({{$fg.AwayPickPercent}}% • {{$fg.AwayPickCount}} picks)</span>
                             </span>
-                            <span class="text-white flex items-center space-x-1">
-                                <span class="text-zinc-400 font-normal">({{$fg.HomePickPercent}}%)</span>
+                            <span class="text-amber-300 flex items-center space-x-1.5">
+                                <span class="text-zinc-400 font-normal text-[11px]">({{$fg.HomePickCount}} picks • {{$fg.HomePickPercent}}%)</span>
                                 <span>{{$fg.HomeTeam.Code}}</span>
+                                <img src="{{$fg.HomeTeam.LogoURL}}" alt="{{$fg.HomeTeam.Code}}" class="w-4 h-4 object-contain">
                             </span>
                         </div>
-                        <div class="w-full h-2.5 bg-zinc-800 rounded-full overflow-hidden flex">
-                            <div class="bg-cyan-500 h-full transition-all duration-500" style="width: {{$fg.AwayPickPercent}}%;"></div>
-                            <div class="bg-amber-400 h-full transition-all duration-500" style="width: {{$fg.HomePickPercent}}%;"></div>
+                        <div class="w-full h-3 rounded-full overflow-hidden flex bg-zinc-900 border border-zinc-800">
+                            <div class="bg-gradient-to-r from-cyan-600 to-blue-500 h-full transition-all duration-500 flex items-center justify-start pl-2 text-[9px] font-mono font-bold text-white" style="width: {{$fg.AwayPickPercent}}%;">
+                                {{if gt $fg.AwayPickPercent 15}}{{$fg.AwayPickPercent}}%{{end}}
+                            </div>
+                            <div class="bg-gradient-to-r from-amber-500 to-orange-500 h-full transition-all duration-500 flex items-center justify-end pr-2 text-[9px] font-mono font-bold text-white" style="width: {{$fg.HomePickPercent}}%;">
+                                {{if gt $fg.HomePickPercent 15}}{{$fg.HomePickPercent}}%{{end}}
+                            </div>
                         </div>
                     </div>
 
                     <!-- User's Personal Pick Status on Featured Game -->
                     {{if $fg.UserPick}}
                         <div class="p-3 rounded-xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-between text-xs">
-                            <span class="text-zinc-400">Tu Pronóstico:</span>
+                            <span class="text-zinc-400 font-medium">Tu Pronóstico:</span>
                             <div class="flex items-center space-x-2">
                                 <span class="font-mono font-black text-white">
                                     {{if $fg.UserPick.IsPickedTeam $fg.AwayTeamID}}
@@ -360,54 +359,60 @@
             </div>
         </div>
 
-        <!-- Rivals Picks Modal for Featured Game -->
+        <!-- Rivals Picks Modal for Featured Game (Mobile Bottom Sheet & Desktop Dialog) -->
         <div id="rivals-modal"
-             x-show="rivalsModalOpen" 
+             x-data="rivalsModalComponent()"
+             x-show="isOpen" 
              x-cloak 
-             class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
-             @keydown.escape.window="closeRivals()">
+             class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden"
+             @open-rivals.window="open()"
+             @close-rivals.window="close()"
+             @keydown.escape.window="close()"
+             @click.self="close()">
             
-            <div class="vercel-card rounded-2xl w-full max-w-2xl overflow-hidden border border-cyan-500/30 shadow-2xl flex flex-col max-h-[92vh] bg-zinc-950"
-                 x-data="{ rivalTab: 'all', rivalSearch: '' }"
-                 @click.away="closeRivals()">
+            <div class="vercel-card rounded-t-3xl sm:rounded-2xl w-full max-w-2xl overflow-hidden border-t sm:border border-cyan-500/30 shadow-2xl flex flex-col max-h-[88vh] sm:max-h-[90vh] bg-zinc-950"
+                 @click.stop>
                 
+                <!-- Mobile Drag Handle Bar (Touch Visual Cue) -->
+                <div class="w-12 h-1.5 bg-zinc-700/80 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0 cursor-pointer" @click="close()"></div>
+
                 <!-- Modal Header & Matchup Banner -->
-                <div class="p-4 sm:p-5 border-b border-zinc-800/90 bg-gradient-to-r from-cyan-950/40 via-zinc-900 to-zinc-950 flex flex-col gap-3.5">
+                <div class="p-3.5 sm:p-5 border-b border-zinc-800/90 bg-gradient-to-r from-cyan-950/40 via-zinc-900 to-zinc-950 flex flex-col gap-3">
                     
                     <!-- Top Bar: Title & Close Button -->
                     <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-2.5">
+                        <div class="flex items-center space-x-2.5 min-w-0">
                             <div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-sm shrink-0">
                                 <i class="fa-solid fa-users-viewfinder"></i>
                             </div>
-                            <div>
+                            <div class="truncate">
                                 <div class="text-sm font-extrabold text-white tracking-tight flex items-center space-x-2">
                                     <span>Pronósticos de Rivales</span>
-                                    <span class="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                    <span class="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shrink-0">
                                         {{len .FeaturedPicks}} PICKS
                                     </span>
                                 </div>
-                                <div class="text-[10px] font-mono text-zinc-400">
+                                <div class="text-[10px] font-mono text-zinc-400 truncate">
                                     {{$fg.AwayTeam.Name}} vs {{$fg.HomeTeam.Name}}
                                 </div>
                             </div>
                         </div>
 
                         <button type="button" 
-                                @click="closeRivals()" 
-                                class="p-2 text-zinc-400 hover:text-white rounded-xl hover:bg-zinc-800/80 transition-colors cursor-pointer"
+                                @click="close()" 
+                                class="p-2 text-zinc-400 hover:text-white rounded-xl hover:bg-zinc-800/80 transition-colors cursor-pointer shrink-0"
                                 title="Cerrar modal (Esc)">
-                            <i class="fa-solid fa-xmark text-base"></i>
+                            <i class="fa-solid fa-xmark text-lg"></i>
                         </button>
                     </div>
 
                     <!-- Mini Live Scoreboard Header -->
-                    <div class="p-3 rounded-xl bg-zinc-950/90 border border-zinc-800/80 flex items-center justify-between gap-2 shadow-inner">
+                    <div class="p-2.5 sm:p-3 rounded-xl bg-zinc-950/90 border border-zinc-800/80 flex items-center justify-between gap-2 shadow-inner">
                         <!-- Away Team Column -->
-                        <div class="flex items-center space-x-2.5 min-w-0 flex-1">
-                            <img src="{{$fg.AwayTeam.LogoURL}}" alt="{{$fg.AwayTeam.Code}}" class="w-9 h-9 sm:w-11 sm:h-11 object-contain shrink-0 drop-shadow">
+                        <div class="flex items-center space-x-2 min-w-0 flex-1">
+                            <img src="{{$fg.AwayTeam.LogoURL}}" alt="{{$fg.AwayTeam.Code}}" class="w-8 h-8 sm:w-10 sm:h-10 object-contain shrink-0 drop-shadow">
                             <div class="truncate">
-                                <div class="text-xs sm:text-sm font-black text-white flex items-center space-x-1.5">
+                                <div class="text-xs sm:text-sm font-black text-white flex items-center space-x-1">
                                     <span>{{$fg.AwayTeam.Code}}</span>
                                     <span class="text-[10px] font-mono font-semibold text-cyan-400">({{$fg.AwayPickPercent}}%)</span>
                                 </div>
@@ -419,124 +424,108 @@
                         <!-- Center Status & Score -->
                         <div class="px-2 sm:px-4 text-center shrink-0">
                             {{if eq $fg.Status "in_progress"}}
-                                <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse mb-1">
+                                <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse mb-0.5">
                                     <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
                                     <span>EN VIVO</span>
                                     {{if $fg.StatusDetail}}<span>• {{$fg.StatusDetail}}</span>{{end}}
                                 </span>
-                                <div class="font-mono font-black text-lg sm:text-xl text-white tracking-wider">
+                                <div class="font-mono font-black text-base sm:text-xl text-white tracking-wider">
                                     {{if $fg.AwayScore}}{{$fg.AwayScore}}{{else}}0{{end}} - {{if $fg.HomeScore}}{{$fg.HomeScore}}{{else}}0{{end}}
                                 </div>
                             {{else if eq $fg.Status "final"}}
-                                <span class="inline-block px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-zinc-900 text-zinc-400 border border-zinc-800 mb-1">
+                                <span class="inline-block px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-zinc-900 text-zinc-400 border border-zinc-800 mb-0.5">
                                     FINAL
                                 </span>
-                                <div class="font-mono font-black text-lg sm:text-xl text-white tracking-wider">
+                                <div class="font-mono font-black text-base sm:text-xl text-white tracking-wider">
                                     {{if $fg.AwayScore}}{{$fg.AwayScore}}{{else}}0{{end}} - {{if $fg.HomeScore}}{{$fg.HomeScore}}{{else}}0{{end}}
                                 </div>
                             {{else}}
-                                <span class="inline-block px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-zinc-900 text-zinc-400 border border-zinc-800 mb-1">
+                                <span class="inline-block px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-zinc-900 text-zinc-400 border border-zinc-800 mb-0.5">
                                     KICKOFF
                                 </span>
-                                <div class="font-mono font-bold text-xs sm:text-sm text-zinc-300">
+                                <div class="font-mono font-bold text-xs text-zinc-300">
                                     {{formatDate $fg.KickoffTime}}
                                 </div>
                             {{end}}
                         </div>
 
                         <!-- Home Team Column -->
-                        <div class="flex items-center space-x-2.5 min-w-0 flex-1 justify-end text-right">
+                        <div class="flex items-center space-x-2 min-w-0 flex-1 justify-end text-right">
                             <div class="truncate">
-                                <div class="text-xs sm:text-sm font-black text-white flex items-center justify-end space-x-1.5">
+                                <div class="text-xs sm:text-sm font-black text-white flex items-center justify-end space-x-1">
                                     <span class="text-[10px] font-mono font-semibold text-amber-400">({{$fg.HomePickPercent}}%)</span>
                                     <span>{{$fg.HomeTeam.Code}}</span>
                                 </div>
                                 <div class="text-[10px] text-zinc-400 truncate hidden sm:block">{{$fg.HomeTeam.Name}}</div>
                                 <div class="text-[9px] font-mono text-zinc-500">{{$fg.HomePickCount}} picks</div>
                             </div>
-                            <img src="{{$fg.HomeTeam.LogoURL}}" alt="{{$fg.HomeTeam.Code}}" class="w-9 h-9 sm:w-11 sm:h-11 object-contain shrink-0 drop-shadow">
+                            <img src="{{$fg.HomeTeam.LogoURL}}" alt="{{$fg.HomeTeam.Code}}" class="w-8 h-8 sm:w-10 sm:h-10 object-contain shrink-0 drop-shadow">
                         </div>
                     </div>
 
-                    <!-- 2-Tone Distribution Progress Bar -->
-                    <div class="space-y-1">
-                        <div class="w-full h-2.5 rounded-full overflow-hidden flex bg-zinc-900 border border-zinc-800">
-                            <div class="h-full bg-gradient-to-r from-cyan-600 to-blue-500 flex items-center justify-start pl-2 text-[8px] font-bold text-white transition-all duration-500"
-                                 style="width: {{$fg.AwayPickPercent}}%;">
-                                {{if gt $fg.AwayPickPercent 15}}{{$fg.AwayPickPercent}}%{{end}}
-                            </div>
-                            <div class="h-full bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-end pr-2 text-[8px] font-bold text-white transition-all duration-500"
-                                 style="width: {{$fg.HomePickPercent}}%;">
-                                {{if gt $fg.HomePickPercent 15}}{{$fg.HomePickPercent}}%{{end}}
-                            </div>
-                        </div>
-                    </div>
-
-                    {{if and .FeaturedStats (and .FeaturedStats.AvgAwayScore .FeaturedStats.AvgHomeScore)}}
-                        <div class="text-center py-1 px-3 rounded-lg bg-zinc-900/80 border border-zinc-800 text-[10px] text-zinc-400 flex items-center justify-center space-x-2">
-                            <span class="text-amber-400 font-semibold"><i class="fa-solid fa-bullseye mr-1"></i> Marcador promedio pronosticado:</span>
-                            <span class="font-mono text-white font-bold">{{$fg.AwayTeam.Code}} {{.FeaturedStats.AvgAwayScore}} - {{.FeaturedStats.AvgHomeScore}} {{$fg.HomeTeam.Code}}</span>
-                        </div>
-                    {{end}}
-
-                </div>
-
-                <!-- Filter Pills Toolbar & Quick Search -->
-                <div class="p-3 bg-zinc-900/80 border-b border-zinc-800/80 flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar">
-                        <button type="button"
-                                @click="rivalTab = 'all'"
-                                :class="rivalTab === 'all' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
-                                class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1">
-                            <span>Todos</span>
-                            <span class="px-1 py-0.2 rounded text-[9px] bg-white/10 font-mono">{{len .FeaturedPicks}}</span>
-                        </button>
-
-                        <button type="button"
-                                @click="rivalTab = 'away'"
-                                :class="rivalTab === 'away' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
-                                class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5">
-                            <img src="{{$fg.AwayTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
-                            <span>{{$fg.AwayTeam.Code}}</span>
-                            <span class="px-1 py-0.2 rounded text-[9px] bg-white/10 font-mono">{{$fg.AwayPickCount}}</span>
-                        </button>
-
-                        <button type="button"
-                                @click="rivalTab = 'home'"
-                                :class="rivalTab === 'home' ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
-                                class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5">
-                            <img src="{{$fg.HomeTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
-                            <span>{{$fg.HomeTeam.Code}}</span>
-                            <span class="px-1 py-0.2 rounded text-[9px] bg-white/10 font-mono">{{$fg.HomePickCount}}</span>
-                        </button>
-
-                        {{if $fg.UserPick}}
+                    <!-- Filter Pills Toolbar & Quick Search -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
+                        <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar">
                             <button type="button"
-                                    @click="rivalTab = 'rivals'"
-                                    :class="rivalTab === 'rivals' ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
+                                    @click="rivalTab = 'all'"
+                                    :class="rivalTab === 'all' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
                                     class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1">
-                                <span>⚔️ Rivales Directos</span>
+                                <span>Todos</span>
+                                <span class="px-1 py-0.2 rounded text-[9px] bg-white/10 font-mono">{{len .FeaturedPicks}}</span>
                             </button>
-                            <button type="button"
-                                    @click="rivalTab = 'allies'"
-                                    :class="rivalTab === 'allies' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
-                                    class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1">
-                                <span>🤝 Aliados</span>
-                            </button>
-                        {{end}}
-                    </div>
 
-                    <!-- Search by username -->
-                    <div class="relative min-w-[130px] max-w-[190px] flex-1 sm:flex-initial">
-                        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 text-[10px]"></i>
-                        <input type="text"
-                               x-model="rivalSearch"
-                               placeholder="Buscar rival..."
-                               class="w-full pl-7 pr-2.5 py-1 rounded-lg bg-zinc-950 border border-zinc-800 focus:border-cyan-500 text-[11px] text-white placeholder-zinc-500 focus:outline-none transition-colors">
+                            <button type="button"
+                                    @click="rivalTab = 'away'"
+                                    :class="rivalTab === 'away' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
+                                    class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5">
+                                <img src="{{$fg.AwayTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
+                                <span>{{$fg.AwayTeam.Code}}</span>
+                                <span class="px-1 py-0.2 rounded text-[9px] bg-white/10 font-mono">{{$fg.AwayPickCount}}</span>
+                            </button>
+
+                            <button type="button"
+                                    @click="rivalTab = 'home'"
+                                    :class="rivalTab === 'home' ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
+                                    class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5">
+                                <img src="{{$fg.HomeTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
+                                <span>{{$fg.HomeTeam.Code}}</span>
+                                <span class="px-1 py-0.2 rounded text-[9px] bg-white/10 font-mono">{{$fg.HomePickCount}}</span>
+                            </button>
+
+                            {{if $fg.UserPick}}
+                                <button type="button"
+                                        @click="rivalTab = 'rivals'"
+                                        :class="rivalTab === 'rivals' ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
+                                        class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1">
+                                    <span>⚔️ Rivales</span>
+                                </button>
+                                <button type="button"
+                                        @click="rivalTab = 'allies'"
+                                        :class="rivalTab === 'allies' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
+                                        class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1">
+                                    <span>🤝 Aliados</span>
+                                </button>
+                            {{end}}
+                        </div>
+
+                        <!-- Search Input -->
+                        <div class="relative flex-1 sm:max-w-xs">
+                            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 text-[10px]"></i>
+                            <input type="text"
+                                   x-model="rivalSearch"
+                                   placeholder="Buscar rival..."
+                                   class="w-full pl-7 pr-7 py-1 rounded-lg bg-zinc-950 border border-zinc-800 focus:border-cyan-500 text-[11px] text-white placeholder-zinc-500 focus:outline-none transition-colors">
+                            <button type="button"
+                                    x-show="rivalSearch.length > 0"
+                                    @click="rivalSearch = ''"
+                                    class="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-[10px] cursor-pointer">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Visual Grid of Rival Picks -->
+                <!-- Modal Body: Rivals Cards Grid -->
                 <div class="p-3 sm:p-4 overflow-y-auto max-h-[55vh] grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {{$myPickIsAway := and $fg.UserPick ($fg.UserPick.IsPickedTeam $fg.AwayTeamID)}}
                     {{$myPickIsHome := and $fg.UserPick ($fg.UserPick.IsPickedTeam $fg.HomeTeamID)}}
@@ -550,12 +539,7 @@
                         {{$isLiveWinning := and (eq $fg.Status "in_progress") (.IsProvisionalWinner $fg)}}
                         {{$isLiveLosing := and (eq $fg.Status "in_progress") (.IsProvisionalLoser $fg)}}
 
-                        <div x-show="(rivalTab === 'all' || 
-                                     (rivalTab === 'away' && {{if $isUserAway}}true{{else}}false{{end}}) || 
-                                     (rivalTab === 'home' && {{if $isUserHome}}true{{else}}false{{end}}) || 
-                                     (rivalTab === 'rivals' && {{if $isDirectRival}}true{{else}}false{{end}}) || 
-                                     (rivalTab === 'allies' && {{if $isAlly}}true{{else}}false{{end}})) && 
-                                     (rivalSearch === '' || '{{.User.Username}}'.toLowerCase().includes(rivalSearch.toLowerCase()))"
+                        <div x-show="matchesSearch('{{.User.Username}}') && matchesTab({{$isUserAway}}, {{$isUserHome}}, {{$isDirectRival}}, {{$isAlly}})"
                              class="p-3 rounded-xl border transition-all relative flex flex-col justify-between gap-2.5 
                                     {{if $isCurrent}}bg-cyan-950/25 border-cyan-500/50 ring-1 ring-cyan-500/30 shadow-md{{else if $isUserAway}}bg-zinc-900/60 border-zinc-800/90 hover:border-cyan-500/30{{else if $isUserHome}}bg-zinc-900/60 border-zinc-800/90 hover:border-amber-500/30{{else}}bg-zinc-900/30 border-zinc-800/40{{end}}">
                             
@@ -690,8 +674,9 @@
                     </div>
 
                     <button type="button"
-                            @click="closeRivals()"
+                            @click="close()"
                             class="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700 text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5">
+                        <i class="fa-solid fa-xmark text-xs"></i>
                         <span>Cerrar</span>
                         <span class="text-[10px] text-zinc-500 font-mono hidden sm:inline">(Esc)</span>
                     </button>
@@ -699,6 +684,38 @@
 
             </div>
         </div>
+
+        <script>
+        function rivalsModalComponent() {
+            return {
+                isOpen: false,
+                rivalTab: 'all',
+                rivalSearch: '',
+                open() {
+                    this.isOpen = true;
+                    window.__rivalsOpen = true;
+                    try { document.body.classList.add('overflow-hidden'); } catch(e) {}
+                },
+                close() {
+                    this.isOpen = false;
+                    window.__rivalsOpen = false;
+                    try { document.body.classList.remove('overflow-hidden'); } catch(e) {}
+                },
+                matchesSearch(username) {
+                    if (!this.rivalSearch || !this.rivalSearch.trim()) return true;
+                    return username.toLowerCase().includes(this.rivalSearch.trim().toLowerCase());
+                },
+                matchesTab(isAway, isHome, isDirectRival, isAlly) {
+                    if (this.rivalTab === 'all') return true;
+                    if (this.rivalTab === 'away') return isAway;
+                    if (this.rivalTab === 'home') return isHome;
+                    if (this.rivalTab === 'rivals') return isDirectRival;
+                    if (this.rivalTab === 'allies') return isAlly;
+                    return true;
+                }
+            };
+        }
+        </script>
     {{end}}
 
     <!-- Matchup List / Filter Strip -->
@@ -955,26 +972,50 @@
 
                     <!-- Rivals Picks Drawer for each Game (if in_progress or final) -->
                     {{if or (eq $g.Status "in_progress") (eq $g.Status "final")}}
-                        <div x-data="{ openCommunity: false }" class="mt-2 pt-2 border-t border-zinc-900/90">
+                        <div x-data="{ openCommunity: false }" class="mt-2.5 pt-2.5 border-t border-zinc-900/90 space-y-1.5">
+                            
+                            {{if gt $g.TotalPicks 0}}
+                                <!-- Mini Visual Consensus Split Bar -->
+                                <div class="space-y-1">
+                                    <div class="flex justify-between text-[10px] font-mono">
+                                        <span class="text-cyan-400 font-bold flex items-center space-x-1">
+                                            <span>{{$g.AwayTeam.Code}}</span>
+                                            <span class="text-zinc-500 font-normal">({{$g.AwayPickPercent}}%)</span>
+                                        </span>
+                                        <span class="text-zinc-500 text-[9px] uppercase font-bold tracking-wider">Consenso</span>
+                                        <span class="text-amber-400 font-bold flex items-center space-x-1">
+                                            <span class="text-zinc-500 font-normal">({{$g.HomePickPercent}}%)</span>
+                                            <span>{{$g.HomeTeam.Code}}</span>
+                                        </span>
+                                    </div>
+                                    <div class="w-full h-1.5 rounded-full overflow-hidden flex bg-zinc-900 border border-zinc-800/80">
+                                        <div class="bg-cyan-500 h-full transition-all duration-300" style="width: {{$g.AwayPickPercent}}%;"></div>
+                                        <div class="bg-amber-400 h-full transition-all duration-300" style="width: {{$g.HomePickPercent}}%;"></div>
+                                    </div>
+                                </div>
+                            {{end}}
+
                             <button type="button" 
                                     @click="openCommunity = !openCommunity" 
                                     hx-get="/picks/community/{{$g.ID}}"
                                     hx-target="#live-community-{{$g.ID}}"
                                     hx-trigger="click once"
-                                    class="w-full flex items-center justify-between text-[11px] text-zinc-400 hover:text-cyan-300 py-1 transition-colors cursor-pointer group">
-                                <span class="flex items-center space-x-1.5 font-medium">
-                                    <i class="fa-solid fa-users-viewfinder text-zinc-500 group-hover:text-cyan-400 transition-colors"></i>
+                                    class="w-full flex items-center justify-between px-3 py-1.5 rounded-xl bg-zinc-900/80 hover:bg-zinc-850 border border-zinc-800/80 hover:border-cyan-500/40 text-[11px] font-semibold text-zinc-300 hover:text-white transition-all cursor-pointer group">
+                                <span class="flex items-center space-x-1.5">
+                                    <i class="fa-solid fa-users text-zinc-500 group-hover:text-cyan-400 transition-colors"></i>
                                     <span>Pronósticos de rivales</span>
                                     {{if gt $g.TotalPicks 0}}
-                                        <span class="text-[10px] font-mono text-zinc-500">({{$g.TotalPicks}})</span>
+                                        <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-zinc-800 text-zinc-300 border border-zinc-700">
+                                            {{$g.TotalPicks}}
+                                        </span>
                                     {{end}}
                                 </span>
-                                <i class="fa-solid text-[9px] text-zinc-500 group-hover:text-cyan-400 transition-transform duration-200" :class="openCommunity ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                                <i class="fa-solid text-[10px] text-zinc-500 group-hover:text-cyan-400 transition-transform duration-200" :class="openCommunity ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                             </button>
 
                             <div x-show="openCommunity" x-cloak class="mt-2 pt-2 border-t border-zinc-900">
                                 <div id="live-community-{{$g.ID}}" class="space-y-1.5 text-xs text-zinc-300">
-                                    <div class="py-2.5 text-center text-zinc-500 text-xs">
+                                    <div class="py-3 text-center text-zinc-500 text-xs">
                                         <i class="fa-solid fa-spinner fa-spin mr-1 text-cyan-400"></i> Cargando pronósticos de rivales...
                                     </div>
                                 </div>

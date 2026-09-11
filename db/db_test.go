@@ -668,4 +668,78 @@ func TestGetAllUsersPicksForWeek(t *testing.T) {
 	}
 }
 
+func TestLeaderboardExcludesAdmins(t *testing.T) {
+	testDBPath := "test_lb_admin.db"
+	defer os.Remove(testDBPath)
+
+	database, err := InitDB("sqlite", testDBPath)
+	if err != nil {
+		t.Fatalf("Failed to init db: %v", err)
+	}
+	defer database.Close()
+
+	repo := NewRepository(database)
+	_ = SeedDatabase(repo, "sysadmin", "sysadmin@test.com", "pass123", 2026)
+
+	season, err := repo.GetActiveSeason(2026)
+	if err != nil {
+		t.Fatalf("GetActiveSeason failed: %v", err)
+	}
+	weeks, _ := repo.ListWeeks(season.ID)
+
+	playerUser, err := repo.CreateUser("player_normal", "player@test.com", "hash", "player")
+	if err != nil {
+		t.Fatalf("CreateUser player failed: %v", err)
+	}
+	adminUser, err := repo.CreateUser("admin_boss", "admin@test.com", "hash", "admin")
+	if err != nil {
+		t.Fatalf("CreateUser admin failed: %v", err)
+	}
+
+	// Insert into weekly_leaderboard for both
+	_ = repo.UpsertWeeklyLeaderboard(&LeaderboardEntry{
+		UserID:          playerUser.ID,
+		TotalPoints:     20,
+		CorrectPicks:    2,
+		TotalPicks:      2,
+		TiebreakerError: 0,
+		Rank:            1,
+	}, weeks[0].ID)
+
+	_ = repo.UpsertWeeklyLeaderboard(&LeaderboardEntry{
+		UserID:          adminUser.ID,
+		TotalPoints:     30,
+		CorrectPicks:    3,
+		TotalPicks:      3,
+		TiebreakerError: 0,
+		Rank:            1,
+	}, weeks[0].ID)
+
+	// Weekly Leaderboard should NOT contain admin
+	weeklyLB, err := repo.GetWeeklyLeaderboard(weeks[0].ID)
+	if err != nil {
+		t.Fatalf("GetWeeklyLeaderboard failed: %v", err)
+	}
+	for _, entry := range weeklyLB {
+		if entry.UserID == adminUser.ID {
+			t.Errorf("Expected admin %s to be excluded from weekly leaderboard", adminUser.Username)
+		}
+		if entry.Rank != 1 {
+			t.Errorf("Expected player rank to be re-indexed to 1, got %d", entry.Rank)
+		}
+	}
+
+	// Season Leaderboard should NOT contain admin
+	seasonLB, err := repo.GetSeasonLeaderboard(season.ID)
+	if err != nil {
+		t.Fatalf("GetSeasonLeaderboard failed: %v", err)
+	}
+	for _, entry := range seasonLB {
+		if entry.UserID == adminUser.ID {
+			t.Errorf("Expected admin %s to be excluded from season leaderboard", adminUser.Username)
+		}
+	}
+}
+
+
 
