@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"sort"
 	"strconv"
@@ -24,6 +25,44 @@ func NewLiveHandler(repo *db.Repository, renderer *Renderer, seasonYear int) *Li
 	}
 }
 
+type WhatIfGame struct {
+	ID              int64  `json:"id"`
+	AwayID          int64  `json:"away_id"`
+	AwayCode        string `json:"away_code"`
+	AwayName        string `json:"away_name"`
+	AwayLogo        string `json:"away_logo"`
+	HomeID          int64  `json:"home_id"`
+	HomeCode        string `json:"home_code"`
+	HomeName        string `json:"home_name"`
+	HomeLogo        string `json:"home_logo"`
+	Status          string `json:"status"`
+	StatusDetail    string `json:"status_detail"`
+	AwayScore       int    `json:"away_score"`
+	HomeScore       int    `json:"home_score"`
+	IsLocked        bool   `json:"is_locked"`
+	UserPickedID    int64  `json:"user_picked_id"`
+	ConsensusID     int64  `json:"consensus_id"`
+	CurrentWinnerID int64  `json:"current_winner_id"`
+	AwayPickPercent int    `json:"away_pick_pct"`
+	HomePickPercent int    `json:"home_pick_pct"`
+}
+
+type WhatIfUser struct {
+	UserID        int64           `json:"user_id"`
+	Username      string          `json:"username"`
+	AvatarURL     string          `json:"avatar_url"`
+	IsCurrent     bool            `json:"is_current"`
+	BasePoints    int             `json:"base_points"`
+	CurrentPoints int             `json:"current_points"`
+	Picks         map[int64]int64 `json:"picks"`
+}
+
+type WhatIfPayload struct {
+	Games         []WhatIfGame `json:"games"`
+	Users         []WhatIfUser `json:"users"`
+	CurrentUserID int64        `json:"current_user_id"`
+}
+
 type LiveViewData struct {
 	ActiveNav           string
 	User                *db.User
@@ -41,6 +80,7 @@ type LiveViewData struct {
 	UserProvisionalPts  int
 	CurrentTime         time.Time
 	LockMode            string
+	WhatIfJSON          string
 }
 
 func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
@@ -180,6 +220,164 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 		})
 	}
 
+	// ----------------------------------------------------
+	// Build What-If Simulation Payload
+	// ----------------------------------------------------
+	var firstKickoff *time.Time
+	for _, g := range games {
+		if firstKickoff == nil || g.KickoffTime.Before(*firstKickoff) {
+			t := g.KickoffTime
+			firstKickoff = &t
+		}
+	}
+
+	whatIfGames := make([]WhatIfGame, 0, len(games))
+	gameLockedMap := make(map[int64]bool)
+	gameFinalWinnerMap := make(map[int64]int64)
+	gameLiveLeaderMap := make(map[int64]int64)
+
+	for _, g := range games {
+		isLocked := g.IsGameOrWeekLocked(now, lockMode, firstKickoff)
+		gameLockedMap[g.ID] = isLocked
+
+		var currentWinnerID int64
+		var awayScoreVal, homeScoreVal int
+		if g.AwayScore != nil {
+			awayScoreVal = *g.AwayScore
+		}
+		if g.HomeScore != nil {
+			homeScoreVal = *g.HomeScore
+		}
+
+		if g.Status == "final" {
+			if awayScoreVal > homeScoreVal {
+				currentWinnerID = g.AwayTeamID
+				gameFinalWinnerMap[g.ID] = g.AwayTeamID
+			} else if homeScoreVal > awayScoreVal {
+				currentWinnerID = g.HomeTeamID
+				gameFinalWinnerMap[g.ID] = g.HomeTeamID
+			}
+		} else if g.Status == "in_progress" {
+			if awayScoreVal > homeScoreVal {
+				currentWinnerID = g.AwayTeamID
+				gameLiveLeaderMap[g.ID] = g.AwayTeamID
+			} else if homeScoreVal > awayScoreVal {
+				currentWinnerID = g.HomeTeamID
+				gameLiveLeaderMap[g.ID] = g.HomeTeamID
+			}
+		}
+
+		var consensusID int64 = g.HomeTeamID
+		if g.AwayPickCount > g.HomePickCount {
+			consensusID = g.AwayTeamID
+		}
+
+		var userPickedID int64
+		if g.UserPick != nil && g.UserPick.PickedTeamID != nil {
+			userPickedID = *g.UserPick.PickedTeamID
+		}
+
+		var awayCode, awayName, awayLogo string
+		if g.AwayTeam != nil {
+			awayCode = g.AwayTeam.Code
+			awayName = g.AwayTeam.Name
+			awayLogo = g.AwayTeam.LogoURL
+		}
+		var homeCode, homeName, homeLogo string
+		if g.HomeTeam != nil {
+			homeCode = g.HomeTeam.Code
+			homeName = g.HomeTeam.Name
+			homeLogo = g.HomeTeam.LogoURL
+		}
+
+		whatIfGames = append(whatIfGames, WhatIfGame{
+			ID:              g.ID,
+			AwayID:          g.AwayTeamID,
+			AwayCode:        awayCode,
+			AwayName:        awayName,
+			AwayLogo:        awayLogo,
+			HomeID:          g.HomeTeamID,
+			HomeCode:        homeCode,
+			HomeName:        homeName,
+			HomeLogo:        homeLogo,
+			Status:          g.Status,
+			StatusDetail:    g.StatusDetail,
+			AwayScore:       awayScoreVal,
+			HomeScore:       homeScoreVal,
+			IsLocked:        isLocked,
+			UserPickedID:    userPickedID,
+			ConsensusID:     consensusID,
+			CurrentWinnerID: currentWinnerID,
+			AwayPickPercent: g.AwayPickPercent(),
+			HomePickPercent: g.HomePickPercent(),
+		})
+	}
+
+	var currentUserID int64
+	if currentUser != nil {
+		currentUserID = currentUser.ID
+	}
+
+	var whatIfUsers []WhatIfUser
+	if selectedWeek != nil {
+		allUserPicks, _ := h.repo.GetAllUsersPicksForWeek(selectedWeek.ID)
+		userSeen := make(map[int64]bool)
+
+		for _, up := range allUserPicks {
+			userSeen[up.UserID] = true
+			isCurrent := up.UserID == currentUserID
+			basePts := 0
+			currentPts := 0
+			filteredPicks := make(map[int64]int64)
+
+			for gID, pickedTeamID := range up.Picks {
+				if winTeam, ok := gameFinalWinnerMap[gID]; ok && winTeam == pickedTeamID {
+					basePts++
+					currentPts++
+				}
+				if leadTeam, ok := gameLiveLeaderMap[gID]; ok && leadTeam == pickedTeamID {
+					currentPts++
+				}
+				if gameLockedMap[gID] || isCurrent {
+					filteredPicks[gID] = pickedTeamID
+				}
+			}
+
+			whatIfUsers = append(whatIfUsers, WhatIfUser{
+				UserID:        up.UserID,
+				Username:      up.Username,
+				AvatarURL:     up.AvatarURL,
+				IsCurrent:     isCurrent,
+				BasePoints:    basePts,
+				CurrentPoints: currentPts,
+				Picks:         filteredPicks,
+			})
+		}
+
+		if currentUser != nil && !userSeen[currentUser.ID] {
+			whatIfUsers = append(whatIfUsers, WhatIfUser{
+				UserID:        currentUser.ID,
+				Username:      currentUser.Username,
+				AvatarURL:     currentUser.AvatarURL,
+				IsCurrent:     true,
+				BasePoints:    0,
+				CurrentPoints: 0,
+				Picks:         make(map[int64]int64),
+			})
+		}
+	}
+
+	payload := WhatIfPayload{
+		Games:         whatIfGames,
+		Users:         whatIfUsers,
+		CurrentUserID: currentUserID,
+	}
+
+	var whatIfJSON string
+	if jsonBytes, err := json.Marshal(payload); err == nil {
+		whatIfJSON = string(jsonBytes)
+	}
+
 	return &LiveViewData{
 		ActiveNav:           "live",
 		User:                currentUser,
@@ -197,6 +395,7 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 		UserProvisionalPts:  provisionalPoints,
 		CurrentTime:         now,
 		LockMode:            lockMode,
+		WhatIfJSON:          whatIfJSON,
 	}, nil
 }
 

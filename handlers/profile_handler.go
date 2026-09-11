@@ -37,7 +37,11 @@ func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stats, _ := h.repo.GetUserStats(user.ID)
+	advStats, _ := h.repo.GetAdvancedUserStats(user.ID)
+	var stats *db.UserStats
+	if advStats != nil {
+		stats = &advStats.UserStats
+	}
 	teams, _ := h.repo.ListTeams()
 
 	season, _ := h.repo.GetActiveSeason(2026)
@@ -72,6 +76,7 @@ func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 		"ActiveNav":     "profile",
 		"User":          freshUser,
 		"Stats":         stats,
+		"AdvancedStats": advStats,
 		"Teams":         teams,
 		"Rank":          rank,
 		"TotalPlayers":  totalPlayers,

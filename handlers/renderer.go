@@ -128,10 +128,13 @@ func (r *Renderer) RenderPage(w http.ResponseWriter, pageFile string, data inter
 	}
 }
 
-// RenderPartial parses and executes an isolated partial without layout
+// RenderPartial parses and executes a partial with access to other partials
 func (r *Renderer) RenderPartial(w http.ResponseWriter, partialFile string, data interface{}) {
-	pattern := "partials/" + partialFile
-	tmpl, err := template.New(partialFile).Funcs(r.FuncMap()).ParseFS(r.templatesFS, pattern)
+	patterns := []string{
+		"partials/" + partialFile,
+		"partials/*.html",
+	}
+	tmpl, err := template.New(partialFile).Funcs(r.FuncMap()).ParseFS(r.templatesFS, patterns...)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Partial template parse error: %v", err), http.StatusInternalServerError)
 		return

@@ -93,6 +93,133 @@
         </div>
     </div>
 
+    <!-- Advanced Analytics & Tendencies Card -->
+    {{if .AdvancedStats}}
+    <div class="vercel-card p-5 sm:p-6 rounded-2xl shadow-sm space-y-5">
+        <div class="pb-3 border-b border-zinc-800/80">
+            <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center">
+                <i class="fa-solid fa-brain text-purple-400 mr-2"></i> Análisis Profundo y Tendencias
+            </h2>
+            <p class="text-xs text-zinc-400 mt-0.5">Efectividad por conferencia, equipo talismán, némesis y rachas históricas.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Conference Breakdown Card -->
+            <div class="p-4 rounded-xl bg-zinc-950/60 border border-zinc-900 space-y-3">
+                <span class="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400 flex items-center">
+                    <i class="fa-solid fa-shield-halved text-cyan-400 mr-1.5"></i> Conferencia (AFC vs NFC)
+                </span>
+                
+                <div class="space-y-2 text-xs">
+                    <!-- AFC -->
+                    <div>
+                        <div class="flex justify-between text-zinc-300 font-mono mb-1">
+                            <span class="text-red-400 font-bold">AFC</span>
+                            <span>{{printf "%.1f" .AdvancedStats.AFCStats.Accuracy}}% <span class="text-zinc-500 text-[10px]">({{.AdvancedStats.AFCStats.CorrectPicks}}/{{.AdvancedStats.AFCStats.TotalPicks}})</span></span>
+                        </div>
+                        <div class="w-full bg-zinc-900 h-2 rounded-full overflow-hidden">
+                            <div class="bg-red-500 h-full rounded-full transition-all" style="width: {{.AdvancedStats.AFCStats.Accuracy}}%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- NFC -->
+                    <div>
+                        <div class="flex justify-between text-zinc-300 font-mono mb-1">
+                            <span class="text-blue-400 font-bold">NFC</span>
+                            <span>{{printf "%.1f" .AdvancedStats.NFCStats.Accuracy}}% <span class="text-zinc-500 text-[10px]">({{.AdvancedStats.NFCStats.CorrectPicks}}/{{.AdvancedStats.NFCStats.TotalPicks}})</span></span>
+                        </div>
+                        <div class="w-full bg-zinc-900 h-2 rounded-full overflow-hidden">
+                            <div class="bg-blue-500 h-full rounded-full transition-all" style="width: {{.AdvancedStats.NFCStats.Accuracy}}%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Interconference -->
+                    <div>
+                        <div class="flex justify-between text-zinc-300 font-mono mb-1">
+                            <span class="text-zinc-400 font-bold">Interconferencia</span>
+                            <span>{{printf "%.1f" .AdvancedStats.InterconfStats.Accuracy}}% <span class="text-zinc-500 text-[10px]">({{.AdvancedStats.InterconfStats.CorrectPicks}}/{{.AdvancedStats.InterconfStats.TotalPicks}})</span></span>
+                        </div>
+                        <div class="w-full bg-zinc-900 h-2 rounded-full overflow-hidden">
+                            <div class="bg-zinc-600 h-full rounded-full transition-all" style="width: {{.AdvancedStats.InterconfStats.Accuracy}}%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Team Affinity: Talisman & Nemesis -->
+            <div class="p-4 rounded-xl bg-zinc-950/60 border border-zinc-900 flex flex-col justify-between space-y-3">
+                <span class="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400 flex items-center">
+                    <i class="fa-solid fa-users text-amber-400 mr-1.5"></i> Afinidad de Equipos
+                </span>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <!-- Talisman Team -->
+                    <div class="p-2.5 rounded-lg bg-emerald-950/20 border border-emerald-500/30 flex flex-col items-center text-center">
+                        <span class="text-[9px] font-mono font-bold uppercase text-emerald-400 flex items-center">
+                            <i class="fa-solid fa-sparkles mr-1 text-emerald-400"></i> Talismán
+                        </span>
+                        {{if .AdvancedStats.TalismanTeam}}
+                            <img src="{{.AdvancedStats.TalismanTeam.LogoURL}}" alt="{{.AdvancedStats.TalismanTeam.TeamCode}}" class="w-8 h-8 object-contain my-1">
+                            <span class="font-bold text-white text-xs">{{.AdvancedStats.TalismanTeam.TeamCode}}</span>
+                            <span class="text-[10px] font-mono text-emerald-300 font-bold">{{printf "%.0f" .AdvancedStats.TalismanTeam.Accuracy}}% acierto</span>
+                            <span class="text-[9px] text-zinc-500 font-mono">({{.AdvancedStats.TalismanTeam.CorrectCount}}/{{.AdvancedStats.TalismanTeam.TotalPicked}})</span>
+                        {{else}}
+                            <span class="text-xs text-zinc-500 italic my-auto">Sin datos aún</span>
+                        {{end}}
+                    </div>
+
+                    <!-- Nemesis Team -->
+                    <div class="p-2.5 rounded-lg bg-rose-950/20 border border-rose-500/30 flex flex-col items-center text-center">
+                        <span class="text-[9px] font-mono font-bold uppercase text-rose-400 flex items-center">
+                            <i class="fa-solid fa-skull mr-1 text-rose-400"></i> Némesis
+                        </span>
+                        {{if .AdvancedStats.NemesisTeam}}
+                            <img src="{{.AdvancedStats.NemesisTeam.LogoURL}}" alt="{{.AdvancedStats.NemesisTeam.TeamCode}}" class="w-8 h-8 object-contain my-1">
+                            <span class="font-bold text-white text-xs">{{.AdvancedStats.NemesisTeam.TeamCode}}</span>
+                            <span class="text-[10px] font-mono text-rose-300 font-bold">{{printf "%.0f" .AdvancedStats.NemesisTeam.Accuracy}}% acierto</span>
+                            <span class="text-[9px] text-zinc-500 font-mono">({{.AdvancedStats.NemesisTeam.CorrectCount}}/{{.AdvancedStats.NemesisTeam.TotalPicked}})</span>
+                        {{else}}
+                            <span class="text-xs text-zinc-500 italic my-auto">Sin datos aún</span>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Streaks & Home/Away Tendency -->
+            <div class="p-4 rounded-xl bg-zinc-950/60 border border-zinc-900 space-y-3">
+                <span class="text-[11px] font-mono font-bold uppercase tracking-wider text-zinc-400 flex items-center">
+                    <i class="fa-solid fa-fire text-orange-400 mr-1.5"></i> Rachas y Tendencia
+                </span>
+
+                <div class="space-y-2.5 text-xs">
+                    <div class="flex items-center justify-between p-2 rounded-lg bg-zinc-900/60 border border-zinc-800">
+                        <span class="text-zinc-400">Racha Actual:</span>
+                        <span class="font-mono font-bold text-amber-400 flex items-center">
+                            <i class="fa-solid fa-fire text-amber-500 mr-1 text-[11px]"></i>
+                            {{.AdvancedStats.CurrentStreak}} aciertos
+                        </span>
+                    </div>
+
+                    <div class="flex items-center justify-between p-2 rounded-lg bg-zinc-900/60 border border-zinc-800">
+                        <span class="text-zinc-400">Racha Récord:</span>
+                        <span class="font-mono font-bold text-emerald-400 flex items-center">
+                            <i class="fa-solid fa-trophy text-emerald-500 mr-1 text-[11px]"></i>
+                            {{.AdvancedStats.MaxStreak}} aciertos
+                        </span>
+                    </div>
+
+                    <div class="flex items-center justify-between p-2 rounded-lg bg-zinc-900/60 border border-zinc-800">
+                        <span class="text-zinc-400">Local vs Visita:</span>
+                        <span class="font-mono text-zinc-300 text-[11px]">
+                            L: <strong class="text-white">{{printf "%.0f" .AdvancedStats.HomeAccuracy}}%</strong> / V: <strong class="text-white">{{printf "%.0f" .AdvancedStats.AwayAccuracy}}%</strong>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{end}}
+
     <!-- Performance History & Chart Card -->
     <div class="vercel-card p-5 sm:p-6 rounded-2xl shadow-sm space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-zinc-800/80">

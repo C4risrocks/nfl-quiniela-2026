@@ -1,0 +1,452 @@
+<!-- Live What-If Scenario Simulator Modal -->
+<div id="whatif-modal"
+     x-show="whatIfModalOpen" 
+     x-cloak
+     class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+     @keydown.escape.window="whatIfModalOpen = false; window.__whatIfOpen = false;"
+     x-data="whatIfSimulator()">
+    
+    <div class="vercel-card rounded-2xl w-full max-w-2xl overflow-hidden border border-purple-500/30 shadow-2xl flex flex-col max-h-[92vh] bg-zinc-950"
+         @click.away="whatIfModalOpen = false; window.__whatIfOpen = false;">
+        
+        <!-- Modal Header -->
+        <div class="p-4 border-b border-zinc-800/90 bg-gradient-to-r from-purple-950/40 via-zinc-900 to-zinc-950 flex items-center justify-between">
+            <div class="flex items-center space-x-2.5">
+                <div class="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 text-sm shrink-0">
+                    <i class="fa-solid fa-wand-magic-sparkles animate-pulse"></i>
+                </div>
+                <div>
+                    <div class="text-sm font-extrabold text-white tracking-tight flex items-center space-x-2">
+                        <span>Simulador What-If en Vivo</span>
+                        <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">INTERACTIVO</span>
+                    </div>
+                    <div class="text-[10px] font-mono text-zinc-400">Simula resultados y proyecta tu posición en la quiniela</div>
+                </div>
+            </div>
+            
+            <button type="button" 
+                    @click="whatIfModalOpen = false; window.__whatIfOpen = false;"
+                    class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer">
+                <i class="fa-solid fa-xmark text-base"></i>
+            </button>
+        </div>
+
+        <!-- Quick Scenario Presets Toolbar -->
+        <div class="p-3 bg-zinc-900/60 border-b border-zinc-800/80 flex items-center justify-between gap-2 overflow-x-auto no-scrollbar text-xs">
+            <div class="flex items-center space-x-1.5 shrink-0">
+                <span class="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-wider mr-1">Presets:</span>
+                
+                {{if .User}}
+                    <button type="button"
+                            @click="simulateMyPicks()"
+                            title="Asignar ganador según todos tus pronósticos"
+                            class="px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 font-semibold transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1">
+                        <i class="fa-solid fa-bullseye text-[9px] text-purple-400"></i>
+                        <span>Mis Picks</span>
+                    </button>
+                {{end}}
+
+                <button type="button"
+                        @click="simulateLiveScores()"
+                        title="Asignar ganador a quien va ganando actualmente en partidos activos"
+                        class="px-2.5 py-1 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 font-semibold transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                    <span>Al Momento</span>
+                </button>
+
+                <button type="button"
+                        @click="simulateConsensus()"
+                        title="Asignar ganador al favorito de la comunidad"
+                        class="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 font-semibold transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1">
+                    <i class="fa-solid fa-users text-[9px] text-cyan-400"></i>
+                    <span>Consenso</span>
+                </button>
+            </div>
+
+            <button type="button"
+                    @click="resetAll()"
+                    title="Limpiar todas las selecciones simuladas"
+                    class="px-2.5 py-1 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700 font-medium transition-all cursor-pointer whitespace-nowrap text-[11px] shrink-0">
+                <i class="fa-solid fa-rotate-left mr-1 text-[9px]"></i> Limpiar
+            </button>
+        </div>
+
+        <!-- Spotlight Card: User's Projected Standing -->
+        <template x-if="currentUserSim">
+            <div class="m-3 sm:m-4 p-4 rounded-2xl bg-gradient-to-br from-purple-950/40 via-zinc-900 to-zinc-950 border border-purple-500/30 shadow-md">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 rounded-2xl bg-purple-600/20 border border-purple-500/40 flex flex-col items-center justify-center font-mono font-black text-white shrink-0">
+                            <span class="text-[9px] text-purple-300 uppercase leading-none">Posición</span>
+                            <span class="text-xl text-purple-200 leading-none mt-0.5" x-text="'#' + currentUserSim.sim_rank"></span>
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-white flex items-center space-x-1.5">
+                                <span x-text="currentUserSim.username"></span>
+                                <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-white text-black font-extrabold">TÚ</span>
+                            </div>
+                            <div class="flex items-center space-x-2 mt-1">
+                                <!-- Rank Delta Pill -->
+                                <template x-if="currentUserSim.rank_delta > 0">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                        <i class="fa-solid fa-arrow-up text-[8px] mr-1"></i> Subes <span x-text="currentUserSim.rank_delta" class="ml-0.5"></span> pos.
+                                    </span>
+                                </template>
+                                <template x-if="currentUserSim.rank_delta < 0">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                        <i class="fa-solid fa-arrow-down text-[8px] mr-1"></i> Bajas <span x-text="Math.abs(currentUserSim.rank_delta)" class="ml-0.5"></span> pos.
+                                    </span>
+                                </template>
+                                <template x-if="currentUserSim.rank_delta === 0">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800">
+                                        <i class="fa-solid fa-minus text-[8px] mr-1 text-zinc-500"></i> Sin cambio
+                                    </span>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-4 self-end sm:self-auto font-mono text-right">
+                        <div>
+                            <div class="text-[10px] text-zinc-400 uppercase tracking-wider">Puntos Base</div>
+                            <div class="text-base font-bold text-zinc-300" x-text="currentUserSim.base_points + ' pts'"></div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] text-purple-400 uppercase tracking-wider font-semibold">+ Simulados</div>
+                            <div class="text-base font-black text-purple-300" x-text="'+' + currentUserSim.sim_hits + ' pts'"></div>
+                        </div>
+                        <div class="pl-2 border-l border-zinc-800">
+                            <div class="text-[10px] text-amber-400 uppercase tracking-wider font-bold">Total Proyectado</div>
+                            <div class="text-xl font-black text-amber-300" x-text="currentUserSim.sim_points + ' pts'"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Navigation Tabs: Games to Simulate vs Leaderboard Projection -->
+        <div class="px-4 border-b border-zinc-800 flex items-center space-x-3 text-xs font-semibold">
+            <button type="button"
+                    @click="activeTab = 'games'"
+                    :class="activeTab === 'games' ? 'border-purple-500 text-white font-bold' : 'border-transparent text-zinc-400 hover:text-zinc-200'"
+                    class="py-2.5 border-b-2 transition-all cursor-pointer flex items-center space-x-1.5">
+                <i class="fa-solid fa-football text-purple-400 text-[11px]"></i>
+                <span>Partidos a Simular</span>
+                <span class="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-zinc-800 text-zinc-300" x-text="simulatedGamesCount + '/' + games.length"></span>
+            </button>
+            <button type="button"
+                    @click="activeTab = 'leaderboard'"
+                    :class="activeTab === 'leaderboard' ? 'border-purple-500 text-white font-bold' : 'border-transparent text-zinc-400 hover:text-zinc-200'"
+                    class="py-2.5 border-b-2 transition-all cursor-pointer flex items-center space-x-1.5">
+                <i class="fa-solid fa-ranking-star text-amber-400 text-[11px]"></i>
+                <span>Tabla Proyectada</span>
+            </button>
+        </div>
+
+        <!-- Tab 1: Interactive Games List -->
+        <div x-show="activeTab === 'games'" class="p-3 sm:p-4 overflow-y-auto flex-1 space-y-2">
+            <template x-for="g in games" :key="g.id">
+                <div class="p-2.5 sm:p-3 rounded-xl bg-zinc-900/70 border border-zinc-800/80 flex flex-col gap-2">
+                    
+                    <!-- Game Info Header -->
+                    <div class="flex items-center justify-between text-[10px] font-mono text-zinc-400">
+                        <div class="flex items-center space-x-1.5">
+                            <template x-if="g.status === 'final'">
+                                <span class="px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-300 font-bold">FINAL</span>
+                            </template>
+                            <template x-if="g.status === 'in_progress'">
+                                <span class="px-1.5 py-0.2 rounded bg-red-500/20 text-red-300 border border-red-500/30 font-bold animate-pulse flex items-center">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-red-500 mr-1"></span> EN VIVO <span x-text="g.status_detail ? '• ' + g.status_detail : ''" class="ml-1"></span>
+                                </span>
+                            </template>
+                            <template x-if="g.status === 'scheduled'">
+                                <span class="text-zinc-500">Próximo partido</span>
+                            </template>
+                        </div>
+
+                        <!-- User Pick Indicator -->
+                        <template x-if="g.user_picked_id > 0">
+                            <span class="text-zinc-400 flex items-center">
+                                Tu pick: <strong class="text-white ml-1 font-bold" x-text="g.user_picked_id === g.away_id ? g.away_code : g.home_code"></strong>
+                            </span>
+                        </template>
+                    </div>
+
+                    <!-- Matchup Simulator Buttons -->
+                    <div class="grid grid-cols-11 items-center gap-2">
+                        <!-- Away Team Button -->
+                        <button type="button"
+                                @click="g.status !== 'final' && toggleWinner(g.id, g.away_id)"
+                                :disabled="g.status === 'final'"
+                                :class="isWinner(g.id, g.away_id) ? 'bg-gradient-to-r from-purple-900/70 to-indigo-900/70 border-purple-500 ring-1 ring-purple-400/50 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700'"
+                                class="col-span-5 p-2 rounded-xl border flex items-center justify-between transition-all cursor-pointer">
+                            <div class="flex items-center space-x-2 min-w-0">
+                                <img :src="g.away_logo" :alt="g.away_code" class="w-6 h-6 object-contain shrink-0">
+                                <div class="truncate text-left">
+                                    <span class="text-xs font-black text-white" x-text="g.away_code"></span>
+                                    <span class="text-[10px] text-zinc-400 truncate hidden sm:inline ml-1" x-text="g.away_name"></span>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-1.5">
+                                <template x-if="g.away_score !== null && g.status !== 'scheduled'">
+                                    <span class="font-mono font-bold text-xs text-zinc-300" x-text="g.away_score"></span>
+                                </template>
+                                <template x-if="isWinner(g.id, g.away_id)">
+                                    <i class="fa-solid fa-crown text-amber-400 text-[10px]"></i>
+                                </template>
+                            </div>
+                        </button>
+
+                        <div class="col-span-1 text-center font-mono font-bold text-[10px] text-zinc-600">@</div>
+
+                        <!-- Home Team Button -->
+                        <button type="button"
+                                @click="g.status !== 'final' && toggleWinner(g.id, g.home_id)"
+                                :disabled="g.status === 'final'"
+                                :class="isWinner(g.id, g.home_id) ? 'bg-gradient-to-r from-purple-900/70 to-indigo-900/70 border-purple-500 ring-1 ring-purple-400/50 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700'"
+                                class="col-span-5 p-2 rounded-xl border flex items-center justify-between transition-all cursor-pointer">
+                            <div class="flex items-center space-x-1.5">
+                                <template x-if="isWinner(g.id, g.home_id)">
+                                    <i class="fa-solid fa-crown text-amber-400 text-[10px]"></i>
+                                </template>
+                                <template x-if="g.home_score !== null && g.status !== 'scheduled'">
+                                    <span class="font-mono font-bold text-xs text-zinc-300" x-text="g.home_score"></span>
+                                </template>
+                            </div>
+                            <div class="flex items-center space-x-2 min-w-0 justify-end">
+                                <div class="truncate text-right">
+                                    <span class="text-[10px] text-zinc-400 truncate hidden sm:inline mr-1" x-text="g.home_name"></span>
+                                    <span class="text-xs font-black text-white" x-text="g.home_code"></span>
+                                </div>
+                                <img :src="g.home_logo" :alt="g.home_code" class="w-6 h-6 object-contain shrink-0">
+                            </div>
+                        </button>
+                    </div>
+
+                    <!-- Mini consensus progress -->
+                    <div class="flex items-center justify-between text-[9px] font-mono text-zinc-500 pt-1 border-t border-zinc-900">
+                        <span x-text="'Quiniela: ' + g.away_pick_pct + '% ' + g.away_code"></span>
+                        <span x-text="g.home_code + ' ' + g.home_pick_pct + '%'"></span>
+                    </div>
+
+                </div>
+            </template>
+        </div>
+
+        <!-- Tab 2: Projected Leaderboard -->
+        <div x-show="activeTab === 'leaderboard'" class="p-3 sm:p-4 overflow-y-auto flex-1 space-y-1.5">
+            <div class="text-[11px] text-zinc-400 mb-2 font-mono flex items-center justify-between">
+                <span>Posiciones proyectadas según ganadores simulados</span>
+                <span class="text-purple-400 font-bold" x-text="simulatedGamesCount + ' partidos configurados'"></span>
+            </div>
+
+            <template x-for="u in simulatedLeaderboard" :key="u.user_id">
+                <div class="p-2.5 rounded-xl border flex items-center justify-between gap-2 transition-all"
+                     :class="u.is_current ? 'bg-purple-950/30 border-purple-500/50 ring-1 ring-purple-500/20' : 'bg-zinc-900/60 border-zinc-800/80'">
+                    
+                    <div class="flex items-center space-x-2.5 min-w-0">
+                        <!-- Rank with badge -->
+                        <div class="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700/80 flex items-center justify-center font-mono font-black text-xs text-white shrink-0"
+                             :class="u.sim_rank === 1 ? 'border-amber-400 text-amber-300' : ''"
+                             x-text="'#' + u.sim_rank">
+                        </div>
+
+                        <!-- Rank Delta Pill -->
+                        <div class="w-12 shrink-0 text-center font-mono text-[10px]">
+                            <template x-if="u.rank_delta > 0">
+                                <span class="text-emerald-400 font-bold" x-text="'▲ +' + u.rank_delta"></span>
+                            </template>
+                            <template x-if="u.rank_delta < 0">
+                                <span class="text-rose-400 font-bold" x-text="'▼ ' + u.rank_delta"></span>
+                            </template>
+                            <template x-if="u.rank_delta === 0">
+                                <span class="text-zinc-600">- 0</span>
+                            </template>
+                        </div>
+
+                        <!-- Username -->
+                        <div class="min-w-0 truncate">
+                            <span class="text-xs font-bold text-white truncate" x-text="u.username"></span>
+                            <template x-if="u.is_current">
+                                <span class="ml-1 text-[9px] font-mono px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 font-bold">TÚ</span>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Points Details -->
+                    <div class="flex items-center space-x-3 text-right font-mono shrink-0">
+                        <div class="text-[10px] text-zinc-400 hidden sm:block">
+                            Base: <span class="text-zinc-300" x-text="u.base_points"></span>
+                        </div>
+                        <div class="text-[10px] text-purple-400">
+                            +<span x-text="u.sim_hits"></span>
+                        </div>
+                        <div class="text-sm font-black text-white pl-2 border-l border-zinc-800" x-text="u.sim_points + ' pts'">
+                        </div>
+                    </div>
+
+                </div>
+            </template>
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="p-4 border-t border-zinc-800/90 bg-zinc-900/80 flex items-center justify-between gap-3">
+            <button type="button"
+                    @click="whatIfModalOpen = false; window.__whatIfOpen = false;"
+                    class="px-4 py-2 rounded-xl border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 text-xs font-semibold transition-colors cursor-pointer">
+                Cerrar
+            </button>
+
+            <button type="button"
+                    @click="shareScenarioWhatsApp()"
+                    class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs transition-all shadow-md flex items-center space-x-1.5 cursor-pointer">
+                <i class="fa-brands fa-whatsapp text-sm"></i>
+                <span>Compartir Escenario</span>
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<!-- Embedded JSON Payload for Client-Side What-If Simulation -->
+<script id="whatif-payload-data" type="application/json">
+{{if .WhatIfJSON}}{{.WhatIfJSON}}{{else}}{}{"games":[],"users":[],"current_user_id":0}{{end}}
+</script>
+
+<script>
+function whatIfSimulator() {
+    return {
+        activeTab: 'games',
+        simWinners: {},
+        games: [],
+        users: [],
+        currentUserId: 0,
+        init() {
+            try {
+                const el = document.getElementById('whatif-payload-data');
+                if (el && el.textContent) {
+                    const data = JSON.parse(el.textContent.trim());
+                    this.games = data.games || [];
+                    this.users = data.users || [];
+                    this.currentUserId = data.current_user_id || 0;
+                    this.simulateLiveScores();
+                }
+            } catch(e) {
+                console.error('WhatIf init error:', e);
+            }
+        },
+        simulateLiveScores() {
+            this.simWinners = {};
+            this.games.forEach(g => {
+                if (g.current_winner_id > 0) {
+                    this.simWinners[g.id] = g.current_winner_id;
+                }
+            });
+            this.simWinners = Object.assign({}, this.simWinners);
+        },
+        toggleWinner(gameId, teamId) {
+            if (this.simWinners[gameId] === teamId) {
+                delete this.simWinners[gameId];
+            } else {
+                this.simWinners[gameId] = teamId;
+            }
+            this.simWinners = Object.assign({}, this.simWinners);
+        },
+        simulateMyPicks() {
+            this.games.forEach(g => {
+                if (g.status !== 'final' && g.user_picked_id > 0) {
+                    this.simWinners[g.id] = g.user_picked_id;
+                }
+            });
+            this.simWinners = Object.assign({}, this.simWinners);
+        },
+        simulateConsensus() {
+            this.games.forEach(g => {
+                if (g.status !== 'final' && g.consensus_id > 0) {
+                    this.simWinners[g.id] = g.consensus_id;
+                }
+            });
+            this.simWinners = Object.assign({}, this.simWinners);
+        },
+        resetAll() {
+            this.simWinners = {};
+        },
+        isWinner(gameId, teamId) {
+            return this.simWinners[gameId] === teamId;
+        },
+        get simulatedLeaderboard() {
+            if (!this.users || this.users.length === 0) return [];
+
+            // Baseline ranking (final games + live current leader)
+            const baseRankings = this.users.map(u => {
+                let curPts = u.base_points;
+                this.games.forEach(g => {
+                    if (g.status === 'in_progress' && g.current_winner_id > 0) {
+                        if (u.picks && u.picks[g.id] === g.current_winner_id) {
+                            curPts += 1;
+                        }
+                    }
+                });
+                return { user_id: u.user_id, points: curPts, username: u.username };
+            });
+            baseRankings.sort((a, b) => b.points - a.points || a.username.localeCompare(b.username));
+            const initialRankMap = {};
+            baseRankings.forEach((item, idx) => {
+                initialRankMap[item.user_id] = idx + 1;
+            });
+
+            // Simulated ranking based on simWinners
+            const list = this.users.map(u => {
+                let simPts = u.base_points;
+                let newHits = 0;
+                this.games.forEach(g => {
+                    if (g.status !== 'final') {
+                        const winId = this.simWinners[g.id];
+                        if (winId && u.picks && u.picks[g.id] === winId) {
+                            simPts += 1;
+                            newHits += 1;
+                        }
+                    }
+                });
+                return {
+                    user_id: u.user_id,
+                    username: u.username,
+                    avatar_url: u.avatar_url,
+                    is_current: u.is_current,
+                    base_points: u.base_points,
+                    sim_points: simPts,
+                    sim_hits: newHits,
+                    initial_rank: initialRankMap[u.user_id] || 99
+                };
+            });
+
+            list.sort((a, b) => b.sim_points - a.sim_points || a.username.localeCompare(b.username));
+            list.forEach((u, idx) => {
+                u.sim_rank = idx + 1;
+                u.rank_delta = u.initial_rank - u.sim_rank;
+            });
+
+            return list;
+        },
+        get currentUserSim() {
+            return this.simulatedLeaderboard.find(u => u.is_current) || null;
+        },
+        get simulatedGamesCount() {
+            return Object.keys(this.simWinners).length;
+        },
+        shareScenarioWhatsApp() {
+            const cur = this.currentUserSim;
+            let text = '🔮 *Simulador NFL Quiniela 2026*\n';
+            if (cur) {
+                text += `¡Con esta simulación de partidos proyecto alcanzar la posición #${cur.sim_rank} con ${cur.sim_points} puntos! 📈\n`;
+            } else {
+                text += '¡Mira esta simulación de escenarios en vivo para la quiniela!\n';
+            }
+            text += `Partidos configurados: ${this.simulatedGamesCount} de ${this.games.length}\n`;
+            text += `👉 Entra al Game Center en vivo: ${window.location.origin}/live`;
+            const url = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(text);
+            window.open(url, '_blank');
+        }
+    };
+}
+</script>

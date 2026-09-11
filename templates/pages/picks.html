@@ -6,7 +6,13 @@
 <div class="space-y-6"
      x-data="{
         activePlatform: 'all',
+        viewMode: localStorage.getItem('nfl_view_mode') || 'grid',
+        setViewMode(mode) {
+            this.viewMode = mode;
+            try { localStorage.setItem('nfl_view_mode', mode); } catch(e) {}
+        },
         shareModalOpen: false,
+        summaryModalOpen: false,
         confirmOpen: false,
         missingCount: 0,
         missingTiebreaker: false,
@@ -136,6 +142,12 @@
             <div class="flex items-center space-x-2">
                 {{if .Games}}
                     <button type="button" 
+                            @click="summaryModalOpen = true"
+                            title="Ver o compartir resumen completo de la jornada"
+                            class="inline-flex items-center px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-zinc-500 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer shrink-0">
+                        <i class="fa-solid fa-table-list mr-1.5 text-emerald-400"></i> Resumen
+                    </button>
+                    <button type="button" 
                             @click="shareModalOpen = true"
                             title="Descargar o compartir tarjeta de picks"
                             class="inline-flex items-center px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-zinc-500 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer shrink-0">
@@ -223,76 +235,101 @@
         <form id="picks-form" method="POST" action="/picks/save-all" class="space-y-4">
             <input type="hidden" name="week_id" value="{{.SelectedWeek.ID}}">
 
-            <!-- Platform / Streaming Channel Filter Bar (Responsive horizontal scroll) -->
-            <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-1 px-1 bg-zinc-950/60 p-2 rounded-xl border border-zinc-800/80 text-xs shadow-sm">
-                <span class="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap mr-1 flex items-center">
-                    <i class="fa-solid fa-satellite-dish text-[9px] mr-1 text-zinc-400"></i> Filtrar Señal:
-                </span>
-                <button type="button"
-                        @click="activePlatform = 'all'"
-                        :class="activePlatform === 'all' ? 'bg-white text-black font-bold shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
-                        class="px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap text-[11px]">
-                    Todos ({{len .Games}})
-                </button>
-                <button type="button"
-                        @click="activePlatform = 'canal 5'"
-                        :class="activePlatform === 'canal 5' ? 'bg-amber-500/20 text-amber-300 font-bold border-amber-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
-                        class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
-                    <i class="fa-solid fa-tower-broadcast text-[9px] text-amber-400"></i>
-                    <span>Canal 5</span>
-                </button>
-                <button type="button"
-                        @click="activePlatform = 'vix'"
-                        :class="activePlatform === 'vix' ? 'bg-orange-500/20 text-orange-300 font-bold border-orange-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
-                        class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
-                    <i class="fa-solid fa-play text-[9px] text-orange-400"></i>
-                    <span>ViX</span>
-                </button>
-                <button type="button"
-                        @click="activePlatform = 'espn'"
-                        :class="activePlatform === 'espn' ? 'bg-red-600/20 text-red-300 font-bold border-red-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
-                        class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
-                    <i class="fa-solid fa-tv text-[9px] text-red-400"></i>
-                    <span>ESPN</span>
-                </button>
-                <button type="button"
-                        @click="activePlatform = 'disney+'"
-                        :class="activePlatform === 'disney+' ? 'bg-indigo-600/20 text-indigo-300 font-bold border-indigo-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
-                        class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
-                    <i class="fa-solid fa-play text-[9px] text-indigo-400"></i>
-                    <span>Disney+</span>
-                </button>
-                <button type="button"
-                        @click="activePlatform = 'fox sports'"
-                        :class="activePlatform === 'fox sports' ? 'bg-blue-600/20 text-blue-300 font-bold border-blue-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
-                        class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
-                    <i class="fa-solid fa-tv text-[9px] text-blue-400"></i>
-                    <span>Fox Sports</span>
-                </button>
-                <button type="button"
-                        @click="activePlatform = 'prime video'"
-                        :class="activePlatform === 'prime video' ? 'bg-sky-500/20 text-sky-300 font-bold border-sky-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
-                        class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
-                    <i class="fa-brands fa-amazon text-[9px] text-sky-400"></i>
-                    <span>Prime Video</span>
-                </button>
-                <button type="button"
-                        @click="activePlatform = 'netflix'"
-                        :class="activePlatform === 'netflix' ? 'bg-rose-600/20 text-rose-300 font-bold border-rose-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
-                        class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
-                    <i class="fa-solid fa-play text-[9px] text-rose-400"></i>
-                    <span>Netflix</span>
-                </button>
-                <button type="button"
-                        @click="activePlatform = 'dazn'"
-                        :class="activePlatform === 'dazn' ? 'bg-zinc-800 text-white font-bold border-zinc-600 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
-                        class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
-                    <i class="fa-solid fa-play text-[9px] text-zinc-400"></i>
-                    <span>DAZN</span>
-                </button>
+            <!-- Controls Bar: Signal Filters & View Mode Switcher -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <!-- Platform / Streaming Channel Filter Bar (Responsive horizontal scroll) -->
+                <div class="flex-1 flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-1 px-1 bg-zinc-950/60 p-2 rounded-xl border border-zinc-800/80 text-xs shadow-sm">
+                    <span class="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap mr-1 flex items-center">
+                        <i class="fa-solid fa-satellite-dish text-[9px] mr-1 text-zinc-400"></i> Filtrar Señal:
+                    </span>
+                    <button type="button"
+                            @click="activePlatform = 'all'"
+                            :class="activePlatform === 'all' ? 'bg-white text-black font-bold shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                            class="px-2.5 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap text-[11px]">
+                        Todos ({{len .Games}})
+                    </button>
+                    <button type="button"
+                            @click="activePlatform = 'canal 5'"
+                            :class="activePlatform === 'canal 5' ? 'bg-amber-500/20 text-amber-300 font-bold border-amber-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                            class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                        <i class="fa-solid fa-tower-broadcast text-[9px] text-amber-400"></i>
+                        <span>Canal 5</span>
+                    </button>
+                    <button type="button"
+                            @click="activePlatform = 'vix'"
+                            :class="activePlatform === 'vix' ? 'bg-orange-500/20 text-orange-300 font-bold border-orange-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                            class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                        <i class="fa-solid fa-play text-[9px] text-orange-400"></i>
+                        <span>ViX</span>
+                    </button>
+                    <button type="button"
+                            @click="activePlatform = 'espn'"
+                            :class="activePlatform === 'espn' ? 'bg-red-600/20 text-red-300 font-bold border-red-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                            class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                        <i class="fa-solid fa-tv text-[9px] text-red-400"></i>
+                        <span>ESPN</span>
+                    </button>
+                    <button type="button"
+                            @click="activePlatform = 'disney+'"
+                            :class="activePlatform === 'disney+' ? 'bg-indigo-600/20 text-indigo-300 font-bold border-indigo-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                            class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                        <i class="fa-solid fa-play text-[9px] text-indigo-400"></i>
+                        <span>Disney+</span>
+                    </button>
+                    <button type="button"
+                            @click="activePlatform = 'fox sports'"
+                            :class="activePlatform === 'fox sports' ? 'bg-blue-600/20 text-blue-300 font-bold border-blue-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                            class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                        <i class="fa-solid fa-tv text-[9px] text-blue-400"></i>
+                        <span>Fox Sports</span>
+                    </button>
+                    <button type="button"
+                            @click="activePlatform = 'prime video'"
+                            :class="activePlatform === 'prime video' ? 'bg-sky-500/20 text-sky-300 font-bold border-sky-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                            class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                        <i class="fa-brands fa-amazon text-[9px] text-sky-400"></i>
+                        <span>Prime Video</span>
+                    </button>
+                    <button type="button"
+                            @click="activePlatform = 'netflix'"
+                            :class="activePlatform === 'netflix' ? 'bg-rose-600/20 text-rose-300 font-bold border-rose-500/40 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                            class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                        <i class="fa-solid fa-play text-[9px] text-rose-400"></i>
+                        <span>Netflix</span>
+                    </button>
+                    <button type="button"
+                            @click="activePlatform = 'dazn'"
+                            :class="activePlatform === 'dazn' ? 'bg-zinc-800 text-white font-bold border-zinc-600 shadow-sm' : 'bg-zinc-900/80 text-zinc-400 hover:text-white border border-zinc-800'"
+                            class="px-2.5 py-1 rounded-lg border transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                        <i class="fa-solid fa-play text-[9px] text-zinc-400"></i>
+                        <span>DAZN</span>
+                    </button>
+                </div>
+
+                <!-- View Mode Switcher (Grid vs Compact) -->
+                <div class="inline-flex items-center p-1 bg-zinc-950/80 rounded-xl border border-zinc-800 text-xs shrink-0 self-start sm:self-auto shadow-sm">
+                    <button type="button" 
+                            @click="setViewMode('grid')" 
+                            :class="viewMode === 'grid' ? 'bg-zinc-800 text-white font-bold shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+                            class="px-2.5 py-1 rounded-lg flex items-center space-x-1.5 transition-colors cursor-pointer"
+                            title="Vista Cuadrícula Completa">
+                        <i class="fa-solid fa-table-cells-large text-[11px]"></i>
+                        <span class="text-[11px]">Cuadrícula</span>
+                    </button>
+                    <button type="button" 
+                            @click="setViewMode('compact')" 
+                            :class="viewMode === 'compact' ? 'bg-zinc-800 text-white font-bold shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+                            class="px-2.5 py-1 rounded-lg flex items-center space-x-1.5 transition-colors cursor-pointer"
+                            title="Vista Lista Compacta">
+                        <i class="fa-solid fa-list text-[11px]"></i>
+                        <span class="text-[11px]">Compacta</span>
+                    </button>
+                </div>
             </div>
 
-            <div id="games-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+            <div id="games-grid" 
+                 class="grid gap-3.5 transition-all"
+                 :class="viewMode === 'compact' ? 'grid-cols-1 !gap-2 max-w-3xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'">
                 {{range .Games}}
                     {{template "game_card.html" (dict "Game" . "CurrentTime" $.CurrentTime "FormattedKickoff" (formatDate .KickoffTime) "LockMode" $.LockMode "FirstKickoff" $.FirstKickoff)}}
                 {{end}}
@@ -321,6 +358,13 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-2 w-full sm:w-auto">
+                    <button type="button" 
+                            @click="summaryModalOpen = true"
+                            title="Ver o compartir resumen completo de la jornada"
+                            class="px-3 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-zinc-500 text-white font-semibold text-xs transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer shrink-0">
+                        <i class="fa-solid fa-table-list text-emerald-400"></i>
+                        <span class="hidden sm:inline">Resumen</span>
+                    </button>
                     <button type="button" 
                             @click="shareModalOpen = true"
                             title="Descargar o compartir tarjeta de picks"
@@ -426,6 +470,9 @@
 
     <!-- Share Weekly Picks Modal -->
     {{template "share_picks_modal.html" .}}
+
+    <!-- Share Week Summary Modal -->
+    {{template "share_week_summary_modal.html" .}}
 
 </div>
 

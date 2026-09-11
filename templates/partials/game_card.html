@@ -58,7 +58,8 @@
              if (typeof updatePicksCounter === 'function') updatePicksCounter();
          }
      }"
-     class="vercel-card rounded-2xl p-4 sm:p-5 relative transition-all duration-150 shadow-sm {{if .Game.IsTiebreaker}}ring-1 ring-amber-500/30 bg-gradient-to-b from-amber-500/5 via-transparent to-transparent{{end}}">
+     class="vercel-card rounded-2xl relative transition-all duration-150 shadow-sm {{if .Game.IsTiebreaker}}ring-1 ring-amber-500/30 bg-gradient-to-b from-amber-500/5 via-transparent to-transparent{{end}}"
+     :class="typeof viewMode !== 'undefined' && viewMode === 'compact' ? 'p-3 sm:p-3.5 !rounded-xl' : 'p-4 sm:p-5'">
     
     <input type="hidden" 
            name="picked_team_{{.Game.ID}}" 
@@ -68,7 +69,8 @@
            value="{{if $pick}}{{if $pick.PickedTeamID}}{{$pick.PickedTeamID}}{{end}}{{end}}">
 
     <!-- Header Slot: Kickoff schedule, Status Badge & Tiebreaker Tag -->
-    <div class="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-[#222222] text-xs">
+    <div class="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-[#222222] text-xs"
+         :class="typeof viewMode !== 'undefined' && viewMode === 'compact' ? '!pb-2 !mb-2' : 'pb-3 mb-3'">
         <div class="flex items-center space-x-2">
             {{if eq .Game.Status "in_progress"}}
                 <span class="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 text-[11px] font-medium animate-pulse">
@@ -151,13 +153,13 @@
             <button type="button"
                     @click="selectTeam('{{.Game.AwayTeamID}}')"
                     {{if $locked}}disabled{{end}}
-                    :class="pickedTeam == '{{.Game.AwayTeamID}}' ? 'bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60'"
+                    :class="(pickedTeam == '{{.Game.AwayTeamID}}' ? 'bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60') + (typeof viewMode !== 'undefined' && viewMode === 'compact' ? ' !p-2' : '')"
                     class="w-full p-2.5 sm:p-3 rounded-xl border transition-all relative group {{if $awayPicked}}bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md{{else}}bg-zinc-950/60 border-[#222222]{{end}} {{if $locked}}cursor-default opacity-80{{else}}cursor-pointer hover:scale-[1.01]{{end}}">
                 
                 <div class="flex flex-col sm:flex-row items-center text-center sm:text-left sm:space-x-3">
-                    <img src="{{.Game.AwayTeam.LogoURL}}" alt="{{.Game.AwayTeam.Code}}" class="w-10 h-10 sm:w-11 sm:h-11 object-contain drop-shadow shrink-0 mb-1 sm:mb-0" loading="lazy">
+                    <img src="{{.Game.AwayTeam.LogoURL}}" alt="{{.Game.AwayTeam.Code}}" class="w-10 h-10 sm:w-11 sm:h-11 object-contain drop-shadow shrink-0 mb-1 sm:mb-0" :class="typeof viewMode !== 'undefined' && viewMode === 'compact' ? '!w-7 !h-7 sm:!w-8 sm:!h-8 !mb-0' : ''" loading="lazy">
                     <div class="flex-1 min-w-0 w-full">
-                        <div class="text-[10px] uppercase tracking-wider text-zinc-500 truncate font-semibold hidden sm:block">{{.Game.AwayTeam.City}}</div>
+                        <div class="text-[10px] uppercase tracking-wider text-zinc-500 truncate font-semibold hidden sm:block" :class="typeof viewMode !== 'undefined' && viewMode === 'compact' ? '!hidden' : ''">{{.Game.AwayTeam.City}}</div>
                         <div class="flex flex-col sm:flex-row sm:items-center truncate">
                             <span class="text-sm sm:text-base font-black text-white leading-tight sm:leading-normal">{{.Game.AwayTeam.Code}}</span>
                             <span class="text-[11px] sm:text-xs text-zinc-300 sm:text-zinc-400 font-medium sm:ml-1.5 truncate">{{.Game.AwayTeam.Name}}</span>
@@ -192,13 +194,13 @@
             <button type="button"
                     @click="selectTeam('{{.Game.HomeTeamID}}')"
                     {{if $locked}}disabled{{end}}
-                    :class="pickedTeam == '{{.Game.HomeTeamID}}' ? 'bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60'"
+                    :class="(pickedTeam == '{{.Game.HomeTeamID}}' ? 'bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60') + (typeof viewMode !== 'undefined' && viewMode === 'compact' ? ' !p-2' : '')"
                     class="w-full p-2.5 sm:p-3 rounded-xl border transition-all relative group {{if $homePicked}}bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md{{else}}bg-zinc-950/60 border-[#222222]{{end}} {{if $locked}}cursor-default opacity-80{{else}}cursor-pointer hover:scale-[1.01]{{end}}">
                 
                 <div class="flex flex-col sm:flex-row-reverse items-center text-center sm:text-right sm:space-x-3 sm:space-x-reverse">
-                    <img src="{{.Game.HomeTeam.LogoURL}}" alt="{{.Game.HomeTeam.Code}}" class="w-10 h-10 sm:w-11 sm:h-11 object-contain drop-shadow shrink-0 mb-1 sm:mb-0" loading="lazy">
+                    <img src="{{.Game.HomeTeam.LogoURL}}" alt="{{.Game.HomeTeam.Code}}" class="w-10 h-10 sm:w-11 sm:h-11 object-contain drop-shadow shrink-0 mb-1 sm:mb-0" :class="typeof viewMode !== 'undefined' && viewMode === 'compact' ? '!w-7 !h-7 sm:!w-8 sm:!h-8 !mb-0' : ''" loading="lazy">
                     <div class="flex-1 min-w-0 w-full">
-                        <div class="text-[10px] uppercase tracking-wider text-zinc-500 truncate font-semibold hidden sm:block">{{.Game.HomeTeam.City}}</div>
+                        <div class="text-[10px] uppercase tracking-wider text-zinc-500 truncate font-semibold hidden sm:block" :class="typeof viewMode !== 'undefined' && viewMode === 'compact' ? '!hidden' : ''">{{.Game.HomeTeam.City}}</div>
                         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-end truncate">
                             <span class="text-[11px] sm:text-xs text-zinc-300 sm:text-zinc-400 font-medium sm:mr-1.5 order-2 sm:order-1 truncate">{{.Game.HomeTeam.Name}}</span>
                             <span class="text-sm sm:text-base font-black text-white leading-tight sm:leading-normal order-1 sm:order-2">{{.Game.HomeTeam.Code}}</span>
@@ -225,7 +227,8 @@
     </div>
 
     <!-- Score Prediction Inputs (Extra Points & Tiebreaker) -->
-    <div class="mt-3 pt-3 border-t border-[#1f1f1f] bg-black/40 rounded-xl p-3 border border-[#1a1a1a]">
+    <div class="mt-3 pt-3 border-t border-[#1f1f1f] bg-black/40 rounded-xl p-3 border border-[#1a1a1a]"
+         :class="typeof viewMode !== 'undefined' && viewMode === 'compact' ? '!mt-1.5 !pt-1.5 !p-2' : 'mt-3 pt-3 p-3'">
         <div class="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <div class="flex items-center space-x-2 text-zinc-400">
                 <i class="fa-solid fa-calculator text-zinc-500"></i>

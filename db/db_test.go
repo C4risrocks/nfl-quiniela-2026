@@ -536,3 +536,136 @@ func TestMexicoBroadcastOptions(t *testing.T) {
 	}
 }
 
+func TestGetAdvancedUserStats(t *testing.T) {
+	testDBPath := "test_adv_stats.db"
+	defer os.Remove(testDBPath)
+
+	database, err := InitDB("sqlite", testDBPath)
+	if err != nil {
+		t.Fatalf("Failed to init db: %v", err)
+	}
+	defer database.Close()
+
+	repo := NewRepository(database)
+	_ = SeedDatabase(repo, "admin", "admin@test.com", "pass123", 2026)
+
+	user, err := repo.CreateUser("pro_bettor", "bettor@test.com", "hash", "player")
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	season, _ := repo.GetActiveSeason(2026)
+	weeks, _ := repo.ListWeeks(season.ID)
+	kc, _ := repo.GetTeamByCode("KC") // AFC
+	sf, _ := repo.GetTeamByCode("SF") // NFC
+
+	// Create a final game
+	homeScore := 28
+	awayScore := 20
+	game, err := repo.CreateManualGame(&Game{
+		WeekID:       weeks[0].ID,
+		HomeTeamID:   kc.ID,
+		AwayTeamID:   sf.ID,
+		KickoffTime:  time.Now().Add(-2 * time.Hour),
+		HomeScore:    &homeScore,
+		AwayScore:    &awayScore,
+		Status:       "final",
+		StatusDetail: "Final",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create manual game: %v", err)
+	}
+
+	// User picked KC (winner)
+	pick, err := repo.SavePick(user.ID, game.ID, &kc.ID, nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to save pick: %v", err)
+	}
+
+	// Mark pick as correct with points
+	pointsEarned := 1
+	isCorrect := true
+	_ = repo.UpdatePickPoints(pick.ID, pointsEarned, 0, &isCorrect)
+
+	adv, err := repo.GetAdvancedUserStats(user.ID)
+	if err != nil {
+		t.Fatalf("GetAdvancedUserStats returned error: %v", err)
+	}
+
+	if adv.TotalPicks != 1 || adv.CorrectPicks != 1 {
+		t.Errorf("Expected 1 pick and 1 correct, got %d and %d", adv.TotalPicks, adv.CorrectPicks)
+	}
+
+	if adv.InterconfStats.TotalPicks != 1 || adv.InterconfStats.CorrectPicks != 1 {
+		t.Errorf("Expected 1 interconference pick, got %+v", adv.InterconfStats)
+	}
+
+	if adv.CurrentStreak != 1 || adv.MaxStreak != 1 {
+		t.Errorf("Expected streak 1, got current: %d, max: %d", adv.CurrentStreak, adv.MaxStreak)
+	}
+
+	if adv.TalismanTeam == nil || adv.TalismanTeam.TeamCode != "KC" {
+		t.Errorf("Expected KC to be talisman team, got %+v", adv.TalismanTeam)
+	}
+}
+
+func TestGetAllUsersPicksForWeek(t *testing.T) {
+	testDBPath := "test_all_picks.db"
+	defer os.Remove(testDBPath)
+
+	database, err := InitDB("sqlite", testDBPath)
+	if err != nil {
+		t.Fatalf("Failed to init db: %v", err)
+	}
+	defer database.Close()
+
+	repo := NewRepository(database)
+	_ = SeedDatabase(repo, "admin", "admin@test.com", "pass123", 2026)
+
+	season, _ := repo.GetActiveSeason(2026)
+	weeks, _ := repo.ListWeeks(season.ID)
+	kc, _ := repo.GetTeamByCode("KC")
+	sf, _ := repo.GetTeamByCode("SF")
+
+	game, err := repo.CreateManualGame(&Game{
+		WeekID:       weeks[0].ID,
+		HomeTeamID:   kc.ID,
+		AwayTeamID:   sf.ID,
+		KickoffTime:  time.Now().Add(2 * time.Hour),
+		Status:       "scheduled",
+		StatusDetail: "Scheduled",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create manual game: %v", err)
+	}
+
+	user1, _ := repo.CreateUser("user1", "u1@test.com", "hash", "player")
+	user2, _ := repo.CreateUser("user2", "u2@test.com", "hash", "player")
+
+	_, _ = repo.SavePick(user1.ID, game.ID, &kc.ID, nil, nil)
+	_, _ = repo.SavePick(user2.ID, game.ID, &sf.ID, nil, nil)
+
+	data, err := repo.GetAllUsersPicksForWeek(weeks[0].ID)
+	if err != nil {
+		t.Fatalf("GetAllUsersPicksForWeek failed: %v", err)
+	}
+
+	if len(data) < 2 {
+		t.Fatalf("Expected at least 2 users in simulation data, got %d", len(data))
+	}
+
+	foundU1 := false
+	for _, u := range data {
+		if u.UserID == user1.ID {
+			foundU1 = true
+			if u.Picks[game.ID] != kc.ID {
+				t.Errorf("Expected user1 to pick KC (%d), got %d", kc.ID, u.Picks[game.ID])
+			}
+		}
+	}
+	if !foundU1 {
+		t.Errorf("user1 not found in simulation data")
+	}
+}
+
+

@@ -682,6 +682,10 @@ func injectUser(ctx context.Context, u *db.User) context.Context {
 }
 
 func TestWeek1GracePeriodException(t *testing.T) {
+	origDeadline := db.Week1GraceDeadline
+	db.Week1GraceDeadline = time.Now().Add(24 * time.Hour)
+	defer func() { db.Week1GraceDeadline = origDeadline }()
+
 	repo, authService, _, _, cleanup := setupTestApp(t)
 	defer cleanup()
 
@@ -744,6 +748,12 @@ func TestWeek1GracePeriodException(t *testing.T) {
 	}
 	if !strings.Contains(rrShow.Body.String(), "Prórroga") {
 		t.Errorf("Expected ShowPicks Week 1 to include Prórroga banner or badge")
+	}
+	if !strings.Contains(rrShow.Body.String(), "shareable-week-summary-card") {
+		t.Errorf("Expected ShowPicks Week 1 to include shareable-week-summary-card")
+	}
+	if !strings.Contains(rrShow.Body.String(), "Compacta") {
+		t.Errorf("Expected ShowPicks Week 1 to include Compacta view switcher")
 	}
 }
 
@@ -963,6 +973,9 @@ func TestLiveHandlerRendering(t *testing.T) {
 	if !strings.Contains(rr1.Body.String(), "Game Center en Vivo") {
 		t.Errorf("Expected ShowLive to contain 'Game Center en Vivo'")
 	}
+	if !strings.Contains(rr1.Body.String(), "Simulador What-If") {
+		t.Errorf("Expected ShowLive to contain 'Simulador What-If'")
+	}
 
 	// 2. Test LiveContent partial unauthenticated
 	req2 := httptest.NewRequest(http.MethodGet, "/live/content", nil)
@@ -973,6 +986,12 @@ func TestLiveHandlerRendering(t *testing.T) {
 	}
 	if !strings.Contains(rr2.Body.String(), "live-content-container") {
 		t.Errorf("Expected LiveContent to contain 'live-content-container'")
+	}
+	if !strings.Contains(rr2.Body.String(), "whatif-payload-data") {
+		t.Errorf("Expected LiveContent to contain 'whatif-payload-data'")
+	}
+	if !strings.Contains(rr2.Body.String(), "Compacta") {
+		t.Errorf("Expected LiveContent to contain 'Compacta'")
 	}
 
 	// 3. Test with authenticated user and picks

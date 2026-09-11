@@ -38,6 +38,42 @@ type UserStats struct {
 	CurrentRank  int     `json:"current_rank"`
 }
 
+// ConferenceStat holds pick stats broken down by NFL Conference
+type ConferenceStat struct {
+	Conference   string  `json:"conference"` // "AFC", "NFC", "Interconferencia"
+	TotalPicks   int     `json:"total_picks"`
+	CorrectPicks int     `json:"correct_picks"`
+	Accuracy     float64 `json:"accuracy"`
+}
+
+// TeamAffinityStat tracks a user's performance when picking a specific team
+type TeamAffinityStat struct {
+	TeamCode     string  `json:"team_code"`
+	TeamName     string  `json:"team_name"`
+	LogoURL      string  `json:"logo_url"`
+	TotalPicked  int     `json:"total_picked"`
+	CorrectCount int     `json:"correct_count"`
+	Accuracy     float64 `json:"accuracy"`
+}
+
+// AdvancedUserStats provides deeper analytical metrics for a user's quiniela history
+type AdvancedUserStats struct {
+	UserStats
+	AFCStats         ConferenceStat    `json:"afc_stats"`
+	NFCStats         ConferenceStat    `json:"nfc_stats"`
+	InterconfStats   ConferenceStat    `json:"interconf_stats"`
+	TalismanTeam     *TeamAffinityStat `json:"talisman_team"` // Most successful team picked
+	NemesisTeam      *TeamAffinityStat `json:"nemesis_team"`  // Most failed team picked
+	HomePicksTotal   int               `json:"home_picks_total"`
+	HomePicksCorrect int               `json:"home_picks_correct"`
+	HomeAccuracy     float64           `json:"home_accuracy"`
+	AwayPicksTotal   int               `json:"away_picks_total"`
+	AwayPicksCorrect int               `json:"away_picks_correct"`
+	AwayAccuracy     float64           `json:"away_accuracy"`
+	CurrentStreak    int               `json:"current_streak"`
+	MaxStreak        int               `json:"max_streak"`
+}
+
 // SystemSetting stores key-value configuration such as scoring rules
 type SystemSetting struct {
 	Key       string    `json:"key"`
@@ -752,5 +788,13 @@ type HeadToHeadComparison struct {
 	UserATotalPts   int                  `json:"user_a_total_pts"`
 	UserBTotalPts   int                  `json:"user_b_total_pts"`
 	PointsAtStake   int                  `json:"points_at_stake"`
+}
+
+// UserWeekSimulationData represents a participant's picks in a week for the What-If Simulator
+type UserWeekSimulationData struct {
+	UserID    int64           `json:"user_id"`
+	Username  string          `json:"username"`
+	AvatarURL string          `json:"avatar_url"`
+	Picks     map[int64]int64 `json:"picks"` // game_id -> picked_team_id
 }
 

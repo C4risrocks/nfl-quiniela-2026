@@ -290,6 +290,209 @@ func (r *Repository) GetUserStats(userID int64) (*UserStats, error) {
 	}, nil
 }
 
+func (r *Repository) GetAdvancedUserStats(userID int64) (*AdvancedUserStats, error) {
+	baseStats, err := r.GetUserStats(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	adv := &AdvancedUserStats{
+		UserStats: *baseStats,
+		AFCStats: ConferenceStat{
+			Conference: "AFC",
+		},
+		NFCStats: ConferenceStat{
+			Conference: "NFC",
+		},
+		InterconfStats: ConferenceStat{
+			Conference: "Interconferencia",
+		},
+	}
+
+	query := `
+	SELECT 
+		p.is_correct,
+		g.home_team_id, g.away_team_id, p.picked_team_id,
+		ht.conference, at.conference,
+		COALESCE(pt.code, ''), COALESCE(pt.name, ''), COALESCE(pt.logo_url, '')
+	FROM picks p
+	JOIN games g ON p.game_id = g.id
+	JOIN teams ht ON g.home_team_id = ht.id
+	JOIN teams at ON g.away_team_id = at.id
+	LEFT JOIN teams pt ON p.picked_team_id = pt.id
+	WHERE p.user_id = ? AND g.status = 'final'
+	ORDER BY g.kickoff_time ASC, g.id ASC`
+
+	rows, err := r.db.Query(query, userID)
+	if err != nil {
+		return adv, nil
+	}
+	defer rows.Close()
+
+	type teamCounter struct {
+		code    string
+		name    string
+		logo    string
+		total   int
+		correct int
+	}
+	teamMap := make(map[string]*teamCounter)
+
+	currentStreak := 0
+	maxStreak := 0
+
+	for rows.Next() {
+		var isCorrectNullable sql.NullBool
+		var homeID, awayID int64
+		var pickedID sql.NullInt64
+		var homeConf, awayConf string
+		var ptCode, ptName, ptLogo string
+
+		if err := rows.Scan(&isCorrectNullable, &homeID, &awayID, &pickedID, &homeConf, &awayConf, &ptCode, &ptName, &ptLogo); err != nil {
+			continue
+		}
+
+		isCorrect := isCorrectNullable.Valid && isCorrectNullable.Bool
+
+		// Streaks
+		if isCorrect {
+			currentStreak++
+			if currentStreak > maxStreak {
+				maxStreak = currentStreak
+			}
+		} else {
+			currentStreak = 0
+		}
+
+		// Conference breakdown
+		if homeConf == "AFC" && awayConf == "AFC" {
+			adv.AFCStats.TotalPicks++
+			if isCorrect {
+				adv.AFCStats.CorrectPicks++
+			}
+		} else if homeConf == "NFC" && awayConf == "NFC" {
+			adv.NFCStats.TotalPicks++
+			if isCorrect {
+				adv.NFCStats.CorrectPicks++
+			}
+		} else {
+			adv.InterconfStats.TotalPicks++
+			if isCorrect {
+				adv.InterconfStats.CorrectPicks++
+			}
+		}
+
+		// Home vs Away pick tendency
+		if pickedID.Valid {
+			if pickedID.Int64 == homeID {
+				adv.HomePicksTotal++
+				if isCorrect {
+					adv.HomePicksCorrect++
+				}
+			} else if pickedID.Int64 == awayID {
+				adv.AwayPicksTotal++
+				if isCorrect {
+					adv.AwayPicksCorrect++
+				}
+			}
+
+			// Team Affinity
+			if ptCode != "" {
+				tc, exists := teamMap[ptCode]
+				if !exists {
+					tc = &teamCounter{code: ptCode, name: ptName, logo: ptLogo}
+					teamMap[ptCode] = tc
+				}
+				tc.total++
+				if isCorrect {
+					tc.correct++
+				}
+			}
+		}
+	}
+
+	adv.CurrentStreak = currentStreak
+	adv.MaxStreak = maxStreak
+
+	// Compute conference accuracies
+	if adv.AFCStats.TotalPicks > 0 {
+		adv.AFCStats.Accuracy = (float64(adv.AFCStats.CorrectPicks) / float64(adv.AFCStats.TotalPicks)) * 100.0
+	}
+	if adv.NFCStats.TotalPicks > 0 {
+		adv.NFCStats.Accuracy = (float64(adv.NFCStats.CorrectPicks) / float64(adv.NFCStats.TotalPicks)) * 100.0
+	}
+	if adv.InterconfStats.TotalPicks > 0 {
+		adv.InterconfStats.Accuracy = (float64(adv.InterconfStats.CorrectPicks) / float64(adv.InterconfStats.TotalPicks)) * 100.0
+	}
+
+	// Compute home/away accuracies
+	if adv.HomePicksTotal > 0 {
+		adv.HomeAccuracy = (float64(adv.HomePicksCorrect) / float64(adv.HomePicksTotal)) * 100.0
+	}
+	if adv.AwayPicksTotal > 0 {
+		adv.AwayAccuracy = (float64(adv.AwayPicksCorrect) / float64(adv.AwayPicksTotal)) * 100.0
+	}
+
+	// Identify Talisman (best team) and Nemesis (worst team)
+	var bestTeam *teamCounter
+	var worstTeam *teamCounter
+
+	for _, tc := range teamMap {
+		if tc.total == 0 {
+			continue
+		}
+		acc := float64(tc.correct) / float64(tc.total)
+
+		// Talisman: high accuracy and at least 1 correct
+		if tc.correct > 0 {
+			if bestTeam == nil {
+				bestTeam = tc
+			} else {
+				bestAcc := float64(bestTeam.correct) / float64(bestTeam.total)
+				if acc > bestAcc || (acc == bestAcc && tc.correct > bestTeam.correct) {
+					bestTeam = tc
+				}
+			}
+		}
+
+		// Nemesis: failures > 0 and low accuracy
+		failed := tc.total - tc.correct
+		if failed > 0 {
+			if worstTeam == nil {
+				worstTeam = tc
+			} else {
+				worstAcc := float64(worstTeam.correct) / float64(worstTeam.total)
+				if acc < worstAcc || (acc == worstAcc && failed > (worstTeam.total-worstTeam.correct)) {
+					worstTeam = tc
+				}
+			}
+		}
+	}
+
+	if bestTeam != nil {
+		adv.TalismanTeam = &TeamAffinityStat{
+			TeamCode:     bestTeam.code,
+			TeamName:     bestTeam.name,
+			LogoURL:      bestTeam.logo,
+			TotalPicked:  bestTeam.total,
+			CorrectCount: bestTeam.correct,
+			Accuracy:     (float64(bestTeam.correct) / float64(bestTeam.total)) * 100.0,
+		}
+	}
+	if worstTeam != nil {
+		adv.NemesisTeam = &TeamAffinityStat{
+			TeamCode:     worstTeam.code,
+			TeamName:     worstTeam.name,
+			LogoURL:      worstTeam.logo,
+			TotalPicked:  worstTeam.total,
+			CorrectCount: worstTeam.correct,
+			Accuracy:     (float64(worstTeam.correct) / float64(worstTeam.total)) * 100.0,
+		}
+	}
+
+	return adv, nil
+}
+
 func (r *Repository) ListUsers() ([]*User, error) {
 	query := fmt.Sprintf(`SELECT %s FROM users ORDER BY username ASC`, userColumns)
 	rows, err := r.db.Query(query)
@@ -728,6 +931,53 @@ func (r *Repository) ListPicksForGame(gameID int64) ([]*Pick, error) {
 		picks = append(picks, &p)
 	}
 	return picks, nil
+}
+
+func (r *Repository) GetAllUsersPicksForWeek(weekID int64) ([]*UserWeekSimulationData, error) {
+	query := `
+	SELECT p.user_id, u.username, COALESCE(u.avatar_url, ''), p.game_id, COALESCE(p.picked_team_id, 0)
+	FROM picks p
+	JOIN users u ON p.user_id = u.id
+	JOIN games g ON p.game_id = g.id
+	WHERE g.week_id = ?
+	ORDER BY u.username ASC`
+
+	rows, err := r.db.Query(query, weekID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	userMap := make(map[int64]*UserWeekSimulationData)
+	var userOrder []int64
+
+	for rows.Next() {
+		var uID, gID, teamID int64
+		var uname, avatar string
+		if err := rows.Scan(&uID, &uname, &avatar, &gID, &teamID); err != nil {
+			return nil, err
+		}
+		data, ok := userMap[uID]
+		if !ok {
+			data = &UserWeekSimulationData{
+				UserID:    uID,
+				Username:  uname,
+				AvatarURL: avatar,
+				Picks:     make(map[int64]int64),
+			}
+			userMap[uID] = data
+			userOrder = append(userOrder, uID)
+		}
+		if teamID > 0 {
+			data.Picks[gID] = teamID
+		}
+	}
+
+	result := make([]*UserWeekSimulationData, 0, len(userOrder))
+	for _, id := range userOrder {
+		result = append(result, userMap[id])
+	}
+	return result, nil
 }
 
 func (r *Repository) GetGameCommunityStats(gameID int64) (*GameCommunityStats, error) {
