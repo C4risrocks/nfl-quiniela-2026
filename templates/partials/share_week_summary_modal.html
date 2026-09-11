@@ -1,82 +1,96 @@
 <div x-show="summaryModalOpen" 
      x-cloak
-     class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+     class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
      @click.self="summaryModalOpen = false"
      @keydown.escape.window="summaryModalOpen = false">
     
     <div class="vercel-card rounded-2xl w-full max-w-xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[94vh] bg-zinc-950">
         
         <!-- Modal Header -->
-        <div class="p-4 border-b border-[#222222] bg-zinc-900/80 flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center">
-                    <i class="fa-solid fa-table-list mr-1.5 text-emerald-400"></i> Resumen de Quiniela Semanal
+        <div class="p-3 sm:p-4 border-b border-[#222222] bg-zinc-900/80 flex items-center justify-between min-w-0">
+            <div class="flex items-center space-x-2 min-w-0">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center shrink-0">
+                    <i class="fa-solid fa-table-list mr-1.5 text-emerald-400"></i> Resumen Semanal
                 </span>
-                <span class="text-xs text-zinc-400 font-mono">{{.SelectedWeek.Name}}</span>
+                <span class="text-xs text-zinc-400 font-mono truncate">{{.SelectedWeek.Name}}</span>
             </div>
             
             <button type="button" 
                     @click="summaryModalOpen = false"
-                    class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer">
+                    class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
+                    title="Cerrar ventana">
                 <i class="fa-solid fa-xmark text-base"></i>
             </button>
         </div>
 
         <!-- Scrollable Preview Area -->
-        <div class="p-4 sm:p-5 overflow-y-auto flex-1 flex flex-col items-center bg-black/50">
-            <p class="text-xs text-zinc-400 mb-3 text-center">
-                Tarjeta de resumen semanal lista para compartir en WhatsApp con resultados y estadísticas comunitarias.
+        <div class="p-2.5 sm:p-4 overflow-y-auto flex-1 flex flex-col items-center bg-black/50 w-full min-w-0">
+            <p class="text-xs text-zinc-400 mb-2.5 text-center px-2">
+                Resumen de pronósticos semanales y consenso de la comunidad listo para compartir.
             </p>
 
             <!-- Renderable Card Container for html2canvas -->
             <div id="shareable-week-summary-card" 
-                 class="w-full max-w-lg bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-5 rounded-2xl border border-zinc-800 shadow-2xl text-white select-none relative overflow-hidden">
+                 class="w-full max-w-lg bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-3.5 sm:p-5 rounded-2xl border border-zinc-800 shadow-2xl text-white select-none relative overflow-hidden">
                 
                 <!-- Ambient Glow -->
                 <div class="absolute -top-20 -right-20 w-48 h-48 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
 
                 <!-- Card Header -->
-                <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3 mb-3 relative z-10">
-                    <div class="flex items-center space-x-2.5">
-                        <div class="w-10 h-10 rounded-xl bg-white text-black flex items-center justify-center font-black text-base shadow shrink-0">
-                            <i class="fa-solid fa-football text-black text-sm"></i>
+                <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3 mb-2.5 relative z-10">
+                    <div class="flex items-center space-x-2.5 min-w-0">
+                        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white text-black flex items-center justify-center font-black text-sm sm:text-base shadow shrink-0">
+                            <i class="fa-solid fa-football text-black text-xs sm:text-sm"></i>
                         </div>
-                        <div>
-                            <div class="text-sm font-extrabold text-white tracking-tight flex items-center leading-none mb-1">
+                        <div class="min-w-0">
+                            <div class="text-xs sm:text-sm font-extrabold text-white tracking-tight flex items-center leading-none mb-1 whitespace-nowrap">
                                 NFL QUINIELA 2026
-                                <span class="ml-1.5 text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded">OFICIAL</span>
+                                <span class="ml-1.5 text-[8px] sm:text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded">OFICIAL</span>
                             </div>
-                            <div class="text-[10px] font-mono text-zinc-400 leading-none">Resumen Semanal • {{.SelectedWeek.Name}}</div>
+                            <div class="text-[9px] sm:text-[10px] font-mono text-zinc-400 leading-none truncate">Resumen Semanal • {{.SelectedWeek.Name}}</div>
                         </div>
                     </div>
 
-                    <div class="text-right">
-                        <div class="text-xs font-bold text-white leading-none mb-1">{{.User.Username}}</div>
-                        <div class="text-[10px] font-mono text-amber-400 font-black leading-none">{{.UserWeeklyPoints}} pts <span class="text-zinc-500 font-normal">({{.UserCorrectPicks}} aciertos)</span></div>
+                    <div class="text-right shrink-0 ml-2">
+                        <div class="text-xs font-bold text-white leading-none mb-1 truncate max-w-[120px]">{{.User.Username}}</div>
+                        <div class="text-[10px] font-mono text-amber-400 font-black leading-none">
+                            {{.UserWeeklyPoints}} pts <span class="text-zinc-500 font-normal">({{.UserCorrectPicks}}/{{len .Games}})</span>
+                        </div>
                     </div>
                 </div>
 
+                <!-- Column Titles Header -->
+                <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-2 sm:px-2.5 pb-1.5 text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-wider relative z-10 border-b border-zinc-800/40 mb-2">
+                    <span class="text-left">Partido</span>
+                    <span class="text-center justify-self-center">Comunidad</span>
+                    <span class="text-right justify-self-end">Tu Pronóstico</span>
+                </div>
+
                 <!-- Games Fixture & Community Picks List -->
-                <div class="space-y-1.5 mb-3 text-[11px] relative z-10">
+                <div class="space-y-1.5 mb-2.5 text-[11px] relative z-10">
                     {{range .Games}}
                         {{$p := .UserPick}}
-                        <div class="p-2 rounded-xl bg-zinc-900/80 border border-zinc-800/80 flex items-center justify-between gap-2">
+                        <div class="p-2 sm:p-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800/80 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 sm:gap-2">
                             
-                            <!-- Matchup with logos -->
-                            <div class="flex items-center space-x-2 min-w-0 flex-1">
-                                <div class="flex items-center space-x-1 font-mono font-bold text-xs {{if and $p ($p.IsPickedTeam .AwayTeamID)}}text-white font-black{{else}}text-zinc-400{{end}}">
+                            <!-- Column 1: Matchup with logos (Left-aligned) -->
+                            <div class="flex items-center space-x-1 sm:space-x-1.5 min-w-0 whitespace-nowrap">
+                                <!-- Away Team -->
+                                <div class="flex items-center space-x-1 font-mono font-bold text-[11px] sm:text-xs {{if and $p ($p.IsPickedTeam .AwayTeamID)}}text-white font-black{{else}}text-zinc-400{{end}}">
                                     <img src="{{.AwayTeam.LogoURL}}" alt="{{.AwayTeam.Code}}" class="w-4 h-4 object-contain shrink-0" crossorigin="anonymous">
                                     <span>{{.AwayTeam.Code}}</span>
                                 </div>
-                                <span class="text-zinc-600 text-[10px] font-bold">@</span>
-                                <div class="flex items-center space-x-1 font-mono font-bold text-xs {{if and $p ($p.IsPickedTeam .HomeTeamID)}}text-white font-black{{else}}text-zinc-400{{end}}">
+                                
+                                <span class="text-zinc-600 text-[9px] sm:text-[10px] font-mono font-bold px-0.5">@</span>
+                                
+                                <!-- Home Team -->
+                                <div class="flex items-center space-x-1 font-mono font-bold text-[11px] sm:text-xs {{if and $p ($p.IsPickedTeam .HomeTeamID)}}text-white font-black{{else}}text-zinc-400{{end}}">
                                     <img src="{{.HomeTeam.LogoURL}}" alt="{{.HomeTeam.Code}}" class="w-4 h-4 object-contain shrink-0" crossorigin="anonymous">
                                     <span>{{.HomeTeam.Code}}</span>
                                 </div>
                             </div>
 
-                            <!-- Community split mini bar (Always visible in card) -->
-                            <div class="flex flex-col items-center w-24 shrink-0">
+                            <!-- Column 2: Community Split Mini Bar (Centered) -->
+                            <div class="flex flex-col items-center justify-self-center w-16 sm:w-20 shrink-0">
                                 <div class="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden flex">
                                     <div class="bg-cyan-500 h-full" style="width: {{.AwayPickPercent}}%;"></div>
                                     <div class="bg-amber-500 h-full" style="width: {{.HomePickPercent}}%;"></div>
@@ -87,30 +101,72 @@
                                 </div>
                             </div>
 
-                            <!-- User Pick Status Badge -->
-                            <div class="shrink-0 text-right">
+                            <!-- Column 3: User Pick & Status (Right-aligned) -->
+                            <div class="justify-self-end flex items-center justify-end min-w-0">
                                 {{if $p}}
-                                    {{if eq .Status "final"}}
-                                        {{if $p.HasCorrectWinner}}
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 leading-none">
-                                                ✓ Acertado
+                                    {{if $p.IsPickedTeam .HomeTeamID}}
+                                        {{if eq .Status "final"}}
+                                            {{if $p.HasCorrectWinner}}
+                                                <span class="inline-flex items-center space-x-1 px-1.5 sm:px-2 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 leading-none whitespace-nowrap shadow-sm">
+                                                    <img src="{{.HomeTeam.LogoURL}}" alt="{{.HomeTeam.Code}}" class="w-3.5 h-3.5 object-contain shrink-0" crossorigin="anonymous">
+                                                    <span>{{.HomeTeam.Code}}</span>
+                                                    <span class="text-emerald-400 font-black">✓</span>
+                                                </span>
+                                            {{else}}
+                                                <span class="inline-flex items-center space-x-1 px-1.5 sm:px-2 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 leading-none whitespace-nowrap shadow-sm">
+                                                    <img src="{{.HomeTeam.LogoURL}}" alt="{{.HomeTeam.Code}}" class="w-3.5 h-3.5 object-contain shrink-0" crossorigin="anonymous">
+                                                    <span>{{.HomeTeam.Code}}</span>
+                                                    <span class="text-rose-400 font-black">✕</span>
+                                                </span>
+                                            {{end}}
+                                        {{else if eq .Status "in_progress"}}
+                                            <span class="inline-flex items-center space-x-1 px-1.5 sm:px-2 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse leading-none whitespace-nowrap shadow-sm">
+                                                <img src="{{.HomeTeam.LogoURL}}" alt="{{.HomeTeam.Code}}" class="w-3.5 h-3.5 object-contain shrink-0" crossorigin="anonymous">
+                                                <span>{{.HomeTeam.Code}}</span>
+                                                <span class="text-[8px] font-mono">({{.AwayScoreVal}}-{{.HomeScoreVal}})</span>
                                             </span>
                                         {{else}}
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 leading-none">
-                                                ✕ Fallado
+                                            <span class="inline-flex items-center space-x-1 px-1.5 sm:px-2 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-mono font-bold bg-zinc-800 text-zinc-200 border border-zinc-700/80 leading-none whitespace-nowrap">
+                                                <img src="{{.HomeTeam.LogoURL}}" alt="{{.HomeTeam.Code}}" class="w-3.5 h-3.5 object-contain shrink-0" crossorigin="anonymous">
+                                                <span>{{.HomeTeam.Code}}</span>
                                             </span>
                                         {{end}}
-                                    {{else if eq .Status "in_progress"}}
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse leading-none">
-                                            {{if .AwayScore}}{{.AwayScore}}{{else}}0{{end}}-{{if .HomeScore}}{{.HomeScore}}{{else}}0{{end}}
-                                        </span>
+                                    {{else if $p.IsPickedTeam .AwayTeamID}}
+                                        {{if eq .Status "final"}}
+                                            {{if $p.HasCorrectWinner}}
+                                                <span class="inline-flex items-center space-x-1 px-1.5 sm:px-2 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 leading-none whitespace-nowrap shadow-sm">
+                                                    <img src="{{.AwayTeam.LogoURL}}" alt="{{.AwayTeam.Code}}" class="w-3.5 h-3.5 object-contain shrink-0" crossorigin="anonymous">
+                                                    <span>{{.AwayTeam.Code}}</span>
+                                                    <span class="text-emerald-400 font-black">✓</span>
+                                                </span>
+                                            {{else}}
+                                                <span class="inline-flex items-center space-x-1 px-1.5 sm:px-2 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 leading-none whitespace-nowrap shadow-sm">
+                                                    <img src="{{.AwayTeam.LogoURL}}" alt="{{.AwayTeam.Code}}" class="w-3.5 h-3.5 object-contain shrink-0" crossorigin="anonymous">
+                                                    <span>{{.AwayTeam.Code}}</span>
+                                                    <span class="text-rose-400 font-black">✕</span>
+                                                </span>
+                                            {{end}}
+                                        {{else if eq .Status "in_progress"}}
+                                            <span class="inline-flex items-center space-x-1 px-1.5 sm:px-2 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse leading-none whitespace-nowrap shadow-sm">
+                                                <img src="{{.AwayTeam.LogoURL}}" alt="{{.AwayTeam.Code}}" class="w-3.5 h-3.5 object-contain shrink-0" crossorigin="anonymous">
+                                                <span>{{.AwayTeam.Code}}</span>
+                                                <span class="text-[8px] font-mono">({{.AwayScoreVal}}-{{.HomeScoreVal}})</span>
+                                            </span>
+                                        {{else}}
+                                            <span class="inline-flex items-center space-x-1 px-1.5 sm:px-2 py-0.5 rounded-lg text-[9px] sm:text-[10px] font-mono font-bold bg-zinc-800 text-zinc-200 border border-zinc-700/80 leading-none whitespace-nowrap">
+                                                <img src="{{.AwayTeam.LogoURL}}" alt="{{.AwayTeam.Code}}" class="w-3.5 h-3.5 object-contain shrink-0" crossorigin="anonymous">
+                                                <span>{{.AwayTeam.Code}}</span>
+                                            </span>
+                                        {{end}}
                                     {{else}}
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-zinc-800 text-zinc-300 border border-zinc-700 leading-none">
-                                            {{if $p.IsPickedTeam .HomeTeamID}}{{.HomeTeam.Code}}{{else if $p.IsPickedTeam .AwayTeamID}}{{.AwayTeam.Code}}{{else}}--{{end}}
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-lg text-[9px] font-mono text-zinc-500 bg-zinc-900 border border-zinc-800 leading-none whitespace-nowrap">
+                                            Sin pick
                                         </span>
                                     {{end}}
                                 {{else}}
-                                    <span class="text-[9px] font-mono text-zinc-500 leading-none">Sin pick</span>
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-lg text-[9px] font-mono text-zinc-500 bg-zinc-900 border border-zinc-800 leading-none whitespace-nowrap">
+                                        Sin pick
+                                    </span>
                                 {{end}}
                             </div>
 
@@ -118,9 +174,23 @@
                     {{end}}
                 </div>
 
+                <!-- Tiebreaker Prediction Tag if Present -->
+                {{range .Games}}
+                    {{if and .IsTiebreaker .UserPick (and .UserPick.PredictedAwayScore .UserPick.PredictedHomeScore)}}
+                        <div class="mt-2 mb-2 p-2 sm:p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-center text-[10px] sm:text-xs font-mono relative z-10 leading-none flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-star text-[9px] text-amber-400 shrink-0"></i>
+                            <span>Desempate MNF:</span>
+                            <strong class="text-white">{{.AwayTeam.Code}} {{.UserPick.AwayScoreStr}} - {{.UserPick.HomeScoreStr}} {{.HomeTeam.Code}}</strong>
+                        </div>
+                    {{end}}
+                {{end}}
+
                 <!-- Footer stamp -->
-                <div class="border-t border-zinc-800/80 pt-2.5 flex items-center justify-between text-[10px] text-zinc-500 font-mono relative z-10 leading-none">
-                    <span>quiniela.cmoreno.org</span>
+                <div class="border-t border-zinc-800/80 pt-2.5 flex items-center justify-between text-[9px] sm:text-[10px] text-zinc-500 font-mono relative z-10 leading-none">
+                    <span class="flex items-center space-x-1">
+                        <i class="fa-solid fa-shield-halved text-zinc-600 text-[9px]"></i>
+                        <span>quiniela.cmoreno.org</span>
+                    </span>
                     <span class="text-zinc-400">Jornada {{.SelectedWeek.WeekNumber}} • Temporada 2026</span>
                 </div>
 
@@ -128,19 +198,21 @@
         </div>
 
         <!-- Modal Footer Actions -->
-        <div class="p-4 border-t border-[#222222] bg-zinc-900/80 flex items-center justify-between gap-3"
+        <div class="p-3 sm:p-4 border-t border-[#222222] bg-zinc-900/80 flex flex-wrap items-center justify-between gap-2"
              x-data="{
                 generating: false,
                 async generateBlob() {
                     const target = document.getElementById('shareable-week-summary-card');
                     if (!target) return null;
                     const clone = target.cloneNode(true);
+                    clone.id = 'shareable-week-summary-clone';
+                    const targetWidth = 600;
+                    clone.style.width = targetWidth + 'px';
+                    clone.style.maxWidth = targetWidth + 'px';
+                    clone.style.minWidth = targetWidth + 'px';
                     clone.style.position = 'fixed';
                     clone.style.left = '0';
                     clone.style.top = '0';
-                    clone.style.width = '600px';
-                    clone.style.maxWidth = '600px';
-                    clone.style.minWidth = '600px';
                     clone.style.zIndex = '-9999';
                     clone.style.opacity = '1';
                     clone.style.pointerEvents = 'none';
@@ -164,8 +236,9 @@
                             y: 0,
                             scrollX: 0,
                             scrollY: 0,
-                            windowWidth: 600,
-                            width: 600
+                            windowWidth: targetWidth,
+                            width: targetWidth,
+                            height: clone.offsetHeight
                         });
                         return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
                     } finally {
@@ -222,27 +295,27 @@
              }">
             <button type="button"
                     @click="summaryModalOpen = false"
-                    class="px-4 py-2 rounded-xl border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 text-xs font-semibold transition-colors cursor-pointer">
+                    class="px-3 sm:px-4 py-2 rounded-xl border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 text-xs font-semibold transition-colors cursor-pointer shrink-0">
                 Cerrar
             </button>
 
-            <div class="flex items-center space-x-2">
+            <div class="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
                 <button type="button"
                         @click="downloadImage()"
                         :disabled="generating"
-                        class="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-50">
+                        class="px-3 sm:px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-50">
                     <i class="fa-solid fa-download text-xs" x-show="!generating"></i>
                     <i class="fa-solid fa-spinner fa-spin text-xs" x-show="generating"></i>
-                    <span>Descargar PNG</span>
+                    <span class="hidden xs:inline sm:inline">Descargar</span> PNG
                 </button>
 
                 <button type="button"
                         @click="shareWhatsApp()"
                         :disabled="generating"
-                        class="px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black font-extrabold text-xs transition-colors flex items-center space-x-1.5 shadow-md cursor-pointer disabled:opacity-50">
+                        class="px-3.5 sm:px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black font-extrabold text-xs transition-colors flex items-center space-x-1.5 shadow-md cursor-pointer disabled:opacity-50">
                     <i class="fa-solid fa-share-nodes text-xs" x-show="!generating"></i>
                     <i class="fa-solid fa-spinner fa-spin text-xs" x-show="generating"></i>
-                    <span>Compartir Resumen</span>
+                    <span>Compartir</span>
                 </button>
             </div>
         </div>
