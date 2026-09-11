@@ -81,6 +81,11 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 	pendingUsers, _ := h.repo.GetUsersWithPendingPicks(selectedWeek.ID)
 	userSummaries, _ := h.repo.GetUserWeeklySummaries(selectedWeek.ID)
 
+	var syncStatus espn.SyncStatus
+	if h.syncer != nil {
+		syncStatus = h.syncer.GetSyncStatus()
+	}
+
 	h.renderer.RenderPage(w, "admin.html", map[string]interface{}{
 		"ActiveNav":          "admin",
 		"User":               user,
@@ -92,6 +97,7 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 		"ScoringConfig":      scoringCfg,
 		"PendingUsers":       pendingUsers,
 		"PendingCount":       len(pendingUsers),
+		"SyncStatus":         syncStatus,
 		"IsWeek1GraceActive": selectedWeek.WeekNumber == 1 && time.Now().Before(db.Week1GraceDeadline),
 		"Week1GraceDeadline": db.Week1GraceDeadline,
 	})
@@ -185,6 +191,24 @@ func (h *AdminHandler) SyncESPN(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "¡Éxito! %d partidos sincronizados con ESPN", "type": "success"}}`, count))
 	w.Header().Set("Content-Type", "text/html")
 	w.Write([]byte(fmt.Sprintf(`<span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i> ¡Éxito! %d partidos sincronizados con ESPN</span>`, count)))
+}
+
+func (h *AdminHandler) RecalculateScores(w http.ResponseWriter, r *http.Request) {
+	if err := h.calculator.RecalculateAllWeeks(h.seasonYear); err != nil {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Error al recalcular puntuaciones", "type": "error"}}`)
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(fmt.Sprintf(`<span class="text-rose-400 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Error: %v</span>`, err)))
+		return
+	}
+
+	if h.broker != nil {
+		h.broker.BroadcastLeaderboardUpdate()
+	}
+
+	w.Header().Set("HX-Trigger", `{"show-toast": {"message": "¡Puntuaciones recalculadas exitosamente para todo el torneo!", "type": "success"}}`)
+	w.Header().Set("Content-Type", "text/html")
+	_, _ = w.Write([]byte(`<span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i> Puntuaciones y tabla general recalculadas exitosamente (` + time.Now().Format("15:04:05") + `)</span>`))
 }
 
 func (h *AdminHandler) SaveGameScore(w http.ResponseWriter, r *http.Request) {

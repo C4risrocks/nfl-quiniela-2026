@@ -30,14 +30,27 @@ type LiveAlert struct {
 	Timestamp string `json:"timestamp"`
 }
 
+// SyncStatus represents the operational diagnostics of the ESPN sync engine
+type SyncStatus struct {
+	LastSyncTime     time.Time
+	LastSyncDuration time.Duration
+	LastSyncError    string
+	LastSyncCount    int
+	IsHealthy        bool
+}
+
 type Syncer struct {
-	client         *Client
-	repo           *db.Repository
-	calculator     ScoreCalculator
-	broker         *events.Broker
-	seasonYear     int
-	mu             sync.Mutex
-	closingAlerted map[int64]bool
+	client           *Client
+	repo             *db.Repository
+	calculator       ScoreCalculator
+	broker           *events.Broker
+	seasonYear       int
+	mu               sync.Mutex
+	closingAlerted   map[int64]bool
+	lastSyncTime     time.Time
+	lastSyncDuration time.Duration
+	lastSyncError    string
+	lastSyncCount    int
 }
 
 func NewSyncer(client *Client, repo *db.Repository, calculator ScoreCalculator, broker *events.Broker, seasonYear int) *Syncer {
@@ -51,8 +64,36 @@ func NewSyncer(client *Client, repo *db.Repository, calculator ScoreCalculator, 
 	}
 }
 
+// GetSyncStatus returns the latest diagnostic information about ESPN synchronization
+func (s *Syncer) GetSyncStatus() SyncStatus {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	isHealthy := s.lastSyncError == "" && !s.lastSyncTime.IsZero()
+	return SyncStatus{
+		LastSyncTime:     s.lastSyncTime,
+		LastSyncDuration: s.lastSyncDuration,
+		LastSyncError:    s.lastSyncError,
+		LastSyncCount:    s.lastSyncCount,
+		IsHealthy:        isHealthy,
+	}
+}
+
 // SyncWeek downloads ESPN games for a given week, upserts them, and marks the Monday Night game as tiebreaker
-func (s *Syncer) SyncWeek(weekNum int) (int, error) {
+func (s *Syncer) SyncWeek(weekNum int) (count int, err error) {
+	start := time.Now()
+	defer func() {
+		s.mu.Lock()
+		s.lastSyncTime = time.Now()
+		s.lastSyncDuration = time.Since(start)
+		if err != nil {
+			s.lastSyncError = err.Error()
+		} else {
+			s.lastSyncError = ""
+			s.lastSyncCount = count
+		}
+		s.mu.Unlock()
+	}()
+
 	season, err := s.repo.GetActiveSeason(s.seasonYear)
 	if err != nil {
 		return 0, fmt.Errorf("getting active season: %w", err)

@@ -1071,4 +1071,31 @@ func TestLeaderboardAndRulesRendering(t *testing.T) {
 	}
 }
 
+func TestAdminRecalculateScores(t *testing.T) {
+	repo, _, renderer, calculator, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	broker := events.NewBroker()
+	adminHandler := NewAdminHandler(repo, renderer, nil, calculator, broker, nil, 2026)
+
+	req := httptest.NewRequest(http.MethodPost, "/admin/recalculate", nil)
+	rr := httptest.NewRecorder()
+
+	adminHandler.RecalculateScores(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from RecalculateScores, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	body := rr.Body.String()
+	if !strings.Contains(body, "recalculadas exitosamente") {
+		t.Errorf("Expected body to contain 'recalculadas exitosamente', got: %s", body)
+	}
+
+	hxTrigger := rr.Header().Get("HX-Trigger")
+	if !strings.Contains(hxTrigger, "show-toast") {
+		t.Errorf("Expected HX-Trigger header with toast notification, got: %s", hxTrigger)
+	}
+}
+
 

@@ -1,10 +1,10 @@
 <div x-show="summaryModalOpen" 
      x-cloak
      class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+     @click.self="summaryModalOpen = false"
      @keydown.escape.window="summaryModalOpen = false">
     
-    <div class="vercel-card rounded-2xl w-full max-w-xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[94vh] bg-zinc-950"
-         @click.away="summaryModalOpen = false">
+    <div class="vercel-card rounded-2xl w-full max-w-xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[94vh] bg-zinc-950">
         
         <!-- Modal Header -->
         <div class="p-4 border-b border-[#222222] bg-zinc-900/80 flex items-center justify-between">
@@ -23,38 +23,41 @@
         </div>
 
         <!-- Scrollable Preview Area -->
-        <div class="p-4 sm:p-5 overflow-y-auto flex-1 flex flex-col items-center bg-black/40">
+        <div class="p-4 sm:p-5 overflow-y-auto flex-1 flex flex-col items-center bg-black/50">
             <p class="text-xs text-zinc-400 mb-3 text-center">
-                Tarjeta de resumen semanal lista para compartir en tu grupo de WhatsApp con los resultados y picks comunitarios.
+                Tarjeta de resumen semanal lista para compartir en WhatsApp con resultados y estadísticas comunitarias.
             </p>
 
             <!-- Renderable Card Container for html2canvas -->
             <div id="shareable-week-summary-card" 
-                 class="w-full max-w-lg bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-5 rounded-2xl border border-zinc-800 shadow-2xl text-white select-none">
+                 class="w-full max-w-lg bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-5 rounded-2xl border border-zinc-800 shadow-2xl text-white select-none relative overflow-hidden">
                 
+                <!-- Ambient Glow -->
+                <div class="absolute -top-20 -right-20 w-48 h-48 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
                 <!-- Card Header -->
-                <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3 mb-3">
+                <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3 mb-3 relative z-10">
                     <div class="flex items-center space-x-2.5">
                         <div class="w-10 h-10 rounded-xl bg-white text-black flex items-center justify-center font-black text-base shadow shrink-0">
                             <i class="fa-solid fa-football text-black text-sm"></i>
                         </div>
                         <div>
-                            <div class="text-sm font-extrabold text-white tracking-tight flex items-center">
+                            <div class="text-sm font-extrabold text-white tracking-tight flex items-center leading-none mb-1">
                                 NFL QUINIELA 2026
                                 <span class="ml-1.5 text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded">OFICIAL</span>
                             </div>
-                            <div class="text-[10px] font-mono text-zinc-400">Resumen Semanal • {{.SelectedWeek.Name}}</div>
+                            <div class="text-[10px] font-mono text-zinc-400 leading-none">Resumen Semanal • {{.SelectedWeek.Name}}</div>
                         </div>
                     </div>
 
                     <div class="text-right">
-                        <div class="text-xs font-bold text-white">{{.User.Username}}</div>
-                        <div class="text-[10px] font-mono text-amber-400 font-black">{{.UserWeeklyPoints}} pts <span class="text-zinc-500 font-normal">({{.UserCorrectPicks}} aciertos)</span></div>
+                        <div class="text-xs font-bold text-white leading-none mb-1">{{.User.Username}}</div>
+                        <div class="text-[10px] font-mono text-amber-400 font-black leading-none">{{.UserWeeklyPoints}} pts <span class="text-zinc-500 font-normal">({{.UserCorrectPicks}} aciertos)</span></div>
                     </div>
                 </div>
 
                 <!-- Games Fixture & Community Picks List -->
-                <div class="space-y-1.5 mb-3 text-[11px]">
+                <div class="space-y-1.5 mb-3 text-[11px] relative z-10">
                     {{range .Games}}
                         {{$p := .UserPick}}
                         <div class="p-2 rounded-xl bg-zinc-900/80 border border-zinc-800/80 flex items-center justify-between gap-2">
@@ -72,13 +75,13 @@
                                 </div>
                             </div>
 
-                            <!-- Community split mini bar -->
-                            <div class="hidden sm:flex flex-col items-center w-24 shrink-0">
+                            <!-- Community split mini bar (Always visible in card) -->
+                            <div class="flex flex-col items-center w-24 shrink-0">
                                 <div class="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden flex">
                                     <div class="bg-cyan-500 h-full" style="width: {{.AwayPickPercent}}%;"></div>
                                     <div class="bg-amber-500 h-full" style="width: {{.HomePickPercent}}%;"></div>
                                 </div>
-                                <div class="w-full flex justify-between text-[8px] font-mono text-zinc-500 mt-0.5">
+                                <div class="w-full flex justify-between text-[8px] font-mono text-zinc-500 mt-0.5 leading-none">
                                     <span>{{.AwayPickPercent}}%</span>
                                     <span>{{.HomePickPercent}}%</span>
                                 </div>
@@ -89,25 +92,25 @@
                                 {{if $p}}
                                     {{if eq .Status "final"}}
                                         {{if $p.HasCorrectWinner}}
-                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                                                <i class="fa-solid fa-check text-[8px] mr-1"></i> Acertado
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 leading-none">
+                                                ✓ Acertado
                                             </span>
                                         {{else}}
-                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                                                <i class="fa-solid fa-xmark text-[8px] mr-1"></i> Fallado
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 leading-none">
+                                                ✕ Fallado
                                             </span>
                                         {{end}}
                                     {{else if eq .Status "in_progress"}}
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse leading-none">
                                             {{if .AwayScore}}{{.AwayScore}}{{else}}0{{end}}-{{if .HomeScore}}{{.HomeScore}}{{else}}0{{end}}
                                         </span>
                                     {{else}}
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-zinc-800 text-zinc-300 border border-zinc-700">
-                                            Pick: {{if $p.IsPickedTeam .HomeTeamID}}{{.HomeTeam.Code}}{{else if $p.IsPickedTeam .AwayTeamID}}{{.AwayTeam.Code}}{{else}}--{{end}}
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-zinc-800 text-zinc-300 border border-zinc-700 leading-none">
+                                            {{if $p.IsPickedTeam .HomeTeamID}}{{.HomeTeam.Code}}{{else if $p.IsPickedTeam .AwayTeamID}}{{.AwayTeam.Code}}{{else}}--{{end}}
                                         </span>
                                     {{end}}
                                 {{else}}
-                                    <span class="text-[9px] font-mono text-zinc-500">Sin pick</span>
+                                    <span class="text-[9px] font-mono text-zinc-500 leading-none">Sin pick</span>
                                 {{end}}
                             </div>
 
@@ -116,7 +119,7 @@
                 </div>
 
                 <!-- Footer stamp -->
-                <div class="border-t border-zinc-800/80 pt-2.5 flex items-center justify-between text-[10px] text-zinc-500 font-mono">
+                <div class="border-t border-zinc-800/80 pt-2.5 flex items-center justify-between text-[10px] text-zinc-500 font-mono relative z-10 leading-none">
                     <span>quiniela.cmoreno.org</span>
                     <span class="text-zinc-400">Jornada {{.SelectedWeek.WeekNumber}} • Temporada 2026</span>
                 </div>
@@ -125,102 +128,112 @@
         </div>
 
         <!-- Modal Footer Actions -->
-        <div class="p-4 border-t border-[#222222] bg-zinc-900/80 flex items-center justify-between gap-3">
+        <div class="p-4 border-t border-[#222222] bg-zinc-900/80 flex items-center justify-between gap-3"
+             x-data="{
+                generating: false,
+                async generateBlob() {
+                    const target = document.getElementById('shareable-week-summary-card');
+                    if (!target) return null;
+                    const clone = target.cloneNode(true);
+                    clone.style.position = 'fixed';
+                    clone.style.left = '-9999px';
+                    clone.style.top = '0';
+                    clone.style.width = '600px';
+                    clone.style.maxWidth = '600px';
+                    clone.style.minWidth = '600px';
+                    clone.style.zIndex = '-9999';
+                    document.body.appendChild(clone);
+
+                    if (document.fonts && document.fonts.ready) {
+                        await document.fonts.ready;
+                    }
+                    await new Promise(r => setTimeout(r, 140));
+
+                    try {
+                        const canvas = await html2canvas(clone, {
+                            scale: 2.5,
+                            useCORS: true,
+                            allowTaint: true,
+                            backgroundColor: '#09090b',
+                            logging: false,
+                            windowWidth: 600
+                        });
+                        return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                    } finally {
+                        if (clone.parentNode) clone.parentNode.removeChild(clone);
+                    }
+                },
+                async shareWhatsApp() {
+                    this.generating = true;
+                    try {
+                        const blob = await this.generateBlob();
+                        if (!blob) throw new Error('No se pudo generar la imagen');
+                        const file = new File([blob], 'quiniela-semana-{{.SelectedWeek.WeekNumber}}-resumen.png', { type: 'image/png' });
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                            await navigator.share({
+                                title: 'Resumen de Quiniela Semana {{.SelectedWeek.WeekNumber}}',
+                                text: '¡Aquí está el resumen oficial de mis picks de la Semana {{.SelectedWeek.WeekNumber}}! Únete en quiniela.cmoreno.org 🏈',
+                                files: [file]
+                            });
+                            $dispatch('show-toast', { message: '¡Compartido con éxito!', type: 'success' });
+                        } else {
+                            await this.downloadImage();
+                            $dispatch('show-toast', { message: '¡Imagen descargada! Cópiala a tu grupo de WhatsApp.', type: 'info' });
+                        }
+                    } catch(err) {
+                        if (err.name !== 'AbortError') {
+                            console.error('Error sharing:', err);
+                            await this.downloadImage();
+                        }
+                    } finally {
+                        this.generating = false;
+                    }
+                },
+                async downloadImage() {
+                    this.generating = true;
+                    try {
+                        const blob = await this.generateBlob();
+                        if (!blob) throw new Error('No se pudo generar la imagen');
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'quiniela-semana-{{.SelectedWeek.WeekNumber}}-resumen.png';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        $dispatch('show-toast', { message: '¡Resumen descargado en PNG con éxito!', type: 'success' });
+                    } catch(err) {
+                        console.error('Download error:', err);
+                        $dispatch('show-toast', { message: 'Error al generar la imagen', type: 'error' });
+                    } finally {
+                        this.generating = false;
+                    }
+                }
+             }">
             <button type="button"
                     @click="summaryModalOpen = false"
                     class="px-4 py-2 rounded-xl border border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500 text-xs font-semibold transition-colors cursor-pointer">
                 Cerrar
             </button>
 
-            <div class="flex items-center space-x-2"
-                 x-data="{
-                    generating: false,
-                    async generateBlob() {
-                        const target = document.getElementById('shareable-week-summary-card');
-                        if (!target) return null;
-                        const clone = target.cloneNode(true);
-                        clone.style.position = 'fixed';
-                        clone.style.left = '-9999px';
-                        clone.style.top = '0';
-                        clone.style.width = '520px';
-                        document.body.appendChild(clone);
-
-                        if (document.fonts && document.fonts.ready) {
-                            await document.fonts.ready;
-                        }
-                        await new Promise(r => setTimeout(r, 120));
-
-                        try {
-                            const canvas = await html2canvas(clone, {
-                                scale: 3,
-                                useCORS: true,
-                                allowTaint: true,
-                                backgroundColor: '#09090b',
-                                logging: false,
-                                windowWidth: 520
-                            });
-                            return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-                        } finally {
-                            if (clone.parentNode) clone.parentNode.removeChild(clone);
-                        }
-                    },
-                    async shareWhatsApp() {
-                        this.generating = true;
-                        try {
-                            const blob = await this.generateBlob();
-                            if (!blob) throw new Error('No se pudo generar la imagen');
-                            const file = new File([blob], 'quiniela-semana-{{.SelectedWeek.WeekNumber}}-resumen.png', { type: 'image/png' });
-                            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                                await navigator.share({
-                                    title: 'Resumen de Quiniela Semana {{.SelectedWeek.WeekNumber}}',
-                                    text: '¡Aquí está el resumen oficial de mis picks y porcentajes de la Semana {{.SelectedWeek.WeekNumber}}! Únete y consulta en quiniela.cmoreno.org',
-                                    files: [file]
-                                });
-                            } else {
-                                // Fallback to download
-                                await this.downloadImage();
-                            }
-                        } catch(err) {
-                            console.error('Error sharing:', err);
-                        } finally {
-                            this.generating = false;
-                        }
-                    },
-                    async downloadImage() {
-                        this.generating = true;
-                        try {
-                            const blob = await this.generateBlob();
-                            if (!blob) throw new Error('No se pudo generar la imagen');
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = 'quiniela-semana-{{.SelectedWeek.WeekNumber}}-resumen.png';
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(url);
-                            $dispatch('show-toast', { message: '¡Resumen descargado en PNG con éxito!', type: 'success' });
-                        } catch(err) {
-                            console.error('Download error:', err);
-                        } finally {
-                            this.generating = false;
-                        }
-                    }
-                 }">
+            <div class="flex items-center space-x-2">
                 <button type="button"
                         @click="downloadImage()"
                         :disabled="generating"
-                        class="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs transition-colors flex items-center space-x-1.5 cursor-pointer">
-                    <i class="fa-solid fa-download"></i>
+                        class="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-50">
+                    <i class="fa-solid fa-download text-xs" x-show="!generating"></i>
+                    <i class="fa-solid fa-spinner fa-spin text-xs" x-show="generating"></i>
                     <span>Descargar PNG</span>
                 </button>
 
                 <button type="button"
                         @click="shareWhatsApp()"
                         :disabled="generating"
-                        class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs transition-colors flex items-center space-x-1.5 shadow-md shadow-emerald-500/20 cursor-pointer">
-                    <i class="fa-brands fa-whatsapp text-sm"></i>
-                    <span x-text="generating ? 'Generando...' : 'Compartir en WhatsApp'"></span>
+                        class="px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black font-extrabold text-xs transition-colors flex items-center space-x-1.5 shadow-md cursor-pointer disabled:opacity-50">
+                    <i class="fa-solid fa-share-nodes text-xs" x-show="!generating"></i>
+                    <i class="fa-solid fa-spinner fa-spin text-xs" x-show="generating"></i>
+                    <span>Compartir Resumen</span>
                 </button>
             </div>
         </div>

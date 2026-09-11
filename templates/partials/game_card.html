@@ -42,6 +42,18 @@
              if (inp) inp.value = this.pickedTeam;
              if (typeof updatePicksCounter === 'function') updatePicksCounter();
          },
+         stepScore(team, delta) {
+             if (this.isLocked) return;
+             let val = parseInt(team === 'away' ? this.awayScore : this.homeScore, 10);
+             if (isNaN(val)) val = 0;
+             val = Math.max(0, Math.min(99, val + delta));
+             if (team === 'away') {
+                 this.awayScore = val.toString();
+             } else {
+                 this.homeScore = val.toString();
+             }
+             this.onScoreInput();
+         },
          onScoreInput() {
              if (this.isLocked) return;
              const a = parseInt(this.awayScore, 10);
@@ -153,7 +165,7 @@
             <button type="button"
                     @click="selectTeam('{{.Game.AwayTeamID}}')"
                     {{if $locked}}disabled{{end}}
-                    :class="(pickedTeam == '{{.Game.AwayTeamID}}' ? 'bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60') + (typeof viewMode !== 'undefined' && viewMode === 'compact' ? ' !p-2' : '')"
+                    :class="(pickedTeam == '{{.Game.AwayTeamID}}' ? 'bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60') + (typeof viewMode !== 'undefined' && viewMode === 'compact' ? ' !p-2 min-h-[46px]' : ' min-h-[54px]')"
                     class="w-full p-2.5 sm:p-3 rounded-xl border transition-all relative group {{if $awayPicked}}bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md{{else}}bg-zinc-950/60 border-[#222222]{{end}} {{if $locked}}cursor-default opacity-80{{else}}cursor-pointer hover:scale-[1.01]{{end}}">
                 
                 <div class="flex flex-col sm:flex-row items-center text-center sm:text-left sm:space-x-3">
@@ -169,7 +181,7 @@
 
                 <div x-show="pickedTeam == '{{.Game.AwayTeamID}}'" 
                      {{if not $awayPicked}}x-cloak{{end}}
-                     class="absolute top-2 right-2 flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white text-black shadow-md shrink-0">
+                     class="absolute top-2 right-2 flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white text-black shadow-md shrink-0 transition-transform">
                     <svg class="w-2.5 h-2.5 sm:w-3 sm:h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M2.5 6.5L4.5 8.5L9.5 3.5"/>
                     </svg>
@@ -194,7 +206,7 @@
             <button type="button"
                     @click="selectTeam('{{.Game.HomeTeamID}}')"
                     {{if $locked}}disabled{{end}}
-                    :class="(pickedTeam == '{{.Game.HomeTeamID}}' ? 'bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60') + (typeof viewMode !== 'undefined' && viewMode === 'compact' ? ' !p-2' : '')"
+                    :class="(pickedTeam == '{{.Game.HomeTeamID}}' ? 'bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60') + (typeof viewMode !== 'undefined' && viewMode === 'compact' ? ' !p-2 min-h-[46px]' : ' min-h-[54px]')"
                     class="w-full p-2.5 sm:p-3 rounded-xl border transition-all relative group {{if $homePicked}}bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md{{else}}bg-zinc-950/60 border-[#222222]{{end}} {{if $locked}}cursor-default opacity-80{{else}}cursor-pointer hover:scale-[1.01]{{end}}">
                 
                 <div class="flex flex-col sm:flex-row-reverse items-center text-center sm:text-right sm:space-x-3 sm:space-x-reverse">
@@ -210,7 +222,7 @@
 
                 <div x-show="pickedTeam == '{{.Game.HomeTeamID}}'" 
                      {{if not $homePicked}}x-cloak{{end}}
-                     class="absolute top-2 left-2 flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white text-black shadow-md shrink-0">
+                     class="absolute top-2 left-2 flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white text-black shadow-md shrink-0 transition-transform">
                     <svg class="w-2.5 h-2.5 sm:w-3 sm:h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M2.5 6.5L4.5 8.5L9.5 3.5"/>
                     </svg>
@@ -243,38 +255,69 @@
                 </span>
             </div>
 
-            <div class="flex items-center space-x-2.5">
-                <!-- Away Score Input -->
-                <div class="flex items-center space-x-1.5">
-                    <span class="font-mono font-bold text-xs text-zinc-300">{{.Game.AwayTeam.Code}}</span>
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <!-- Away Score Input with Steppers -->
+                <div class="flex items-center space-x-1">
+                    <span class="font-mono font-bold text-xs text-zinc-300 mr-1">{{.Game.AwayTeam.Code}}</span>
+                    {{if not $locked}}
+                    <button type="button" 
+                            @click="stepScore('away', -1)"
+                            class="w-6 h-6 rounded-md bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-zinc-300 font-bold text-xs flex items-center justify-center cursor-pointer select-none transition-colors shrink-0">
+                        -
+                    </button>
+                    {{end}}
                     <input type="number" 
                            name="away_score_{{.Game.ID}}" 
                            min="0" 
                            max="99"
+                           inputmode="numeric"
+                           pattern="[0-9]*"
                            x-model="awayScore"
                            @input="onScoreInput()"
                            value="{{if $pick}}{{$pick.AwayScoreStr}}{{end}}"
                            placeholder="--" 
                            {{if $locked}}disabled{{end}}
-                           class="w-12 py-1.5 px-2 text-center font-mono font-bold text-xs bg-zinc-900 border border-zinc-700/80 rounded-lg text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white disabled:opacity-40 disabled:bg-zinc-950">
+                           class="w-10 py-1 px-1 text-center font-mono font-bold text-xs bg-zinc-900 border border-zinc-700/80 rounded-lg text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white disabled:opacity-40 disabled:bg-zinc-950">
+                    {{if not $locked}}
+                    <button type="button" 
+                            @click="stepScore('away', 1)"
+                            class="w-6 h-6 rounded-md bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-zinc-300 font-bold text-xs flex items-center justify-center cursor-pointer select-none transition-colors shrink-0">
+                        +
+                    </button>
+                    {{end}}
                 </div>
 
                 <span class="text-zinc-600 font-bold">-</span>
 
-                <!-- Home Score Input -->
-                <div class="flex items-center space-x-1.5">
+                <!-- Home Score Input with Steppers -->
+                <div class="flex items-center space-x-1">
+                    {{if not $locked}}
+                    <button type="button" 
+                            @click="stepScore('home', -1)"
+                            class="w-6 h-6 rounded-md bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-zinc-300 font-bold text-xs flex items-center justify-center cursor-pointer select-none transition-colors shrink-0">
+                        -
+                    </button>
+                    {{end}}
                     <input type="number" 
                            name="home_score_{{.Game.ID}}" 
                            min="0" 
                            max="99"
+                           inputmode="numeric"
+                           pattern="[0-9]*"
                            x-model="homeScore"
                            @input="onScoreInput()"
                            value="{{if $pick}}{{$pick.HomeScoreStr}}{{end}}"
                            placeholder="--" 
                            {{if $locked}}disabled{{end}}
-                           class="w-12 py-1.5 px-2 text-center font-mono font-bold text-xs bg-zinc-900 border border-zinc-700/80 rounded-lg text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white disabled:opacity-40 disabled:bg-zinc-950">
-                    <span class="font-mono font-bold text-xs text-zinc-300">{{.Game.HomeTeam.Code}}</span>
-                </div>
+                           class="w-10 py-1 px-1 text-center font-mono font-bold text-xs bg-zinc-900 border border-zinc-700/80 rounded-lg text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white disabled:opacity-40 disabled:bg-zinc-950">
+                    {{if not $locked}}
+                    <button type="button" 
+                            @click="stepScore('home', 1)"
+                            class="w-6 h-6 rounded-md bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-zinc-300 font-bold text-xs flex items-center justify-center cursor-pointer select-none transition-colors shrink-0">
+                        +
+                    </button>
+                    {{end}}
+                    <span class="font-mono font-bold text-xs text-zinc-300 ml-1">{{.Game.HomeTeam.Code}}</span>
             </div>
         </div>
     </div>

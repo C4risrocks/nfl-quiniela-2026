@@ -21,30 +21,46 @@
             </p>
         </div>
 
-        <!-- Vercel Tab Switcher -->
-        <div class="bg-zinc-950 p-1 rounded-xl border border-zinc-800 flex items-center space-x-1">
-            <button @click="activeTab = 'settings'" 
-                    :class="activeTab === 'settings' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'"
-                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
-                <i class="fa-solid fa-sliders mr-1.5"></i> Puntuación
+        <!-- Actions & Vercel Tab Switcher -->
+        <div class="flex flex-wrap items-center gap-3">
+            <!-- Global Recalculate Button -->
+            <button hx-post="/admin/recalculate"
+                    hx-target="#global-recalc-feedback"
+                    hx-indicator="#global-recalc-spinner"
+                    class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-extrabold text-xs transition-all shadow-md flex items-center space-x-1.5 cursor-pointer">
+                <i class="fa-solid fa-calculator text-xs"></i>
+                <i class="fa-solid fa-spinner fa-spin text-xs htmx-indicator" id="global-recalc-spinner"></i>
+                <span>Recalcular Todo</span>
             </button>
-            <button @click="activeTab = 'games'" 
-                    :class="activeTab === 'games' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'"
-                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
-                <i class="fa-solid fa-football mr-1.5"></i> Partidos & ESPN
-            </button>
-            <button @click="activeTab = 'users'" 
-                    :class="activeTab === 'users' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'"
-                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
-                <i class="fa-solid fa-users mr-1.5"></i> Jugadores
-            </button>
-            <button @click="activeTab = 'reminders'" 
-                    :class="activeTab === 'reminders' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'"
-                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
-                <i class="fa-solid fa-envelope mr-1.5"></i> Recordatorios
-            </button>
+
+            <!-- Vercel Tab Switcher -->
+            <div class="bg-zinc-950 p-1 rounded-xl border border-zinc-800 flex items-center space-x-1">
+                <button @click="activeTab = 'settings'" 
+                        :class="activeTab === 'settings' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
+                    <i class="fa-solid fa-sliders mr-1.5"></i> Puntuación
+                </button>
+                <button @click="activeTab = 'games'" 
+                        :class="activeTab === 'games' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
+                    <i class="fa-solid fa-football mr-1.5"></i> Partidos & ESPN
+                </button>
+                <button @click="activeTab = 'users'" 
+                        :class="activeTab === 'users' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
+                    <i class="fa-solid fa-users mr-1.5"></i> Jugadores
+                </button>
+                <button @click="activeTab = 'reminders'" 
+                        :class="activeTab === 'reminders' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
+                    <i class="fa-solid fa-envelope mr-1.5"></i> Recordatorios
+                </button>
+            </div>
         </div>
     </div>
+
+    <!-- Global Recalculate Feedback Notification Slot -->
+    <div id="global-recalc-feedback" class="transition-all duration-200"></div>
 
     <!-- TAB 1: Scoring Rules Configuration -->
     <div x-show="activeTab === 'settings'" class="space-y-6">
@@ -200,6 +216,42 @@
     <!-- TAB 2: Games Management & ESPN Live Sync -->
     <div x-show="activeTab === 'games'" x-cloak class="space-y-6">
         
+        <!-- ESPN Health Diagnostics Monitor -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="vercel-card p-4 rounded-xl border border-zinc-800 flex items-center justify-between">
+                <div>
+                    <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider font-bold">Estado ESPN API</div>
+                    <div class="flex items-center space-x-2 mt-1">
+                        <span class="w-2.5 h-2.5 rounded-full {{if .SyncStatus.IsHealthy}}bg-emerald-500 animate-pulse{{else}}bg-cyan-500{{end}}"></span>
+                        <span class="text-xs font-bold text-white">{{if .SyncStatus.IsHealthy}}Online & Operativo{{else}}Conectado / Listo{{end}}</span>
+                    </div>
+                </div>
+                <i class="fa-solid fa-server text-zinc-600 text-lg"></i>
+            </div>
+            <div class="vercel-card p-4 rounded-xl border border-zinc-800 flex items-center justify-between">
+                <div>
+                    <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider font-bold">Última Sincronización</div>
+                    <div class="text-xs font-bold text-white mt-1">
+                        {{if not .SyncStatus.LastSyncTime.IsZero}}
+                            {{.SyncStatus.LastSyncTime.Format "02 Jan 15:04:05"}}
+                        {{else}}
+                            Automática / En espera
+                        {{end}}
+                    </div>
+                </div>
+                <i class="fa-solid fa-clock-rotate-left text-zinc-600 text-lg"></i>
+            </div>
+            <div class="vercel-card p-4 rounded-xl border border-zinc-800 flex items-center justify-between">
+                <div>
+                    <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider font-bold">Partidos Procesados</div>
+                    <div class="text-xs font-bold font-mono text-amber-400 mt-1">
+                        {{if gt .SyncStatus.LastSyncCount 0}}{{.SyncStatus.LastSyncCount}} partidos sincronizados{{else}}{{len .Games}} partidos en jornada{{end}}
+                    </div>
+                </div>
+                <i class="fa-solid fa-bolt text-amber-400/80 text-lg"></i>
+            </div>
+        </div>
+
         <!-- ESPN Sync Card -->
         <div class="vercel-card p-6 rounded-2xl">
             <h2 class="text-base font-bold text-white mb-1 flex items-center">
@@ -313,7 +365,66 @@
                 </div>
             </div>
 
-            <div class="overflow-x-auto rounded-xl border border-[#222222]">
+            <!-- Mobile User Cards View (md:hidden) -->
+            <div class="md:hidden space-y-3">
+                {{if .UserSummaries}}
+                    {{range .UserSummaries}}
+                        <div class="p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800 space-y-2.5">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2 min-w-0 flex-1">
+                                    <div class="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-xs text-white shrink-0">
+                                        {{slice .User.Username 0 1}}
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="font-bold text-white text-xs flex items-center">
+                                            <span class="truncate">{{.User.Username}}</span>
+                                            {{if .User.IsAdmin}}
+                                                <span class="ml-1 text-[8px] font-mono px-1 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 shrink-0">ADMIN</span>
+                                            {{end}}
+                                        </div>
+                                        <div class="text-[10px] text-zinc-500 font-mono truncate">{{.User.Email}}</div>
+                                    </div>
+                                </div>
+                                <button hx-post="/admin/users/{{.User.ID}}/toggle-role" 
+                                        hx-swap="outerHTML"
+                                        class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold shrink-0 {{if .User.IsAdmin}}bg-amber-500/10 text-amber-300 border border-amber-500/30{{else}}bg-zinc-900 text-zinc-400 border border-zinc-800{{end}}">
+                                    {{.User.Role}}
+                                </button>
+                            </div>
+
+                            <div class="flex items-center justify-between text-xs pt-2 border-t border-zinc-800/60">
+                                <div>
+                                    <span class="text-[10px] text-zinc-500 uppercase font-mono mr-1">Picks:</span>
+                                    <span class="font-mono font-bold {{if eq .CompletedPicks .TotalGames}}text-emerald-400{{else}}text-amber-400{{end}}">
+                                        {{.CompletedPicks}}/{{.TotalGames}}
+                                    </span>
+                                    {{if .HasTiebreaker}}
+                                        <span class="ml-1 text-[10px] text-amber-400">★</span>
+                                    {{end}}
+                                </div>
+                                <div class="flex items-center space-x-1.5">
+                                    {{if not .User.EmailVerified}}
+                                        <button hx-post="/admin/users/{{.User.ID}}/verify-email" 
+                                                hx-swap="outerHTML"
+                                                class="px-2 py-0.5 rounded text-[10px] bg-zinc-800 text-zinc-300 border border-zinc-700">
+                                            Validar
+                                        </button>
+                                    {{end}}
+                                    <button hx-get="/admin/users/{{.User.ID}}/picks?week_id={{$.SelectedWeek.ID}}" 
+                                            hx-target="#admin-modal-container" 
+                                            hx-swap="innerHTML"
+                                            class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold border border-zinc-700 transition-colors">
+                                        <i class="fa-solid fa-user-pen mr-1 text-zinc-400"></i> Picks
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    {{end}}
+                {{end}}
+            </div>
+
+            <!-- Desktop Users Table (hidden md:block) -->
+            <div class="hidden md:block overflow-x-auto rounded-xl border border-[#222222]">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead>
                         <tr class="border-b border-[#1f1f1f] bg-black/40 text-zinc-500 font-mono text-[11px] uppercase tracking-wider">

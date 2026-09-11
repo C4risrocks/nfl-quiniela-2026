@@ -1,4 +1,5 @@
-<div class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+<div class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+     @click.self="document.getElementById('h2h-modal-container').innerHTML = ''"
      x-data="{
          generating: false,
          async generateH2HBlob() {
@@ -19,11 +20,11 @@
              if (document.fonts && document.fonts.ready) {
                  await document.fonts.ready;
              }
-             await new Promise(r => setTimeout(r, 120));
+             await new Promise(r => setTimeout(r, 140));
 
              try {
                  const canvas = await html2canvas(clone, {
-                     scale: 3,
+                     scale: 2.5,
                      useCORS: true,
                      allowTaint: true,
                      backgroundColor: '#09090b',
@@ -46,16 +47,17 @@
                  if (navigator.canShare && navigator.canShare({ files: [file] })) {
                      await navigator.share({
                          title: 'Duelo Cara a Cara - Quiniela NFL 2026',
-                         text: '¡Mira nuestro Duelo Directo en la Quiniela NFL 2026!',
+                         text: '¡Mira nuestro Duelo Directo en la Quiniela NFL 2026! 🏈',
                          files: [file]
                      });
+                     $dispatch('show-toast', { message: '¡Duelo compartido con éxito!', type: 'success' });
                  } else {
                      this.downloadH2HImageBlob(blob);
+                     $dispatch('show-toast', { message: '¡Imagen descargada! Cópiala a tu chat de WhatsApp.', type: 'info' });
                  }
              } catch (e) {
                  if (e.name !== 'AbortError') {
-                     alert('No se pudo compartir automáticamente. Descargando imagen...');
-                     await this.downloadH2HImage();
+                     this.downloadH2HImage();
                  }
              } finally {
                  this.generating = false;
@@ -67,6 +69,7 @@
                  const blob = await this.generateH2HBlob();
                  if (!blob) throw new Error('Error al generar imagen');
                  this.downloadH2HImageBlob(blob);
+                 $dispatch('show-toast', { message: '¡Imagen del duelo descargada en alta resolución!', type: 'success' });
              } catch (e) {
                  alert('Error al generar la imagen: ' + e.message);
              } finally {
@@ -86,8 +89,11 @@
      }"
      @keydown.escape.window="document.getElementById('h2h-modal-container').innerHTML = ''">
     
-    <div class="vercel-card rounded-2xl w-full max-w-3xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[88vh] mb-14 md:mb-0 bg-zinc-950">
+    <div class="vercel-card rounded-t-3xl sm:rounded-2xl w-full max-w-3xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh] bg-zinc-950">
         
+        <!-- Mobile Drag Handle -->
+        <div class="w-12 h-1 bg-zinc-700 rounded-full mx-auto my-2.5 sm:hidden shrink-0"></div>
+
         <!-- Modal Header: Duel Banner -->
         <div class="p-4 sm:p-5 border-b border-[#222222] bg-zinc-900/80">
             <div class="flex items-center justify-between mb-3">
@@ -103,7 +109,7 @@
                     <button type="button"
                             @click="shareH2HImage()"
                             :disabled="generating"
-                            class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-white hover:bg-zinc-200 text-black text-xs font-bold transition-all shadow-sm disabled:opacity-50 cursor-pointer">
+                            class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold transition-all shadow-sm disabled:opacity-50 cursor-pointer">
                         <i class="fa-solid fa-share-nodes text-[11px]" x-show="!generating"></i>
                         <i class="fa-solid fa-spinner fa-spin text-[11px]" x-show="generating"></i>
                         <span>Compartir Duelo</span>
@@ -117,44 +123,44 @@
                 </div>
             </div>
 
-            <!-- Players Matchup Header -->
-            <div class="grid grid-cols-11 items-center gap-2">
+            <!-- Players Matchup Header (Flexbox layout) -->
+            <div class="flex items-center justify-between gap-2 p-2 sm:p-3 rounded-2xl bg-zinc-950/60 border border-zinc-900">
                 <!-- User A (You) -->
-                <div class="col-span-5 flex items-center space-x-2.5 sm:space-x-3">
-                    <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-800 border-2 border-white/40 flex items-center justify-center font-bold text-xs sm:text-sm text-white flex-shrink-0 shadow">
+                <div class="flex items-center space-x-2.5 sm:space-x-3 min-w-0 flex-1">
+                    <div class="w-10 h-10 rounded-full bg-zinc-800 border-2 border-white/40 flex items-center justify-center font-bold text-sm text-white shrink-0 shadow">
                         {{if .Comparison.UserA.AvatarURL}}
-                            <img src="{{.Comparison.UserA.AvatarURL}}" alt="{{.Comparison.UserA.Username}}" class="w-full h-full rounded-full object-cover">
+                            <img src="{{.Comparison.UserA.AvatarURL}}" alt="{{.Comparison.UserA.Username}}" class="w-full h-full rounded-full object-cover" crossorigin="anonymous">
                         {{else}}
-                            {{slice .Comparison.UserA.Username 0 1}}
+                            <span class="leading-none">{{slice .Comparison.UserA.Username 0 1}}</span>
                         {{end}}
                     </div>
                     <div class="min-w-0">
-                        <div class="text-[10px] sm:text-[11px] text-zinc-400 font-medium">Tú</div>
-                        <div class="text-xs sm:text-base font-bold text-white truncate">{{.Comparison.UserA.Username}}</div>
-                        <div class="font-mono text-xs text-amber-400 font-bold">{{.Comparison.UserATotalPts}} pts</div>
+                        <div class="text-[10px] text-zinc-400 font-medium leading-none mb-1">Tú</div>
+                        <div class="text-xs sm:text-base font-bold text-white truncate leading-tight">{{.Comparison.UserA.Username}}</div>
+                        <div class="font-mono text-xs text-amber-400 font-bold leading-none mt-1">{{.Comparison.UserATotalPts}} pts</div>
                     </div>
                 </div>
 
                 <!-- VS Badge -->
-                <div class="col-span-1 text-center">
-                    <span class="w-6 h-6 sm:w-7 sm:h-7 mx-auto rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center font-mono font-black text-[10px] sm:text-xs text-zinc-400">
+                <div class="shrink-0 px-2">
+                    <span class="w-7 h-7 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center font-mono font-black text-xs text-rose-400 shadow-inner">
                         VS
                     </span>
                 </div>
 
                 <!-- User B (Rival) -->
-                <div class="col-span-5 flex items-center justify-end space-x-2.5 sm:space-x-3 space-x-reverse text-right">
-                    <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-zinc-800 border-2 border-zinc-700 flex items-center justify-center font-bold text-xs sm:text-sm text-zinc-300 flex-shrink-0 shadow">
+                <div class="flex items-center justify-end space-x-2.5 sm:space-x-3 space-x-reverse text-right min-w-0 flex-1">
+                    <div class="w-10 h-10 rounded-full bg-zinc-800 border-2 border-zinc-700 flex items-center justify-center font-bold text-sm text-zinc-300 shrink-0 shadow">
                         {{if .Comparison.UserB.AvatarURL}}
-                            <img src="{{.Comparison.UserB.AvatarURL}}" alt="{{.Comparison.UserB.Username}}" class="w-full h-full rounded-full object-cover">
+                            <img src="{{.Comparison.UserB.AvatarURL}}" alt="{{.Comparison.UserB.Username}}" class="w-full h-full rounded-full object-cover" crossorigin="anonymous">
                         {{else}}
-                            {{slice .Comparison.UserB.Username 0 1}}
+                            <span class="leading-none">{{slice .Comparison.UserB.Username 0 1}}</span>
                         {{end}}
                     </div>
                     <div class="min-w-0">
-                        <div class="text-[10px] sm:text-[11px] text-zinc-400 font-medium">Rival</div>
-                        <div class="text-xs sm:text-base font-bold text-white truncate">{{.Comparison.UserB.Username}}</div>
-                        <div class="font-mono text-xs text-amber-400 font-bold">{{.Comparison.UserBTotalPts}} pts</div>
+                        <div class="text-[10px] text-zinc-400 font-medium leading-none mb-1">Rival</div>
+                        <div class="text-xs sm:text-base font-bold text-white truncate leading-tight">{{.Comparison.UserB.Username}}</div>
+                        <div class="font-mono text-xs text-amber-400 font-bold leading-none mt-1">{{.Comparison.UserBTotalPts}} pts</div>
                     </div>
                 </div>
             </div>
@@ -183,7 +189,7 @@
         </div>
 
         <!-- Scrollable Matchups List -->
-        <div class="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1">
+        <div class="p-4 sm:p-5 overflow-y-auto space-y-2.5 flex-1">
             <div class="text-[11px] text-zinc-400 mb-2 flex items-center justify-between">
                 <span>Partidos de la {{.Comparison.Week.Name}}</span>
                 <span class="text-zinc-500 font-mono text-[10px]">
@@ -192,10 +198,10 @@
             </div>
 
             {{range .Comparison.Matchups}}
-                <div class="p-3.5 rounded-xl border transition-colors {{if .IsDivergent}}border-rose-500/30 bg-rose-950/10{{else}}border-zinc-800/80 bg-zinc-900/40{{end}}">
+                <div class="p-3 rounded-xl border transition-colors {{if .IsDivergent}}border-rose-500/30 bg-rose-950/15{{else}}border-zinc-800/80 bg-zinc-900/40{{end}}">
                     
                     <!-- Game Info Header -->
-                    <div class="flex items-center justify-between text-[11px] text-zinc-400 border-b border-zinc-800/60 pb-2 mb-2.5">
+                    <div class="flex items-center justify-between text-[11px] text-zinc-400 border-b border-zinc-800/60 pb-2 mb-2">
                         <div class="flex items-center space-x-2">
                             <span class="font-bold text-zinc-200">
                                 {{.Game.AwayTeam.Code}} @ {{.Game.HomeTeam.Code}}
@@ -225,15 +231,15 @@
                     </div>
 
                     <!-- Comparison Side by Side -->
-                    <div class="grid grid-cols-2 gap-2.5 sm:gap-3 items-center text-xs">
+                    <div class="grid grid-cols-2 gap-2 sm:gap-3 items-center text-xs">
                         
                         <!-- User A Pick -->
-                        <div class="flex items-center space-x-2 p-2 rounded-lg bg-zinc-950/60 border border-zinc-800/80">
+                        <div class="flex items-center space-x-2 p-2 rounded-lg bg-zinc-950/60 border border-zinc-800/80 min-w-0">
                             {{if .UserAPickedTeam}}
-                                <img src="{{.UserAPickedTeam.LogoURL}}" alt="{{.UserAPickedTeam.Code}}" class="w-5 h-5 sm:w-6 sm:h-6 object-contain flex-shrink-0">
+                                <img src="{{.UserAPickedTeam.LogoURL}}" alt="{{.UserAPickedTeam.Code}}" class="w-5 h-5 object-contain shrink-0" crossorigin="anonymous">
                                 <div class="min-w-0 flex-1">
-                                    <div class="font-bold text-white text-xs truncate">{{.UserAPickedTeam.Name}}</div>
-                                    <div class="text-[10px] font-mono text-zinc-400">{{.UserAPickedTeam.Code}}</div>
+                                    <div class="font-bold text-white text-xs truncate leading-tight">{{.UserAPickedTeam.Name}}</div>
+                                    <div class="text-[10px] font-mono text-zinc-400 leading-none mt-0.5">{{.UserAPickedTeam.Code}}</div>
                                 </div>
                                 {{if .IsFinal}}
                                     <span class="font-mono text-xs font-bold {{if gt .UserAPoints 0}}text-emerald-400{{else}}text-zinc-500{{end}}">
@@ -246,7 +252,7 @@
                         </div>
 
                         <!-- User B Pick -->
-                        <div class="flex items-center space-x-2 p-2 rounded-lg bg-zinc-950/60 border border-zinc-800/80 justify-end text-right">
+                        <div class="flex items-center space-x-2 p-2 rounded-lg bg-zinc-950/60 border border-zinc-800/80 justify-end text-right min-w-0">
                             {{if .IsFinal}}
                                 <span class="font-mono text-xs font-bold {{if gt .UserBPoints 0}}text-emerald-400{{else}}text-zinc-500{{end}}">
                                     +{{.UserBPoints}}
@@ -254,10 +260,10 @@
                             {{end}}
                             {{if .UserBPickedTeam}}
                                 <div class="min-w-0 flex-1">
-                                    <div class="font-bold text-white text-xs truncate">{{.UserBPickedTeam.Name}}</div>
-                                    <div class="text-[10px] font-mono text-zinc-400">{{.UserBPickedTeam.Code}}</div>
+                                    <div class="font-bold text-white text-xs truncate leading-tight">{{.UserBPickedTeam.Name}}</div>
+                                    <div class="text-[10px] font-mono text-zinc-400 leading-none mt-0.5">{{.UserBPickedTeam.Code}}</div>
                                 </div>
-                                <img src="{{.UserBPickedTeam.LogoURL}}" alt="{{.UserBPickedTeam.Code}}" class="w-5 h-5 sm:w-6 sm:h-6 object-contain flex-shrink-0">
+                                <img src="{{.UserBPickedTeam.LogoURL}}" alt="{{.UserBPickedTeam.Code}}" class="w-5 h-5 object-contain shrink-0" crossorigin="anonymous">
                             {{else}}
                                 <span class="text-zinc-500 text-xs italic">Sin pick</span>
                             {{end}}
@@ -268,66 +274,82 @@
             {{end}}
         </div>
 
-        <!-- Renderable Social Battle Card (Target of html2canvas - offscreen or rendered inside) -->
-        <div class="hidden">
-            <div id="shareable-h2h-card" class="bg-[#09090b] border border-zinc-800 rounded-3xl p-6 text-white font-sans relative overflow-hidden">
+        <!-- Renderable Social Battle Card (Target of html2canvas) -->
+        <div style="position: absolute; left: -9999px; top: -9999px; pointer-events: none;">
+            <div id="shareable-h2h-card" class="w-[640px] bg-[#09090b] border border-zinc-800 rounded-3xl p-6 text-white font-sans relative overflow-hidden select-none">
+                
+                <!-- Glow -->
+                <div class="absolute -top-20 -right-20 w-60 h-60 bg-rose-500/10 rounded-full blur-3xl"></div>
+                <div class="absolute -bottom-20 -left-20 w-60 h-60 bg-cyan-500/10 rounded-full blur-3xl"></div>
+
                 <!-- Brand Header -->
-                <div class="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4">
+                <div class="flex items-center justify-between border-b border-zinc-800 pb-3 mb-4 relative z-10">
                     <div class="flex items-center space-x-2.5">
-                        <img src="https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png" alt="NFL" class="w-7 h-7 object-contain">
+                        <img src="https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png" alt="NFL" class="w-8 h-8 object-contain" crossorigin="anonymous">
                         <div>
-                            <div class="text-[9px] font-mono uppercase tracking-widest text-zinc-400 font-bold">NFL Quiniela 2026</div>
-                            <div class="text-base font-black text-white">Duelo Cara a Cara</div>
+                            <div class="text-[9px] font-mono uppercase tracking-widest text-zinc-400 font-bold leading-none mb-1">NFL Quiniela 2026</div>
+                            <div class="text-base font-black text-white leading-none">Duelo Cara a Cara</div>
                         </div>
                     </div>
-                    <div class="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-mono font-black uppercase">
-                        {{.Comparison.Week.Name}}
-                    </div>
+                    <svg width="90" height="24" viewBox="0 0 90 24" class="shrink-0 shadow-sm">
+                        <rect width="90" height="24" rx="12" fill="#e11d48"/>
+                        <text x="45" y="13" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="900" font-size="10.5">
+                            {{.Comparison.Week.Name}}
+                        </text>
+                    </svg>
                 </div>
 
-                <!-- 1v1 Battle Banner -->
-                <div class="grid grid-cols-11 items-center gap-2 p-4 rounded-2xl bg-zinc-950 border border-zinc-800 mb-4">
-                    <div class="col-span-5 flex items-center space-x-3">
-                        <div class="w-10 h-10 rounded-full bg-zinc-800 border-2 border-white/40 flex items-center justify-center font-bold text-sm text-white">
-                            {{slice .Comparison.UserA.Username 0 1}}
-                        </div>
-                        <div>
-                            <div class="text-[10px] text-zinc-400">Tú</div>
-                            <div class="text-sm font-bold text-white">{{.Comparison.UserA.Username}}</div>
-                            <div class="font-mono text-xs text-amber-400 font-black">{{.Comparison.UserATotalPts}} pts</div>
+                <!-- 1v1 Battle Banner (Rock-solid flex layout) -->
+                <div class="flex items-center justify-between p-4 rounded-2xl bg-zinc-950 border border-zinc-800 mb-4 relative z-10">
+                    <div class="flex items-center space-x-3 min-w-0 flex-1">
+                        <svg width="36" height="36" viewBox="0 0 36 36" class="shrink-0 shadow">
+                            <circle cx="18" cy="18" r="17" fill="#27272a" stroke="#ffffff" stroke-width="1.5"/>
+                            <text x="18" y="19" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="800" font-size="14">{{slice .Comparison.UserA.Username 0 1}}</text>
+                        </svg>
+                        <div class="min-w-0">
+                            <div class="text-[10px] text-zinc-400 leading-none mb-1">Tú</div>
+                            <div class="text-sm font-black text-white truncate">{{.Comparison.UserA.Username}}</div>
+                            <div class="font-mono text-xs text-amber-400 font-black leading-none mt-1">{{.Comparison.UserATotalPts}} pts</div>
                         </div>
                     </div>
-                    <div class="col-span-1 text-center font-black font-mono text-xs text-rose-400">VS</div>
-                    <div class="col-span-5 flex items-center justify-end space-x-3 space-x-reverse text-right">
-                        <div class="w-10 h-10 rounded-full bg-zinc-800 border-2 border-zinc-700 flex items-center justify-center font-bold text-sm text-zinc-300">
-                            {{slice .Comparison.UserB.Username 0 1}}
-                        </div>
-                        <div>
-                            <div class="text-[10px] text-zinc-400">Rival</div>
-                            <div class="text-sm font-bold text-white">{{.Comparison.UserB.Username}}</div>
-                            <div class="font-mono text-xs text-amber-400 font-black">{{.Comparison.UserBTotalPts}} pts</div>
+
+                    <div class="px-3 shrink-0">
+                        <span class="w-8 h-8 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 font-mono font-black text-xs flex items-center justify-center">
+                            VS
+                        </span>
+                    </div>
+
+                    <div class="flex items-center justify-end space-x-3 space-x-reverse text-right min-w-0 flex-1">
+                        <svg width="36" height="36" viewBox="0 0 36 36" class="shrink-0 shadow">
+                            <circle cx="18" cy="18" r="17" fill="#27272a" stroke="#71717a" stroke-width="1.5"/>
+                            <text x="18" y="19" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="800" font-size="14">{{slice .Comparison.UserB.Username 0 1}}</text>
+                        </svg>
+                        <div class="min-w-0">
+                            <div class="text-[10px] text-zinc-400 leading-none mb-1">Rival</div>
+                            <div class="text-sm font-black text-white truncate">{{.Comparison.UserB.Username}}</div>
+                            <div class="font-mono text-xs text-amber-400 font-black leading-none mt-1">{{.Comparison.UserBTotalPts}} pts</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Stats Strip -->
-                <div class="grid grid-cols-3 gap-2 text-center text-xs mb-4">
+                <div class="grid grid-cols-3 gap-2 text-center text-xs mb-4 relative z-10">
                     <div class="p-2 rounded-xl bg-zinc-950 border border-zinc-800 font-mono">
-                        <div class="text-[9px] text-zinc-500 uppercase">Coincidencias</div>
-                        <div class="font-bold text-emerald-400 text-xs">{{.Comparison.AgreementsCount}} picks</div>
+                        <div class="text-[9px] text-zinc-500 uppercase font-bold">Coincidencias</div>
+                        <div class="font-bold text-emerald-400 text-xs mt-0.5">{{.Comparison.AgreementsCount}} picks</div>
                     </div>
                     <div class="p-2 rounded-xl bg-zinc-950 border border-zinc-800 font-mono">
-                        <div class="text-[9px] text-zinc-500 uppercase">Diferencias</div>
-                        <div class="font-bold text-rose-400 text-xs">{{.Comparison.DivergenceCount}} picks</div>
+                        <div class="text-[9px] text-zinc-500 uppercase font-bold">Diferencias</div>
+                        <div class="font-bold text-rose-400 text-xs mt-0.5">{{.Comparison.DivergenceCount}} picks</div>
                     </div>
                     <div class="p-2 rounded-xl bg-zinc-950 border border-zinc-800 font-mono">
-                        <div class="text-[9px] text-zinc-500 uppercase">En Juego</div>
-                        <div class="font-bold text-amber-400 text-xs">{{.Comparison.PointsAtStake}} pts</div>
+                        <div class="text-[9px] text-zinc-500 uppercase font-bold">En Juego</div>
+                        <div class="font-bold text-amber-400 text-xs mt-0.5">{{.Comparison.PointsAtStake}} pts</div>
                     </div>
                 </div>
 
                 <!-- Divergent Matchups (Direct Duels) -->
-                <div class="space-y-1.5">
+                <div class="space-y-1.5 relative z-10">
                     <div class="text-[10px] font-mono text-zinc-400 uppercase tracking-wider mb-1 flex items-center">
                         <i class="fa-solid fa-bolt text-rose-400 text-[9px] mr-1"></i> Partidos en Disputa Directa
                     </div>
@@ -346,7 +368,7 @@
                 </div>
 
                 <!-- Watermark -->
-                <div class="mt-4 pt-3 border-t border-zinc-800/80 flex items-center justify-between text-[10px] text-zinc-500 font-mono">
+                <div class="mt-4 pt-3 border-t border-zinc-800/80 flex items-center justify-between text-[10px] text-zinc-500 font-mono relative z-10 leading-none">
                     <span>quiniela.cmoreno.org</span>
                     <span>Temporada NFL 2026</span>
                 </div>

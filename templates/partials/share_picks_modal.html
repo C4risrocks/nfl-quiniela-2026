@@ -1,10 +1,120 @@
 <div x-show="shareModalOpen" 
      x-cloak
      class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
-     @keydown.escape.window="shareModalOpen = false">
+     @click.self="shareModalOpen = false"
+     @keydown.escape.window="shareModalOpen = false"
+     x-data="{
+        format: 'square', // 'square' (1:1) or 'story' (9:16)
+        generating: false,
+        async generateCardBlob() {
+            const cardId = this.format === 'story' ? 'shareable-picks-story' : 'shareable-picks-card';
+            const card = document.getElementById(cardId);
+            if (!card) return null;
+
+            const isStory = this.format === 'story';
+            const targetWidth = isStory ? 540 : 640;
+            const targetHeight = isStory ? 960 : 'auto';
+
+            // Clone card into off-screen container with fixed standard width
+            const clone = card.cloneNode(true);
+            clone.id = cardId + '-clone';
+            clone.style.width = targetWidth + 'px';
+            clone.style.maxWidth = targetWidth + 'px';
+            clone.style.minWidth = targetWidth + 'px';
+            if (isStory) {
+                clone.style.height = targetHeight + 'px';
+                clone.style.minHeight = targetHeight + 'px';
+            }
+            clone.style.position = 'fixed';
+            clone.style.left = '-9999px';
+            clone.style.top = '0';
+            clone.style.zIndex = '-9999';
+            clone.style.display = 'flex';
+            clone.style.flexDirection = 'column';
+
+            // Ensure 2-column grid in square clone
+            const grid = clone.querySelector('.matchups-grid');
+            if (grid && !isStory) {
+                grid.style.display = 'grid';
+                grid.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
+                grid.style.gap = '8px';
+            }
+
+            document.body.appendChild(clone);
+            if (document.fonts && document.fonts.ready) {
+                await document.fonts.ready;
+            }
+            await new Promise(r => setTimeout(r, 140));
+
+            try {
+                const canvas = await html2canvas(clone, {
+                    scale: 2.5,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#09090b',
+                    logging: false,
+                    windowWidth: targetWidth,
+                    width: targetWidth,
+                    height: isStory ? targetHeight : clone.offsetHeight
+                });
+                return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+            } finally {
+                if (clone.parentNode) {
+                    clone.parentNode.removeChild(clone);
+                }
+            }
+        },
+        async downloadImage() {
+            this.generating = true;
+            try {
+                const blob = await this.generateCardBlob();
+                if (!blob) throw new Error('Error al generar imagen');
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'picks-semana-{{.SelectedWeek.WeekNumber}}-{{.User.Username}}-' + this.format + '.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                $dispatch('show-toast', { message: '¡Tarjeta de pronósticos descargada con éxito!', type: 'success' });
+            } catch (err) {
+                console.error('Download error:', err);
+                $dispatch('show-toast', { message: 'Error al descargar la imagen', type: 'error' });
+            } finally {
+                this.generating = false;
+            }
+        },
+        async shareImage() {
+            this.generating = true;
+            try {
+                const blob = await this.generateCardBlob();
+                if (!blob) throw new Error('Error al generar imagen');
+                const file = new File([blob], 'picks-semana-{{.SelectedWeek.WeekNumber}}-' + this.format + '.png', { type: 'image/png' });
+                
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: 'Mis Picks NFL - {{.SelectedWeek.Name}}',
+                        text: '¡Aquí están mis pronósticos de la {{.SelectedWeek.Name}} en la Quiniela NFL 2026! 🏈',
+                        files: [file]
+                    });
+                    $dispatch('show-toast', { message: '¡Compartido exitosamente!', type: 'success' });
+                } else {
+                    await this.downloadImage();
+                    $dispatch('show-toast', { message: '¡Imagen descargada! Cópiala o compártela en tu grupo de WhatsApp.', type: 'info' });
+                }
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error('Share error:', err);
+                    await this.downloadImage();
+                }
+            } finally {
+                this.generating = false;
+            }
+        }
+     }">
     
-    <div class="vercel-card rounded-2xl w-full max-w-xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[94vh] bg-zinc-950"
-         @click.away="shareModalOpen = false">
+    <div class="vercel-card rounded-2xl w-full max-w-xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[94vh] bg-zinc-950">
         
         <!-- Modal Header -->
         <div class="p-4 border-b border-[#222222] bg-zinc-900/80 flex items-center justify-between">
@@ -17,23 +127,49 @@
             
             <button type="button" 
                     @click="shareModalOpen = false"
-                    class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors">
+                    class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer">
                 <i class="fa-solid fa-xmark text-base"></i>
             </button>
         </div>
 
-        <!-- Scrollable Preview Area -->
-        <div class="p-4 sm:p-5 overflow-y-auto flex-1 flex flex-col items-center bg-black/40">
-            <p class="text-xs text-zinc-400 mb-3 text-center">
-                Vista previa de tu tarjeta personalizada lista para compartir en WhatsApp, Instagram o tus redes.
-            </p>
+        <!-- Format Selector Bar (1:1 Square vs 9:16 Story) -->
+        <div class="px-4 py-2.5 bg-zinc-900/40 border-b border-zinc-800/80 flex items-center justify-between">
+            <span class="text-[11px] font-mono text-zinc-400 font-bold uppercase tracking-wider flex items-center">
+                <i class="fa-solid fa-crop-simple mr-1.5 text-zinc-400"></i> Formato:
+            </span>
+            <div class="bg-zinc-950 p-1 rounded-xl border border-zinc-800 flex items-center space-x-1">
+                <button type="button"
+                        @click="format = 'square'"
+                        :class="format === 'square' ? 'bg-white text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                        class="px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer flex items-center space-x-1">
+                    <i class="fa-regular fa-square text-[10px]"></i>
+                    <span>1:1 Cuadrado</span>
+                </button>
+                <button type="button"
+                        @click="format = 'story'"
+                        :class="format === 'story' ? 'bg-white text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                        class="px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer flex items-center space-x-1">
+                    <i class="fa-solid fa-mobile-screen text-[10px]"></i>
+                    <span>9:16 Historia</span>
+                </button>
+            </div>
+        </div>
 
-            <!-- Renderable Social Card Container (Target of html2canvas) -->
+        <!-- Scrollable Preview Area -->
+        <div class="p-4 sm:p-5 overflow-y-auto flex-1 flex flex-col items-center bg-black/50">
+            
+            <!-- ========================================== -->
+            <!-- FORMAT 1: SQUARE 1:1 CARD -->
+            <!-- ========================================== -->
             <div id="shareable-picks-card" 
-                 class="w-full max-w-md bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-5 rounded-2xl border border-zinc-800 shadow-2xl text-white select-none">
+                 x-show="format === 'square'"
+                 class="w-full max-w-md bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-5 rounded-2xl border border-zinc-800 shadow-2xl text-white select-none relative overflow-hidden">
                 
+                <!-- Glow -->
+                <div class="absolute -top-20 -right-20 w-48 h-48 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
                 <!-- Card Header -->
-                <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3 mb-3">
+                <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3 mb-3 relative z-10">
                     <div class="flex items-center space-x-2.5">
                         {{if .User.AvatarURL}}
                             <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-9 h-9 rounded-full object-cover border border-zinc-600 shadow shrink-0" crossorigin="anonymous">
@@ -44,50 +180,53 @@
                             </svg>
                         {{end}}
                         <div>
-                            <div class="text-sm font-extrabold text-white tracking-tight">{{.User.Username}}</div>
-                            <div class="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">NFL Quiniela 2026</div>
+                            <div class="text-sm font-extrabold text-white tracking-tight leading-none mb-1">{{.User.Username}}</div>
+                            <div class="text-[10px] font-mono text-zinc-400 uppercase tracking-wider leading-none">NFL Quiniela 2026</div>
                         </div>
                     </div>
 
-                    <div class="text-right flex flex-col items-end">
-                        <span id="share-card-week-badge" class="inline-flex items-center justify-center px-3 py-1 rounded-full text-[11px] font-bold font-sans bg-white text-black leading-none tracking-wide shadow-sm">
-                            {{.SelectedWeek.Name}}
-                        </span>
-                        <div class="text-[10px] font-mono text-zinc-400 mt-1 leading-none">{{.PicksCount}} de {{len .Games}} pronosticados</div>
+                    <div class="flex flex-col items-end">
+                        <svg width="90" height="24" viewBox="0 0 90 24" class="shrink-0 shadow-sm">
+                            <rect width="90" height="24" rx="12" fill="#ffffff"/>
+                            <text x="45" y="13" text-anchor="middle" dominant-baseline="central" fill="#000000" font-family="system-ui, sans-serif" font-weight="900" font-size="10.5">
+                                {{.SelectedWeek.Name}}
+                            </text>
+                        </svg>
+                        <div class="text-[9px] font-mono text-zinc-400 mt-1 leading-none">{{.PicksCount}} de {{len .Games}} pronosticados</div>
                     </div>
                 </div>
 
                 <!-- Matchups Compact Grid -->
-                <div class="matchups-grid grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                <div class="matchups-grid grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 relative z-10">
                     {{range .Games}}
                         {{$p := .UserPick}}
                         <div class="p-2.5 rounded-xl bg-zinc-900/90 border border-zinc-800/90 flex items-center justify-between text-xs">
                             <!-- Away Team -->
-                            <div class="flex items-center space-x-2 {{if and $p ($p.IsPickedTeam .AwayTeamID)}}font-black text-white{{else}}text-zinc-500 opacity-60{{end}}">
-                                <img src="{{.AwayTeam.LogoURL}}" alt="{{.AwayTeam.Code}}" class="w-5 h-5 sm:w-6 sm:h-6 object-contain shrink-0" crossorigin="anonymous">
+                            <div class="flex items-center space-x-1.5 {{if and $p ($p.IsPickedTeam .AwayTeamID)}}font-black text-white{{else}}text-zinc-500 opacity-60{{end}} min-w-0">
+                                <img src="{{.AwayTeam.LogoURL}}" alt="{{.AwayTeam.Code}}" class="w-5 h-5 object-contain shrink-0" crossorigin="anonymous">
                                 <span class="font-mono text-xs font-bold">{{.AwayTeam.Code}}</span>
                                 {{if and $p ($p.IsPickedTeam .AwayTeamID)}}
-                                    <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white text-black shadow-sm shrink-0">
-                                        <svg class="w-2.5 h-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-white text-black shadow-sm shrink-0">
+                                        <svg class="w-2 h-2" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M2.5 6.5L4.5 8.5L9.5 3.5"/>
                                         </svg>
                                     </span>
                                 {{end}}
                             </div>
 
-                            <span class="text-[11px] text-zinc-600 font-mono font-bold px-1">@</span>
+                            <span class="text-[10px] text-zinc-600 font-mono font-bold px-1">@</span>
 
                             <!-- Home Team -->
-                            <div class="flex items-center space-x-2 justify-end {{if and $p ($p.IsPickedTeam .HomeTeamID)}}font-black text-white{{else}}text-zinc-500 opacity-60{{end}}">
+                            <div class="flex items-center space-x-1.5 justify-end {{if and $p ($p.IsPickedTeam .HomeTeamID)}}font-black text-white{{else}}text-zinc-500 opacity-60{{end}} min-w-0 text-right">
                                 {{if and $p ($p.IsPickedTeam .HomeTeamID)}}
-                                    <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-white text-black shadow-sm shrink-0">
-                                        <svg class="w-2.5 h-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-white text-black shadow-sm shrink-0">
+                                        <svg class="w-2 h-2" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M2.5 6.5L4.5 8.5L9.5 3.5"/>
                                         </svg>
                                     </span>
                                 {{end}}
                                 <span class="font-mono text-xs font-bold">{{.HomeTeam.Code}}</span>
-                                <img src="{{.HomeTeam.LogoURL}}" alt="{{.HomeTeam.Code}}" class="w-5 h-5 sm:w-6 sm:h-6 object-contain shrink-0" crossorigin="anonymous">
+                                <img src="{{.HomeTeam.LogoURL}}" alt="{{.HomeTeam.Code}}" class="w-5 h-5 object-contain shrink-0" crossorigin="anonymous">
                             </div>
                         </div>
                     {{end}}
@@ -96,165 +235,100 @@
                 <!-- Tiebreaker Prediction Tag if Present -->
                 {{range .Games}}
                     {{if and .IsTiebreaker .UserPick (and .UserPick.PredictedAwayScore .UserPick.PredictedHomeScore)}}
-                        <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-center text-xs mb-3 font-mono">
-                            <i class="fa-solid fa-star text-[10px] mr-1 text-amber-400"></i> Desempate MNF:
+                        <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-center text-xs mb-3 font-mono relative z-10 leading-none">
+                            <i class="fa-solid fa-star text-[9px] mr-1 text-amber-400"></i> Desempate MNF:
                             <strong class="text-white ml-1">{{.AwayTeam.Code}} {{.UserPick.AwayScoreStr}} - {{.UserPick.HomeScoreStr}} {{.HomeTeam.Code}}</strong>
                         </div>
                     {{end}}
                 {{end}}
 
                 <!-- Card Watermark Footer -->
-                <div class="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[10px] text-zinc-500 font-mono">
+                <div class="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[10px] text-zinc-500 font-mono relative z-10 leading-none">
                     <span class="flex items-center space-x-1">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                         <span>Pronósticos Oficiales</span>
                     </span>
-                    <span>nfl-quiniela-2026.app</span>
+                    <span>quiniela.cmoreno.org</span>
                 </div>
             </div>
+
+            <!-- ========================================== -->
+            <!-- FORMAT 2: STORY 9:16 CARD -->
+            <!-- ========================================== -->
+            <div id="shareable-picks-story" 
+                 x-show="format === 'story'"
+                 class="w-[340px] sm:w-[380px] bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-5 rounded-3xl border border-zinc-800 shadow-2xl text-white select-none relative overflow-hidden flex flex-col justify-between"
+                 style="aspect-ratio: 9 / 16;">
+                
+                <!-- Ambient Glow -->
+                <div class="absolute -top-24 -right-24 w-60 h-60 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="absolute -bottom-24 -left-24 w-60 h-60 bg-amber-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+                <!-- Story Header -->
+                <div class="border-b border-zinc-800/80 pb-3 relative z-10">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-700 flex items-center justify-center p-1 shadow">
+                                <img src="https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png" alt="NFL" class="w-full h-full object-contain" crossorigin="anonymous">
+                            </div>
+                            <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-bold">NFL Quiniela 2026</span>
+                        </div>
+                        <svg width="86" height="22" viewBox="0 0 86 22" class="shrink-0 shadow-sm">
+                            <rect width="86" height="22" rx="11" fill="#ffffff"/>
+                            <text x="43" y="12" text-anchor="middle" dominant-baseline="central" fill="#000000" font-family="system-ui, sans-serif" font-weight="900" font-size="10">
+                                {{.SelectedWeek.Name}}
+                            </text>
+                        </svg>
+                    </div>
+
+                    <div class="flex items-center justify-between mt-2">
+                        <div class="text-base font-extrabold text-white">{{.User.Username}}</div>
+                        <span class="text-[10px] font-mono text-emerald-400 font-bold">{{.PicksCount}} / {{len .Games}} pronosticados</span>
+                    </div>
+                </div>
+
+                <!-- Matchups List (Single Column Compact for Story) -->
+                <div class="space-y-1.5 my-2 flex-1 relative z-10 overflow-hidden">
+                    {{range .Games}}
+                        {{$p := .UserPick}}
+                        <div class="px-2.5 py-1.5 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-between text-xs">
+                            <div class="flex items-center space-x-2 {{if and $p ($p.IsPickedTeam .AwayTeamID)}}font-black text-white{{else}}text-zinc-500 opacity-60{{end}}">
+                                <img src="{{.AwayTeam.LogoURL}}" alt="{{.AwayTeam.Code}}" class="w-4 h-4 object-contain" crossorigin="anonymous">
+                                <span class="font-mono text-xs">{{.AwayTeam.Code}}</span>
+                                {{if and $p ($p.IsPickedTeam .AwayTeamID)}}
+                                    <span class="w-3 h-3 rounded-full bg-white text-black flex items-center justify-center text-[7px] font-black">✓</span>
+                                {{end}}
+                            </div>
+
+                            <span class="text-[9px] text-zinc-600 font-mono">@</span>
+
+                            <div class="flex items-center space-x-2 {{if and $p ($p.IsPickedTeam .HomeTeamID)}}font-black text-white{{else}}text-zinc-500 opacity-60{{end}}">
+                                {{if and $p ($p.IsPickedTeam .HomeTeamID)}}
+                                    <span class="w-3 h-3 rounded-full bg-white text-black flex items-center justify-center text-[7px] font-black">✓</span>
+                                {{end}}
+                                <span class="font-mono text-xs">{{.HomeTeam.Code}}</span>
+                                <img src="{{.HomeTeam.LogoURL}}" alt="{{.HomeTeam.Code}}" class="w-4 h-4 object-contain" crossorigin="anonymous">
+                            </div>
+                        </div>
+                    {{end}}
+                </div>
+
+                <!-- Story Footer CTA -->
+                <div class="pt-2 border-t border-zinc-800/80 text-center relative z-10">
+                    <div class="p-2.5 rounded-2xl bg-zinc-900/90 border border-zinc-800">
+                        <div class="text-[11px] font-bold text-white mb-0.5">¿Cuáles son tus picks? 🏈</div>
+                        <div class="text-[9px] font-mono text-cyan-400">quiniela.cmoreno.org</div>
+                    </div>
+                </div>
+
+            </div>
+
         </div>
 
         <!-- Modal Actions -->
-        <div class="p-4 border-t border-[#222222] bg-zinc-900/60 flex flex-col sm:flex-row items-center justify-between gap-2.5"
-             x-data="{
-                generating: false,
-                async generateCardBlob() {
-                    const card = document.getElementById('shareable-picks-card');
-                    if (!card) return null;
-
-                    // Clone card into off-screen container with fixed standard width (640px)
-                    const clone = card.cloneNode(true);
-                    clone.id = 'shareable-picks-card-clone';
-                    clone.style.width = '640px';
-                    clone.style.maxWidth = '640px';
-                    clone.style.minWidth = '640px';
-                    clone.style.position = 'fixed';
-                    clone.style.left = '-9999px';
-                    clone.style.top = '0';
-                    clone.style.zIndex = '-9999';
-
-                    // Ensure 2-column grid in clone
-                    const grid = clone.querySelector('.matchups-grid');
-                    if (grid) {
-                        grid.style.display = 'grid';
-                        grid.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
-                        grid.style.gap = '8px';
-                    }
-
-                    // Convert week pill badge in clone to pixel-perfect vector SVG (avoids font-baseline shifts in html2canvas)
-                    const weekPill = clone.querySelector('#share-card-week-badge');
-                    if (weekPill) {
-                        const text = weekPill.textContent.trim();
-                        const measureCanvas = document.createElement('canvas');
-                        const ctx = measureCanvas.getContext('2d');
-                        ctx.font = 'bold 11px sans-serif';
-                        const textWidth = Math.ceil(ctx.measureText(text).width);
-                        const svgWidth = Math.max(76, textWidth + 24);
-                        const svgHeight = 22;
-
-                        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                        svg.setAttribute('width', svgWidth);
-                        svg.setAttribute('height', svgHeight);
-                        svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
-                        svg.setAttribute('class', 'inline-block shrink-0');
-
-                        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                        rect.setAttribute('width', svgWidth);
-                        rect.setAttribute('height', svgHeight);
-                        rect.setAttribute('rx', '11');
-                        rect.setAttribute('fill', '#ffffff');
-
-                        const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                        textEl.setAttribute('x', svgWidth / 2);
-                        textEl.setAttribute('y', '12');
-                        textEl.setAttribute('text-anchor', 'middle');
-                        textEl.setAttribute('dominant-baseline', 'central');
-                        textEl.setAttribute('fill', '#000000');
-                        textEl.setAttribute('font-family', 'sans-serif');
-                        textEl.setAttribute('font-weight', '800');
-                        textEl.setAttribute('font-size', '10.5');
-                        textEl.textContent = text;
-
-                        svg.appendChild(rect);
-                        svg.appendChild(textEl);
-                        weekPill.parentNode.replaceChild(svg, weekPill);
-                    }
-
-                    document.body.appendChild(clone);
-                    if (document.fonts && document.fonts.ready) {
-                        await document.fonts.ready;
-                    }
-                    await new Promise(r => setTimeout(r, 120));
-
-                    try {
-                        const canvas = await html2canvas(clone, {
-                            scale: 3,
-                            useCORS: true,
-                            allowTaint: true,
-                            backgroundColor: '#09090b',
-                            logging: false,
-                            windowWidth: 640
-                        });
-                        return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-                    } finally {
-                        if (clone.parentNode) {
-                            clone.parentNode.removeChild(clone);
-                        }
-                    }
-                },
-                async downloadImage() {
-                    this.generating = true;
-                    try {
-                        const blob = await this.generateCardBlob();
-                        if (!blob) throw new Error('Error al generar imagen');
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = 'picks-semana-{{.SelectedWeek.WeekNumber}}-{{.User.Username}}.png';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                        $dispatch('show-toast', { message: '¡Imagen descargada exitosamente!', type: 'success' });
-                    } catch (err) {
-                        console.error('Download error:', err);
-                        $dispatch('show-toast', { message: 'Error al descargar la imagen', type: 'error' });
-                    } finally {
-                        this.generating = false;
-                    }
-                },
-                async shareImage() {
-                    this.generating = true;
-                    try {
-                        const blob = await this.generateCardBlob();
-                        if (!blob) throw new Error('Error al generar imagen');
-                        const file = new File([blob], 'picks-semana-{{.SelectedWeek.WeekNumber}}.png', { type: 'image/png' });
-                        
-                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                            await navigator.share({
-                                title: 'Mis Picks NFL - {{.SelectedWeek.Name}}',
-                                text: '¡Aquí están mis pronósticos de la {{.SelectedWeek.Name}} en la Quiniela NFL 2026! 🏈',
-                                files: [file]
-                            });
-                            $dispatch('show-toast', { message: '¡Compartido exitosamente!', type: 'success' });
-                        } else {
-                            // Fallback for desktop: download and toast
-                            await this.downloadImage();
-                            $dispatch('show-toast', { message: '¡Imagen descargada! Cópiala o compártela en tu grupo de WhatsApp.', type: 'info' });
-                        }
-                    } catch (err) {
-                        if (err.name !== 'AbortError') {
-                            console.error('Share error:', err);
-                            await this.downloadImage();
-                        }
-                    } finally {
-                        this.generating = false;
-                    }
-                }
-             }">
-            
+        <div class="p-4 border-t border-[#222222] bg-zinc-900/60 flex flex-col sm:flex-row items-center justify-between gap-2.5">
             <span class="text-[11px] text-zinc-500 font-mono hidden sm:inline">
-                PNG Ultra HD (2K) listo para compartir
+                PNG Ultra HD (2.5x) listo para compartir
             </span>
 
             <div class="flex items-center space-x-2 w-full sm:w-auto">
@@ -271,9 +345,9 @@
                 <button type="button"
                         @click="shareImage()"
                         :disabled="generating"
-                        class="flex-1 sm:flex-initial inline-flex items-center justify-center px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors shadow cursor-pointer disabled:opacity-50">
+                        class="flex-1 sm:flex-initial inline-flex items-center justify-center px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-all shadow-md cursor-pointer disabled:opacity-50">
                     <i class="fa-solid fa-share-nodes mr-1.5" :class="generating ? 'fa-spinner fa-spin' : ''"></i>
-                    Compartir (WhatsApp / Redes)
+                    Compartir Tarjeta
                 </button>
             </div>
         </div>

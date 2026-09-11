@@ -208,6 +208,7 @@ func main() {
 		admin.Get("/admin", adminHandler.ShowAdmin)
 		admin.Post("/admin/settings/save", adminHandler.SaveSettings)
 		admin.Post("/admin/sync-espn", adminHandler.SyncESPN)
+		admin.Post("/admin/recalculate", adminHandler.RecalculateScores)
 		admin.Post("/admin/games/save-score", adminHandler.SaveGameScore)
 		admin.Post("/admin/games/toggle-lock", adminHandler.ToggleGameLock)
 		admin.Post("/admin/games/toggle-tiebreaker", adminHandler.ToggleTiebreaker)
