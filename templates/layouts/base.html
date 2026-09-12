@@ -529,15 +529,88 @@
         </div>
     </nav>
 
-    <!-- PWA Service Worker Registration -->
+    <!-- Global Robust Modal Controller & App-Switch Lifecycle Manager -->
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/static/sw.js').catch(err => {
-                    console.debug('SW registration skipped:', err);
+        (function() {
+            window.__modalOpen = false;
+
+            function checkAnyModalOpen() {
+                const fixedModals = Array.from(document.querySelectorAll('.fixed.inset-0')).filter(el => {
+                    return el.offsetParent !== null && !el.classList.contains('hidden') && window.getComputedStyle(el).display !== 'none';
+                });
+                const isOpen = fixedModals.length > 0 || !!window.__whatIfOpen || !!window.__rivalsOpen;
+                window.__modalOpen = isOpen;
+                return isOpen;
+            }
+
+            function cleanupModalState() {
+                const hasOpen = checkAnyModalOpen();
+                if (!hasOpen) {
+                    document.body.classList.remove('overflow-hidden');
+                    window.__modalOpen = false;
+                }
+            }
+
+            // Global Click Delegation for Closing Modals
+            document.addEventListener('click', function(e) {
+                const closeBtn = e.target.closest('[data-close-modal="true"]');
+                const backdrop = e.target.matches('[data-close-modal="backdrop"]') ? e.target : null;
+                const trigger = closeBtn || backdrop;
+
+                if (trigger) {
+                    const modal = trigger.closest('.fixed.inset-0');
+                    if (modal && modal.__x) {
+                        try {
+                            const data = modal.__x.$data;
+                            if ('shareModalOpen' in data) data.shareModalOpen = false;
+                            if ('shareProfileModalOpen' in data) data.shareProfileModalOpen = false;
+                            if ('summaryModalOpen' in data) data.summaryModalOpen = false;
+                            if ('confirmOpen' in data) data.confirmOpen = false;
+                            if ('isOpen' in data) data.isOpen = false;
+                        } catch(err) {}
+                    }
+
+                    // Reset dynamic containers
+                    const h2h = document.getElementById('h2h-modal-container');
+                    if (h2h && (h2h.contains(trigger) || trigger === h2h)) h2h.innerHTML = '';
+
+                    const admin = document.getElementById('admin-modal-container');
+                    if (admin && (admin.contains(trigger) || trigger === admin)) admin.innerHTML = '';
+
+                    window.dispatchEvent(new CustomEvent('close-whatif'));
+                    setTimeout(cleanupModalState, 40);
+                }
+            });
+
+            // Global Keydown Escape listener as safety net
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' || e.keyCode === 27) {
+                    const h2h = document.getElementById('h2h-modal-container');
+                    if (h2h && h2h.innerHTML.trim()) h2h.innerHTML = '';
+
+                    const admin = document.getElementById('admin-modal-container');
+                    if (admin && admin.innerHTML.trim()) admin.innerHTML = '';
+
+                    window.dispatchEvent(new CustomEvent('close-whatif'));
+                    setTimeout(cleanupModalState, 40);
+                }
+            });
+
+            // App Switch & Browser Visibility Recovery (iOS Safari, Android Chrome, Desktop)
+            ['visibilitychange', 'pageshow', 'focus'].forEach(function(evt) {
+                window.addEventListener(evt, function() {
+                    setTimeout(cleanupModalState, 80);
                 });
             });
-        }
+
+            // MutationObserver to keep window.__modalOpen in sync with DOM changes
+            if (window.MutationObserver) {
+                const observer = new MutationObserver(function() {
+                    checkAnyModalOpen();
+                });
+                observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+            }
+        })();
     </script>
 
 </body>

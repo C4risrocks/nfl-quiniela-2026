@@ -132,5 +132,68 @@ type ESPNSummaryResponse struct {
 			Logo         string `json:"logo"`
 		} `json:"team"`
 	} `json:"scoringPlays"`
+	Drives struct {
+		Previous []ESPNDrive `json:"previous"`
+		Current  *ESPNDrive  `json:"current"`
+	} `json:"drives"`
 }
+
+// ESPNDrivePlay represents a single play item within an ESPN drive
+type ESPNDrivePlay struct {
+	ID          string `json:"id"`
+	Text        string `json:"text"`
+	StatYardage int    `json:"statYardage"`
+	Period      struct {
+		Number int `json:"number"`
+	} `json:"period"`
+	Clock struct {
+		DisplayValue string `json:"displayValue"`
+	} `json:"clock"`
+	Type struct {
+		Text string `json:"text"`
+	} `json:"type"`
+}
+
+// ESPNDrive represents an offensive drive from ESPN NFL summary
+type ESPNDrive struct {
+	ID             string `json:"id"`
+	Description    string `json:"description"`
+	OffensivePlays int    `json:"offensivePlays"`
+	Yards          int    `json:"yards"`
+	Result         string `json:"result"`
+	DisplayResult  string `json:"displayResult"`
+	IsScore        bool   `json:"isScore"`
+	TimeElapsed    struct {
+		DisplayValue string `json:"displayValue"`
+	} `json:"timeElapsed"`
+	Start struct {
+		Period struct {
+			Number int `json:"number"`
+		} `json:"period"`
+		Clock struct {
+			DisplayValue string `json:"displayValue"`
+		} `json:"clock"`
+		Text string `json:"text"`
+	} `json:"start"`
+	End struct {
+		Period struct {
+			Number int `json:"number"`
+		} `json:"period"`
+		Clock struct {
+			DisplayValue string `json:"displayValue"`
+		} `json:"clock"`
+		Text string `json:"text"`
+	} `json:"end"`
+	Team struct {
+		ID           string `json:"id"`
+		Abbreviation string `json:"abbreviation"`
+		DisplayName  string `json:"displayName"`
+		Logo         string `json:"logo"`
+		Logos        []struct {
+			Href string `json:"href"`
+		} `json:"logos"`
+	} `json:"team"`
+	Plays []ESPNDrivePlay `json:"plays"`
+}
+
 

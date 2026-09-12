@@ -371,6 +371,19 @@ func (c *Client) FetchGameSummary(espnGameID string) (*db.GameDetailedSummary, e
 
 	result.HasStats = result.AwayStats != nil && result.HomeStats != nil
 
+	// Parse offensive drives (Drive Chart & Play-by-Play)
+	allDrives := make([]db.DriveItem, 0, len(espnResp.Drives.Previous)+1)
+	for _, drv := range espnResp.Drives.Previous {
+		if drv.Team.Abbreviation != "" || drv.Description != "" || len(drv.Plays) > 0 {
+			allDrives = append(allDrives, parseESPNDrive(drv, false))
+		}
+	}
+	if espnResp.Drives.Current != nil && (espnResp.Drives.Current.Team.Abbreviation != "" || len(espnResp.Drives.Current.Plays) > 0) {
+		allDrives = append(allDrives, parseESPNDrive(*espnResp.Drives.Current, true))
+	}
+	result.Drives = allDrives
+	result.HasDrives = len(allDrives) > 0
+
 	summaryCacheMu.Lock()
 	summaryCache[espnGameID] = summaryCacheEntry{
 		data:      result,
@@ -379,5 +392,87 @@ func (c *Client) FetchGameSummary(espnGameID string) (*db.GameDetailedSummary, e
 	summaryCacheMu.Unlock()
 
 	return result, nil
+}
+
+func mapESPNDriveResult(result, displayResult string) (string, string) {
+	normResult := strings.ToUpper(strings.TrimSpace(result))
+	display := strings.TrimSpace(displayResult)
+
+	switch normResult {
+	case "TD", "TOUCHDOWN":
+		return "TD", "Touchdown"
+	case "FG", "FIELD GOAL":
+		return "FG", "Gol de Campo"
+	case "MISSED FG", "MISSED FIELD GOAL":
+		return "MISSED FG", "Gol de Campo Fallado"
+	case "BLOCKED FG":
+		return "BLOCKED FG", "Gol de Campo Bloqueado"
+	case "PUNT":
+		return "PUNT", "Despeje"
+	case "BLOCKED PUNT":
+		return "BLOCKED PUNT", "Despeje Bloqueado"
+	case "INT", "INTERCEPTION":
+		return "INT", "Intercepción"
+	case "FUMBLE":
+		return "FUMBLE", "Balón Suelto"
+	case "DOWNS":
+		return "DOWNS", "Pérdida en 4ta Oportunidad"
+	case "SAFETY":
+		return "SAFETY", "Safety"
+	case "END OF HALF", "END OF 4TH QUARTER", "END OF GAME":
+		return "FIN", "Fin de Tiempo"
+	default:
+		if display == "" {
+			display = normResult
+		}
+		return normResult, display
+	}
+}
+
+func parseESPNDrive(d ESPNDrive, isCurrent bool) db.DriveItem {
+	logo := d.Team.Logo
+	if logo == "" && len(d.Team.Logos) > 0 {
+		logo = d.Team.Logos[0].Href
+	}
+	resCode, resLabel := mapESPNDriveResult(d.Result, d.DisplayResult)
+
+	desc := d.Description
+	if desc == "" && (d.OffensivePlays > 0 || d.Yards != 0) {
+		desc = fmt.Sprintf("%d jugadas, %d yds", d.OffensivePlays, d.Yards)
+		if d.TimeElapsed.DisplayValue != "" {
+			desc += ", " + d.TimeElapsed.DisplayValue
+		}
+	}
+
+	plays := make([]db.DrivePlayItem, 0, len(d.Plays))
+	for _, p := range d.Plays {
+		plays = append(plays, db.DrivePlayItem{
+			Quarter:     p.Period.Number,
+			Clock:       p.Clock.DisplayValue,
+			Text:        p.Text,
+			Type:        p.Type.Text,
+			StatYardage: p.StatYardage,
+		})
+	}
+
+	return db.DriveItem{
+		ID:            d.ID,
+		TeamCode:      NormalizeTeamCode(d.Team.Abbreviation),
+		TeamName:      d.Team.DisplayName,
+		TeamLogoURL:   logo,
+		Description:   desc,
+		PlaysCount:    d.OffensivePlays,
+		Yards:         d.Yards,
+		TimeElapsed:   d.TimeElapsed.DisplayValue,
+		StartPeriod:   d.Start.Period.Number,
+		StartClock:    d.Start.Clock.DisplayValue,
+		StartField:    d.Start.Text,
+		EndField:      d.End.Text,
+		Result:        resCode,
+		DisplayResult: resLabel,
+		IsScore:       d.IsScore || resCode == "TD" || resCode == "FG",
+		IsCurrent:     isCurrent,
+		Plays:         plays,
+	}
 }
 

@@ -86,44 +86,115 @@
          x-transition:leave-end="opacity-0 -translate-y-2"
          class="border-t border-purple-500/20 bg-zinc-950/95">
 
-        <!-- Quick Scenario Presets Toolbar -->
-        <div class="p-3 bg-zinc-900/60 border-b border-zinc-800/80 flex items-center justify-between gap-2 overflow-x-auto no-scrollbar text-xs">
-            <div class="flex items-center space-x-1.5 shrink-0">
-                <span class="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-wider mr-1">Presets:</span>
-                
-                {{if .User}}
+        <!-- Scenario Presets Bar (Modes: Pleno por defecto, Peor escenario para ganar, Manual) -->
+        <div class="p-3 bg-zinc-900/70 border-b border-zinc-800/80 space-y-2.5">
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar text-xs">
+                    <span class="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-wider mr-1 shrink-0">Modo:</span>
+                    
+                    {{if .User}}
+                        <!-- Preset 1: Pleno (Por Defecto) -->
+                        <button type="button"
+                                @click="simulateMyPicks()"
+                                title="Asignar ganador según todos tus pronósticos restantes"
+                                :class="currentScenario === 'all_picks' ? 'bg-purple-600 text-white border-purple-400/60 shadow-md ring-1 ring-purple-400/40' : 'bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border-purple-500/30'"
+                                class="px-2.5 py-1.5 rounded-xl border font-bold transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                            <i class="fa-solid fa-bullseye text-[10px]"></i>
+                            <span>Pleno (Mis Picks)</span>
+                            <span class="px-1 py-0.2 rounded text-[8px] font-mono bg-purple-900/60 text-purple-200 border border-purple-400/30" x-show="currentScenario === 'all_picks'">Por Defecto</span>
+                        </button>
+
+                        <!-- Preset 2: Peor Escenario para Ganar -->
+                        <button type="button"
+                                @click="simulateWorstCaseWin()"
+                                title="Calcular los mínimos aciertos necesarios para asegurar el #1 o campeonato"
+                                :class="currentScenario === 'worst_case_win' ? 'bg-gradient-to-r from-amber-600 to-yellow-600 text-white border-amber-300 shadow-md ring-1 ring-amber-400/40' : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/30'"
+                                class="px-2.5 py-1.5 rounded-xl border font-bold transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                            <i class="fa-solid fa-shield-halved text-[10px]"></i>
+                            <span>Peor Escenario para Ganar</span>
+                            <i class="fa-solid fa-crown text-[9px] text-amber-300" x-show="currentScenario === 'worst_case_win'"></i>
+                        </button>
+                    {{end}}
+
+                    <!-- Mode 3: Manual Indicator / Trigger -->
                     <button type="button"
-                            @click="simulateMyPicks()"
-                            title="Asignar ganador según todos tus pronósticos"
-                            class="px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 font-semibold transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1">
-                        <i class="fa-solid fa-bullseye text-[9px] text-purple-400"></i>
-                        <span>Mis Picks</span>
+                            @click="currentScenario = 'manual'"
+                            title="Personalizar resultados partido por partido"
+                            :class="currentScenario === 'manual' ? 'bg-cyan-600 text-white border-cyan-400 shadow-md ring-1 ring-cyan-400/40' : 'bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border-cyan-500/30'"
+                            class="px-2.5 py-1.5 rounded-xl border font-semibold transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                        <i class="fa-solid fa-sliders text-[10px]"></i>
+                        <span>Manual</span>
                     </button>
-                {{end}}
+                </div>
 
-                <button type="button"
-                        @click="simulateLiveScores()"
-                        title="Asignar ganador a quien va ganando actualmente en partidos activos"
-                        class="px-2.5 py-1 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 font-semibold transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1">
-                    <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
-                    <span>Al Momento</span>
-                </button>
+                <!-- Secondary Actions: Live, Consensus, Reset -->
+                <div class="flex items-center space-x-1.5 shrink-0">
+                    <button type="button"
+                            @click="simulateLiveScores()"
+                            title="Asignar ganador a quien va ganando actualmente en partidos activos"
+                            :class="currentScenario === 'live' ? 'bg-red-600 text-white border-red-400' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-700'"
+                            class="px-2 py-1 rounded-lg border font-medium transition-all cursor-pointer whitespace-nowrap text-[10px] flex items-center space-x-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></span>
+                        <span class="hidden sm:inline">En Vivo</span>
+                    </button>
 
-                <button type="button"
-                        @click="simulateConsensus()"
-                        title="Asignar ganador al favorito de la comunidad"
-                        class="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 font-semibold transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1">
-                    <i class="fa-solid fa-users text-[9px] text-cyan-400"></i>
-                    <span>Consenso</span>
-                </button>
+                    <button type="button"
+                            @click="simulateConsensus()"
+                            title="Asignar ganador al favorito de la quiniela"
+                            :class="currentScenario === 'consensus' ? 'bg-zinc-700 text-white border-zinc-500' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-700'"
+                            class="px-2 py-1 rounded-lg border font-medium transition-all cursor-pointer whitespace-nowrap text-[10px] flex items-center space-x-1">
+                        <i class="fa-solid fa-users text-[9px]"></i>
+                        <span class="hidden sm:inline">Consenso</span>
+                    </button>
+
+                    <button type="button"
+                            @click="resetAll()"
+                            title="Limpiar todas las selecciones simuladas"
+                            class="p-1 sm:px-2 sm:py-1 rounded-lg bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700 font-medium transition-all cursor-pointer whitespace-nowrap text-[10px]">
+                        <i class="fa-solid fa-rotate-left sm:mr-1 text-[9px]"></i><span class="hidden sm:inline">Limpiar</span>
+                    </button>
+                </div>
             </div>
 
-            <button type="button"
-                    @click="resetAll()"
-                    title="Limpiar todas las selecciones simuladas"
-                    class="px-2.5 py-1 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700 font-medium transition-all cursor-pointer whitespace-nowrap text-[11px] shrink-0">
-                <i class="fa-solid fa-rotate-left mr-1 text-[9px]"></i> Limpiar
-            </button>
+            <!-- Active Scenario Explanatory Sub-Banner -->
+            <div class="text-[11px] font-medium px-2.5 py-1.5 rounded-xl border flex items-center justify-between"
+                 :class="{
+                    'bg-purple-950/40 border-purple-500/30 text-purple-200': currentScenario === 'all_picks',
+                    'bg-amber-950/40 border-amber-500/30 text-amber-200': currentScenario === 'worst_case_win',
+                    'bg-cyan-950/40 border-cyan-500/30 text-cyan-200': currentScenario === 'manual',
+                    'bg-zinc-900 border-zinc-800 text-zinc-400': currentScenario !== 'all_picks' && currentScenario !== 'worst_case_win' && currentScenario !== 'manual'
+                 }">
+                <div class="flex items-center space-x-1.5 min-w-0">
+                    <template x-if="currentScenario === 'all_picks'">
+                        <span class="truncate">
+                            <strong class="text-purple-300">🎯 Escenario Pleno:</strong> Proyectando el resultado si aciertas todos tus pronósticos restantes.
+                        </span>
+                    </template>
+                    <template x-if="currentScenario === 'worst_case_win'">
+                        <span class="truncate">
+                            <strong class="text-amber-300">🛡️ Peor Escenario Ganador:</strong>
+                            <template x-if="worstCaseInsight">
+                                <span>Aseguras la posición <strong class="text-white" x-text="'#' + worstCaseInsight.targetRank"></strong> ganando únicamente <strong class="text-amber-300" x-text="worstCaseInsight.neededWins + ' de ' + worstCaseInsight.totalPending"></strong> partidos clave (en dorado).</span>
+                            </template>
+                            <template x-if="!worstCaseInsight">
+                                <span>Calculando la combinación más hostil en la que aún te coronas campeón...</span>
+                            </template>
+                        </span>
+                    </template>
+                    <template x-if="currentScenario === 'manual'">
+                        <span class="truncate">
+                            <strong class="text-cyan-300">✏️ Modo Manual:</strong> Personaliza los ganadores tocando a cualquier equipo. (<span x-text="simulatedGamesCount + ' configurados'"></span>)
+                        </span>
+                    </template>
+                    <template x-if="currentScenario === 'live'">
+                        <span class="truncate"><strong>🔴 Al Momento:</strong> Ganadores asignados según el marcador en vivo.</span>
+                    </template>
+                    <template x-if="currentScenario === 'consensus'">
+                        <span class="truncate"><strong>👥 Consenso:</strong> Ganadores asignados según el favorito de la quiniela.</span>
+                    </template>
+                </div>
+                <button type="button" @click="activeTab = 'leaderboard'" class="text-[10px] underline font-bold shrink-0 ml-2 hover:opacity-80 cursor-pointer">Ver Tabla &rarr;</button>
+            </div>
         </div>
 
         <!-- Spotlight Card: User's Projected Standing -->
@@ -219,12 +290,29 @@
                             </template>
                         </div>
 
-                        <!-- User Pick Indicator -->
-                        <template x-if="g.user_picked_id > 0">
-                            <span class="text-zinc-400 flex items-center">
-                                Tu pick: <strong class="text-white ml-1 font-bold" x-text="g.user_picked_id === g.away_id ? g.away_code : g.home_code"></strong>
-                            </span>
-                        </template>
+                        <!-- Key Game Indicator (Worst Case) and User Pick Indicator -->
+                        <div class="flex items-center space-x-2">
+                            <template x-if="currentScenario === 'worst_case_win' && g.status !== 'final'">
+                                <div>
+                                    <template x-if="worstCaseKeyGameIds.includes(g.id)">
+                                        <span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                            <i class="fa-solid fa-crown text-[8px] mr-1 text-amber-400"></i> Clave para Ganar
+                                        </span>
+                                    </template>
+                                    <template x-if="!worstCaseKeyGameIds.includes(g.id)">
+                                        <span class="px-1.5 py-0.2 rounded text-[9px] font-mono text-zinc-500 bg-zinc-950 border border-zinc-800">
+                                            Margen de error
+                                        </span>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <template x-if="g.user_picked_id > 0">
+                                <span class="text-zinc-400 flex items-center">
+                                    Tu pick: <strong class="text-white ml-1 font-bold" x-text="g.user_picked_id === g.away_id ? g.away_code : g.home_code"></strong>
+                                </span>
+                            </template>
+                        </div>
                     </div>
 
                     <!-- Matchup Simulator Buttons -->
@@ -374,6 +462,9 @@ function whatIfSimulator() {
     return {
         isOpen: false,
         activeTab: 'games',
+        currentScenario: 'all_picks', // 'all_picks' | 'worst_case_win' | 'manual' | 'live' | 'consensus'
+        worstCaseKeyGameIds: [],
+        worstCaseInsight: null,
         simWinners: {},
         games: [],
         users: [],
@@ -416,14 +507,224 @@ function whatIfSimulator() {
                         this.games = data.games || [];
                         this.users = data.users || [];
                         this.currentUserId = data.current_user_id || 0;
-                        this.simulateLiveScores();
+
+                        // Default to Pleno ("Si acertaras todas") if user has picks, otherwise live scores
+                        const hasUserPicks = this.games.some(g => g.status !== 'final' && g.user_picked_id > 0);
+                        if (this.currentUserId > 0 && hasUserPicks) {
+                            this.simulateMyPicks();
+                        } else {
+                            this.simulateLiveScores();
+                        }
                     }
                 }
             } catch(e) {
                 console.error('WhatIf init error:', e);
             }
         },
+        simulateMyPicks() {
+            this.currentScenario = 'all_picks';
+            this.worstCaseKeyGameIds = [];
+            this.worstCaseInsight = null;
+            this.simWinners = {};
+            this.games.forEach(g => {
+                if (g.status !== 'final') {
+                    if (g.user_picked_id > 0) {
+                        this.simWinners[g.id] = g.user_picked_id;
+                    } else if (g.current_winner_id > 0) {
+                        this.simWinners[g.id] = g.current_winner_id;
+                    }
+                }
+            });
+            this.simWinners = Object.assign({}, this.simWinners);
+        },
+        simulateWorstCaseWin() {
+            this.currentScenario = 'worst_case_win';
+            const pendingGames = this.games.filter(g => g.status !== 'final');
+            if (pendingGames.length === 0 || !this.users || this.users.length === 0) {
+                this.worstCaseInsight = null;
+                this.worstCaseKeyGameIds = [];
+                return;
+            }
+
+            const me = this.users.find(u => u.is_current);
+            if (!me) {
+                this.worstCaseInsight = null;
+                this.worstCaseKeyGameIds = [];
+                return;
+            }
+
+            // Helper function to evaluate current user's rank under a specific winner assignment
+            const evalRank = (winners) => {
+                const scores = this.users.map(u => {
+                    let pts = u.base_points;
+                    pendingGames.forEach(g => {
+                        const winId = winners[g.id];
+                        if (winId && u.picks && u.picks[g.id] === winId) {
+                            pts += 1;
+                        }
+                    });
+                    return { user_id: u.user_id, points: pts, is_current: u.is_current, username: u.username };
+                });
+                scores.sort((a, b) => b.points - a.points || a.username.localeCompare(b.username));
+                const myIdx = scores.findIndex(s => s.is_current);
+                return { rank: myIdx + 1, scores: scores };
+            };
+
+            // 1. Determine best possible rank the user can reach (targetRank)
+            const allPicksWinners = {};
+            pendingGames.forEach(g => {
+                if (g.user_picked_id > 0) {
+                    allPicksWinners[g.id] = g.user_picked_id;
+                } else {
+                    allPicksWinners[g.id] = g.away_id;
+                }
+            });
+            const bestOutcome = evalRank(allPicksWinners);
+            const targetRank = Math.max(1, bestOutcome.rank);
+
+            // 2. Base Hostile Scenario:
+            // For each game, assign the outcome that is worst for the user:
+            // If user picked team A, hostile winner is team B (user gets 0, rivals picking B get +1).
+            const hostileWinners = {};
+            pendingGames.forEach(g => {
+                if (g.user_picked_id > 0) {
+                    hostileWinners[g.id] = (g.user_picked_id === g.away_id) ? g.home_id : g.away_id;
+                } else {
+                    hostileWinners[g.id] = g.consensus_id || g.away_id;
+                }
+            });
+
+            // If user already reaches targetRank under complete hostile scenario (huge lead):
+            const baseHostileEval = evalRank(hostileWinners);
+            if (baseHostileEval.rank <= targetRank) {
+                this.simWinners = Object.assign({}, hostileWinners);
+                this.worstCaseKeyGameIds = [];
+                this.worstCaseInsight = {
+                    neededWins: 0,
+                    totalPending: pendingGames.length,
+                    targetRank: targetRank
+                };
+                return;
+            }
+
+            // 3. Find minimal subset of games the user must win to secure targetRank
+            let chosenWins = [];
+
+            if (pendingGames.length <= 11) {
+                // Exact search over combinations of size k = 1, 2, ...
+                let found = false;
+                const gamesWithPicks = pendingGames.filter(g => g.user_picked_id > 0);
+
+                function getCombinations(arr, k) {
+                    if (k === 0) return [[]];
+                    if (arr.length === 0) return [];
+                    const head = arr[0];
+                    const tail = arr.slice(1);
+                    const withHead = getCombinations(tail, k - 1).map(c => [head, ...c]);
+                    const withoutHead = getCombinations(tail, k);
+                    return withHead.concat(withoutHead);
+                }
+
+                for (let k = 1; k <= gamesWithPicks.length; k++) {
+                    const combos = getCombinations(gamesWithPicks, k);
+                    for (let combo of combos) {
+                        const testWinners = Object.assign({}, hostileWinners);
+                        combo.forEach(g => {
+                            testWinners[g.id] = g.user_picked_id;
+                        });
+                        const res = evalRank(testWinners);
+                        if (res.rank <= targetRank) {
+                            chosenWins = combo;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found) break;
+                }
+            }
+
+            // If exact search didn't find or pendingGames > 11, use greedy selection + reverse pruning
+            if (chosenWins.length === 0) {
+                let currentWinners = Object.assign({}, hostileWinners);
+                const candidates = pendingGames.filter(g => g.user_picked_id > 0);
+                const selected = [];
+
+                while (candidates.length > 0) {
+                    const curEval = evalRank(currentWinners);
+                    if (curEval.rank <= targetRank) break;
+
+                    let bestCand = null;
+                    let bestScore = -9999;
+                    let bestIdx = -1;
+
+                    candidates.forEach((cand, idx) => {
+                        const testW = Object.assign({}, currentWinners);
+                        testW[cand.id] = cand.user_picked_id;
+                        const testRes = evalRank(testW);
+                        const rankGain = curEval.rank - testRes.rank;
+                        const myPts = testRes.scores.find(s => s.is_current).points;
+                        const leadPts = testRes.scores[0].points;
+                        const gap = myPts - leadPts;
+                        const score = (rankGain * 100) + gap;
+
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestCand = cand;
+                            bestIdx = idx;
+                        }
+                    });
+
+                    if (bestCand) {
+                        currentWinners[bestCand.id] = bestCand.user_picked_id;
+                        selected.push(bestCand);
+                        candidates.splice(bestIdx, 1);
+                    } else {
+                        break;
+                    }
+                }
+
+                // Pruning pass: see if any selected game is redundant
+                for (let i = selected.length - 1; i >= 0; i--) {
+                    const testW = Object.assign({}, currentWinners);
+                    const cand = selected[i];
+                    testW[cand.id] = hostileWinners[cand.id];
+                    if (evalRank(testW).rank <= targetRank) {
+                        currentWinners[cand.id] = hostileWinners[cand.id];
+                        selected.splice(i, 1);
+                    }
+                }
+                chosenWins = selected;
+            }
+
+            // Finalize scenario
+            const finalWinners = Object.assign({}, hostileWinners);
+            chosenWins.forEach(g => {
+                finalWinners[g.id] = g.user_picked_id;
+            });
+
+            this.simWinners = finalWinners;
+            this.worstCaseKeyGameIds = chosenWins.map(g => g.id);
+            this.worstCaseInsight = {
+                neededWins: chosenWins.length,
+                totalPending: pendingGames.length,
+                targetRank: targetRank
+            };
+        },
+        toggleWinner(gameId, teamId) {
+            this.currentScenario = 'manual';
+            this.worstCaseKeyGameIds = [];
+            this.worstCaseInsight = null;
+            if (this.simWinners[gameId] === teamId) {
+                delete this.simWinners[gameId];
+            } else {
+                this.simWinners[gameId] = teamId;
+            }
+            this.simWinners = Object.assign({}, this.simWinners);
+        },
         simulateLiveScores() {
+            this.currentScenario = 'live';
+            this.worstCaseKeyGameIds = [];
+            this.worstCaseInsight = null;
             this.simWinners = {};
             this.games.forEach(g => {
                 if (g.current_winner_id > 0) {
@@ -432,23 +733,10 @@ function whatIfSimulator() {
             });
             this.simWinners = Object.assign({}, this.simWinners);
         },
-        toggleWinner(gameId, teamId) {
-            if (this.simWinners[gameId] === teamId) {
-                delete this.simWinners[gameId];
-            } else {
-                this.simWinners[gameId] = teamId;
-            }
-            this.simWinners = Object.assign({}, this.simWinners);
-        },
-        simulateMyPicks() {
-            this.games.forEach(g => {
-                if (g.status !== 'final' && g.user_picked_id > 0) {
-                    this.simWinners[g.id] = g.user_picked_id;
-                }
-            });
-            this.simWinners = Object.assign({}, this.simWinners);
-        },
         simulateConsensus() {
+            this.currentScenario = 'consensus';
+            this.worstCaseKeyGameIds = [];
+            this.worstCaseInsight = null;
             this.games.forEach(g => {
                 if (g.status !== 'final' && g.consensus_id > 0) {
                     this.simWinners[g.id] = g.consensus_id;
@@ -457,6 +745,9 @@ function whatIfSimulator() {
             this.simWinners = Object.assign({}, this.simWinners);
         },
         resetAll() {
+            this.currentScenario = 'manual';
+            this.worstCaseKeyGameIds = [];
+            this.worstCaseInsight = null;
             this.simWinners = {};
         },
         isWinner(gameId, teamId) {
@@ -525,10 +816,16 @@ function whatIfSimulator() {
         shareScenarioWhatsApp() {
             const cur = this.currentUserSim;
             let text = '🔮 *Simulador NFL Quiniela 2026*\n';
-            if (cur) {
-                text += `¡Con esta simulación de partidos proyecto alcanzar la posición #${cur.sim_rank} con ${cur.sim_points} puntos! 📈\n`;
+            if (this.currentScenario === 'all_picks') {
+                text += '🎯 *Escenario Pleno (Mis Picks)*\n';
+                if (cur) text += `¡Si acierto todas mis selecciones restantes proyecto alcanzar la posición #${cur.sim_rank} con ${cur.sim_points} pts! 🏆\n`;
+            } else if (this.currentScenario === 'worst_case_win' && this.worstCaseInsight) {
+                text += '🛡️ *Peor Escenario para Ganar*\n';
+                text += `¡Aún en el peor escenario aseguro la posición #${this.worstCaseInsight.targetRank} ganando solo ${this.worstCaseInsight.neededWins} de ${this.worstCaseInsight.totalPending} partidos clave! 🏈\n`;
             } else {
-                text += '¡Mira esta simulación de escenarios en vivo para la quiniela!\n';
+                if (cur) {
+                    text += `¡Con esta simulación de partidos proyecto alcanzar la posición #${cur.sim_rank} con ${cur.sim_points} puntos! 📈\n`;
+                }
             }
             text += `Partidos configurados: ${this.simulatedGamesCount} de ${this.games.length}\n`;
             text += `👉 Entra al Game Center en vivo: ${window.location.origin}/live`;

@@ -1,6 +1,6 @@
 <div id="live-content-container" 
      hx-get="/live/content?week={{.SelectedWeek.WeekNumber}}{{if .FeaturedGame}}&game_id={{.FeaturedGame.ID}}{{end}}" 
-     hx-trigger="every 25s [!window.__whatIfOpen && !window.__rivalsOpen]" 
+     hx-trigger="every 25s [!window.__modalOpen && !window.__whatIfOpen && !window.__rivalsOpen]" 
      hx-swap="outerHTML"
      class="space-y-6"
      x-data="{ 
@@ -388,6 +388,18 @@
                             {{end}}
                         </button>
                         <button type="button"
+                                @click="matchcastTab = 'drives'"
+                                :class="matchcastTab === 'drives' ? 'bg-zinc-800 text-white font-bold shadow-xs' : 'text-zinc-400 hover:text-zinc-200'"
+                                class="flex-1 py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer whitespace-nowrap">
+                            <i class="fa-solid fa-arrows-split-up-and-left text-[11px] text-emerald-400"></i>
+                            <span>Series</span>
+                            {{if and $.FeaturedSummary $.FeaturedSummary.HasDrives}}
+                                <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300">
+                                    {{len $.FeaturedSummary.Drives}}
+                                </span>
+                            {{end}}
+                        </button>
+                        <button type="button"
                                 @click="matchcastTab = 'picks'"
                                 :class="matchcastTab === 'picks' ? 'bg-zinc-800 text-white font-bold shadow-xs' : 'text-zinc-400 hover:text-zinc-200'"
                                 class="flex-1 py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer whitespace-nowrap">
@@ -565,7 +577,118 @@
                         {{end}}
                     </div>
 
-                    <!-- TAB 3: Community Consensus & Picks Breakdown -->
+                    <!-- TAB 3: Offensive Drive Chart & Play-by-Play -->
+                    <div x-show="matchcastTab === 'drives'" class="space-y-3">
+                        {{if and $.FeaturedSummary $.FeaturedSummary.HasDrives}}
+                            <div class="flex items-center justify-between text-xs text-zinc-400 font-mono pb-1 border-b border-zinc-900">
+                                <span class="flex items-center space-x-1.5">
+                                    <i class="fa-solid fa-timeline text-emerald-400"></i>
+                                    <span>Posesiones y avance jugada a jugada</span>
+                                </span>
+                                <span class="text-[10px] text-zinc-500 font-bold">{{len $.FeaturedSummary.Drives}} series</span>
+                            </div>
+
+                            <div class="space-y-2.5">
+                                {{range $dIdx, $drv := $.FeaturedSummary.Drives}}
+                                    <div x-data="{ openPlays: false }" class="rounded-xl border border-zinc-800/80 bg-zinc-950/70 overflow-hidden transition-all hover:border-zinc-700/80">
+                                        <!-- Drive Summary Header (Clickable Accordion Trigger) -->
+                                        <div @click="openPlays = !openPlays" class="p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer hover:bg-zinc-900/40 select-none">
+                                            <div class="flex items-center space-x-3 min-w-0">
+                                                <!-- Team Logo & Code -->
+                                                <div class="flex items-center space-x-2 shrink-0">
+                                                    {{if $drv.TeamLogoURL}}
+                                                        <img src="{{$drv.TeamLogoURL}}" alt="{{$drv.TeamCode}}" class="w-6 h-6 object-contain drop-shadow-xs">
+                                                    {{end}}
+                                                    <span class="font-mono font-black text-white text-xs">{{$drv.TeamCode}}</span>
+                                                </div>
+
+                                                <!-- Result Badge -->
+                                                <div class="shrink-0 flex items-center space-x-1.5">
+                                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border {{$drv.ResultBadgeClass}}">
+                                                        {{$drv.DisplayResult}}
+                                                    </span>
+                                                    {{if $drv.IsCurrent}}
+                                                        <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 animate-pulse flex items-center">
+                                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1 animate-ping"></span>
+                                                            EN CURSO
+                                                        </span>
+                                                    {{end}}
+                                                </div>
+                                            </div>
+
+                                            <div class="flex items-center justify-between sm:justify-end space-x-3 text-[11px] font-mono text-zinc-400 shrink-0">
+                                                <!-- Field Progression (Start -> End) -->
+                                                {{if or $drv.StartField $drv.EndField}}
+                                                    <div class="flex items-center space-x-1 bg-zinc-900/80 px-2 py-0.5 rounded-md border border-zinc-800 text-[10px]">
+                                                        <span>{{if $drv.StartField}}{{$drv.StartField}}{{else}}--{{end}}</span>
+                                                        <i class="fa-solid fa-arrow-right text-[8px] text-zinc-500"></i>
+                                                        <span class="text-zinc-300 font-bold">{{if $drv.EndField}}{{$drv.EndField}}{{else}}--{{end}}</span>
+                                                    </div>
+                                                {{end}}
+
+                                                <!-- Plays, Yards, Time Stats -->
+                                                <div class="text-right">
+                                                    <span class="text-zinc-300 font-semibold">{{$drv.PlaysCount}} jug</span>
+                                                    <span class="text-zinc-600">•</span>
+                                                    <span class="font-bold {{if gt $drv.Yards 0}}text-emerald-400{{else if lt $drv.Yards 0}}text-rose-400{{else}}text-zinc-400{{end}}">{{$drv.Yards}} yds</span>
+                                                    {{if $drv.TimeElapsed}}
+                                                        <span class="text-zinc-600">•</span>
+                                                        <span class="text-zinc-500">{{$drv.TimeElapsed}}</span>
+                                                    {{end}}
+                                                </div>
+
+                                                <!-- Accordion Chevron -->
+                                                {{if $drv.Plays}}
+                                                    <div class="text-zinc-500 transition-transform duration-200" :class="openPlays ? 'rotate-180 text-emerald-400' : ''">
+                                                        <i class="fa-solid fa-chevron-down text-xs"></i>
+                                                    </div>
+                                                {{end}}
+                                            </div>
+                                        </div>
+
+                                        <!-- Plays Breakdown (Accordion Content) -->
+                                        {{if $drv.Plays}}
+                                            <div x-show="openPlays" x-cloak class="border-t border-zinc-900 bg-black/40 p-2.5 sm:p-3 space-y-1.5">
+                                                <div class="text-[9px] font-mono uppercase text-zinc-500 tracking-wider mb-1 px-1 flex items-center justify-between">
+                                                    <span>Desglose jugada a jugada</span>
+                                                    <span class="text-zinc-400 font-bold">{{len $drv.Plays}} jugadas</span>
+                                                </div>
+                                                {{range $pIdx, $play := $drv.Plays}}
+                                                    <div class="p-2 rounded-lg bg-zinc-900/60 border border-zinc-800/60 flex items-start justify-between gap-2.5 text-xs hover:bg-zinc-900/90 transition-colors">
+                                                        <div class="flex items-start space-x-2 min-w-0 flex-1">
+                                                            <div class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-zinc-800 text-zinc-300 border border-zinc-700/80 shrink-0 mt-0.5">
+                                                                Q{{$play.Quarter}} {{$play.Clock}}
+                                                            </div>
+                                                            <div class="min-w-0 flex-1 text-zinc-300 text-[11px] leading-relaxed">
+                                                                {{$play.Text}}
+                                                            </div>
+                                                        </div>
+                                                        {{if ne $play.StatYardage 0}}
+                                                            <div class="shrink-0 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded {{if gt $play.StatYardage 0}}bg-emerald-500/15 text-emerald-300 border border-emerald-500/30{{else}}bg-rose-500/15 text-rose-300 border border-rose-500/30{{end}}">
+                                                                {{if gt $play.StatYardage 0}}+{{end}}{{$play.StatYardage}} yd{{if ne $play.StatYardage 1}}s{{end}}
+                                                            </div>
+                                                        {{end}}
+                                                    </div>
+                                                {{end}}
+                                            </div>
+                                        {{end}}
+                                    </div>
+                                {{end}}
+                            </div>
+                        {{else}}
+                            <div class="py-8 px-4 rounded-xl bg-zinc-950/50 border border-zinc-800/80 text-center space-y-2">
+                                <div class="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mx-auto text-base">
+                                    <i class="fa-solid fa-arrows-split-up-and-left"></i>
+                                </div>
+                                <p class="text-xs font-semibold text-zinc-300">Sin series ofensivas registradas</p>
+                                <p class="text-[11px] text-zinc-500 max-w-sm mx-auto">
+                                    El gráfico interactivo de posesiones ofensivas y avance jugada a jugada se actualizará automáticamente conforme avance el partido.
+                                </p>
+                            </div>
+                        {{end}}
+                    </div>
+
+                    <!-- TAB 4: Community Consensus & Picks Breakdown -->
                     <div x-show="matchcastTab === 'picks'" class="space-y-3">
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div>
@@ -677,6 +800,7 @@
              x-data="rivalsModalComponent()"
              x-show="isOpen" 
              x-cloak 
+             data-close-modal="backdrop"
              class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden"
              @open-rivals.window="open()"
              @close-rivals.window="close()"
@@ -713,7 +837,8 @@
 
                         <button type="button" 
                                 @click="close()" 
-                                class="p-2 text-zinc-400 hover:text-white rounded-xl hover:bg-zinc-800/80 transition-colors cursor-pointer shrink-0"
+                                data-close-modal="true"
+                                class="p-2 text-zinc-400 hover:text-white rounded-xl hover:bg-zinc-800/80 transition-colors cursor-pointer shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center"
                                 title="Cerrar modal (Esc)">
                             <i class="fa-solid fa-xmark text-lg"></i>
                         </button>
@@ -988,6 +1113,7 @@
 
                     <button type="button"
                             @click="close()"
+                            data-close-modal="true"
                             class="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700 text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5">
                         <i class="fa-solid fa-xmark text-xs"></i>
                         <span>Cerrar</span>

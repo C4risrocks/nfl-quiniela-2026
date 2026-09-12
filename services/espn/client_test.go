@@ -147,6 +147,70 @@ func TestFetchGameSummary(t *testing.T) {
 			summary.HomeStats.TeamCode, summary.HomeStats.TotalYards)
 	}
 	t.Logf("Found %d scoring plays", len(summary.ScoringPlays))
+	if summary.HasDrives {
+		t.Logf("Found %d offensive drives. First drive: Team=%s, Result=%s, Plays=%d, Yards=%d",
+			len(summary.Drives), summary.Drives[0].TeamCode, summary.Drives[0].Result,
+			summary.Drives[0].PlaysCount, summary.Drives[0].Yards)
+	}
+}
+
+func TestParseESPNDrive(t *testing.T) {
+	mockDrive := ESPNDrive{
+		ID:             "1",
+		Description:    "8 plays, 65 yards, 3:42",
+		OffensivePlays: 8,
+		Yards:          65,
+		Result:         "TD",
+		DisplayResult:  "Touchdown",
+		IsScore:        true,
+	}
+	mockDrive.Team.Abbreviation = "KC"
+	mockDrive.Team.DisplayName = "Kansas City Chiefs"
+	mockDrive.TimeElapsed.DisplayValue = "3:42"
+	mockDrive.Start.Text = "KC 25"
+	mockDrive.Start.Period.Number = 1
+	mockDrive.Start.Clock.DisplayValue = "15:00"
+	mockDrive.End.Text = "LAC 0"
+	mockDrive.End.Period.Number = 1
+	mockDrive.End.Clock.DisplayValue = "11:18"
+	mockDrive.Plays = []ESPNDrivePlay{
+		{
+			ID:          "p1",
+			Text:        "P.Mahomes pass short right to T.Kelce for 12 yards",
+			StatYardage: 12,
+		},
+		{
+			ID:          "p2",
+			Text:        "I.Pacheco run up the middle for 5 yards, TOUCHDOWN",
+			StatYardage: 5,
+		},
+	}
+
+	item := parseESPNDrive(mockDrive, false)
+	if item.TeamCode != "KC" {
+		t.Errorf("Expected KC, got %s", item.TeamCode)
+	}
+	if item.Result != "TD" {
+		t.Errorf("Expected TD, got %s", item.Result)
+	}
+	if item.DisplayResult != "Touchdown" {
+		t.Errorf("Expected Touchdown, got %s", item.DisplayResult)
+	}
+	if item.PlaysCount != 8 {
+		t.Errorf("Expected 8 plays, got %d", item.PlaysCount)
+	}
+	if item.Yards != 65 {
+		t.Errorf("Expected 65 yards, got %d", item.Yards)
+	}
+	if len(item.Plays) != 2 {
+		t.Fatalf("Expected 2 plays, got %d", len(item.Plays))
+	}
+	if item.Plays[0].StatYardage != 12 {
+		t.Errorf("Expected 12 stat yardage, got %d", item.Plays[0].StatYardage)
+	}
+	if item.ResultBadgeClass() != "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" {
+		t.Errorf("Unexpected ResultBadgeClass: %s", item.ResultBadgeClass())
+	}
 }
 
 

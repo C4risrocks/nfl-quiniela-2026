@@ -257,12 +257,67 @@ type ScoringPlayItem struct {
 	TeamLogoURL string `json:"team_logo_url"`
 }
 
-// GameDetailedSummary combines boxscore team statistics and scoring plays
+// DrivePlayItem represents a single play inside an offensive drive
+type DrivePlayItem struct {
+	Quarter     int    `json:"quarter"`
+	Clock       string `json:"clock"`
+	Text        string `json:"text"`
+	Type        string `json:"type"`
+	StatYardage int    `json:"stat_yardage"`
+}
+
+// DriveItem represents an offensive series (possession)
+type DriveItem struct {
+	ID            string          `json:"id"`
+	TeamCode      string          `json:"team_code"`
+	TeamName      string          `json:"team_name"`
+	TeamLogoURL   string          `json:"team_logo_url"`
+	Description   string          `json:"description"` // e.g. "8 jugadas, 65 yds, 3:42"
+	PlaysCount    int             `json:"plays_count"`
+	Yards         int             `json:"yards"`
+	TimeElapsed   string          `json:"time_elapsed"`
+	StartPeriod   int             `json:"start_period"`
+	StartClock    string          `json:"start_clock"`
+	StartField    string          `json:"start_field"`
+	EndField      string          `json:"end_field"`
+	Result        string          `json:"result"` // TD, FG, PUNT, INT, FUMBLE, DOWNS, MISSED FG
+	DisplayResult string          `json:"display_result"`
+	IsScore       bool            `json:"is_score"`
+	IsCurrent     bool            `json:"is_current"`
+	Plays         []DrivePlayItem `json:"plays,omitempty"`
+}
+
+// ResultBadgeClass returns Tailwind badge styling depending on drive outcome
+func (d DriveItem) ResultBadgeClass() string {
+	switch d.Result {
+	case "TD":
+		return "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+	case "FG":
+		return "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
+	case "PUNT":
+		return "bg-zinc-800 text-zinc-300 border-zinc-700"
+	case "INT", "FUMBLE":
+		return "bg-rose-500/20 text-rose-300 border-rose-500/40"
+	case "DOWNS":
+		return "bg-amber-500/20 text-amber-300 border-amber-500/40"
+	case "MISSED FG":
+		return "bg-orange-500/20 text-orange-300 border-orange-500/40"
+	default:
+		if d.IsScore {
+			return "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+		}
+		return "bg-zinc-800 text-zinc-400 border-zinc-700"
+	}
+}
+
+// GameDetailedSummary combines boxscore team statistics, scoring plays and offensive drives
 type GameDetailedSummary struct {
 	AwayStats    *TeamBoxscoreStats `json:"away_stats,omitempty"`
 	HomeStats    *TeamBoxscoreStats `json:"home_stats,omitempty"`
 	ScoringPlays []ScoringPlayItem  `json:"scoring_plays,omitempty"`
+	Drives       []DriveItem        `json:"drives,omitempty"`
 	HasStats     bool               `json:"has_stats"`
+	HasDrives    bool               `json:"has_drives"`
 }
 
 

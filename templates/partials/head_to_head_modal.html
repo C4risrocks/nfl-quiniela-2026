@@ -1,4 +1,5 @@
 <div class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+     data-close-modal="backdrop"
      @click.self="document.getElementById('h2h-modal-container').innerHTML = ''"
      x-data="{
          generating: false,
@@ -98,7 +99,7 @@
      }"
      @keydown.escape.window="document.getElementById('h2h-modal-container').innerHTML = ''">
     
-    <div class="vercel-card rounded-t-3xl sm:rounded-2xl w-full max-w-3xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh] bg-zinc-950">
+    <div class="vercel-card rounded-t-3xl sm:rounded-2xl w-full max-w-3xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh] bg-zinc-950" @click.stop>
         
         <!-- Mobile Drag Handle -->
         <div class="w-12 h-1 bg-zinc-700 rounded-full mx-auto my-2.5 sm:hidden shrink-0"></div>
@@ -126,7 +127,9 @@
 
                     <button type="button" 
                             onclick="document.getElementById('h2h-modal-container').innerHTML = ''"
-                            class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer">
+                            data-close-modal="true"
+                            title="Cerrar (Esc)"
+                            class="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center">
                         <i class="fa-solid fa-xmark text-base"></i>
                     </button>
                 </div>
@@ -466,6 +469,7 @@
 
             <button type="button"
                     onclick="document.getElementById('h2h-modal-container').innerHTML = ''"
+                    data-close-modal="true"
                     class="px-3.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium transition-colors cursor-pointer ml-auto">
                 Cerrar
             </button>
