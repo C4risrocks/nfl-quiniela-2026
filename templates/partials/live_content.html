@@ -699,7 +699,7 @@
                             </div>
                             {{if .FeaturedPicks}}
                                 <button type="button" 
-                                        @click="$dispatch('open-rivals')"
+                                        @click="window.dispatchEvent(new CustomEvent('open-rivals')); const m = document.getElementById('rivals-modal'); if (m) { m.style.display = 'flex'; try { if (window.Alpine) Alpine.$data(m).open(); } catch(e){} }"
                                         title="Ver pronósticos detallados de los rivales en este partido"
                                         class="group inline-flex items-center justify-between sm:justify-start space-x-3 px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-950/70 via-blue-950/50 to-zinc-900 border border-cyan-500/40 hover:border-cyan-400 text-white text-xs font-bold transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
                                     <!-- Overlapping mini avatars stack -->
@@ -862,15 +862,19 @@
 
                                 <!-- Mini Cards Grid inside Tab -->
                                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1">
-                                    {{$myPickIsAway := and $fg.UserPick ($fg.UserPick.IsPickedTeam $fg.AwayTeamID)}}
-                                    {{$myPickIsHome := and $fg.UserPick ($fg.UserPick.IsPickedTeam $fg.HomeTeamID)}}
+                                    {{$myPickIsAway := false}}
+                                    {{$myPickIsHome := false}}
+                                    {{if $fg.UserPick}}
+                                        {{if $fg.UserPick.IsPickedTeam $fg.AwayTeamID}}{{$myPickIsAway = true}}{{end}}
+                                        {{if $fg.UserPick.IsPickedTeam $fg.HomeTeamID}}{{$myPickIsHome = true}}{{end}}
+                                    {{end}}
                                     {{range .FeaturedPicks}}
                                         {{$isUserAway := .IsPickedTeam $fg.AwayTeamID}}
                                         {{$isUserHome := .IsPickedTeam $fg.HomeTeamID}}
                                         {{$isCurrent := and $.User (eq .User.ID $.User.ID)}}
                                         {{$isDirectRival := or (and $myPickIsAway $isUserHome) (and $myPickIsHome $isUserAway)}}
                                         {{$isAlly := or (and $myPickIsAway $isUserAway) (and $myPickIsHome $isUserHome)}}
-                                        <div x-show="matchesSearch('{{.User.Username}}') && matchesTab({{$isUserAway}}, {{$isUserHome}}, {{$isDirectRival}}, {{$isAlly}})"
+                                        <div x-show="matchesSearch('{{.User.Username}}') && matchesTab({{if $isUserAway}}true{{else}}false{{end}}, {{if $isUserHome}}true{{else}}false{{end}}, {{if $isDirectRival}}true{{else}}false{{end}}, {{if $isAlly}}true{{else}}false{{end}})"
                                              class="p-2 rounded-xl border flex items-center justify-between gap-2 text-xs transition-colors
                                                     {{if $isCurrent}}bg-cyan-950/30 border-cyan-500/50 ring-1 ring-cyan-500/30{{else if $isUserAway}}bg-zinc-900/70 border-zinc-800/80{{else}}bg-zinc-900/70 border-zinc-800/80{{end}}">
                                             <div class="flex items-center space-x-2 min-w-0">
@@ -1106,8 +1110,12 @@
 
                 <!-- Modal Body: Rivals Cards Grid -->
                 <div class="p-3 sm:p-4 overflow-y-auto max-h-[55vh] grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {{$myPickIsAway := and $fg.UserPick ($fg.UserPick.IsPickedTeam $fg.AwayTeamID)}}
-                    {{$myPickIsHome := and $fg.UserPick ($fg.UserPick.IsPickedTeam $fg.HomeTeamID)}}
+                    {{$myPickIsAway := false}}
+                    {{$myPickIsHome := false}}
+                    {{if $fg.UserPick}}
+                        {{if $fg.UserPick.IsPickedTeam $fg.AwayTeamID}}{{$myPickIsAway = true}}{{end}}
+                        {{if $fg.UserPick.IsPickedTeam $fg.HomeTeamID}}{{$myPickIsHome = true}}{{end}}
+                    {{end}}
                     
                     {{range .FeaturedPicks}}
                         {{$isUserAway := .IsPickedTeam $fg.AwayTeamID}}
@@ -1118,7 +1126,7 @@
                         {{$isLiveWinning := and (eq $fg.Status "in_progress") (.IsProvisionalWinner $fg)}}
                         {{$isLiveLosing := and (eq $fg.Status "in_progress") (.IsProvisionalLoser $fg)}}
 
-                        <div x-show="matchesSearch('{{.User.Username}}') && matchesTab({{$isUserAway}}, {{$isUserHome}}, {{$isDirectRival}}, {{$isAlly}})"
+                        <div x-show="matchesSearch('{{.User.Username}}') && matchesTab({{if $isUserAway}}true{{else}}false{{end}}, {{if $isUserHome}}true{{else}}false{{end}}, {{if $isDirectRival}}true{{else}}false{{end}}, {{if $isAlly}}true{{else}}false{{end}})"
                              class="p-3 rounded-xl border transition-all relative flex flex-col justify-between gap-2.5 
                                     {{if $isCurrent}}bg-cyan-950/25 border-cyan-500/50 ring-1 ring-cyan-500/30 shadow-md{{else if $isUserAway}}bg-zinc-900/60 border-zinc-800/90 hover:border-cyan-500/30{{else if $isUserHome}}bg-zinc-900/60 border-zinc-800/90 hover:border-amber-500/30{{else}}bg-zinc-900/30 border-zinc-800/40{{end}}">
                             
@@ -1547,7 +1555,7 @@
                                     @click="openCommunity = !openCommunity" 
                                     hx-get="/picks/community/{{$g.ID}}"
                                     hx-target="#live-community-{{$g.ID}}"
-                                    hx-trigger="click once"
+                                    hx-trigger="click"
                                     class="w-full flex items-center justify-between px-3 py-1.5 rounded-xl bg-zinc-900/80 hover:bg-zinc-850 border border-zinc-800/80 hover:border-cyan-500/40 text-[11px] font-semibold text-zinc-300 hover:text-white transition-all cursor-pointer group">
                                 <span class="flex items-center space-x-1.5">
                                     <i class="fa-solid fa-users text-zinc-500 group-hover:text-cyan-400 transition-colors"></i>

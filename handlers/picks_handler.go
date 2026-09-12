@@ -416,7 +416,10 @@ func (h *PicksHandler) CommunityPicks(w http.ResponseWriter, r *http.Request) {
 
 	// Fair play check: only reveal picks once game/week is locked or live/final
 	if !game.IsGameOrWeekLocked(time.Now(), scoringCfg.LockMode, firstKickoff) {
-		http.Error(w, "Los pronósticos se revelarán cuando inicie el partido.", http.StatusForbidden)
+		h.renderer.RenderPartial(w, "community_picks.html", map[string]interface{}{
+			"LockedFairPlay": true,
+			"Game":           game,
+		})
 		return
 	}
 

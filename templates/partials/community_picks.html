@@ -1,4 +1,14 @@
-{{if .Picks}}
+{{if .LockedFairPlay}}
+<div class="p-3.5 rounded-xl bg-zinc-950/90 border border-zinc-800/90 text-center text-xs text-zinc-400 space-y-1.5 shadow-sm">
+    <div class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs mb-0.5">
+        <i class="fa-solid fa-lock"></i>
+    </div>
+    <div class="font-bold text-zinc-200 text-xs">Pronósticos protegidos por Fair Play</div>
+    <p class="text-[11px] text-zinc-400 max-w-xs mx-auto">
+        Los pronósticos de todos los participantes se revelarán automáticamente al momento del kickoff de este partido.
+    </p>
+</div>
+{{else if .Picks}}
 <div class="space-y-3">
     {{if and .Stats (gt .Stats.TotalPicks 0)}}
         <!-- Community Distribution Summary Bar -->

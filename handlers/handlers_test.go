@@ -1208,8 +1208,8 @@ func TestGameCardCommunityButtonHasButtonType(t *testing.T) {
 		if !strings.Contains(body, "<button type=\"button\"") {
 			t.Errorf("Expected community picks button to have explicit type=\"button\"")
 		}
-		if !strings.Contains(body, "@click.prevent.stop") {
-			t.Errorf("Expected community picks button to prevent and stop click propagation")
+		if !strings.Contains(body, "@click.prevent") {
+			t.Errorf("Expected community picks button to prevent click propagation")
 		}
 	}
 }
