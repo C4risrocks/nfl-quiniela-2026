@@ -789,6 +789,146 @@
                             </div>
                         {{end}}
 
+                        <!-- Embedded Community / Rivals Picks Grid directly in Matchcast Tab -->
+                        {{if .FeaturedPicks}}
+                            <div x-data="{ 
+                                    embeddedTab: 'all', 
+                                    embeddedSearch: '',
+                                    matchesSearch(name) {
+                                        if (!this.embeddedSearch || !this.embeddedSearch.trim()) return true;
+                                        return name.toLowerCase().includes(this.embeddedSearch.trim().toLowerCase());
+                                    },
+                                    matchesTab(isAway, isHome, isDirectRival, isAlly) {
+                                        if (this.embeddedTab === 'all') return true;
+                                        if (this.embeddedTab === 'away') return isAway;
+                                        if (this.embeddedTab === 'home') return isHome;
+                                        if (this.embeddedTab === 'rivals') return isDirectRival;
+                                        if (this.embeddedTab === 'allies') return isAlly;
+                                        return true;
+                                    }
+                                 }" 
+                                 class="space-y-2.5 pt-1">
+                                
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-zinc-850 text-xs">
+                                    <!-- Filter tabs: Todos, Away, Home, Rivales, Aliados -->
+                                    <div class="flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 text-[11px]">
+                                        <button type="button" 
+                                                @click="embeddedTab = 'all'"
+                                                :class="embeddedTab === 'all' ? 'bg-zinc-800 text-white font-bold' : 'text-zinc-400 hover:text-white'"
+                                                class="px-2 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap">
+                                            Todos ({{len .FeaturedPicks}})
+                                        </button>
+                                        <button type="button" 
+                                                @click="embeddedTab = 'away'"
+                                                :class="embeddedTab === 'away' ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40' : 'text-zinc-400 hover:text-white'"
+                                                class="px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center space-x-1 whitespace-nowrap">
+                                            <img src="{{$fg.AwayTeam.LogoURL}}" class="w-3 h-3 object-contain">
+                                            <span>{{$fg.AwayTeam.Code}} ({{$fg.AwayPickCount}})</span>
+                                        </button>
+                                        <button type="button" 
+                                                @click="embeddedTab = 'home'"
+                                                :class="embeddedTab === 'home' ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40' : 'text-zinc-400 hover:text-white'"
+                                                class="px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center space-x-1 whitespace-nowrap">
+                                            <img src="{{$fg.HomeTeam.LogoURL}}" class="w-3 h-3 object-contain">
+                                            <span>{{$fg.HomeTeam.Code}} ({{$fg.HomePickCount}})</span>
+                                        </button>
+                                        {{if $fg.UserPick}}
+                                            <button type="button" 
+                                                    @click="embeddedTab = 'rivals'"
+                                                    :class="embeddedTab === 'rivals' ? 'bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40' : 'text-zinc-400 hover:text-white'"
+                                                    class="px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center space-x-1 whitespace-nowrap">
+                                                <i class="fa-solid fa-skull-crossbones text-[9px]"></i>
+                                                <span>Rivales</span>
+                                            </button>
+                                            <button type="button" 
+                                                    @click="embeddedTab = 'allies'"
+                                                    :class="embeddedTab === 'allies' ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40' : 'text-zinc-400 hover:text-white'"
+                                                    class="px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center space-x-1 whitespace-nowrap">
+                                                <i class="fa-solid fa-handshake text-[9px]"></i>
+                                                <span>Aliados</span>
+                                            </button>
+                                        {{end}}
+                                    </div>
+
+                                    <!-- Quick search -->
+                                    <div class="relative w-full sm:w-40">
+                                        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 text-[10px]"></i>
+                                        <input type="text" 
+                                               x-model="embeddedSearch" 
+                                               placeholder="Buscar rival..." 
+                                               class="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-7 pr-2.5 py-1 text-[11px] text-white placeholder-zinc-500 focus:outline-none focus:border-cyan-500">
+                                    </div>
+                                </div>
+
+                                <!-- Mini Cards Grid inside Tab -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1">
+                                    {{$myPickIsAway := and $fg.UserPick ($fg.UserPick.IsPickedTeam $fg.AwayTeamID)}}
+                                    {{$myPickIsHome := and $fg.UserPick ($fg.UserPick.IsPickedTeam $fg.HomeTeamID)}}
+                                    {{range .FeaturedPicks}}
+                                        {{$isUserAway := .IsPickedTeam $fg.AwayTeamID}}
+                                        {{$isUserHome := .IsPickedTeam $fg.HomeTeamID}}
+                                        {{$isCurrent := and $.User (eq .User.ID $.User.ID)}}
+                                        {{$isDirectRival := or (and $myPickIsAway $isUserHome) (and $myPickIsHome $isUserAway)}}
+                                        {{$isAlly := or (and $myPickIsAway $isUserAway) (and $myPickIsHome $isUserHome)}}
+                                        <div x-show="matchesSearch('{{.User.Username}}') && matchesTab({{$isUserAway}}, {{$isUserHome}}, {{$isDirectRival}}, {{$isAlly}})"
+                                             class="p-2 rounded-xl border flex items-center justify-between gap-2 text-xs transition-colors
+                                                    {{if $isCurrent}}bg-cyan-950/30 border-cyan-500/50 ring-1 ring-cyan-500/30{{else if $isUserAway}}bg-zinc-900/70 border-zinc-800/80{{else}}bg-zinc-900/70 border-zinc-800/80{{end}}">
+                                            <div class="flex items-center space-x-2 min-w-0">
+                                                <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-[9px] text-white shrink-0 overflow-hidden">
+                                                    {{if .User.AvatarURL}}
+                                                        <img src="{{.User.AvatarURL}}" class="w-full h-full object-cover">
+                                                    {{else}}
+                                                        {{slice .User.Username 0 1}}
+                                                    {{end}}
+                                                </div>
+                                                <div class="truncate">
+                                                    <div class="font-bold text-white text-[11px] truncate flex items-center space-x-1">
+                                                        <span>{{.User.Username}}</span>
+                                                        {{if $isCurrent}}<span class="text-[8px] font-mono px-1 rounded bg-cyan-500/20 text-cyan-300">TÚ</span>{{end}}
+                                                    </div>
+                                                    <div class="text-[9px] font-mono">
+                                                        {{if $isDirectRival}}
+                                                            <span class="text-rose-400">Rival</span>
+                                                        {{else if $isAlly}}
+                                                            <span class="text-emerald-400">Aliado</span>
+                                                        {{else}}
+                                                            <span class="text-zinc-500">Participante</span>
+                                                        {{end}}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="flex items-center space-x-2 shrink-0">
+                                                <div class="flex items-center space-x-1 font-mono font-bold text-[11px] {{if $isUserAway}}text-cyan-400{{else}}text-amber-400{{end}}">
+                                                    {{if $isUserAway}}
+                                                        <img src="{{$fg.AwayTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
+                                                        <span>{{$fg.AwayTeam.Code}}</span>
+                                                    {{else if $isUserHome}}
+                                                        <img src="{{$fg.HomeTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
+                                                        <span>{{$fg.HomeTeam.Code}}</span>
+                                                    {{end}}
+                                                </div>
+                                                {{if and .PredictedAwayScore .PredictedHomeScore}}
+                                                    <span class="px-1.5 py-0.5 rounded text-[9px] font-mono bg-zinc-950 text-zinc-300 border border-zinc-800">
+                                                        {{.AwayScoreStr}}-{{.HomeScoreStr}}
+                                                    </span>
+                                                {{end}}
+                                                {{if and $.User (ne .User.ID $.User.ID)}}
+                                                    <button type="button"
+                                                            hx-get="/picks/compare?rival_id={{.User.ID}}&week_id={{$fg.WeekID}}"
+                                                            hx-target="#h2h-modal-container"
+                                                            title="Duelo vs {{.User.Username}}"
+                                                            class="p-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-cyan-400 hover:text-white border border-zinc-700 text-[9px] cursor-pointer">
+                                                        <i class="fa-solid fa-arrows-rotate"></i>
+                                                    </button>
+                                                {{end}}
+                                            </div>
+                                        </div>
+                                    {{end}}
+                                </div>
+                            </div>
+                        {{end}}
+
                     </div>
                 </div>
 
@@ -797,21 +937,22 @@
 
         <!-- Rivals Picks Modal for Featured Game (Mobile Bottom Sheet & Desktop Dialog) -->
         <div id="rivals-modal"
-             x-data="rivalsModalComponent()"
+             x-data="createRivalsModal()"
              x-show="isOpen" 
+             style="display: none;"
              x-cloak 
              data-close-modal="backdrop"
              class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden"
              @open-rivals.window="open()"
              @close-rivals.window="close()"
              @keydown.escape.window="close()"
-             @click.self="close()">
+             @click.self="close(); $dispatch('close-rivals')">
             
             <div class="vercel-card rounded-t-3xl sm:rounded-2xl w-full max-w-2xl overflow-hidden border-t sm:border border-cyan-500/30 shadow-2xl flex flex-col max-h-[88vh] sm:max-h-[90vh] bg-zinc-950"
                  @click.stop>
                 
                 <!-- Mobile Drag Handle Bar (Touch Visual Cue) -->
-                <div class="w-12 h-1.5 bg-zinc-700/80 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0 cursor-pointer" @click="close()"></div>
+                <div class="w-12 h-1.5 bg-zinc-700/80 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0 cursor-pointer" @click="close(); $dispatch('close-rivals')"></div>
 
                 <!-- Modal Header & Matchup Banner -->
                 <div class="p-3.5 sm:p-5 border-b border-zinc-800/90 bg-gradient-to-r from-cyan-950/40 via-zinc-900 to-zinc-950 flex flex-col gap-3">
@@ -836,7 +977,7 @@
                         </div>
 
                         <button type="button" 
-                                @click="close()" 
+                                @click="close(); $dispatch('close-rivals')" 
                                 data-close-modal="true"
                                 class="p-2 text-zinc-400 hover:text-white rounded-xl hover:bg-zinc-800/80 transition-colors cursor-pointer shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center"
                                 title="Cerrar modal (Esc)">
@@ -1112,7 +1253,7 @@
                     </div>
 
                     <button type="button"
-                            @click="close()"
+                            @click="close(); $dispatch('close-rivals')"
                             data-close-modal="true"
                             class="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700 text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5">
                         <i class="fa-solid fa-xmark text-xs"></i>
@@ -1123,38 +1264,6 @@
 
             </div>
         </div>
-
-        <script>
-        function rivalsModalComponent() {
-            return {
-                isOpen: false,
-                rivalTab: 'all',
-                rivalSearch: '',
-                open() {
-                    this.isOpen = true;
-                    window.__rivalsOpen = true;
-                    try { document.body.classList.add('overflow-hidden'); } catch(e) {}
-                },
-                close() {
-                    this.isOpen = false;
-                    window.__rivalsOpen = false;
-                    try { document.body.classList.remove('overflow-hidden'); } catch(e) {}
-                },
-                matchesSearch(username) {
-                    if (!this.rivalSearch || !this.rivalSearch.trim()) return true;
-                    return username.toLowerCase().includes(this.rivalSearch.trim().toLowerCase());
-                },
-                matchesTab(isAway, isHome, isDirectRival, isAlly) {
-                    if (this.rivalTab === 'all') return true;
-                    if (this.rivalTab === 'away') return isAway;
-                    if (this.rivalTab === 'home') return isHome;
-                    if (this.rivalTab === 'rivals') return isDirectRival;
-                    if (this.rivalTab === 'allies') return isAlly;
-                    return true;
-                }
-            };
-        }
-        </script>
     {{end}}
 
     <!-- Matchup List / Filter Strip -->

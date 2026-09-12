@@ -69,9 +69,48 @@
         }
     </script>
     
-    <!-- HTMX & SSE Extension -->
-    <script src="https://unpkg.com/htmx.org@2.0.2"></script>
-    <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
+    <!-- Core Modal Definitions (available before Alpine initializes) -->
+    <script>
+        window.__modalOpen = false;
+        window.__rivalsOpen = false;
+        window.createRivalsModal = function() {
+            return {
+                isOpen: false,
+                rivalTab: 'all',
+                rivalSearch: '',
+                open() {
+                    this.isOpen = true;
+                    window.__rivalsOpen = true;
+                    window.__modalOpen = true;
+                    try { document.body.classList.add('overflow-hidden'); } catch(e) {}
+                    const m = document.getElementById('rivals-modal');
+                    if (m) m.style.display = 'flex';
+                },
+                close() {
+                    this.isOpen = false;
+                    window.__rivalsOpen = false;
+                    window.__modalOpen = false;
+                    try { document.body.classList.remove('overflow-hidden'); } catch(e) {}
+                    const m = document.getElementById('rivals-modal');
+                    if (m) m.style.display = 'none';
+                },
+                matchesSearch(username) {
+                    if (!this.rivalSearch || !this.rivalSearch.trim()) return true;
+                    return (username || '').toLowerCase().includes(this.rivalSearch.trim().toLowerCase());
+                },
+                matchesTab(isAway, isHome, isDirectRival, isAlly) {
+                    if (this.rivalTab === 'all') return true;
+                    if (this.rivalTab === 'away') return isAway;
+                    if (this.rivalTab === 'home') return isHome;
+                    if (this.rivalTab === 'rivals') return isDirectRival;
+                    if (this.rivalTab === 'allies') return isAlly;
+                    return true;
+                }
+            };
+        };
+        // Backwards compatibility alias
+        window.rivalsModalComponent = window.createRivalsModal;
+    </script>
     <!-- Alpine.js -->
     <script defer src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"></script>
     <!-- FontAwesome Icons -->
@@ -533,6 +572,28 @@
     <script>
         (function() {
             window.__modalOpen = false;
+            window.__rivalsOpen = false;
+
+            // HTMX + Alpine 3 Integration: re-initialize Alpine tree on any dynamically swapped content
+            function reinitAlpine(e) {
+                if (!window.Alpine) return;
+                let el = null;
+                if (e.detail) {
+                    if (e.detail.elt && document.contains(e.detail.elt)) el = e.detail.elt;
+                    else if (e.detail.target && document.contains(e.detail.target)) el = e.detail.target;
+                    else if (e.detail.target && e.detail.target.id) el = document.getElementById(e.detail.target.id);
+                }
+                if (el) {
+                    try {
+                        window.Alpine.initTree(el);
+                    } catch(err) {
+                        console.debug('Alpine.initTree error:', err);
+                    }
+                }
+            }
+
+            document.addEventListener('htmx:afterSwap', reinitAlpine);
+            document.addEventListener('htmx:afterSettle', reinitAlpine);
 
             function checkAnyModalOpen() {
                 const fixedModals = Array.from(document.querySelectorAll('.fixed.inset-0')).filter(el => {
@@ -548,7 +609,26 @@
                 if (!hasOpen) {
                     document.body.classList.remove('overflow-hidden');
                     window.__modalOpen = false;
+                    window.__rivalsOpen = false;
                 }
+            }
+
+            function safelyCloseModalElement(modal) {
+                if (!modal) return;
+                if (window.Alpine && typeof Alpine.$data === 'function') {
+                    try {
+                        const data = Alpine.$data(modal);
+                        if (data) {
+                            if ('isOpen' in data) data.isOpen = false;
+                            if (typeof data.close === 'function') data.close();
+                            if ('shareModalOpen' in data) data.shareModalOpen = false;
+                            if ('shareProfileModalOpen' in data) data.shareProfileModalOpen = false;
+                            if ('summaryModalOpen' in data) data.summaryModalOpen = false;
+                            if ('confirmOpen' in data) data.confirmOpen = false;
+                        }
+                    } catch(err) {}
+                }
+                modal.style.display = 'none';
             }
 
             // Global Click Delegation for Closing Modals
@@ -559,15 +639,8 @@
 
                 if (trigger) {
                     const modal = trigger.closest('.fixed.inset-0');
-                    if (modal && modal.__x) {
-                        try {
-                            const data = modal.__x.$data;
-                            if ('shareModalOpen' in data) data.shareModalOpen = false;
-                            if ('shareProfileModalOpen' in data) data.shareProfileModalOpen = false;
-                            if ('summaryModalOpen' in data) data.summaryModalOpen = false;
-                            if ('confirmOpen' in data) data.confirmOpen = false;
-                            if ('isOpen' in data) data.isOpen = false;
-                        } catch(err) {}
+                    if (modal) {
+                        safelyCloseModalElement(modal);
                     }
 
                     // Reset dynamic containers
@@ -578,13 +651,17 @@
                     if (admin && (admin.contains(trigger) || trigger === admin)) admin.innerHTML = '';
 
                     window.dispatchEvent(new CustomEvent('close-whatif'));
-                    setTimeout(cleanupModalState, 40);
+                    window.dispatchEvent(new CustomEvent('close-rivals'));
+                    window.__rivalsOpen = false;
+                    setTimeout(cleanupModalState, 30);
                 }
             });
 
             // Global Keydown Escape listener as safety net
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape' || e.keyCode === 27) {
+                    document.querySelectorAll('.fixed.inset-0').forEach(safelyCloseModalElement);
+
                     const h2h = document.getElementById('h2h-modal-container');
                     if (h2h && h2h.innerHTML.trim()) h2h.innerHTML = '';
 
@@ -592,7 +669,9 @@
                     if (admin && admin.innerHTML.trim()) admin.innerHTML = '';
 
                     window.dispatchEvent(new CustomEvent('close-whatif'));
-                    setTimeout(cleanupModalState, 40);
+                    window.dispatchEvent(new CustomEvent('close-rivals'));
+                    window.__rivalsOpen = false;
+                    setTimeout(cleanupModalState, 30);
                 }
             });
 
