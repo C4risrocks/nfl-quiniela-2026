@@ -55,12 +55,42 @@
                     Puntos
                 </th>
             </tr>
+
+            <!-- Consensus Summary Row -->
+            <tr class="border-b border-zinc-800/80 bg-zinc-950/90 text-zinc-400 font-mono text-[10px]">
+                <th scope="row" class="sticky left-0 z-30 bg-zinc-950 px-4 py-2 border-r border-zinc-800 font-bold uppercase tracking-wider text-cyan-400 shadow-[2px_0_10px_rgba(0,0,0,0.5)]">
+                    <div class="flex items-center space-x-1.5">
+                        <i class="fa-solid fa-users text-[10px]"></i>
+                        <span>Consenso</span>
+                    </div>
+                </th>
+                {{range $g := .Matrix.Games}}
+                    <th scope="col" class="px-2 py-2 text-center font-normal border-r border-zinc-800/40">
+                        {{range $.Matrix.Consensus}}
+                            {{if eq .GameID $g.ID}}
+                                {{if and .TotalPicks (gt .TotalPicks 0)}}
+                                    <div class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-zinc-900/90 border border-zinc-800" title="{{.AwayPicks}} vs {{.HomePicks}} picks">
+                                        <span class="font-bold {{if ge .LeadingPct 70}}text-emerald-400{{else if ge .LeadingPct 55}}text-cyan-400{{else}}text-zinc-300{{end}}">
+                                            {{.LeadingPct}}% {{.LeadingTeamCode}}
+                                        </span>
+                                    </div>
+                                {{else}}
+                                    <span class="text-zinc-600 font-mono text-[10px]">--</span>
+                                {{end}}
+                            {{end}}
+                        {{end}}
+                    </th>
+                {{end}}
+                <th scope="col" class="px-3 py-2 text-center text-zinc-600 border-r border-zinc-800/40">--</th>
+                <th scope="col" class="px-3 py-2 text-center text-zinc-600">--</th>
+            </tr>
         </thead>
 
         <!-- Table Body -->
         <tbody class="divide-y divide-zinc-900 font-sans">
             {{range $rowIndex, $row := .Matrix.Rows}}
-                <tr class="transition-colors hover:bg-zinc-900/40 {{if $row.IsCurrent}}bg-white/[0.04] font-medium{{end}}">
+                <tr x-show="matchesRow({{$row.Rank}}, {{$row.IsCurrent}}, {{sub $row.TotalPoints $.Matrix.CurrentUserPts}}, '{{$row.User.Username}}')"
+                    class="transition-colors hover:bg-zinc-900/40 {{if $row.IsCurrent}}bg-white/[0.04] font-medium{{end}}">
                     
                     <!-- Sticky Left Column: Player Info -->
                     <td class="sticky left-0 z-20 bg-zinc-950 px-3 py-2.5 min-w-[160px] sm:min-w-[200px] border-r border-zinc-800 shadow-[2px_0_10px_rgba(0,0,0,0.5)]">
@@ -79,13 +109,25 @@
                                 </div>
                             {{end}}
 
-                            <!-- Username & Current Player Tag -->
-                            <div class="min-w-0 flex-1 flex items-center space-x-1">
-                                <span class="font-bold text-xs truncate max-w-[100px] sm:max-w-[120px] {{if $row.IsCurrent}}text-white font-black{{else}}text-zinc-300{{end}}">
-                                    {{$row.User.Username}}
-                                </span>
-                                {{if $row.IsCurrent}}
-                                    <span class="px-1 py-0.2 rounded bg-white text-black text-[8px] font-black leading-none uppercase shrink-0">TÚ</span>
+                            <!-- Username, Tag & H2H duel button -->
+                            <div class="min-w-0 flex-1 flex items-center justify-between space-x-1">
+                                <div class="flex items-center space-x-1 min-w-0">
+                                    <span class="font-bold text-xs truncate max-w-[85px] sm:max-w-[110px] {{if $row.IsCurrent}}text-white font-black{{else}}text-zinc-300{{end}}">
+                                        {{$row.User.Username}}
+                                    </span>
+                                    {{if $row.IsCurrent}}
+                                        <span class="px-1 py-0.2 rounded bg-white text-black text-[8px] font-black leading-none uppercase shrink-0">TÚ</span>
+                                    {{end}}
+                                </div>
+                                {{if and $.User (ne $row.User.ID $.User.ID)}}
+                                    <button type="button"
+                                            hx-get="/picks/compare?rival_id={{$row.User.ID}}&week_id={{$.SelectedWeek.ID}}"
+                                            hx-target="#h2h-modal-container"
+                                            title="Duelo vs {{$row.User.Username}}"
+                                            class="p-1 rounded hover:bg-zinc-800 text-zinc-500 hover:text-cyan-400 border border-transparent hover:border-zinc-700 transition-all cursor-pointer shrink-0 text-[10px]"
+                                            onclick="event.stopPropagation()">
+                                        <i class="fa-solid fa-arrows-rotate"></i>
+                                    </button>
                                 {{end}}
                             </div>
                         </div>

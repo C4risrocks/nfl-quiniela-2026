@@ -1692,8 +1692,54 @@ func (r *Repository) GetPicksMatrixForWeek(weekID int64, currentUserID int64) (*
 		return rows[i].User.Username < rows[j].User.Username
 	})
 
+	var currentUserPts int = 0
 	for idx, rRow := range rows {
 		rRow.Rank = idx + 1
+		if rRow.IsCurrent {
+			currentUserPts = rRow.TotalPoints
+		}
+	}
+
+	// Compute consensus for each game in the week
+	consensusList := make([]*MatrixGameConsensus, 0, len(games))
+	for _, g := range games {
+		isGameLocked := g.IsGameOrWeekLocked(now, scoringCfg.LockMode, firstKickoff)
+		isRevealed := isGameLocked || isFullWeekLocked
+
+		mgc := &MatrixGameConsensus{
+			GameID: g.ID,
+		}
+
+		if isRevealed {
+			var awayPicks, homePicks int
+			for _, rRow := range rows {
+				for _, cell := range rRow.Cells {
+					if cell.GameID == g.ID && cell.HasPick && cell.PickedTeamID != nil {
+						if *cell.PickedTeamID == g.AwayTeamID {
+							awayPicks++
+						} else if *cell.PickedTeamID == g.HomeTeamID {
+							homePicks++
+						}
+					}
+				}
+			}
+			total := awayPicks + homePicks
+			mgc.AwayPicks = awayPicks
+			mgc.HomePicks = homePicks
+			mgc.TotalPicks = total
+			if total > 0 {
+				mgc.AwayPct = int(math.Round(float64(awayPicks) / float64(total) * 100))
+				mgc.HomePct = int(math.Round(float64(homePicks) / float64(total) * 100))
+				if awayPicks >= homePicks && g.AwayTeam != nil {
+					mgc.LeadingTeamCode = g.AwayTeam.Code
+					mgc.LeadingPct = mgc.AwayPct
+				} else if homePicks > awayPicks && g.HomeTeam != nil {
+					mgc.LeadingTeamCode = g.HomeTeam.Code
+					mgc.LeadingPct = mgc.HomePct
+				}
+			}
+		}
+		consensusList = append(consensusList, mgc)
 	}
 
 	weeks, _ := r.ListWeeks(week.SeasonID)
@@ -1703,8 +1749,10 @@ func (r *Repository) GetPicksMatrixForWeek(weekID int64, currentUserID int64) (*
 		Weeks:            weeks,
 		Games:            games,
 		Rows:             rows,
+		Consensus:        consensusList,
 		TotalPlayers:     len(rows),
 		IsFullWeekLocked: isFullWeekLocked,
+		CurrentUserPts:   currentUserPts,
 	}, nil
 }
 
@@ -1849,6 +1897,46 @@ func (r *Repository) GetHeadToHeadSeasonHistory(userAID, userBID, seasonID int64
 	} else {
 		history.LeaderStatus = "tied"
 	}
+
+	// Calculate streaks & max margin
+	streakWinner := ""
+	streakCount := 0
+	maxMargin := 0
+	maxMarginWeek := 0
+	maxMarginWinner := ""
+
+	for i := len(history.WeekResults) - 1; i >= 0; i-- {
+		w := history.WeekResults[i]
+		if w.Winner == "tie" {
+			break
+		}
+		if streakWinner == "" {
+			streakWinner = w.Winner
+			streakCount = 1
+		} else if streakWinner == w.Winner {
+			streakCount++
+		} else {
+			break
+		}
+	}
+
+	for _, w := range history.WeekResults {
+		margin := w.UserAPoints - w.UserBPoints
+		if margin < 0 {
+			margin = -margin
+		}
+		if margin > maxMargin {
+			maxMargin = margin
+			maxMarginWeek = w.WeekNumber
+			maxMarginWinner = w.Winner
+		}
+	}
+
+	history.CurrentStreakWinner = streakWinner
+	history.CurrentStreakCount = streakCount
+	history.MaxMargin = maxMargin
+	history.MaxMarginWeek = maxMarginWeek
+	history.MaxMarginWinner = maxMarginWinner
 
 	return history, nil
 }

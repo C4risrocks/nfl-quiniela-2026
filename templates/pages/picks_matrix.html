@@ -68,17 +68,83 @@
         </div>
     </div>
 
-    <!-- Mobile Scroll Helper Hint -->
-    <div class="block sm:hidden text-center text-[11px] font-mono text-zinc-400 bg-zinc-950/60 py-1.5 px-3 rounded-lg border border-zinc-800/80">
-        <i class="fa-solid fa-arrows-left-right text-cyan-400 mr-1"></i> Desliza hacia la derecha para ver todos los partidos
-    </div>
+    <!-- Interactive Matrix Filter & Search Bar -->
+    <div x-data="{
+             matrixFilter: 'all', // 'all' | 'top5' | 'rivals'
+             matrixSearch: '',
+             matchesRow(rank, isCurrent, diffPoints, username) {
+                 if (this.matrixSearch.trim() !== '') {
+                     if (!username.toLowerCase().includes(this.matrixSearch.trim().toLowerCase())) {
+                         return false;
+                     }
+                 }
+                 if (this.matrixFilter === 'top5') return rank <= 5;
+                 if (this.matrixFilter === 'rivals') return isCurrent || Math.abs(diffPoints) <= 3;
+                 return true;
+             }
+         }"
+         class="space-y-4">
 
-    <!-- Live Updating Table Container -->
-    <div id="matrix-table-container"
-         hx-get="/picks/matrix?week={{.SelectedWeek.WeekNumber}}&partial=1"
-         hx-trigger="every 45s"
-         hx-swap="innerHTML">
-        {{template "picks_matrix_table.html" .}}
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-zinc-950/80 border border-zinc-800">
+            <!-- Filter Pills -->
+            <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar text-xs">
+                <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider font-bold mr-1">Filtrar:</span>
+                <button type="button"
+                        @click="matrixFilter = 'all'"
+                        :class="matrixFilter === 'all' ? 'bg-zinc-700 text-white font-bold shadow-sm' : 'text-zinc-400 hover:text-zinc-200 bg-zinc-900 border border-zinc-800'"
+                        class="px-2.5 py-1.5 rounded-xl transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                    <i class="fa-solid fa-users text-[10px]"></i>
+                    <span>Todos ({{.Matrix.TotalPlayers}})</span>
+                </button>
+
+                <button type="button"
+                        @click="matrixFilter = 'top5'"
+                        :class="matrixFilter === 'top5' ? 'bg-amber-600 text-white font-bold shadow-sm ring-1 ring-amber-400/40' : 'text-zinc-400 hover:text-zinc-200 bg-zinc-900 border border-zinc-800'"
+                        class="px-2.5 py-1.5 rounded-xl transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                    <i class="fa-solid fa-crown text-[10px] text-amber-300"></i>
+                    <span>Top 5</span>
+                </button>
+
+                {{if .User}}
+                    <button type="button"
+                            @click="matrixFilter = 'rivals'"
+                            :class="matrixFilter === 'rivals' ? 'bg-rose-600 text-white font-bold shadow-sm ring-1 ring-rose-400/40' : 'text-zinc-400 hover:text-zinc-200 bg-zinc-900 border border-zinc-800'"
+                            class="px-2.5 py-1.5 rounded-xl transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
+                        <i class="fa-solid fa-crosshairs text-[10px] text-rose-300"></i>
+                        <span>Rivales Directos (±3 pts)</span>
+                    </button>
+                {{end}}
+            </div>
+
+            <!-- Instant Search Bar -->
+            <div class="relative w-full sm:w-64">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs"></i>
+                <input type="text"
+                       x-model="matrixSearch"
+                       placeholder="Buscar participante..."
+                       class="w-full pl-8 pr-7 py-1.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-sans">
+                <button type="button" 
+                        x-show="matrixSearch.length > 0" 
+                        @click="matrixSearch = ''"
+                        class="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs cursor-pointer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Scroll Helper Hint -->
+        <div class="block sm:hidden text-center text-[11px] font-mono text-zinc-400 bg-zinc-950/60 py-1.5 px-3 rounded-lg border border-zinc-800/80">
+            <i class="fa-solid fa-arrows-left-right text-cyan-400 mr-1"></i> Desliza hacia la derecha para ver todos los partidos
+        </div>
+
+        <!-- Live Updating Table Container -->
+        <div id="matrix-table-container"
+             hx-get="/picks/matrix?week={{.SelectedWeek.WeekNumber}}&partial=1"
+             hx-trigger="every 45s"
+             hx-swap="innerHTML">
+            {{template "picks_matrix_table.html" .}}
+        </div>
+
     </div>
 
 </div>

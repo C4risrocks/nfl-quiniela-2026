@@ -1002,14 +1002,28 @@ type PicksMatrixRow struct {
 }
 
 // PicksMatrixData represents the entire matrix view data
+// MatrixGameConsensus holds majority pick percentages for a single game in the matrix
+type MatrixGameConsensus struct {
+	GameID          int64  `json:"game_id"`
+	AwayPicks       int    `json:"away_picks"`
+	HomePicks       int    `json:"home_picks"`
+	TotalPicks      int    `json:"total_picks"`
+	AwayPct         int    `json:"away_pct"`
+	HomePct         int    `json:"home_pct"`
+	LeadingTeamCode string `json:"leading_team_code"`
+	LeadingPct      int    `json:"leading_pct"`
+}
+
 type PicksMatrixData struct {
-	Week             *Week             `json:"week"`
-	Weeks            []*Week           `json:"weeks"`
-	Games            []*Game           `json:"games"`
-	Rows             []*PicksMatrixRow `json:"rows"`
-	TotalPlayers     int               `json:"total_players"`
-	IsFullWeekLocked bool              `json:"is_full_week_locked"`
-	User             *User             `json:"user"`
+	Week             *Week                  `json:"week"`
+	Weeks            []*Week                `json:"weeks"`
+	Games            []*Game                `json:"games"`
+	Rows             []*PicksMatrixRow      `json:"rows"`
+	Consensus        []*MatrixGameConsensus `json:"consensus"`
+	TotalPlayers     int                    `json:"total_players"`
+	IsFullWeekLocked bool                   `json:"is_full_week_locked"`
+	User             *User                  `json:"user"`
+	CurrentUserPts   int                    `json:"current_user_pts"`
 }
 
 // UserAchievement represents an unlocked badge by a player
@@ -1035,15 +1049,20 @@ type H2HWeekResult struct {
 
 // H2HSeasonHistory aggregates all finished head-to-head weeks in the season
 type H2HSeasonHistory struct {
-	UserA            *User            `json:"user_a"`
-	UserB            *User            `json:"user_b"`
-	UserAWins        int              `json:"user_a_wins"`
-	UserBWins        int              `json:"user_b_wins"`
-	Ties             int              `json:"ties"`
-	UserATotalPoints int              `json:"user_a_total_points"`
-	UserBTotalPoints int              `json:"user_b_total_points"`
-	WeekResults      []*H2HWeekResult `json:"week_results"`
-	LeaderStatus     string           `json:"leader_status"` // "a_leads", "b_leads", or "tied"
+	UserA               *User            `json:"user_a"`
+	UserB               *User            `json:"user_b"`
+	UserAWins           int              `json:"user_a_wins"`
+	UserBWins           int              `json:"user_b_wins"`
+	Ties                int              `json:"ties"`
+	UserATotalPoints    int              `json:"user_a_total_points"`
+	UserBTotalPoints    int              `json:"user_b_total_points"`
+	WeekResults         []*H2HWeekResult `json:"week_results"`
+	LeaderStatus        string           `json:"leader_status"` // "a_leads", "b_leads", or "tied"
+	CurrentStreakWinner string           `json:"current_streak_winner"` // "user_a", "user_b", or ""
+	CurrentStreakCount  int              `json:"current_streak_count"`
+	MaxMargin           int              `json:"max_margin"`
+	MaxMarginWeek       int              `json:"max_margin_week"`
+	MaxMarginWinner     string           `json:"max_margin_winner"`
 }
 
 // BadgeDefinition represents the catalog definition of an achievement

@@ -247,6 +247,45 @@
                         {{end}}
                     </div>
                 </div>
+
+                <!-- Streak & Largest Margin Indicators -->
+                {{if or (gt .SeasonHistory.CurrentStreakCount 1) (gt .SeasonHistory.MaxMargin 0)}}
+                <div class="flex flex-wrap items-center gap-2 pt-1.5 border-t border-zinc-900 text-[10px] font-mono">
+                    {{if gt .SeasonHistory.CurrentStreakCount 1}}
+                        <div class="px-2 py-0.5 rounded-md flex items-center space-x-1 {{if eq .SeasonHistory.CurrentStreakWinner "user_a"}}bg-emerald-500/15 text-emerald-300 border border-emerald-500/30{{else}}bg-rose-500/15 text-rose-300 border border-rose-500/30{{end}}">
+                            <i class="fa-solid fa-fire text-amber-400"></i>
+                            <span>Racha activa: <strong>{{.SeasonHistory.CurrentStreakCount}} victorias seguidas</strong> ({{if eq .SeasonHistory.CurrentStreakWinner "user_a"}}Tú{{else}}{{.SeasonHistory.UserB.Username}}{{end}})</span>
+                        </div>
+                    {{end}}
+                    {{if gt .SeasonHistory.MaxMargin 0}}
+                        <div class="px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-400 flex items-center space-x-1">
+                            <i class="fa-solid fa-trophy text-amber-400"></i>
+                            <span>Mayor ventaja: <strong>+{{.SeasonHistory.MaxMargin}} pts</strong> en Sem {{.SeasonHistory.MaxMarginWeek}} ({{if eq .SeasonHistory.MaxMarginWinner "user_a"}}Tú{{else}}{{.SeasonHistory.UserB.Username}}{{end}})</span>
+                        </div>
+                    {{end}}
+                </div>
+                {{end}}
+
+                <!-- Visual Week-by-Week Points Progression Chart -->
+                <div class="pt-2 border-t border-zinc-900 space-y-1.5">
+                    <div class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider font-bold">Evolución Semanal de Puntos</div>
+                    <div class="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                        {{range .SeasonHistory.WeekResults}}
+                            <div class="p-1.5 rounded-xl bg-zinc-900/90 border border-zinc-800 text-center font-mono text-[10px]">
+                                <div class="text-zinc-500 font-bold mb-0.5">Sem {{.WeekNumber}}</div>
+                                <div class="flex items-center justify-center space-x-1 text-xs font-black">
+                                    <span class="{{if eq .Winner "user_a"}}text-emerald-400 font-black{{else}}text-zinc-400{{end}}">{{.UserAPoints}}</span>
+                                    <span class="text-zinc-600 text-[10px]">:</span>
+                                    <span class="{{if eq .Winner "user_b"}}text-rose-400 font-black{{else}}text-zinc-400{{end}}">{{.UserBPoints}}</span>
+                                </div>
+                                <div class="mt-1 flex h-1.5 rounded-full overflow-hidden bg-zinc-800">
+                                    <div class="bg-cyan-500 transition-all" style="width: {{if and (eq .UserAPoints 0) (eq .UserBPoints 0)}}50%{{else}}{{percent .UserAPoints (add .UserAPoints .UserBPoints)}}%{{end}}"></div>
+                                    <div class="bg-amber-500 transition-all" style="width: {{if and (eq .UserAPoints 0) (eq .UserBPoints 0)}}50%{{else}}{{percent .UserBPoints (add .UserAPoints .UserBPoints)}}%{{end}}"></div>
+                                </div>
+                            </div>
+                        {{end}}
+                    </div>
+                </div>
             </div>
             {{end}}
         </div>

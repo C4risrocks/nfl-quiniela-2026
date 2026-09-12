@@ -392,11 +392,12 @@
     <!-- Community Picks Drawer -->
     {{if $locked}}
         <div x-data="{ openCommunity: false }" class="mt-2.5 pt-2 border-t border-[#1c1c1c]">
-            <button @click="openCommunity = !openCommunity" 
+            <button type="button"
+                    @click.prevent.stop="openCommunity = !openCommunity" 
                     hx-get="/picks/community/{{.Game.ID}}"
                     hx-target="#community-list-{{.Game.ID}}"
                     hx-trigger="click once"
-                    class="w-full flex items-center justify-between text-[11px] text-zinc-400 hover:text-zinc-200 py-1 transition-colors">
+                    class="w-full flex items-center justify-between text-[11px] text-zinc-400 hover:text-zinc-200 py-1 transition-colors cursor-pointer">
                 <span class="flex items-center space-x-1.5">
                     <i class="fa-solid fa-users text-zinc-500"></i>
                     <span>Ver pronósticos de la comunidad</span>

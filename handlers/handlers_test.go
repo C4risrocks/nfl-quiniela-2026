@@ -1128,6 +1128,9 @@ func TestPicksMatrixHandler(t *testing.T) {
 	if !strings.Contains(body, "matrix-table-container") {
 		t.Errorf("Expected page to contain 'matrix-table-container'")
 	}
+	if !strings.Contains(body, "matrixFilter") {
+		t.Errorf("Expected page to contain matrixFilter")
+	}
 
 	// 2. GET /picks/matrix as HTMX partial
 	reqHTMX := httptest.NewRequest(http.MethodGet, "/picks/matrix?week=1", nil)
@@ -1143,6 +1146,12 @@ func TestPicksMatrixHandler(t *testing.T) {
 	bodyHTMX := rrHTMX.Body.String()
 	if !strings.Contains(bodyHTMX, "sticky left-0") {
 		t.Errorf("Expected partial to contain sticky mobile column 'sticky left-0'")
+	}
+	if !strings.Contains(bodyHTMX, "Consenso") {
+		t.Errorf("Expected partial to contain 'Consenso'")
+	}
+	if !strings.Contains(bodyHTMX, "matchesRow") {
+		t.Errorf("Expected partial to contain 'matchesRow'")
 	}
 }
 
@@ -1172,6 +1181,36 @@ func TestComparePicksHandler(t *testing.T) {
 	}
 	if !strings.Contains(body, userB.Username) {
 		t.Errorf("Expected modal to contain rival username '%s'", userB.Username)
+	}
+}
+
+func TestGameCardCommunityButtonHasButtonType(t *testing.T) {
+	repo, _, renderer, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	picksHandler := NewPicksHandler(repo, renderer, nil, 2026)
+	user, _ := repo.CreateUser("test_card_user", "card@test.com", "pass", "player")
+
+	req := httptest.NewRequest(http.MethodGet, "/picks?week=1", nil)
+	ctx := context.WithValue(req.Context(), auth.UserContextKey, user)
+	req = req.WithContext(ctx)
+
+	rr := httptest.NewRecorder()
+	picksHandler.ShowPicks(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from ShowPicks, got %d", rr.Code)
+	}
+
+	body := rr.Body.String()
+	// Verify that any button with hx-get="/picks/community/" has type="button" to prevent accidental form submission
+	if strings.Contains(body, "hx-get=\"/picks/community/") {
+		if !strings.Contains(body, "<button type=\"button\"") {
+			t.Errorf("Expected community picks button to have explicit type=\"button\"")
+		}
+		if !strings.Contains(body, "@click.prevent.stop") {
+			t.Errorf("Expected community picks button to prevent and stop click propagation")
+		}
 	}
 }
 

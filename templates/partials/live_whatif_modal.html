@@ -148,6 +148,24 @@
                     </button>
 
                     <button type="button"
+                            @click="simulateUnderdogs()"
+                            title="Asignar ganador al equipo menos votado (sorpresas de la jornada)"
+                            :class="currentScenario === 'underdogs' ? 'bg-rose-600 text-white border-rose-400 shadow-sm ring-1 ring-rose-400/40' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-700'"
+                            class="px-2 py-1 rounded-lg border font-medium transition-all cursor-pointer whitespace-nowrap text-[10px] flex items-center space-x-1">
+                        <i class="fa-solid fa-bolt text-[9px] text-amber-400"></i>
+                        <span class="hidden sm:inline">Sorpresas</span>
+                    </button>
+
+                    <button type="button"
+                            @click="toggleSound()"
+                            :title="soundEnabled ? 'Silenciar alertas sonoras de anotación' : 'Activar alertas sonoras de anotación'"
+                            :class="soundEnabled ? 'bg-cyan-950/60 text-cyan-300 border-cyan-500/40' : 'bg-zinc-800/80 text-zinc-500 border-zinc-700'"
+                            class="px-2 py-1 rounded-lg border font-medium transition-all cursor-pointer whitespace-nowrap text-[10px] flex items-center space-x-1">
+                        <i class="fa-solid" :class="soundEnabled ? 'fa-volume-high text-cyan-400' : 'fa-volume-xmark text-zinc-500'"></i>
+                        <span class="hidden sm:inline" x-text="soundEnabled ? 'Sonido' : 'Mute'"></span>
+                    </button>
+
+                    <button type="button"
                             @click="resetAll()"
                             title="Limpiar todas las selecciones simuladas"
                             class="p-1 sm:px-2 sm:py-1 rounded-lg bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700 font-medium transition-all cursor-pointer whitespace-nowrap text-[10px]">
@@ -162,7 +180,8 @@
                     'bg-purple-950/40 border-purple-500/30 text-purple-200': currentScenario === 'all_picks',
                     'bg-amber-950/40 border-amber-500/30 text-amber-200': currentScenario === 'worst_case_win',
                     'bg-cyan-950/40 border-cyan-500/30 text-cyan-200': currentScenario === 'manual',
-                    'bg-zinc-900 border-zinc-800 text-zinc-400': currentScenario !== 'all_picks' && currentScenario !== 'worst_case_win' && currentScenario !== 'manual'
+                    'bg-rose-950/40 border-rose-500/30 text-rose-200': currentScenario === 'underdogs',
+                    'bg-zinc-900 border-zinc-800 text-zinc-400': currentScenario !== 'all_picks' && currentScenario !== 'worst_case_win' && currentScenario !== 'manual' && currentScenario !== 'underdogs'
                  }">
                 <div class="flex items-center space-x-1.5 min-w-0">
                     <template x-if="currentScenario === 'all_picks'">
@@ -191,6 +210,9 @@
                     </template>
                     <template x-if="currentScenario === 'consensus'">
                         <span class="truncate"><strong>👥 Consenso:</strong> Ganadores asignados según el favorito de la quiniela.</span>
+                    </template>
+                    <template x-if="currentScenario === 'underdogs'">
+                        <span class="truncate"><strong>⚡ Modo Sorpresas:</strong> Ganadores asignados al equipo menos votado por la comunidad.</span>
                     </template>
                 </div>
                 <button type="button" @click="activeTab = 'leaderboard'" class="text-[10px] underline font-bold shrink-0 ml-2 hover:opacity-80 cursor-pointer">Ver Tabla &rarr;</button>
@@ -232,18 +254,22 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center space-x-4 self-end sm:self-auto font-mono text-right">
+                    <div class="flex items-center space-x-3 sm:space-x-4 self-end sm:self-auto font-mono text-right">
                         <div>
                             <div class="text-[10px] text-zinc-400 uppercase tracking-wider">Puntos Base</div>
-                            <div class="text-base font-bold text-zinc-300" x-text="currentUserSim.base_points + ' pts'"></div>
+                            <div class="text-xs sm:text-base font-bold text-zinc-300" x-text="currentUserSim.base_points + ' pts'"></div>
                         </div>
                         <div>
                             <div class="text-[10px] text-purple-400 uppercase tracking-wider font-semibold">+ Simulados</div>
-                            <div class="text-base font-black text-purple-300" x-text="'+' + currentUserSim.sim_hits + ' pts'"></div>
+                            <div class="text-xs sm:text-base font-black text-purple-300" x-text="'+' + currentUserSim.sim_hits + ' pts'"></div>
                         </div>
                         <div class="pl-2 border-l border-zinc-800">
-                            <div class="text-[10px] text-amber-400 uppercase tracking-wider font-bold">Total Proyectado</div>
-                            <div class="text-xl font-black text-amber-300" x-text="currentUserSim.sim_points + ' pts'"></div>
+                            <div class="text-[10px] text-amber-400 uppercase tracking-wider font-bold">Proyectado</div>
+                            <div class="text-base sm:text-xl font-black text-amber-300" x-text="currentUserSim.sim_points + ' pts'"></div>
+                        </div>
+                        <div class="pl-2 border-l border-zinc-800">
+                            <div class="text-[10px] text-emerald-400 uppercase tracking-wider font-bold">Prob. Ganar</div>
+                            <div class="text-base sm:text-xl font-black text-emerald-300" x-text="(currentUserSim.win_prob || 0) + '%'"></div>
                         </div>
                     </div>
                 </div>
@@ -416,8 +442,14 @@
                         </div>
                     </div>
 
-                    <!-- Points Details -->
-                    <div class="flex items-center space-x-3 text-right font-mono shrink-0">
+                    <!-- Points Details & Win Probability -->
+                    <div class="flex items-center space-x-2 sm:space-x-3 text-right font-mono shrink-0">
+                        <template x-if="u.win_prob > 0">
+                            <span class="px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold hidden sm:inline-block"
+                                  :class="u.win_prob >= 50 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : (u.win_prob >= 20 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-zinc-800 text-zinc-400 border border-zinc-700')"
+                                  x-text="u.win_prob + '% victoria'">
+                            </span>
+                        </template>
                         <div class="text-[10px] text-zinc-400 hidden sm:block">
                             Base: <span class="text-zinc-300" x-text="u.base_points"></span>
                         </div>
@@ -744,6 +776,123 @@ function whatIfSimulator() {
             });
             this.simWinners = Object.assign({}, this.simWinners);
         },
+        simulateUnderdogs() {
+            this.currentScenario = 'underdogs';
+            this.worstCaseKeyGameIds = [];
+            this.worstCaseInsight = null;
+            this.simWinners = {};
+            this.games.forEach(g => {
+                if (g.status !== 'final') {
+                    if (g.away_pick_pct !== undefined && g.home_pick_pct !== undefined) {
+                        if (g.away_pick_pct < g.home_pick_pct) {
+                            this.simWinners[g.id] = g.away_id;
+                        } else if (g.home_pick_pct < g.away_pick_pct) {
+                            this.simWinners[g.id] = g.home_id;
+                        } else {
+                            this.simWinners[g.id] = (g.consensus_id === g.away_id) ? g.home_id : g.away_id;
+                        }
+                    } else if (g.consensus_id > 0) {
+                        this.simWinners[g.id] = (g.consensus_id === g.away_id) ? g.home_id : g.away_id;
+                    } else {
+                        this.simWinners[g.id] = g.away_id;
+                    }
+                }
+            });
+            this.simWinners = Object.assign({}, this.simWinners);
+        },
+        soundEnabled: (typeof localStorage !== 'undefined' ? localStorage.getItem('nfl_score_sound') !== 'muted' : true),
+        toggleSound() {
+            this.soundEnabled = !this.soundEnabled;
+            try {
+                localStorage.setItem('nfl_score_sound', this.soundEnabled ? 'enabled' : 'muted');
+            } catch(e) {}
+            if (this.soundEnabled) this.playScoreChime();
+        },
+        playScoreChime() {
+            try {
+                if (typeof localStorage !== 'undefined' && localStorage.getItem('nfl_score_sound') === 'muted') return;
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                const now = ctx.currentTime;
+                
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(587.33, now); // D5
+                gain1.gain.setValueAtTime(0.12, now);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.3);
+
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(880, now + 0.12); // A5
+                gain2.gain.setValueAtTime(0.18, now + 0.12);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(now + 0.12);
+                osc2.stop(now + 0.6);
+            } catch(e) {}
+        },
+        computeMonteCarloOdds() {
+            if (!this.users || this.users.length === 0 || !this.games || this.games.length === 0) {
+                return {};
+            }
+            const pending = this.games.filter(g => g.status !== 'final');
+            if (pending.length === 0) {
+                let maxPts = -1;
+                this.users.forEach(u => { if (u.base_points > maxPts) maxPts = u.base_points; });
+                const winners = this.users.filter(u => u.base_points === maxPts);
+                const res = {};
+                winners.forEach(w => { res[w.user_id] = Math.round(100 / winners.length); });
+                return res;
+            }
+
+            const N = 400;
+            const winCounts = {};
+            this.users.forEach(u => { winCounts[u.user_id] = 0; });
+
+            for (let i = 0; i < N; i++) {
+                const iterWinners = {};
+                pending.forEach(g => {
+                    let pAway = 0.5;
+                    if (g.away_pick_pct !== undefined && g.home_pick_pct !== undefined && (g.away_pick_pct + g.home_pick_pct) > 0) {
+                        pAway = g.away_pick_pct / (g.away_pick_pct + g.home_pick_pct);
+                    }
+                    iterWinners[g.id] = Math.random() < pAway ? g.away_id : g.home_id;
+                });
+
+                let topPts = -9999;
+                const scores = [];
+                this.users.forEach(u => {
+                    let pts = u.base_points;
+                    pending.forEach(g => {
+                        if (u.picks && u.picks[g.id] === iterWinners[g.id]) {
+                            pts += 1;
+                        }
+                    });
+                    if (pts > topPts) topPts = pts;
+                    scores.push({ user_id: u.user_id, pts: pts });
+                });
+
+                const topUsers = scores.filter(s => s.pts === topPts);
+                const share = 1 / topUsers.length;
+                topUsers.forEach(tu => {
+                    winCounts[tu.user_id] += share;
+                });
+            }
+
+            const odds = {};
+            this.users.forEach(u => {
+                odds[u.user_id] = Math.round((winCounts[u.user_id] / N) * 100);
+            });
+            return odds;
+        },
         resetAll() {
             this.currentScenario = 'manual';
             this.worstCaseKeyGameIds = [];
@@ -755,6 +904,8 @@ function whatIfSimulator() {
         },
         get simulatedLeaderboard() {
             if (!this.users || this.users.length === 0) return [];
+
+            const winOddsMap = this.computeMonteCarloOdds();
 
             // Baseline ranking (final games + live current leader)
             const baseRankings = this.users.map(u => {
@@ -795,6 +946,7 @@ function whatIfSimulator() {
                     base_points: u.base_points,
                     sim_points: simPts,
                     sim_hits: newHits,
+                    win_prob: winOddsMap[u.user_id] || 0,
                     initial_rank: initialRankMap[u.user_id] || 99
                 };
             });

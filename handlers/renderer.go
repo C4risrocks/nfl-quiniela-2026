@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"math"
 	"net/http"
 	"time"
 )
@@ -81,6 +82,12 @@ func (r *Renderer) FuncMap() template.FuncMap {
 				return a
 			}
 			return b
+		},
+		"percent": func(a, total int) int {
+			if total == 0 {
+				return 0
+			}
+			return int(math.Round(float64(a) / float64(total) * 100))
 		},
 		"slice": func(s string, start, end int) string {
 			if len(s) == 0 {
