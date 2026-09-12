@@ -25,6 +25,10 @@
             if (isStory) {
                 clone.style.height = targetHeight + 'px';
                 clone.style.minHeight = targetHeight + 'px';
+                const storyList = clone.querySelector('.overflow-y-auto');
+                if (storyList) {
+                    storyList.style.overflow = 'visible';
+                }
             }
             clone.style.position = 'fixed';
             clone.style.left = '0';
@@ -173,7 +177,7 @@
             <!-- ========================================== -->
             <div id="shareable-picks-card" 
                  x-show="format === 'square'"
-                 class="w-full max-w-md bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-5 rounded-2xl border border-zinc-800 shadow-2xl text-white select-none relative overflow-hidden">
+                 class="w-full max-w-md bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-5 rounded-2xl border border-zinc-800 shadow-2xl text-white select-none relative overflow-hidden shrink-0">
                 
                 <!-- Glow -->
                 <div class="absolute -top-20 -right-20 w-48 h-48 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none"></div>
@@ -263,7 +267,7 @@
             <!-- ========================================== -->
             <div id="shareable-picks-story" 
                  x-show="format === 'story'"
-                 class="w-[340px] sm:w-[380px] bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-5 rounded-3xl border border-zinc-800 shadow-2xl text-white select-none relative overflow-hidden flex flex-col justify-between"
+                 class="w-[340px] sm:w-[380px] bg-gradient-to-b from-zinc-900 via-zinc-950 to-black p-5 rounded-3xl border border-zinc-800 shadow-2xl text-white select-none relative overflow-hidden flex flex-col justify-between shrink-0"
                  style="aspect-ratio: 9 / 16;">
                 
                 <!-- Ambient Glow -->
@@ -271,7 +275,7 @@
                 <div class="absolute -bottom-24 -left-24 w-60 h-60 bg-amber-500/15 rounded-full blur-3xl pointer-events-none"></div>
 
                 <!-- Story Header -->
-                <div class="border-b border-zinc-800/80 pb-3 relative z-10">
+                <div class="border-b border-zinc-800/80 pb-3 relative z-10 shrink-0">
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center space-x-2">
                             <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-700 flex items-center justify-center p-1 shadow">
@@ -291,7 +295,7 @@
                 </div>
 
                 <!-- Matchups List (Single Column Compact for Story) -->
-                <div class="space-y-1.5 my-2 flex-1 relative z-10 overflow-hidden">
+                <div class="space-y-1.5 my-2 flex-1 min-h-0 relative z-10 overflow-y-auto overscroll-contain pr-1">
                     {{range .Games}}
                         {{$p := .UserPick}}
                         <div class="px-2.5 py-1.5 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-between text-xs">
@@ -317,7 +321,7 @@
                 </div>
 
                 <!-- Story Footer CTA -->
-                <div class="pt-2 border-t border-zinc-800/80 text-center relative z-10">
+                <div class="pt-2 border-t border-zinc-800/80 text-center relative z-10 shrink-0">
                     <div class="p-2.5 rounded-2xl bg-zinc-900/90 border border-zinc-800">
                         <div class="text-[11px] font-bold text-white mb-0.5">¿Cuáles son tus picks? 🏈</div>
                         <div class="text-[9px] font-mono text-cyan-400">quiniela.cmoreno.org</div>

@@ -156,14 +156,14 @@
         </div>
 
         <!-- Modal Body (Preview of the Card) -->
-        <div class="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 overscroll-contain flex justify-center bg-black/50 w-full min-w-0">
+        <div class="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 overscroll-contain flex flex-col items-center bg-black/50 w-full min-w-0">
             
             <!-- ========================================== -->
             <!-- FORMAT 1: SQUARE 1:1 CARD -->
             <!-- ========================================== -->
             <div id="shareable-leaderboard-card" 
                  x-show="format === 'square'"
-                 class="w-full max-w-lg bg-[#09090b] border border-zinc-800 rounded-3xl p-6 shadow-2xl text-white font-sans relative overflow-hidden flex flex-col justify-between select-none">
+                 class="w-full max-w-lg bg-[#09090b] border border-zinc-800 rounded-3xl p-6 shadow-2xl text-white font-sans relative overflow-hidden flex flex-col justify-between select-none shrink-0">
                 
                 <!-- Ambient Glow Background Behind Card -->
                 <div class="absolute -top-24 -right-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -253,7 +253,7 @@
             <!-- ========================================== -->
             <div id="shareable-leaderboard-story" 
                  x-show="format === 'story'"
-                 class="w-[340px] sm:w-[400px] bg-[#09090b] border border-zinc-800 rounded-3xl p-6 shadow-2xl text-white font-sans relative overflow-hidden flex flex-col justify-between select-none"
+                 class="w-[340px] sm:w-[400px] bg-[#09090b] border border-zinc-800 rounded-3xl p-6 shadow-2xl text-white font-sans relative overflow-hidden flex flex-col justify-between select-none shrink-0"
                  style="aspect-ratio: 9 / 16;">
                 
                 <!-- Ambient Glow Background -->
