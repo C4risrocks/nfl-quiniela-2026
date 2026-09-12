@@ -23,3 +23,11 @@
 .pulse-glow-amber {
     box-shadow: 0 0 15px rgba(255, 183, 3, 0.4);
 }
+
+/* Modal active scroll lock */
+body.overflow-hidden {
+    overflow: hidden !important;
+    touch-action: none;
+    -webkit-overflow-scrolling: auto;
+}
+

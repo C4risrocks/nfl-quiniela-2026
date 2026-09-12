@@ -946,7 +946,7 @@
              style="display: none;"
              x-cloak 
              data-close-modal="backdrop"
-             class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden"
+             class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto overscroll-contain"
              @open-rivals.window="open()"
              @close-rivals.window="close()"
              @keydown.escape.window="close()"
@@ -959,7 +959,7 @@
                 <div class="w-12 h-1.5 bg-zinc-700/80 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0 cursor-pointer" @click="close(); $dispatch('close-rivals')"></div>
 
                 <!-- Modal Header & Matchup Banner -->
-                <div class="p-3.5 sm:p-5 border-b border-zinc-800/90 bg-gradient-to-r from-cyan-950/40 via-zinc-900 to-zinc-950 flex flex-col gap-3">
+                <div class="p-3.5 sm:p-5 border-b border-zinc-800/90 bg-gradient-to-r from-cyan-950/40 via-zinc-900 to-zinc-950 flex flex-col gap-3 shrink-0">
                     
                     <!-- Top Bar: Title & Close Button -->
                     <div class="flex items-center justify-between">
@@ -1109,7 +1109,7 @@
                 </div>
 
                 <!-- Modal Body: Rivals Cards Grid -->
-                <div class="p-3 sm:p-4 overflow-y-auto max-h-[55vh] grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div class="p-3 sm:p-4 overflow-y-auto flex-1 min-h-0 overscroll-contain grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {{$myPickIsAway := false}}
                     {{$myPickIsHome := false}}
                     {{if $fg.UserPick}}

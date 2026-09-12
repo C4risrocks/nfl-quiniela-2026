@@ -1,4 +1,4 @@
-<div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+<div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto overscroll-contain"
      data-close-modal="backdrop"
      @click.self="document.getElementById('admin-modal-container').innerHTML = ''"
      x-data="{}"
@@ -7,7 +7,7 @@
     <div class="vercel-card rounded-2xl w-full max-w-2xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[90vh] bg-zinc-950" @click.stop>
         
         <!-- Modal Header -->
-        <div class="p-4 sm:p-5 border-b border-[#222222] flex items-center justify-between bg-zinc-900/60">
+        <div class="p-4 sm:p-5 border-b border-[#222222] flex items-center justify-between bg-zinc-900/60 shrink-0">
             <div>
                 <div class="flex items-center space-x-2">
                     <span class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase bg-amber-500/10 text-amber-300 border border-amber-500/30">
@@ -34,11 +34,11 @@
         <form hx-post="/admin/users/{{.TargetUser.ID}}/picks/save"
               hx-swap="none"
               hx-indicator="#admin-save-spinner"
-              class="flex flex-col flex-1 overflow-hidden">
+              class="flex flex-col flex-1 min-h-0 overflow-hidden">
             
             <input type="hidden" name="week_id" value="{{.Week.ID}}">
 
-            <div class="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1">
+            <div class="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1 min-h-0 overscroll-contain">
                 <p class="text-xs text-zinc-400 mb-2">
                     Selecciona el equipo ganador y, si corresponde, el marcador previsto para romper desempates en MNF.
                 </p>
@@ -129,7 +129,7 @@
             </div>
 
             <!-- Modal Footer -->
-            <div class="p-4 sm:p-5 border-t border-[#222222] bg-zinc-900/60 flex items-center justify-between">
+            <div class="p-4 sm:p-5 border-t border-[#222222] bg-zinc-900/60 flex items-center justify-between shrink-0">
                 <button type="button" 
                         onclick="document.getElementById('admin-modal-container').innerHTML = ''"
                         data-close-modal="true"

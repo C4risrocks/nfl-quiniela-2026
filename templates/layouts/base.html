@@ -599,12 +599,27 @@
             document.addEventListener('htmx:afterSwap', reinitAlpine);
             document.addEventListener('htmx:afterSettle', reinitAlpine);
 
+            function isModalVisible(el) {
+                if (!el || !el.isConnected) return false;
+                if (el.classList.contains('hidden')) return false;
+                const style = window.getComputedStyle(el);
+                if (style.display === 'none' || style.visibility === 'hidden') return false;
+                return (el.offsetWidth > 0 || el.offsetHeight > 0);
+            }
+
             function checkAnyModalOpen() {
-                const fixedModals = Array.from(document.querySelectorAll('.fixed.inset-0')).filter(el => {
-                    return el.offsetParent !== null && !el.classList.contains('hidden') && window.getComputedStyle(el).display !== 'none';
-                });
+                const fixedModals = Array.from(document.querySelectorAll('.fixed.inset-0')).filter(isModalVisible);
                 const isOpen = fixedModals.length > 0 || !!window.__whatIfOpen || !!window.__rivalsOpen;
                 window.__modalOpen = isOpen;
+                if (isOpen) {
+                    if (!document.body.classList.contains('overflow-hidden')) {
+                        document.body.classList.add('overflow-hidden');
+                    }
+                } else {
+                    if (document.body.classList.contains('overflow-hidden')) {
+                        document.body.classList.remove('overflow-hidden');
+                    }
+                }
                 return isOpen;
             }
 
@@ -686,9 +701,14 @@
                 });
             });
 
+            window.addEventListener('open-rivals', function() { setTimeout(checkAnyModalOpen, 10); });
+            window.addEventListener('open-whatif', function() { setTimeout(checkAnyModalOpen, 10); });
+
             // MutationObserver to keep window.__modalOpen in sync with DOM changes
             if (window.MutationObserver) {
-                const observer = new MutationObserver(function() {
+                const observer = new MutationObserver(function(mutations) {
+                    const onlyBodyClass = mutations.every(m => m.target === document.body && m.attributeName === 'class');
+                    if (onlyBodyClass) return;
                     checkAnyModalOpen();
                 });
                 observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
