@@ -659,7 +659,7 @@ func (r *Repository) ListGamesByWeek(weekID int64) ([]*Game, error) {
 	query := `
 	SELECT g.id, g.week_id, g.espn_game_id, g.home_team_id, g.away_team_id, g.kickoff_time,
 	       g.home_score, g.away_score, g.status, g.status_detail,
-	       COALESCE(g.broadcast, ''), COALESCE(g.situation, ''), COALESCE(g.linescores, ''),
+	       COALESCE(g.broadcast, ''), COALESCE(g.situation, ''), COALESCE(g.linescores, ''), COALESCE(g.stats_json, ''),
 	       g.is_tiebreaker, g.is_locked, g.created_at,
 	       ht.id, ht.code, ht.name, ht.city, ht.logo_url, ht.primary_color, ht.secondary_color, ht.conference, ht.division,
 	       at.id, at.code, at.name, at.city, at.logo_url, at.primary_color, at.secondary_color, at.conference, at.division
@@ -685,7 +685,7 @@ func (r *Repository) ListGamesByWeek(weekID int64) ([]*Game, error) {
 		if err := rows.Scan(
 			&g.ID, &g.WeekID, &g.ESPNGameID, &g.HomeTeamID, &g.AwayTeamID, &kickoffStr,
 			&g.HomeScore, &g.AwayScore, &g.Status, &g.StatusDetail,
-			&g.Broadcast, &g.Situation, &g.Linescores,
+			&g.Broadcast, &g.Situation, &g.Linescores, &g.StatsJSON,
 			&g.IsTiebreaker, &g.IsLocked, &g.CreatedAt,
 			&ht.ID, &ht.Code, &ht.Name, &ht.City, &ht.LogoURL, &ht.PrimaryColor, &ht.SecondaryColor, &ht.Conference, &ht.Division,
 			&at.ID, &at.Code, &at.Name, &at.City, &at.LogoURL, &at.PrimaryColor, &at.SecondaryColor, &at.Conference, &at.Division,
@@ -708,7 +708,7 @@ func (r *Repository) GetGameByID(id int64) (*Game, error) {
 	query := `
 	SELECT g.id, g.week_id, g.espn_game_id, g.home_team_id, g.away_team_id, g.kickoff_time,
 	       g.home_score, g.away_score, g.status, g.status_detail,
-	       COALESCE(g.broadcast, ''), COALESCE(g.situation, ''), COALESCE(g.linescores, ''),
+	       COALESCE(g.broadcast, ''), COALESCE(g.situation, ''), COALESCE(g.linescores, ''), COALESCE(g.stats_json, ''),
 	       g.is_tiebreaker, g.is_locked, g.created_at,
 	       ht.id, ht.code, ht.name, ht.city, ht.logo_url, ht.primary_color, ht.secondary_color, ht.conference, ht.division,
 	       at.id, at.code, at.name, at.city, at.logo_url, at.primary_color, at.secondary_color, at.conference, at.division
@@ -725,7 +725,7 @@ func (r *Repository) GetGameByID(id int64) (*Game, error) {
 	err := r.db.QueryRow(query, id).Scan(
 		&g.ID, &g.WeekID, &g.ESPNGameID, &g.HomeTeamID, &g.AwayTeamID, &kickoffStr,
 		&g.HomeScore, &g.AwayScore, &g.Status, &g.StatusDetail,
-		&g.Broadcast, &g.Situation, &g.Linescores,
+		&g.Broadcast, &g.Situation, &g.Linescores, &g.StatsJSON,
 		&g.IsTiebreaker, &g.IsLocked, &g.CreatedAt,
 		&ht.ID, &ht.Code, &ht.Name, &ht.City, &ht.LogoURL, &ht.PrimaryColor, &ht.SecondaryColor, &ht.Conference, &ht.Division,
 		&at.ID, &at.Code, &at.Name, &at.City, &at.LogoURL, &at.PrimaryColor, &at.SecondaryColor, &at.Conference, &at.Division,
@@ -752,9 +752,9 @@ func (r *Repository) UpsertGameByESPNID(g *Game) error {
 	if err == sql.ErrNoRows {
 		// Insert
 		query := `
-		INSERT INTO games (week_id, espn_game_id, home_team_id, away_team_id, kickoff_time, home_score, away_score, status, status_detail, broadcast, situation, linescores, is_tiebreaker, is_locked)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-		res, err := r.db.Exec(query, g.WeekID, g.ESPNGameID, g.HomeTeamID, g.AwayTeamID, g.KickoffTime.Format("2006-01-02 15:04:05"), g.HomeScore, g.AwayScore, g.Status, g.StatusDetail, g.Broadcast, g.Situation, g.Linescores, g.IsTiebreaker, g.IsLocked)
+		INSERT INTO games (week_id, espn_game_id, home_team_id, away_team_id, kickoff_time, home_score, away_score, status, status_detail, broadcast, situation, linescores, stats_json, is_tiebreaker, is_locked)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		res, err := r.db.Exec(query, g.WeekID, g.ESPNGameID, g.HomeTeamID, g.AwayTeamID, g.KickoffTime.Format("2006-01-02 15:04:05"), g.HomeScore, g.AwayScore, g.Status, g.StatusDetail, g.Broadcast, g.Situation, g.Linescores, g.StatsJSON, g.IsTiebreaker, g.IsLocked)
 		if err != nil {
 			return err
 		}
@@ -767,7 +767,7 @@ func (r *Repository) UpsertGameByESPNID(g *Game) error {
 		return err
 	}
 
-	// Update existing (preserve manual is_locked or is_tiebreaker if set)
+	// Update existing (preserve manual is_locked or is_tiebreaker if set, and only overwrite stats_json if new one is non-empty)
 	query := `
 	UPDATE games SET
 		week_id = ?,
@@ -780,12 +780,19 @@ func (r *Repository) UpsertGameByESPNID(g *Game) error {
 		status_detail = ?,
 		broadcast = ?,
 		situation = ?,
-		linescores = ?
+		linescores = ?,
+		stats_json = CASE WHEN ? != '' THEN ? ELSE stats_json END
 	WHERE id = ?`
-	_, err = r.db.Exec(query, g.WeekID, g.HomeTeamID, g.AwayTeamID, g.KickoffTime.Format("2006-01-02 15:04:05"), g.HomeScore, g.AwayScore, g.Status, g.StatusDetail, g.Broadcast, g.Situation, g.Linescores, existingID)
+	_, err = r.db.Exec(query, g.WeekID, g.HomeTeamID, g.AwayTeamID, g.KickoffTime.Format("2006-01-02 15:04:05"), g.HomeScore, g.AwayScore, g.Status, g.StatusDetail, g.Broadcast, g.Situation, g.Linescores, g.StatsJSON, g.StatsJSON, existingID)
 	if err == nil {
 		g.ID = existingID
 	}
+	return err
+}
+
+func (r *Repository) UpdateGameStatsJSON(gameID int64, statsJSON string) error {
+	query := `UPDATE games SET stats_json = ? WHERE id = ?`
+	_, err := r.db.Exec(query, statsJSON, gameID)
 	return err
 }
 

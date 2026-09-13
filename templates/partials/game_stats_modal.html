@@ -262,9 +262,13 @@
                         <div class="w-12 h-12 mx-auto rounded-full bg-zinc-900 flex items-center justify-center text-zinc-500">
                             <i class="fa-solid fa-chart-line text-lg"></i>
                         </div>
-                        <h4 class="text-sm font-bold text-white">Estadísticas por equipo no disponibles aún</h4>
+                        <h4 class="text-sm font-bold text-white">{{if eq .Game.Status "final"}}Estadísticas no registradas para este partido{{else}}Estadísticas no disponibles aún{{end}}</h4>
                         <p class="text-xs text-zinc-400 max-w-sm mx-auto">
-                            Las métricas detalladas se sincronizan en tiempo real una vez iniciado o concluido el encuentro.
+                            {{if eq .Game.Status "final"}}
+                                No se encontraron registros de métricas comparativas para este encuentro concluido.
+                            {{else}}
+                                Las métricas detalladas se sincronizan en tiempo real una vez iniciado el encuentro.
+                            {{end}}
                         </p>
                     </div>
                 {{end}}
@@ -402,9 +406,13 @@
                         <div class="w-12 h-12 mx-auto rounded-full bg-zinc-900 flex items-center justify-center text-zinc-500">
                             <i class="fa-solid fa-users text-lg"></i>
                         </div>
-                        <h4 class="text-sm font-bold text-white">Estadísticas de jugadores aún no publicadas</h4>
+                        <h4 class="text-sm font-bold text-white">{{if eq .Game.Status "final"}}Estadísticas de jugadores no registradas{{else}}Estadísticas de jugadores aún no publicadas{{end}}</h4>
                         <p class="text-xs text-zinc-400 max-w-sm mx-auto">
-                            Las tablas de pasadores, corredores, receptores y defensivos se actualizan automáticamente durante y tras el partido.
+                            {{if eq .Game.Status "final"}}
+                                No se dispone de boxscore individual oficial para este partido concluido.
+                            {{else}}
+                                Las tablas de pasadores, corredores, receptores y defensivos se actualizan automáticamente al iniciar las acciones.
+                            {{end}}
                         </p>
                     </div>
                 {{end}}

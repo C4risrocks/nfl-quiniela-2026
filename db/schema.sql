@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS games (
     broadcast TEXT DEFAULT '',                 -- e.g. 'ESPN', 'FOX', 'NBC'
     situation TEXT DEFAULT '',                 -- e.g. '3rd & 4 at KC 42'
     linescores TEXT DEFAULT '',                -- JSON matrix of quarters
+    stats_json TEXT DEFAULT '',                -- Detailed GameDetailedSummary JSON (boxscore, player stats, scoring, drives)
     is_tiebreaker BOOLEAN NOT NULL DEFAULT 0, -- 1 for designated tiebreaker game (e.g. Monday Night)
     is_locked BOOLEAN NOT NULL DEFAULT 0,     -- Manual override lock
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

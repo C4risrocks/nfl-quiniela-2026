@@ -97,6 +97,17 @@ type ESPNEventStatus struct {
 
 // ESPNSummaryResponse represents the JSON response from ESPN NFL game summary API
 type ESPNSummaryResponse struct {
+	Header struct {
+		Competitions []struct {
+			Competitors []struct {
+				HomeAway string `json:"homeAway"`
+				Team     struct {
+					ID           string `json:"id"`
+					Abbreviation string `json:"abbreviation"`
+				} `json:"team"`
+			} `json:"competitors"`
+		} `json:"competitions"`
+	} `json:"header"`
 	Boxscore struct {
 		Teams []struct {
 			Team struct {

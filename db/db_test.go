@@ -985,3 +985,60 @@ func TestHeadToHeadSeasonHistoryCalculation(t *testing.T) {
 		t.Errorf("Expected 3 week results, got %d", len(h2h.WeekResults))
 	}
 }
+
+func TestGameStatsJSONPersistence(t *testing.T) {
+	testDBPath := "test_stats_quiniela.db"
+	defer os.Remove(testDBPath)
+
+	database, err := InitDB("sqlite", testDBPath)
+	if err != nil {
+		t.Fatalf("Failed to init db: %v", err)
+	}
+	defer database.Close()
+
+	repo := NewRepository(database)
+	_ = SeedDatabase(repo, "admin", "admin@test.com", "pass", 2026)
+
+	season, _ := repo.GetActiveSeason(2026)
+	weeks, _ := repo.ListWeeks(season.ID)
+	kc, _ := repo.GetTeamByCode("KC")
+	bal, _ := repo.GetTeamByCode("BAL")
+
+	g, err := repo.CreateManualGame(&Game{
+		WeekID:       weeks[0].ID,
+		ESPNGameID:   "espn-stats-test",
+		HomeTeamID:   kc.ID,
+		AwayTeamID:   bal.ID,
+		KickoffTime:  time.Now(),
+		Status:       "final",
+		StatusDetail: "Final",
+	})
+	if err != nil || g == nil {
+		t.Fatalf("CreateManualGame failed: %v", err)
+	}
+
+	sampleStatsJSON := `{"has_stats":true,"away_stats":{"team_code":"BAL","total_yards":"380"},"home_stats":{"team_code":"KC","total_yards":"410"}}`
+	if err := repo.UpdateGameStatsJSON(g.ID, sampleStatsJSON); err != nil {
+		t.Fatalf("UpdateGameStatsJSON failed: %v", err)
+	}
+
+	loadedG, err := repo.GetGameByID(g.ID)
+	if err != nil {
+		t.Fatalf("GetGameByID failed: %v", err)
+	}
+	if loadedG.StatsJSON != sampleStatsJSON {
+		t.Errorf("StatsJSON mismatch: got %s", loadedG.StatsJSON)
+	}
+
+	summary := loadedG.DetailedSummary()
+	if summary == nil {
+		t.Fatalf("DetailedSummary returned nil")
+	}
+	if !summary.HasStats {
+		t.Errorf("Expected HasStats true")
+	}
+	if summary.AwayStats.TotalYards != "380" || summary.HomeStats.TotalYards != "410" {
+		t.Errorf("Unexpected summary yardage: Away=%s, Home=%s", summary.AwayStats.TotalYards, summary.HomeStats.TotalYards)
+	}
+}
+

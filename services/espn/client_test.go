@@ -213,4 +213,61 @@ func TestParseESPNDrive(t *testing.T) {
 	}
 }
 
+func TestGenerateRealisticSummary(t *testing.T) {
+	awayScore := 21
+	homeScore := 28
+	game := &db.Game{
+		ID:         42,
+		Status:     "final",
+		AwayScore:  &awayScore,
+		HomeScore:  &homeScore,
+		Linescores: `{"away":["7","7","0","7"],"home":["0","14","7","7"]}`,
+		AwayTeam: &db.Team{
+			Code:    "KC",
+			Name:    "Chiefs",
+			City:    "Kansas City",
+			LogoURL: "https://a.espncdn.com/i/teamlogos/nfl/500/kc.png",
+		},
+		HomeTeam: &db.Team{
+			Code:    "BAL",
+			Name:    "Ravens",
+			City:    "Baltimore",
+			LogoURL: "https://a.espncdn.com/i/teamlogos/nfl/500/bal.png",
+		},
+	}
+
+	summary := GenerateRealisticSummary(game)
+	if summary == nil {
+		t.Fatalf("Expected non-nil summary")
+	}
+	if !summary.HasStats {
+		t.Errorf("Expected HasStats to be true")
+	}
+	if summary.AwayStats == nil || summary.HomeStats == nil {
+		t.Fatalf("Expected non-nil team boxscore stats")
+	}
+	if summary.AwayStats.TeamCode != "KC" || summary.HomeStats.TeamCode != "BAL" {
+		t.Errorf("Unexpected team codes: Away=%s, Home=%s", summary.AwayStats.TeamCode, summary.HomeStats.TeamCode)
+	}
+	if summary.AwayStats.TotalYards == "" || summary.HomeStats.TotalYards == "" {
+		t.Errorf("Total yards must not be empty")
+	}
+	if !summary.HasPlayerStats {
+		t.Errorf("Expected HasPlayerStats to be true")
+	}
+	if summary.AwayPlayerStats == nil || len(summary.AwayPlayerStats.Categories) == 0 {
+		t.Errorf("Expected AwayPlayerStats to have categories")
+	}
+	if summary.HomePlayerStats == nil || len(summary.HomePlayerStats.Categories) == 0 {
+		t.Errorf("Expected HomePlayerStats to have categories")
+	}
+	if len(summary.ScoringPlays) == 0 {
+		t.Errorf("Expected scoring plays to be generated")
+	}
+	if !summary.HasDrives || len(summary.Drives) == 0 {
+		t.Errorf("Expected drives to be generated")
+	}
+}
+
+
 

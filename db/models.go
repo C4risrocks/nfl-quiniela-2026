@@ -134,6 +134,7 @@ type Game struct {
 	Broadcast     string    `json:"broadcast,omitempty"`
 	Situation     string    `json:"situation,omitempty"`
 	Linescores    string    `json:"linescores,omitempty"`
+	StatsJSON     string    `json:"stats_json,omitempty"`
 	IsTiebreaker  bool      `json:"is_tiebreaker"`
 	IsLocked      bool      `json:"is_locked"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -225,6 +226,18 @@ func (g *Game) IsHomePossession() bool {
 		return strings.EqualFold(sit.PossessionCode, g.HomeTeam.Code)
 	}
 	return false
+}
+
+// DetailedSummary deserializes the cached stats_json if available and valid
+func (g *Game) DetailedSummary() *GameDetailedSummary {
+	if g == nil || strings.TrimSpace(g.StatsJSON) == "" {
+		return nil
+	}
+	var s GameDetailedSummary
+	if err := json.Unmarshal([]byte(g.StatsJSON), &s); err != nil {
+		return nil
+	}
+	return &s
 }
 
 // TeamBoxscoreStats holds head-to-head match stats

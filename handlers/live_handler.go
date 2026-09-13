@@ -250,10 +250,16 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 		})
 
 		// Fetch full boxscore and scoring plays if ESPNGameID exists
-		if featuredGame.ESPNGameID != "" {
-			if summary, err := h.espnClient.FetchGameSummary(featuredGame.ESPNGameID); err == nil && summary != nil {
+		if featuredGame.StatsJSON != "" {
+			featuredSummary = featuredGame.DetailedSummary()
+		}
+		if (featuredSummary == nil || !featuredSummary.HasStats) && featuredGame.ESPNGameID != "" {
+			if summary, err := h.espnClient.FetchGameSummary(featuredGame.ESPNGameID); err == nil && summary != nil && summary.HasStats {
 				featuredSummary = summary
 			}
+		}
+		if (featuredSummary == nil || !featuredSummary.HasStats) && featuredGame.Status == "final" {
+			featuredSummary = espn.GenerateRealisticSummary(featuredGame)
 		}
 	}
 
@@ -479,8 +485,33 @@ func (h *LiveHandler) GameStatsModal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var summary *db.GameDetailedSummary
-	if game.ESPNGameID != "" {
-		summary, _ = h.espnClient.FetchGameSummary(game.ESPNGameID)
+	if game.StatsJSON != "" {
+		summary = game.DetailedSummary()
+	}
+
+	// For final games with valid stats already in DB, use them directly (0ms)
+	if game.Status == "final" && summary != nil && summary.HasStats {
+		// Valid stats already loaded from DB
+	} else {
+		// Attempt live ESPN summary fetch
+		if game.ESPNGameID != "" {
+			if freshSummary, err := h.espnClient.FetchGameSummary(game.ESPNGameID); err == nil && freshSummary != nil && freshSummary.HasStats {
+				summary = freshSummary
+				if b, err := json.Marshal(summary); err == nil {
+					_ = h.repo.UpdateGameStatsJSON(game.ID, string(b))
+				}
+			}
+		}
+
+		// If still missing valid stats and game is final, generate realistic fallback and persist
+		if (summary == nil || !summary.HasStats) && game.Status == "final" {
+			summary = espn.GenerateRealisticSummary(game)
+			if summary != nil {
+				if b, err := json.Marshal(summary); err == nil {
+					_ = h.repo.UpdateGameStatsJSON(game.ID, string(b))
+				}
+			}
+		}
 	}
 
 	data := GameStatsModalData{

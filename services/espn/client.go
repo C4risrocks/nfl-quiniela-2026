@@ -299,8 +299,24 @@ func (c *Client) FetchGameSummary(espnGameID string) (*db.GameDetailedSummary, e
 		})
 	}
 
+	// Extract away and home codes from header competitors if available
+	var awayCode, homeCode string
+	if len(espnResp.Header.Competitions) > 0 {
+		for _, comp := range espnResp.Header.Competitions[0].Competitors {
+			if strings.EqualFold(comp.HomeAway, "away") {
+				awayCode = NormalizeTeamCode(comp.Team.Abbreviation)
+			} else if strings.EqualFold(comp.HomeAway, "home") {
+				homeCode = NormalizeTeamCode(comp.Team.Abbreviation)
+			}
+		}
+	}
+
 	// Parse team boxscore stats
 	for idx, t := range espnResp.Boxscore.Teams {
+		if len(t.Statistics) == 0 {
+			continue
+		}
+
 		statsMap := make(map[string]string)
 		for _, s := range t.Statistics {
 			if s.Name != "" {
@@ -362,24 +378,31 @@ func (c *Client) FetchGameSummary(espnGameID string) (*db.GameDetailedSummary, e
 			tbStats.PossessionTime = statsMap["Possession Time"]
 		}
 
-		if idx == 0 {
+		tCode := NormalizeTeamCode(t.Team.Abbreviation)
+		if awayCode != "" && tCode == awayCode {
 			result.AwayStats = tbStats
-		} else if idx == 1 {
+		} else if homeCode != "" && tCode == homeCode {
+			result.HomeStats = tbStats
+		} else if idx == 0 && result.AwayStats == nil {
+			result.AwayStats = tbStats
+		} else if result.HomeStats == nil {
 			result.HomeStats = tbStats
 		}
 	}
 
-	result.HasStats = result.AwayStats != nil && result.HomeStats != nil
+	hasAwayStats := result.AwayStats != nil && (result.AwayStats.TotalYards != "" || result.AwayStats.FirstDowns != "")
+	hasHomeStats := result.HomeStats != nil && (result.HomeStats.TotalYards != "" || result.HomeStats.FirstDowns != "")
+	result.HasStats = hasAwayStats && hasHomeStats
 
 	// Parse individual player statistics (Passing, Rushing, Receiving, Defense)
 	if len(espnResp.Boxscore.Players) > 0 {
 		for _, pItem := range espnResp.Boxscore.Players {
 			tStats := parseTeamPlayerStats(pItem)
-			if tStats != nil {
+			if tStats != nil && len(tStats.Categories) > 0 {
 				code := NormalizeTeamCode(pItem.Team.Abbreviation)
-				if result.AwayStats != nil && code == result.AwayStats.TeamCode {
+				if (awayCode != "" && code == awayCode) || (result.AwayStats != nil && code == result.AwayStats.TeamCode) {
 					result.AwayPlayerStats = tStats
-				} else if result.HomeStats != nil && code == result.HomeStats.TeamCode {
+				} else if (homeCode != "" && code == homeCode) || (result.HomeStats != nil && code == result.HomeStats.TeamCode) {
 					result.HomePlayerStats = tStats
 				} else if result.AwayPlayerStats == nil {
 					result.AwayPlayerStats = tStats
@@ -388,7 +411,8 @@ func (c *Client) FetchGameSummary(espnGameID string) (*db.GameDetailedSummary, e
 				}
 			}
 		}
-		result.HasPlayerStats = result.AwayPlayerStats != nil || result.HomePlayerStats != nil
+		result.HasPlayerStats = (result.AwayPlayerStats != nil && len(result.AwayPlayerStats.Categories) > 0) ||
+			(result.HomePlayerStats != nil && len(result.HomePlayerStats.Categories) > 0)
 	}
 
 	// Parse offensive drives (Drive Chart & Play-by-Play)
@@ -404,10 +428,15 @@ func (c *Client) FetchGameSummary(espnGameID string) (*db.GameDetailedSummary, e
 	result.Drives = allDrives
 	result.HasDrives = len(allDrives) > 0
 
+	cacheDuration := 60 * time.Second
+	if result.HasStats && (result.HasPlayerStats || len(result.ScoringPlays) > 0) {
+		cacheDuration = 5 * time.Minute
+	}
+
 	summaryCacheMu.Lock()
 	summaryCache[espnGameID] = summaryCacheEntry{
 		data:      result,
-		expiresAt: time.Now().Add(20 * time.Second),
+		expiresAt: time.Now().Add(cacheDuration),
 	}
 	summaryCacheMu.Unlock()
 

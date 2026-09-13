@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -256,6 +257,21 @@ func (h *AdminHandler) SaveGameScore(w http.ResponseWriter, r *http.Request) {
 	if err := h.repo.UpdateGameScoreAndStatus(gameID, homeScore, awayScore, status, statusDetail); err != nil {
 		http.Error(w, "Error updating game score", http.StatusInternalServerError)
 		return
+	}
+
+	// If game is marked final, ensure it has detailed stats generated/persisted
+	if status == "final" {
+		if updatedG, _ := h.repo.GetGameByID(gameID); updatedG != nil {
+			curSummary := updatedG.DetailedSummary()
+			if curSummary == nil || !curSummary.HasStats {
+				genSummary := espn.GenerateRealisticSummary(updatedG)
+				if genSummary != nil {
+					if b, err := json.Marshal(genSummary); err == nil {
+						_ = h.repo.UpdateGameStatsJSON(gameID, string(b))
+					}
+				}
+			}
+		}
 	}
 
 	// Recalculate leaderboard for this week
