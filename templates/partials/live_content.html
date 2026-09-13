@@ -399,7 +399,7 @@
                                 class="flex-1 py-2 px-3 rounded-lg text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer whitespace-nowrap">
                             <i class="fa-solid fa-chart-simple text-[11px] text-cyan-400"></i>
                             <span>Estadísticas</span>
-                            {{if and $.FeaturedSummary $.FeaturedSummary.HasStats}}
+                            {{if and $.FeaturedSummary (or $.FeaturedSummary.HasStats (and $.FeaturedSummary.AwayStats $.FeaturedSummary.HomeStats))}}
                                 <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
                             {{end}}
                         </button>
@@ -451,7 +451,7 @@
 
                     <!-- TAB 1: Boxscore Team Stats Comparison -->
                     <div x-show="matchcastTab === 'stats'" class="space-y-3">
-                        {{if and $.FeaturedSummary $.FeaturedSummary.HasStats}}
+                        {{if and $.FeaturedSummary (or $.FeaturedSummary.HasStats (and $.FeaturedSummary.AwayStats $.FeaturedSummary.HomeStats))}}
                             {{$away := $.FeaturedSummary.AwayStats}}
                             {{$home := $.FeaturedSummary.HomeStats}}
                             <div class="overflow-x-auto">

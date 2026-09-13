@@ -213,7 +213,7 @@
 
             <!-- TAB 1: BOXSCORE TEAM COMPARISON -->
             <div x-show="activeTab === 'boxscore'" class="space-y-4">
-                {{if and .Summary .Summary.HasStats}}
+                {{if and .Summary (or .Summary.HasStats (and .Summary.AwayStats .Summary.HomeStats))}}
                     <div class="space-y-3">
                         <!-- Stat Comparison Header -->
                         <div class="grid grid-cols-7 items-center text-center font-mono text-xs pb-2 border-b border-zinc-800 text-zinc-400">

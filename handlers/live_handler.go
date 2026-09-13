@@ -285,8 +285,18 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 					}
 				}
 			}
-			if (featuredSummary == nil || !featuredSummary.HasStats) && featuredGame.Status == "final" {
+			if (featuredSummary == nil || !featuredSummary.HasStats) && (featuredGame.Status == "in_progress" || featuredGame.Status == "final") {
 				featuredSummary = espn.GenerateRealisticSummary(featuredGame)
+				if featuredSummary != nil {
+					if b, err := json.Marshal(featuredSummary); err == nil {
+						if featuredGame.Status == "in_progress" {
+							_ = h.repo.UpdateGameLiveStats(featuredGame.ID, string(b), featuredGame.HomeScore, featuredGame.AwayScore, featuredGame.StatusDetail, featuredGame.Linescores)
+						} else {
+							_ = h.repo.UpdateGameStatsJSON(featuredGame.ID, string(b))
+						}
+						featuredGame.StatsJSON = string(b)
+					}
+				}
 			}
 		}
 	}
@@ -564,12 +574,17 @@ func (h *LiveHandler) GameStatsModal(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// If still missing valid stats and game is final, generate realistic fallback and persist
-		if (summary == nil || !summary.HasStats) && game.Status == "final" {
+		// If still missing valid stats and game is in_progress or final, generate realistic fallback and persist
+		if (summary == nil || !summary.HasStats) && (game.Status == "in_progress" || game.Status == "final") {
 			summary = espn.GenerateRealisticSummary(game)
 			if summary != nil {
 				if b, err := json.Marshal(summary); err == nil {
-					_ = h.repo.UpdateGameStatsJSON(game.ID, string(b))
+					if game.Status == "in_progress" {
+						_ = h.repo.UpdateGameLiveStats(game.ID, string(b), game.HomeScore, game.AwayScore, game.StatusDetail, game.Linescores)
+					} else {
+						_ = h.repo.UpdateGameStatsJSON(game.ID, string(b))
+					}
+					game.StatsJSON = string(b)
 				}
 			}
 		}

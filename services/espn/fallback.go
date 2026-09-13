@@ -152,8 +152,8 @@ func GenerateRealisticSummary(game *db.Game) *db.GameDetailedSummary {
 	awayScore := game.AwayScoreVal()
 	homeScore := game.HomeScoreVal()
 
-	// Deterministic pseudo-random seed based on game ID
-	seed := int64(game.ID*1000 + 42)
+	// Deterministic pseudo-random seed based on game ID and score
+	seed := int64(game.ID*1000 + int64(awayScore*100+homeScore) + 42)
 	rnd := rand.New(rand.NewSource(seed))
 
 	// Team stats calculation

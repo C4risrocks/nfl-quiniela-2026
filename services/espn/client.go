@@ -395,36 +395,35 @@ func (c *Client) FetchGameSummary(espnGameID string) (*db.GameDetailedSummary, e
 			PossessionTime:  statsMap["possessionTime"],
 		}
 
-		// Fallback for label names
 		if tbStats.FirstDowns == "" {
-			tbStats.FirstDowns = statsMap["1st Downs"]
+			tbStats.FirstDowns = "0"
 		}
 		if tbStats.ThirdDownEff == "" {
-			tbStats.ThirdDownEff = statsMap["3rd down efficiency"]
+			tbStats.ThirdDownEff = "0-0"
 		}
 		if tbStats.FourthDownEff == "" {
-			tbStats.FourthDownEff = statsMap["4th down efficiency"]
+			tbStats.FourthDownEff = "0-0"
 		}
 		if tbStats.TotalYards == "" {
-			tbStats.TotalYards = statsMap["Total Yards"]
+			tbStats.TotalYards = "0"
 		}
 		if tbStats.PassingYards == "" {
-			tbStats.PassingYards = statsMap["Passing"]
+			tbStats.PassingYards = "0"
 		}
 		if tbStats.CompAtt == "" {
-			tbStats.CompAtt = statsMap["Comp/Att"]
+			tbStats.CompAtt = "0/0"
 		}
 		if tbStats.RushingYards == "" {
-			tbStats.RushingYards = statsMap["Rushing"]
+			tbStats.RushingYards = "0"
 		}
 		if tbStats.Turnovers == "" {
-			tbStats.Turnovers = statsMap["Turnovers"]
+			tbStats.Turnovers = "0"
 		}
 		if tbStats.Penalties == "" {
-			tbStats.Penalties = statsMap["Penalties"]
+			tbStats.Penalties = "0-0"
 		}
 		if tbStats.PossessionTime == "" {
-			tbStats.PossessionTime = statsMap["Possession Time"]
+			tbStats.PossessionTime = "00:00"
 		}
 
 		tCode := NormalizeTeamCode(t.Team.Abbreviation)
@@ -439,8 +438,8 @@ func (c *Client) FetchGameSummary(espnGameID string) (*db.GameDetailedSummary, e
 		}
 	}
 
-	hasAwayStats := result.AwayStats != nil && (result.AwayStats.TotalYards != "" || result.AwayStats.FirstDowns != "")
-	hasHomeStats := result.HomeStats != nil && (result.HomeStats.TotalYards != "" || result.HomeStats.FirstDowns != "")
+	hasAwayStats := result.AwayStats != nil
+	hasHomeStats := result.HomeStats != nil
 	result.HasStats = hasAwayStats && hasHomeStats
 
 	// Parse individual player statistics (Passing, Rushing, Receiving, Defense)

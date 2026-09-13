@@ -277,8 +277,8 @@ func (s *Syncer) SyncWeek(weekNum int) (count int, err error) {
 			summary, _ = s.client.FetchGameSummary(g.ESPNGameID)
 		}
 
-		// If ESPN summary has no stats and game is final, use realistic fallback
-		if (summary == nil || !summary.HasStats) && g.Status == "final" {
+		// If ESPN summary has no stats, use realistic fallback
+		if (summary == nil || !summary.HasStats) && (g.Status == "in_progress" || g.Status == "final") {
 			summary = GenerateRealisticSummary(g)
 		}
 
