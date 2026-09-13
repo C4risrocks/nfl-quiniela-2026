@@ -251,7 +251,7 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 
 		// Fetch full boxscore, player stats and scoring plays if ESPNGameID exists
 		if featuredGame.Status == "in_progress" && featuredGame.ESPNGameID != "" {
-			if summary, err := h.espnClient.FetchGameSummary(featuredGame.ESPNGameID); err == nil && summary != nil && (summary.HasStats || summary.HasPlayerStats || len(summary.ScoringPlays) > 0) {
+			if summary, err := h.espnClient.FetchGameSummary(featuredGame.ESPNGameID); err == nil && summary != nil && (summary.HasStats || summary.HasPlayerStats || len(summary.ScoringPlays) > 0 || summary.HasDrives || summary.StatusDetail != "" || summary.AwayScore != nil) {
 				featuredSummary = summary
 				if b, err := json.Marshal(summary); err == nil {
 					_ = h.repo.UpdateGameLiveStats(featuredGame.ID, string(b), summary.HomeScore, summary.AwayScore, summary.StatusDetail, summary.Linescores)
@@ -277,8 +277,12 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 				featuredSummary = featuredGame.DetailedSummary()
 			}
 			if (featuredSummary == nil || !featuredSummary.HasStats) && featuredGame.ESPNGameID != "" {
-				if summary, err := h.espnClient.FetchGameSummary(featuredGame.ESPNGameID); err == nil && summary != nil && summary.HasStats {
+				if summary, err := h.espnClient.FetchGameSummary(featuredGame.ESPNGameID); err == nil && summary != nil && (summary.HasStats || summary.HasPlayerStats || len(summary.ScoringPlays) > 0 || summary.HasDrives) {
 					featuredSummary = summary
+					if b, err := json.Marshal(summary); err == nil {
+						_ = h.repo.UpdateGameStatsJSON(featuredGame.ID, string(b))
+						featuredGame.StatsJSON = string(b)
+					}
 				}
 			}
 			if (featuredSummary == nil || !featuredSummary.HasStats) && featuredGame.Status == "final" {
@@ -535,10 +539,14 @@ func (h *LiveHandler) GameStatsModal(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Attempt live ESPN summary fetch
 		if game.ESPNGameID != "" {
-			if freshSummary, err := h.espnClient.FetchGameSummary(game.ESPNGameID); err == nil && freshSummary != nil && (freshSummary.HasStats || freshSummary.HasPlayerStats || len(freshSummary.ScoringPlays) > 0) {
+			if freshSummary, err := h.espnClient.FetchGameSummary(game.ESPNGameID); err == nil && freshSummary != nil && (freshSummary.HasStats || freshSummary.HasPlayerStats || len(freshSummary.ScoringPlays) > 0 || freshSummary.HasDrives || freshSummary.StatusDetail != "" || freshSummary.AwayScore != nil) {
 				summary = freshSummary
 				if b, err := json.Marshal(summary); err == nil {
-					_ = h.repo.UpdateGameLiveStats(game.ID, string(b), summary.HomeScore, summary.AwayScore, summary.StatusDetail, summary.Linescores)
+					if game.Status == "in_progress" {
+						_ = h.repo.UpdateGameLiveStats(game.ID, string(b), summary.HomeScore, summary.AwayScore, summary.StatusDetail, summary.Linescores)
+					} else {
+						_ = h.repo.UpdateGameStatsJSON(game.ID, string(b))
+					}
 					game.StatsJSON = string(b)
 				}
 				if summary.AwayScore != nil {

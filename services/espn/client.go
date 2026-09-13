@@ -483,7 +483,7 @@ func (c *Client) FetchGameSummary(espnGameID string) (*db.GameDetailedSummary, e
 
 	cacheDuration := 60 * time.Second
 	if isLive {
-		cacheDuration = 15 * time.Second
+		cacheDuration = 8 * time.Second
 	} else if isFinal && result.HasStats {
 		cacheDuration = 10 * time.Minute
 	} else if result.HasStats && (result.HasPlayerStats || len(result.ScoringPlays) > 0) {

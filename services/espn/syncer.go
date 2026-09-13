@@ -282,7 +282,7 @@ func (s *Syncer) SyncWeek(weekNum int) (count int, err error) {
 			summary = GenerateRealisticSummary(g)
 		}
 
-		if summary != nil && (summary.HasStats || summary.HasPlayerStats || len(summary.ScoringPlays) > 0) {
+		if summary != nil && (summary.HasStats || summary.HasPlayerStats || len(summary.ScoringPlays) > 0 || summary.HasDrives || summary.StatusDetail != "" || summary.AwayScore != nil) {
 			if b, err := json.Marshal(summary); err == nil {
 				g.StatsJSON = string(b)
 				if g.Status == "in_progress" {
