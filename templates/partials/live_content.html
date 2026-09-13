@@ -1570,10 +1570,13 @@
                                     hx-get="/games/{{$g.ID}}/stats"
                                     hx-target="#game-stats-modal-container"
                                     hx-swap="innerHTML"
-                                    title="Estadísticas y resumen del partido"
-                                    class="py-1.5 px-2.5 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800/80 hover:border-zinc-600 text-[11px] font-semibold text-zinc-300 hover:text-white transition-all cursor-pointer flex items-center space-x-1.5 shrink-0">
-                                <i class="fa-solid fa-chart-column text-cyan-400 text-xs"></i>
+                                    title="Estadísticas en vivo, jugadores y jugadas"
+                                    class="py-1.5 px-2.5 rounded-xl border text-[11px] font-semibold transition-all cursor-pointer flex items-center space-x-1.5 shrink-0 {{if eq $g.Status "in_progress"}}bg-red-500/10 text-red-300 border-red-500/30 hover:bg-red-500/20{{else}}bg-zinc-900/80 hover:bg-zinc-800 border-zinc-800/80 hover:border-zinc-600 text-zinc-300 hover:text-white{{end}}">
+                                <i class="fa-solid fa-chart-column {{if eq $g.Status "in_progress"}}text-red-400{{else}}text-cyan-400{{end}} text-xs"></i>
                                 <span class="hidden sm:inline">Estadísticas</span>
+                                {{if eq $g.Status "in_progress"}}
+                                    <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
+                                {{end}}
                             </button>
 
                             <!-- Toggle Rivals Drawer Button -->

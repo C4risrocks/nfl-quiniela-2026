@@ -1040,5 +1040,30 @@ func TestGameStatsJSONPersistence(t *testing.T) {
 	if summary.AwayStats.TotalYards != "380" || summary.HomeStats.TotalYards != "410" {
 		t.Errorf("Unexpected summary yardage: Away=%s, Home=%s", summary.AwayStats.TotalYards, summary.HomeStats.TotalYards)
 	}
+
+	// Test UpdateGameLiveStats
+	homeScore := 21
+	awayScore := 17
+	liveStatsJSON := `{"has_stats":true,"away_stats":{"team_code":"BAL","total_yards":"400"},"home_stats":{"team_code":"KC","total_yards":"430"}}`
+	if err := repo.UpdateGameLiveStats(g.ID, liveStatsJSON, &homeScore, &awayScore, "5:32 - 4th", `{"away":["7","3","0","7"],"home":["7","7","7","0"]}`); err != nil {
+		t.Fatalf("UpdateGameLiveStats failed: %v", err)
+	}
+
+	updatedG, err := repo.GetGameByID(g.ID)
+	if err != nil {
+		t.Fatalf("GetGameByID after live update failed: %v", err)
+	}
+	if updatedG.HomeScore == nil || *updatedG.HomeScore != 21 {
+		t.Errorf("Expected HomeScore 21, got %v", updatedG.HomeScore)
+	}
+	if updatedG.AwayScore == nil || *updatedG.AwayScore != 17 {
+		t.Errorf("Expected AwayScore 17, got %v", updatedG.AwayScore)
+	}
+	if updatedG.StatusDetail != "5:32 - 4th" {
+		t.Errorf("Expected StatusDetail '5:32 - 4th', got %s", updatedG.StatusDetail)
+	}
+	if updatedG.StatsJSON != liveStatsJSON {
+		t.Errorf("Expected live stats JSON updated")
+	}
 }
 

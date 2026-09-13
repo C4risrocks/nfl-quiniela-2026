@@ -299,14 +299,63 @@ func (c *Client) FetchGameSummary(espnGameID string) (*db.GameDetailedSummary, e
 		})
 	}
 
-	// Extract away and home codes from header competitors if available
+	// Extract away and home codes, scores, linescores, and status detail from header competitors if available
 	var awayCode, homeCode string
+	var awayScore, homeScore *int
+	var statusDetail string
+	var linescoresJSON string
+	isLive := false
+	isFinal := false
+
 	if len(espnResp.Header.Competitions) > 0 {
-		for _, comp := range espnResp.Header.Competitions[0].Competitors {
-			if strings.EqualFold(comp.HomeAway, "away") {
-				awayCode = NormalizeTeamCode(comp.Team.Abbreviation)
-			} else if strings.EqualFold(comp.HomeAway, "home") {
-				homeCode = NormalizeTeamCode(comp.Team.Abbreviation)
+		comp := espnResp.Header.Competitions[0]
+		state := strings.ToLower(comp.Status.Type.State)
+		if comp.Status.Type.Completed || state == "post" {
+			isFinal = true
+		} else if state == "in" {
+			isLive = true
+		}
+		statusDetail = comp.Status.Type.Detail
+
+		var awayLS, homeLS []ESPNLinescore
+		for _, c := range comp.Competitors {
+			if strings.EqualFold(c.HomeAway, "away") {
+				awayCode = NormalizeTeamCode(c.Team.Abbreviation)
+				if c.Score != "" {
+					if s, err := strconv.Atoi(c.Score); err == nil {
+						val := s
+						awayScore = &val
+					}
+				}
+				awayLS = c.Linescores
+			} else if strings.EqualFold(c.HomeAway, "home") {
+				homeCode = NormalizeTeamCode(c.Team.Abbreviation)
+				if c.Score != "" {
+					if s, err := strconv.Atoi(c.Score); err == nil {
+						val := s
+						homeScore = &val
+					}
+				}
+				homeLS = c.Linescores
+			}
+		}
+
+		if len(awayLS) > 0 || len(homeLS) > 0 {
+			matrix := struct {
+				Away []string `json:"away"`
+				Home []string `json:"home"`
+			}{
+				Away: make([]string, len(awayLS)),
+				Home: make([]string, len(homeLS)),
+			}
+			for i, ls := range awayLS {
+				matrix.Away[i] = ls.FormattedValue()
+			}
+			for i, ls := range homeLS {
+				matrix.Home[i] = ls.FormattedValue()
+			}
+			if b, err := json.Marshal(matrix); err == nil {
+				linescoresJSON = string(b)
 			}
 		}
 	}
@@ -427,10 +476,18 @@ func (c *Client) FetchGameSummary(espnGameID string) (*db.GameDetailedSummary, e
 	}
 	result.Drives = allDrives
 	result.HasDrives = len(allDrives) > 0
+	result.StatusDetail = statusDetail
+	result.AwayScore = awayScore
+	result.HomeScore = homeScore
+	result.Linescores = linescoresJSON
 
 	cacheDuration := 60 * time.Second
-	if result.HasStats && (result.HasPlayerStats || len(result.ScoringPlays) > 0) {
-		cacheDuration = 5 * time.Minute
+	if isLive {
+		cacheDuration = 15 * time.Second
+	} else if isFinal && result.HasStats {
+		cacheDuration = 10 * time.Minute
+	} else if result.HasStats && (result.HasPlayerStats || len(result.ScoringPlays) > 0) {
+		cacheDuration = 2 * time.Minute
 	}
 
 	summaryCacheMu.Lock()

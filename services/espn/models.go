@@ -1,5 +1,7 @@
 package espn
 
+import "fmt"
+
 // ESPNScoreboardResponse represents the JSON response from ESPN NFL scoreboard API
 type ESPNScoreboardResponse struct {
 	Leagues []struct {
@@ -59,7 +61,15 @@ type ESPNCompetition struct {
 }
 
 type ESPNLinescore struct {
-	Value float64 `json:"value"`
+	Value        float64 `json:"value"`
+	DisplayValue string  `json:"displayValue"`
+}
+
+func (l ESPNLinescore) FormattedValue() string {
+	if l.DisplayValue != "" {
+		return l.DisplayValue
+	}
+	return fmt.Sprintf("%.0f", l.Value)
 }
 
 type ESPNCompetitor struct {
@@ -99,12 +109,15 @@ type ESPNEventStatus struct {
 type ESPNSummaryResponse struct {
 	Header struct {
 		Competitions []struct {
+			Status      ESPNEventStatus `json:"status"`
 			Competitors []struct {
-				HomeAway string `json:"homeAway"`
-				Team     struct {
+				HomeAway   string          `json:"homeAway"`
+				Score      string          `json:"score"`
+				Team       struct {
 					ID           string `json:"id"`
 					Abbreviation string `json:"abbreviation"`
 				} `json:"team"`
+				Linescores []ESPNLinescore `json:"linescores"`
 			} `json:"competitors"`
 		} `json:"competitions"`
 	} `json:"header"`

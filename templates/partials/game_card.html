@@ -397,10 +397,13 @@
                     hx-get="/games/{{.Game.ID}}/stats"
                     hx-target="#game-stats-modal-container"
                     hx-swap="innerHTML"
-                    title="Ver estadísticas y resumen del partido"
-                    class="inline-flex items-center space-x-1.5 text-[11px] font-semibold text-zinc-400 hover:text-white py-1 px-2.5 rounded-lg bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800/80 hover:border-zinc-700 transition-all cursor-pointer">
-                <i class="fa-solid fa-chart-column text-cyan-400 text-xs"></i>
+                    title="Ver estadísticas en vivo, jugadores y jugadas"
+                    class="inline-flex items-center space-x-1.5 text-[11px] font-semibold py-1 px-2.5 rounded-lg transition-all cursor-pointer {{if eq .Game.Status "in_progress"}}bg-red-500/10 text-red-300 border border-red-500/30 hover:bg-red-500/20{{else}}text-zinc-400 hover:text-white bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800/80 hover:border-zinc-700{{end}}">
+                <i class="fa-solid fa-chart-column {{if eq .Game.Status "in_progress"}}text-red-400{{else}}text-cyan-400{{end}} text-xs"></i>
                 <span>Estadísticas</span>
+                {{if eq .Game.Status "in_progress"}}
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
+                {{end}}
             </button>
 
             <!-- Toggle Community Drawer Button -->

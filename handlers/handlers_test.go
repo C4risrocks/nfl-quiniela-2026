@@ -1214,4 +1214,75 @@ func TestGameCardCommunityButtonHasButtonType(t *testing.T) {
 	}
 }
 
+func TestGameStatsModalLivePolling(t *testing.T) {
+	repo, _, renderer, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	liveHandler := NewLiveHandler(repo, renderer, 2026)
+	user, _ := repo.CreateUser("stats_user", "stats@test.com", "pass", "player")
+
+	games, err := repo.ListGamesByWeek(1)
+	if err != nil || len(games) == 0 {
+		t.Fatalf("Failed to list games: %v", err)
+	}
+	g := games[0]
+
+	homeScore := 10
+	awayScore := 7
+	newG, err := repo.CreateManualGame(&db.Game{
+		WeekID:       1,
+		ESPNGameID:   "",
+		HomeTeamID:   g.HomeTeamID,
+		AwayTeamID:   g.AwayTeamID,
+		KickoffTime:  time.Now(),
+		HomeScore:    &homeScore,
+		AwayScore:    &awayScore,
+		Status:       "in_progress",
+		StatusDetail: "9:45 - 2nd",
+	})
+	if err != nil || newG == nil {
+		t.Fatalf("CreateManualGame failed: %v", err)
+	}
+
+	statsJSON := `{"has_stats":true,"has_player_stats":true,"away_stats":{"team_code":"BAL","total_yards":"210"},"home_stats":{"team_code":"KC","total_yards":"195"},"away_player_stats":{"team_code":"BAL","categories":[{"name":"passing","title":"Pase","labels":["C/ATT","YDS","TD","INT","QBR"],"players":[{"name":"L. Jackson","jersey":"8","position":"QB","headshot_url":"","stats":["14/19","180","1","0","88.5"]}]}]}}`
+	_ = repo.UpdateGameLiveStats(newG.ID, statsJSON, &homeScore, &awayScore, "9:45 - 2nd", `{"away":["7","0"],"home":["3","7"]}`)
+
+	// Request modal with ?tab=players&team=away&cat=passing
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("gameId", strconvFormat(newG.ID))
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/games/%d/stats?tab=players&team=away&cat=passing", newG.ID), nil)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	req = req.WithContext(injectUser(req.Context(), user))
+	rr := httptest.NewRecorder()
+
+	liveHandler.GameStatsModal(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from GameStatsModal, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	body := rr.Body.String()
+
+	// Verify live polling trigger and attributes
+	if !strings.Contains(body, "hx-trigger=\"every 15s\"") {
+		t.Errorf("Expected modal to contain 'hx-trigger=\"every 15s\"'")
+	}
+	if !strings.Contains(body, "id=\"game-stats-modal-wrapper\"") {
+		t.Errorf("Expected modal to contain wrapper id")
+	}
+	if !strings.Contains(body, "data-tab=\"players\"") {
+		t.Errorf("Expected modal data-tab to be 'players'")
+	}
+	if !strings.Contains(body, "En vivo cada 15s") {
+		t.Errorf("Expected modal to contain 'En vivo cada 15s' indicator")
+	}
+	if !strings.Contains(body, "Actualizar estadísticas en vivo ahora") {
+		t.Errorf("Expected modal to contain manual refresh button")
+	}
+	if !strings.Contains(body, "L. Jackson") {
+		t.Errorf("Expected modal to contain player name 'L. Jackson'")
+	}
+}
+
 

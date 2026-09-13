@@ -249,17 +249,41 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 			return featuredPicks[i].User.Username < featuredPicks[j].User.Username
 		})
 
-		// Fetch full boxscore and scoring plays if ESPNGameID exists
-		if featuredGame.StatsJSON != "" {
-			featuredSummary = featuredGame.DetailedSummary()
-		}
-		if (featuredSummary == nil || !featuredSummary.HasStats) && featuredGame.ESPNGameID != "" {
-			if summary, err := h.espnClient.FetchGameSummary(featuredGame.ESPNGameID); err == nil && summary != nil && summary.HasStats {
+		// Fetch full boxscore, player stats and scoring plays if ESPNGameID exists
+		if featuredGame.Status == "in_progress" && featuredGame.ESPNGameID != "" {
+			if summary, err := h.espnClient.FetchGameSummary(featuredGame.ESPNGameID); err == nil && summary != nil && (summary.HasStats || summary.HasPlayerStats || len(summary.ScoringPlays) > 0) {
 				featuredSummary = summary
+				if b, err := json.Marshal(summary); err == nil {
+					_ = h.repo.UpdateGameLiveStats(featuredGame.ID, string(b), summary.HomeScore, summary.AwayScore, summary.StatusDetail, summary.Linescores)
+					featuredGame.StatsJSON = string(b)
+				}
+				if summary.AwayScore != nil {
+					featuredGame.AwayScore = summary.AwayScore
+				}
+				if summary.HomeScore != nil {
+					featuredGame.HomeScore = summary.HomeScore
+				}
+				if summary.StatusDetail != "" {
+					featuredGame.StatusDetail = summary.StatusDetail
+				}
+				if summary.Linescores != "" {
+					featuredGame.Linescores = summary.Linescores
+				}
 			}
 		}
-		if (featuredSummary == nil || !featuredSummary.HasStats) && featuredGame.Status == "final" {
-			featuredSummary = espn.GenerateRealisticSummary(featuredGame)
+
+		if featuredSummary == nil {
+			if featuredGame.StatsJSON != "" {
+				featuredSummary = featuredGame.DetailedSummary()
+			}
+			if (featuredSummary == nil || !featuredSummary.HasStats) && featuredGame.ESPNGameID != "" {
+				if summary, err := h.espnClient.FetchGameSummary(featuredGame.ESPNGameID); err == nil && summary != nil && summary.HasStats {
+					featuredSummary = summary
+				}
+			}
+			if (featuredSummary == nil || !featuredSummary.HasStats) && featuredGame.Status == "final" {
+				featuredSummary = espn.GenerateRealisticSummary(featuredGame)
+			}
 		}
 	}
 
@@ -464,9 +488,12 @@ func (h *LiveHandler) LiveContent(w http.ResponseWriter, r *http.Request) {
 }
 
 type GameStatsModalData struct {
-	Game    *db.Game
-	Summary *db.GameDetailedSummary
-	User    *db.User
+	Game       *db.Game
+	Summary    *db.GameDetailedSummary
+	User       *db.User
+	ActiveTab  string
+	PlayerTeam string
+	PlayerCat  string
 }
 
 func (h *LiveHandler) GameStatsModal(w http.ResponseWriter, r *http.Request) {
@@ -484,6 +511,19 @@ func (h *LiveHandler) GameStatsModal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	activeTab := r.URL.Query().Get("tab")
+	if activeTab == "" {
+		activeTab = "boxscore"
+	}
+	playerTeam := r.URL.Query().Get("team")
+	if playerTeam == "" {
+		playerTeam = "away"
+	}
+	playerCat := r.URL.Query().Get("cat")
+	if playerCat == "" {
+		playerCat = "passing"
+	}
+
 	var summary *db.GameDetailedSummary
 	if game.StatsJSON != "" {
 		summary = game.DetailedSummary()
@@ -495,10 +535,23 @@ func (h *LiveHandler) GameStatsModal(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Attempt live ESPN summary fetch
 		if game.ESPNGameID != "" {
-			if freshSummary, err := h.espnClient.FetchGameSummary(game.ESPNGameID); err == nil && freshSummary != nil && freshSummary.HasStats {
+			if freshSummary, err := h.espnClient.FetchGameSummary(game.ESPNGameID); err == nil && freshSummary != nil && (freshSummary.HasStats || freshSummary.HasPlayerStats || len(freshSummary.ScoringPlays) > 0) {
 				summary = freshSummary
 				if b, err := json.Marshal(summary); err == nil {
-					_ = h.repo.UpdateGameStatsJSON(game.ID, string(b))
+					_ = h.repo.UpdateGameLiveStats(game.ID, string(b), summary.HomeScore, summary.AwayScore, summary.StatusDetail, summary.Linescores)
+					game.StatsJSON = string(b)
+				}
+				if summary.AwayScore != nil {
+					game.AwayScore = summary.AwayScore
+				}
+				if summary.HomeScore != nil {
+					game.HomeScore = summary.HomeScore
+				}
+				if summary.StatusDetail != "" {
+					game.StatusDetail = summary.StatusDetail
+				}
+				if summary.Linescores != "" {
+					game.Linescores = summary.Linescores
 				}
 			}
 		}
@@ -515,9 +568,12 @@ func (h *LiveHandler) GameStatsModal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := GameStatsModalData{
-		Game:    game,
-		Summary: summary,
-		User:    currentUser,
+		Game:       game,
+		Summary:    summary,
+		User:       currentUser,
+		ActiveTab:  activeTab,
+		PlayerTeam: playerTeam,
+		PlayerCat:  playerCat,
 	}
 
 	h.renderer.RenderPartial(w, "game_stats_modal.html", data)

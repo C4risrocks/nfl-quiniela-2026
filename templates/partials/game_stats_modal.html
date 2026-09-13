@@ -1,11 +1,22 @@
 <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
+     id="game-stats-modal-wrapper"
      data-close-modal="backdrop"
+     data-tab="{{if .ActiveTab}}{{.ActiveTab}}{{else}}boxscore{{end}}"
+     data-team="{{if .PlayerTeam}}{{.PlayerTeam}}{{else}}away{{end}}"
+     data-cat="{{if .PlayerCat}}{{.PlayerCat}}{{else}}passing{{end}}"
      @click.self="document.getElementById('game-stats-modal-container').innerHTML = ''; try { cleanupModalState(); } catch(e){ document.body.classList.remove('overflow-hidden'); }"
      @keydown.escape.window="document.getElementById('game-stats-modal-container').innerHTML = ''; try { cleanupModalState(); } catch(e){ document.body.classList.remove('overflow-hidden'); }"
+     {{if eq .Game.Status "in_progress"}}
+     hx-get="/games/{{.Game.ID}}/stats"
+     hx-trigger="every 15s"
+     hx-target="#game-stats-modal-container"
+     hx-swap="innerHTML"
+     hx-vals='js:{ tab: document.getElementById("game-stats-modal-wrapper")?.dataset?.tab || "boxscore", team: document.getElementById("game-stats-modal-wrapper")?.dataset?.team || "away", cat: document.getElementById("game-stats-modal-wrapper")?.dataset?.cat || "passing" }'
+     {{end}}
      x-data="{ 
-        activeTab: 'boxscore',
-        playerTeam: '{{if .Summary}}{{if .Summary.AwayPlayerStats}}away{{else if .Summary.HomePlayerStats}}home{{else}}away{{end}}{{else}}away{{end}}',
-        playerCat: 'passing',
+        activeTab: '{{if .ActiveTab}}{{.ActiveTab}}{{else}}boxscore{{end}}',
+        playerTeam: '{{if .PlayerTeam}}{{.PlayerTeam}}{{else if .Summary}}{{if .Summary.AwayPlayerStats}}away{{else if .Summary.HomePlayerStats}}home{{else}}away{{end}}{{else}}away{{end}}',
+        playerCat: '{{if .PlayerCat}}{{.PlayerCat}}{{else}}passing{{end}}',
         expandedDrive: null
      }"
      x-init="try { document.body.classList.add('overflow-hidden'); } catch(e) {}">
@@ -16,7 +27,7 @@
         <!-- 1. Header (Fixed, shrink-0) -->
         <div class="shrink-0 p-3 sm:p-5 border-b border-zinc-800/80 bg-zinc-900/60 flex flex-col space-y-2.5 sm:space-y-3">
             <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2 flex-wrap gap-y-1">
                     <span class="w-2.5 h-2.5 rounded-full {{if eq .Game.Status "in_progress"}}bg-red-500 animate-pulse{{else if eq .Game.Status "final"}}bg-zinc-500{{else}}bg-cyan-500{{end}}"></span>
                     <span class="text-xs font-mono font-bold uppercase tracking-wider text-zinc-300">
                         {{if eq .Game.Status "in_progress"}}
@@ -27,6 +38,13 @@
                             PROGRAMADO &bull; {{.Game.FormattedKickoff}}
                         {{end}}
                     </span>
+                    {{if eq .Game.Status "in_progress"}}
+                        <span class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/30 text-[10px] font-mono font-bold">
+                            <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
+                            <span class="hidden sm:inline">En vivo cada 15s</span>
+                            <span class="sm:hidden">15s</span>
+                        </span>
+                    {{end}}
                     {{if .Game.IsTiebreaker}}
                         <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
                             Desempate
@@ -34,13 +52,26 @@
                     {{end}}
                 </div>
                 
-                <button type="button"
-                        onclick="document.getElementById('game-stats-modal-container').innerHTML = ''; try { cleanupModalState(); } catch(e){ document.body.classList.remove('overflow-hidden'); }"
-                        data-close-modal="true"
-                        class="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                        title="Cerrar modal">
-                    <i class="fa-solid fa-xmark text-sm"></i>
-                </button>
+                <div class="flex items-center space-x-1.5">
+                    {{if eq .Game.Status "in_progress"}}
+                        <button type="button"
+                                hx-get="/games/{{.Game.ID}}/stats"
+                                hx-target="#game-stats-modal-container"
+                                hx-swap="innerHTML"
+                                hx-vals='js:{ tab: document.getElementById("game-stats-modal-wrapper")?.dataset?.tab || "boxscore", team: document.getElementById("game-stats-modal-wrapper")?.dataset?.team || "away", cat: document.getElementById("game-stats-modal-wrapper")?.dataset?.cat || "passing" }'
+                                class="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-cyan-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                                title="Actualizar estadísticas en vivo ahora">
+                            <i class="fa-solid fa-arrows-rotate text-xs"></i>
+                        </button>
+                    {{end}}
+                    <button type="button"
+                            onclick="document.getElementById('game-stats-modal-container').innerHTML = ''; try { cleanupModalState(); } catch(e){ document.body.classList.remove('overflow-hidden'); }"
+                            data-close-modal="true"
+                            class="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                            title="Cerrar modal">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- Scoreboard Matchup Banner -->
@@ -123,7 +154,7 @@
             <!-- Navigation Tabs Bar (Scrollable on Mobile, Flex on Desktop) -->
             <div class="flex items-center space-x-1 bg-zinc-900 p-1 rounded-xl border border-zinc-800 text-xs font-semibold overflow-x-auto no-scrollbar">
                 <button type="button"
-                        @click="activeTab = 'boxscore'"
+                        @click="activeTab = 'boxscore'; if (document.getElementById('game-stats-modal-wrapper')) document.getElementById('game-stats-modal-wrapper').dataset.tab = 'boxscore';"
                         :class="activeTab === 'boxscore' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
                         class="flex-1 min-w-[70px] sm:min-w-0 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink">
                     <i class="fa-solid fa-chart-column text-xs"></i>
@@ -132,7 +163,7 @@
                 </button>
 
                 <button type="button"
-                        @click="activeTab = 'players'"
+                        @click="activeTab = 'players'; if (document.getElementById('game-stats-modal-wrapper')) document.getElementById('game-stats-modal-wrapper').dataset.tab = 'players';"
                         :class="activeTab === 'players' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
                         class="flex-1 min-w-[85px] sm:min-w-0 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink">
                     <i class="fa-solid fa-user-group text-xs"></i>
@@ -141,7 +172,7 @@
                 </button>
 
                 <button type="button"
-                        @click="activeTab = 'scoring'"
+                        @click="activeTab = 'scoring'; if (document.getElementById('game-stats-modal-wrapper')) document.getElementById('game-stats-modal-wrapper').dataset.tab = 'scoring';"
                         :class="activeTab === 'scoring' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
                         class="flex-1 min-w-[85px] sm:min-w-0 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink">
                     <i class="fa-solid fa-football text-xs"></i>
@@ -151,7 +182,7 @@
                 </button>
 
                 <button type="button"
-                        @click="activeTab = 'drives'"
+                        @click="activeTab = 'drives'; if (document.getElementById('game-stats-modal-wrapper')) document.getElementById('game-stats-modal-wrapper').dataset.tab = 'drives';"
                         :class="activeTab === 'drives' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
                         class="flex-1 min-w-[70px] sm:min-w-0 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink">
                     <i class="fa-solid fa-route text-xs"></i>
@@ -280,7 +311,7 @@
                     <!-- Team Switcher -->
                     <div class="flex items-center justify-center space-x-2 sm:space-x-3 pb-3 border-b border-zinc-800">
                         <button type="button"
-                                @click="playerTeam = 'away'"
+                                @click="playerTeam = 'away'; if (document.getElementById('game-stats-modal-wrapper')) document.getElementById('game-stats-modal-wrapper').dataset.team = 'away';"
                                 :class="playerTeam === 'away' ? 'bg-white text-black font-bold shadow' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
                                 class="flex-1 sm:flex-initial py-1.5 sm:py-2 px-3 sm:px-4 rounded-xl text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer truncate">
                             <img src="{{.Game.AwayTeam.LogoURL}}" class="w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0">
@@ -288,7 +319,7 @@
                         </button>
 
                         <button type="button"
-                                @click="playerTeam = 'home'"
+                                @click="playerTeam = 'home'; if (document.getElementById('game-stats-modal-wrapper')) document.getElementById('game-stats-modal-wrapper').dataset.team = 'home';"
                                 :class="playerTeam === 'home' ? 'bg-white text-black font-bold shadow' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
                                 class="flex-1 sm:flex-initial py-1.5 sm:py-2 px-3 sm:px-4 rounded-xl text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer truncate">
                             <img src="{{.Game.HomeTeam.LogoURL}}" class="w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0">

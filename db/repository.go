@@ -796,6 +796,12 @@ func (r *Repository) UpdateGameStatsJSON(gameID int64, statsJSON string) error {
 	return err
 }
 
+func (r *Repository) UpdateGameLiveStats(gameID int64, statsJSON string, homeScore, awayScore *int, statusDetail, linescores string) error {
+	query := `UPDATE games SET stats_json = ?, home_score = COALESCE(?, home_score), away_score = COALESCE(?, away_score), status_detail = CASE WHEN ? != '' THEN ? ELSE status_detail END, linescores = CASE WHEN ? != '' THEN ? ELSE linescores END WHERE id = ?`
+	_, err := r.db.Exec(query, statsJSON, homeScore, awayScore, statusDetail, statusDetail, linescores, linescores, gameID)
+	return err
+}
+
 func (r *Repository) CreateManualGame(g *Game) (*Game, error) {
 	query := `
 	INSERT INTO games (week_id, espn_game_id, home_team_id, away_team_id, kickoff_time, home_score, away_score, status, status_detail, is_tiebreaker, is_locked)

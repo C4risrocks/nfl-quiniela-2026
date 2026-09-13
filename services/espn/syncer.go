@@ -285,7 +285,11 @@ func (s *Syncer) SyncWeek(weekNum int) (count int, err error) {
 		if summary != nil && (summary.HasStats || summary.HasPlayerStats || len(summary.ScoringPlays) > 0) {
 			if b, err := json.Marshal(summary); err == nil {
 				g.StatsJSON = string(b)
-				_ = s.repo.UpdateGameStatsJSON(g.ID, g.StatsJSON)
+				if g.Status == "in_progress" {
+					_ = s.repo.UpdateGameLiveStats(g.ID, g.StatsJSON, summary.HomeScore, summary.AwayScore, summary.StatusDetail, summary.Linescores)
+				} else {
+					_ = s.repo.UpdateGameStatsJSON(g.ID, g.StatsJSON)
+				}
 			}
 		}
 	}
