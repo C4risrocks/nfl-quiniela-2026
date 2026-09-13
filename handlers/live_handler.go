@@ -11,6 +11,8 @@ import (
 	"nfl-quiniela-2026/db"
 	"nfl-quiniela-2026/services/auth"
 	"nfl-quiniela-2026/services/espn"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type LiveHandler struct {
@@ -151,16 +153,23 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 	var liveCount, finalCount, upcomingCount int
 	var confirmedPoints, provisionalPoints int
 
+	var weekCommunityStats map[int64]*db.GameCommunityStats
+	if selectedWeek != nil {
+		weekCommunityStats, _ = h.repo.GetWeekCommunityStats(selectedWeek.ID)
+	}
+
 	for _, g := range games {
 		if p, ok := userPicksMap[g.ID]; ok {
 			g.UserPick = p
 		}
 
 		// Community pick counts
-		if stats, err := h.repo.GetGameCommunityStats(g.ID); err == nil && stats != nil {
-			g.HomePickCount = stats.HomePicksCount
-			g.AwayPickCount = stats.AwayPicksCount
-			g.TotalPicks = stats.TotalPicks
+		if weekCommunityStats != nil {
+			if stats, ok := weekCommunityStats[g.ID]; ok && stats != nil {
+				g.HomePickCount = stats.HomePicksCount
+				g.AwayPickCount = stats.AwayPicksCount
+				g.TotalPicks = stats.TotalPicks
+			}
 		}
 
 		switch g.Status {
@@ -447,3 +456,39 @@ func (h *LiveHandler) LiveContent(w http.ResponseWriter, r *http.Request) {
 
 	h.renderer.RenderPartial(w, "live_content.html", data)
 }
+
+type GameStatsModalData struct {
+	Game    *db.Game
+	Summary *db.GameDetailedSummary
+	User    *db.User
+}
+
+func (h *LiveHandler) GameStatsModal(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	gameIDStr := chi.URLParam(r, "gameId")
+	gameID, err := strconv.ParseInt(gameIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "ID de partido inválido", http.StatusBadRequest)
+		return
+	}
+
+	game, err := h.repo.GetGameByID(gameID)
+	if err != nil || game == nil {
+		http.Error(w, "Partido no encontrado", http.StatusNotFound)
+		return
+	}
+
+	var summary *db.GameDetailedSummary
+	if game.ESPNGameID != "" {
+		summary, _ = h.espnClient.FetchGameSummary(game.ESPNGameID)
+	}
+
+	data := GameStatsModalData{
+		Game:    game,
+		Summary: summary,
+		User:    currentUser,
+	}
+
+	h.renderer.RenderPartial(w, "game_stats_modal.html", data)
+}
+

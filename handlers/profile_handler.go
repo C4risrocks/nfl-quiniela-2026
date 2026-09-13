@@ -25,19 +25,29 @@ func NewProfileHandler(repo *db.Repository, authService *auth.AuthService, rende
 }
 
 func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
-	user := auth.GetUserFromContext(r.Context())
-	if user == nil {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
 
-	freshUser, err := h.repo.GetUserByID(user.ID)
-	if err != nil {
-		http.Error(w, "Error cargando usuario", http.StatusInternalServerError)
+	targetUserID := currentUser.ID
+	isOwnProfile := true
+
+	if targetIDStr := r.URL.Query().Get("user_id"); targetIDStr != "" {
+		if tid, err := strconv.ParseInt(targetIDStr, 10, 64); err == nil && tid > 0 {
+			targetUserID = tid
+			isOwnProfile = (currentUser.ID == targetUserID)
+		}
+	}
+
+	profileUser, err := h.repo.GetUserByID(targetUserID)
+	if err != nil || profileUser == nil {
+		http.Error(w, "Perfil de usuario no encontrado", http.StatusNotFound)
 		return
 	}
 
-	advStats, _ := h.repo.GetAdvancedUserStats(user.ID)
+	advStats, _ := h.repo.GetAdvancedUserStats(profileUser.ID)
 	var stats *db.UserStats
 	if advStats != nil {
 		stats = &advStats.UserStats
@@ -49,8 +59,8 @@ func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 	if season != nil {
 		seasonID = season.ID
 	}
-	rank, totalPlayers, _ := h.repo.GetUserRank(user.ID, seasonID)
-	weeklyHistory, _ := h.repo.GetUserWeeklyBreakdown(user.ID, seasonID)
+	rank, totalPlayers, _ := h.repo.GetUserRank(profileUser.ID, seasonID)
+	weeklyHistory, _ := h.repo.GetUserWeeklyBreakdown(profileUser.ID, seasonID)
 
 	var bestWeek *db.UserWeeklyPerformance
 	for _, w := range weeklyHistory {
@@ -61,7 +71,7 @@ func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	userAchievements, _ := h.repo.GetUserAchievements(user.ID)
+	userAchievements, _ := h.repo.GetUserAchievements(profileUser.ID)
 	achMap := make(map[string]*db.UserAchievement)
 	for _, a := range userAchievements {
 		achMap[a.BadgeCode] = a
@@ -84,11 +94,13 @@ func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var successMsg, errorMsg string
-	if r.URL.Query().Get("updated") == "1" {
-		successMsg = "Tus preferencias han sido guardadas exitosamente."
-	}
-	if r.URL.Query().Get("pwd_updated") == "1" {
-		successMsg = "Tu contraseña ha sido actualizada exitosamente."
+	if isOwnProfile {
+		if r.URL.Query().Get("updated") == "1" {
+			successMsg = "Tus preferencias han sido guardadas exitosamente."
+		}
+		if r.URL.Query().Get("pwd_updated") == "1" {
+			successMsg = "Tu contraseña ha sido actualizada exitosamente."
+		}
 	}
 	if errParam := r.URL.Query().Get("err"); errParam != "" {
 		errorMsg = errParam
@@ -96,7 +108,9 @@ func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 
 	h.renderer.RenderPage(w, "profile.html", map[string]interface{}{
 		"ActiveNav":                 "profile",
-		"User":                      freshUser,
+		"User":                      currentUser,
+		"ProfileUser":               profileUser,
+		"IsOwnProfile":              isOwnProfile,
 		"Stats":                     stats,
 		"AdvancedStats":             advStats,
 		"Teams":                     teams,

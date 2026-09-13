@@ -433,6 +433,27 @@ func TestCommunityStatsAndHeadToHead(t *testing.T) {
 		t.Errorf("Expected AvgHomeScore around 23, got %v", stats.AvgHomeScore)
 	}
 
+	// 1b. Verify Batch Week Community Stats
+	weekStats, err := repo.GetWeekCommunityStats(week1.ID)
+	if err != nil {
+		t.Fatalf("GetWeekCommunityStats failed: %v", err)
+	}
+	if ws1, ok := weekStats[game1.ID]; !ok || ws1.TotalPicks != 3 || ws1.HomePct != 67 || ws1.AwayPct != 33 {
+		t.Errorf("Unexpected week stats for game1: %+v", ws1)
+	}
+	// Check Game model methods with picks
+	game1.HomePickCount = 2
+	game1.AwayPickCount = 1
+	game1.TotalPicks = 3
+	if game1.HomePickPercent() != 67 || game1.AwayPickPercent() != 33 {
+		t.Errorf("Expected Game.HomePickPercent=67 and AwayPickPercent=33, got %d and %d", game1.HomePickPercent(), game1.AwayPickPercent())
+	}
+	// Check Game model methods without picks
+	emptyGame := &Game{}
+	if emptyGame.HomePickPercent() != 0 || emptyGame.AwayPickPercent() != 0 {
+		t.Errorf("Expected empty game to return 0%%, got home=%d away=%d", emptyGame.HomePickPercent(), emptyGame.AwayPickPercent())
+	}
+
 	// 2. Verify Head-to-Head Comparison (User 1 vs User 3)
 	h2h, err := repo.GetHeadToHeadComparison(week1.ID, user1.ID, user3.ID)
 	if err != nil {

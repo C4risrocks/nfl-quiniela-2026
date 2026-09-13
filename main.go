@@ -181,6 +181,7 @@ func main() {
 	r.Get("/leaderboard/table", leaderboardHandler.LeaderboardTable)
 	r.Get("/live", liveHandler.ShowLive)
 	r.Get("/live/content", liveHandler.LiveContent)
+	r.Get("/games/{gameId}/stats", liveHandler.GameStatsModal)
 	r.Get("/events/live", eventsHandler.StreamLiveEvents)
 
 	// Authenticated Player Routes

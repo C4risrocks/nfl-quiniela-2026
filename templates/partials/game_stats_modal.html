@@ -1,0 +1,537 @@
+<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
+     data-close-modal="backdrop"
+     @click.self="document.getElementById('game-stats-modal-container').innerHTML = ''; try { cleanupModalState(); } catch(e){ document.body.classList.remove('overflow-hidden'); }"
+     @keydown.escape.window="document.getElementById('game-stats-modal-container').innerHTML = ''; try { cleanupModalState(); } catch(e){ document.body.classList.remove('overflow-hidden'); }"
+     x-data="{ 
+        activeTab: 'boxscore',
+        playerTeam: '{{if .Summary}}{{if .Summary.AwayPlayerStats}}away{{else if .Summary.HomePlayerStats}}home{{else}}away{{end}}{{else}}away{{end}}',
+        playerCat: 'passing',
+        expandedDrive: null
+     }"
+     x-init="try { document.body.classList.add('overflow-hidden'); } catch(e) {}">
+
+    <div class="vercel-card w-full max-w-4xl max-h-[92vh] sm:max-h-[90vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl border border-zinc-800 bg-zinc-950"
+         @click.stop>
+
+        <!-- 1. Header (Fixed, shrink-0) -->
+        <div class="shrink-0 p-3 sm:p-5 border-b border-zinc-800/80 bg-zinc-900/60 flex flex-col space-y-2.5 sm:space-y-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full {{if eq .Game.Status "in_progress"}}bg-red-500 animate-pulse{{else if eq .Game.Status "final"}}bg-zinc-500{{else}}bg-cyan-500{{end}}"></span>
+                    <span class="text-xs font-mono font-bold uppercase tracking-wider text-zinc-300">
+                        {{if eq .Game.Status "in_progress"}}
+                            EN VIVO &bull; {{.Game.StatusDetail}}
+                        {{else if eq .Game.Status "final"}}
+                            FINALIZADO &bull; {{.Game.StatusDetail}}
+                        {{else}}
+                            PROGRAMADO &bull; {{.Game.FormattedKickoff}}
+                        {{end}}
+                    </span>
+                    {{if .Game.IsTiebreaker}}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            Desempate
+                        </span>
+                    {{end}}
+                </div>
+                
+                <button type="button"
+                        onclick="document.getElementById('game-stats-modal-container').innerHTML = ''; try { cleanupModalState(); } catch(e){ document.body.classList.remove('overflow-hidden'); }"
+                        data-close-modal="true"
+                        class="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                        title="Cerrar modal">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <!-- Scoreboard Matchup Banner -->
+            <div class="grid grid-cols-5 items-center py-1.5 px-2.5 sm:py-2 sm:px-3 rounded-xl bg-zinc-950/80 border border-zinc-800/80">
+                <!-- Away Team -->
+                <div class="col-span-2 flex items-center space-x-2 sm:space-x-3 min-w-0">
+                    <img src="{{.Game.AwayTeam.LogoURL}}" alt="{{.Game.AwayTeam.Code}}" class="w-8 h-8 sm:w-12 sm:h-12 object-contain shrink-0">
+                    <div class="min-w-0">
+                        <span class="text-[9px] sm:text-[10px] font-mono uppercase text-zinc-400 block truncate">{{.Game.AwayTeam.City}}</span>
+                        <h3 class="text-xs sm:text-base font-black text-white truncate">{{.Game.AwayTeam.Name}}</h3>
+                        <span class="text-[9px] sm:text-[10px] font-mono font-bold text-zinc-500">{{.Game.AwayTeam.Code}}</span>
+                    </div>
+                </div>
+
+                <!-- Center Score / Status -->
+                <div class="col-span-1 text-center px-1">
+                    {{if or (eq .Game.Status "in_progress") (eq .Game.Status "final")}}
+                        <div class="flex items-center justify-center space-x-1 sm:space-x-2 font-mono text-lg sm:text-2xl font-black text-white">
+                            <span>{{if .Game.AwayScore}}{{.Game.AwayScore}}{{else}}0{{end}}</span>
+                            <span class="text-zinc-600 text-sm sm:text-base">-</span>
+                            <span>{{if .Game.HomeScore}}{{.Game.HomeScore}}{{else}}0{{end}}</span>
+                        </div>
+                    {{else}}
+                        <div class="text-zinc-500 text-xs font-mono font-bold">VS</div>
+                    {{end}}
+                    <span class="text-[9px] sm:text-[10px] font-mono text-zinc-400 block mt-0.5 truncate">{{.Game.StatusDetail}}</span>
+                </div>
+
+                <!-- Home Team -->
+                <div class="col-span-2 flex items-center justify-end space-x-2 sm:space-x-3 text-right min-w-0">
+                    <div class="min-w-0">
+                        <span class="text-[9px] sm:text-[10px] font-mono uppercase text-zinc-400 block truncate">{{.Game.HomeTeam.City}}</span>
+                        <h3 class="text-xs sm:text-base font-black text-white truncate">{{.Game.HomeTeam.Name}}</h3>
+                        <span class="text-[9px] sm:text-[10px] font-mono font-bold text-zinc-500">{{.Game.HomeTeam.Code}}</span>
+                    </div>
+                    <img src="{{.Game.HomeTeam.LogoURL}}" alt="{{.Game.HomeTeam.Code}}" class="w-8 h-8 sm:w-12 sm:h-12 object-contain shrink-0">
+                </div>
+            </div>
+
+            <!-- Linescore Quarters Table (if available) -->
+            {{$lines := .Game.LinescoreData}}
+            {{if and $lines (gt (len $lines.AwayScores) 0)}}
+                <div class="overflow-x-auto no-scrollbar py-0.5">
+                    <table class="w-full text-[10px] sm:text-[11px] font-mono text-center">
+                        <thead>
+                            <tr class="text-zinc-500 border-b border-zinc-800">
+                                <th class="py-0.5 sm:py-1 text-left px-1.5 sm:px-2 font-medium">Equipo</th>
+                                {{range $i, $score := $lines.AwayScores}}
+                                    <th class="py-0.5 sm:py-1 px-1.5 sm:px-2 font-medium">{{if lt $i 4}}Q{{add $i 1}}{{else}}OT{{end}}</th>
+                                {{end}}
+                                <th class="py-0.5 sm:py-1 px-1.5 sm:px-2 font-bold text-white">T</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-900 text-zinc-300">
+                            <tr>
+                                <td class="py-0.5 sm:py-1 px-1.5 sm:px-2 text-left font-bold text-white flex items-center space-x-1.5">
+                                    <img src="{{$.Game.AwayTeam.LogoURL}}" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain">
+                                    <span>{{$.Game.AwayTeam.Code}}</span>
+                                </td>
+                                {{range $score := $lines.AwayScores}}
+                                    <td class="py-0.5 sm:py-1 px-1.5 sm:px-2">{{$score}}</td>
+                                {{end}}
+                                <td class="py-0.5 sm:py-1 px-1.5 sm:px-2 font-bold text-amber-400">{{if $.Game.AwayScore}}{{$.Game.AwayScore}}{{else}}0{{end}}</td>
+                            </tr>
+                            <tr>
+                                <td class="py-0.5 sm:py-1 px-1.5 sm:px-2 text-left font-bold text-white flex items-center space-x-1.5">
+                                    <img src="{{$.Game.HomeTeam.LogoURL}}" class="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain">
+                                    <span>{{$.Game.HomeTeam.Code}}</span>
+                                </td>
+                                {{range $score := $lines.HomeScores}}
+                                    <td class="py-0.5 sm:py-1 px-1.5 sm:px-2">{{$score}}</td>
+                                {{end}}
+                                <td class="py-0.5 sm:py-1 px-1.5 sm:px-2 font-bold text-amber-400">{{if $.Game.HomeScore}}{{$.Game.HomeScore}}{{else}}0{{end}}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            {{end}}
+
+            <!-- Navigation Tabs Bar (Scrollable on Mobile, Flex on Desktop) -->
+            <div class="flex items-center space-x-1 bg-zinc-900 p-1 rounded-xl border border-zinc-800 text-xs font-semibold overflow-x-auto no-scrollbar">
+                <button type="button"
+                        @click="activeTab = 'boxscore'"
+                        :class="activeTab === 'boxscore' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+                        class="flex-1 min-w-[70px] sm:min-w-0 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink">
+                    <i class="fa-solid fa-chart-column text-xs"></i>
+                    <span class="hidden sm:inline">Estadísticas</span>
+                    <span class="sm:hidden">Stats</span>
+                </button>
+
+                <button type="button"
+                        @click="activeTab = 'players'"
+                        :class="activeTab === 'players' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+                        class="flex-1 min-w-[85px] sm:min-w-0 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink">
+                    <i class="fa-solid fa-user-group text-xs"></i>
+                    <span>Jugadores</span>
+                    {{if .Summary}}{{if .Summary.HasPlayerStats}}<span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0"></span>{{end}}{{end}}
+                </button>
+
+                <button type="button"
+                        @click="activeTab = 'scoring'"
+                        :class="activeTab === 'scoring' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+                        class="flex-1 min-w-[85px] sm:min-w-0 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink">
+                    <i class="fa-solid fa-football text-xs"></i>
+                    <span class="hidden sm:inline">Anotaciones</span>
+                    <span class="sm:hidden">Goles</span>
+                    {{if .Summary}}{{if .Summary.ScoringPlays}}<span class="text-[10px] font-mono text-zinc-400">({{len .Summary.ScoringPlays}})</span>{{end}}{{end}}
+                </button>
+
+                <button type="button"
+                        @click="activeTab = 'drives'"
+                        :class="activeTab === 'drives' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+                        class="flex-1 min-w-[70px] sm:min-w-0 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink">
+                    <i class="fa-solid fa-route text-xs"></i>
+                    <span>Series</span>
+                    {{if .Summary}}{{if .Summary.HasDrives}}<span class="text-[10px] font-mono text-zinc-400">({{len .Summary.Drives}})</span>{{end}}{{end}}
+                </button>
+            </div>
+        </div>
+
+        <!-- 2. Scrollable Body Content (flex-1, min-h-0, overflow-y-auto) -->
+        <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-6">
+
+            <!-- TAB 1: BOXSCORE TEAM COMPARISON -->
+            <div x-show="activeTab === 'boxscore'" class="space-y-4">
+                {{if and .Summary .Summary.HasStats}}
+                    <div class="space-y-3">
+                        <!-- Stat Comparison Header -->
+                        <div class="grid grid-cols-7 items-center text-center font-mono text-xs pb-2 border-b border-zinc-800 text-zinc-400">
+                            <div class="col-span-2 flex items-center space-x-2 text-left text-white font-bold">
+                                <img src="{{.Summary.AwayStats.TeamLogoURL}}" class="w-5 h-5 object-contain">
+                                <span>{{.Summary.AwayStats.TeamCode}}</span>
+                            </div>
+                            <div class="col-span-3 uppercase tracking-wider text-[10px] font-bold text-zinc-500">
+                                Métrica Comparativa
+                            </div>
+                            <div class="col-span-2 flex items-center justify-end space-x-2 text-right text-white font-bold">
+                                <span>{{.Summary.HomeStats.TeamCode}}</span>
+                                <img src="{{.Summary.HomeStats.TeamLogoURL}}" class="w-5 h-5 object-contain">
+                            </div>
+                        </div>
+
+                        <!-- Rows of metrics -->
+                        {{$away := .Summary.AwayStats}}
+                        {{$home := .Summary.HomeStats}}
+
+                        <!-- 1. Total Yards -->
+                        <div class="p-2.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 grid grid-cols-7 items-center text-center font-mono text-xs">
+                            <div class="col-span-2 text-left font-bold text-white text-sm">{{$away.TotalYards}}</div>
+                            <div class="col-span-3 text-[11px] text-zinc-400 font-sans font-medium">Yardas Totales</div>
+                            <div class="col-span-2 text-right font-bold text-white text-sm">{{$home.TotalYards}}</div>
+                        </div>
+
+                        <!-- 2. Passing Yards -->
+                        <div class="p-2.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 grid grid-cols-7 items-center text-center font-mono text-xs">
+                            <div class="col-span-2 text-left font-bold text-cyan-400">{{$away.PassingYards}}</div>
+                            <div class="col-span-3 text-[11px] text-zinc-400 font-sans font-medium">Yardas por Pase</div>
+                            <div class="col-span-2 text-right font-bold text-cyan-400">{{$home.PassingYards}}</div>
+                        </div>
+
+                        <!-- 3. Rushing Yards -->
+                        <div class="p-2.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 grid grid-cols-7 items-center text-center font-mono text-xs">
+                            <div class="col-span-2 text-left font-bold text-emerald-400">{{$away.RushingYards}}</div>
+                            <div class="col-span-3 text-[11px] text-zinc-400 font-sans font-medium">Yardas por Acarreo</div>
+                            <div class="col-span-2 text-right font-bold text-emerald-400">{{$home.RushingYards}}</div>
+                        </div>
+
+                        <!-- 4. Comp / Att -->
+                        <div class="p-2.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 grid grid-cols-7 items-center text-center font-mono text-xs">
+                            <div class="col-span-2 text-left text-zinc-200">{{$away.CompAtt}}</div>
+                            <div class="col-span-3 text-[11px] text-zinc-400 font-sans font-medium">Pases Comp / Intentos</div>
+                            <div class="col-span-2 text-right text-zinc-200">{{$home.CompAtt}}</div>
+                        </div>
+
+                        <!-- 5. First Downs -->
+                        <div class="p-2.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 grid grid-cols-7 items-center text-center font-mono text-xs">
+                            <div class="col-span-2 text-left text-zinc-200">{{$away.FirstDowns}}</div>
+                            <div class="col-span-3 text-[11px] text-zinc-400 font-sans font-medium">Primeras Oportunidades</div>
+                            <div class="col-span-2 text-right text-zinc-200">{{$home.FirstDowns}}</div>
+                        </div>
+
+                        <!-- 6. 3rd Down Efficiency -->
+                        <div class="p-2.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 grid grid-cols-7 items-center text-center font-mono text-xs">
+                            <div class="col-span-2 text-left text-zinc-200">{{$away.ThirdDownEff}}</div>
+                            <div class="col-span-3 text-[11px] text-zinc-400 font-sans font-medium">Efectividad 3ra Oportunidad</div>
+                            <div class="col-span-2 text-right text-zinc-200">{{$home.ThirdDownEff}}</div>
+                        </div>
+
+                        <!-- 7. 4th Down Efficiency -->
+                        <div class="p-2.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 grid grid-cols-7 items-center text-center font-mono text-xs">
+                            <div class="col-span-2 text-left text-zinc-200">{{$away.FourthDownEff}}</div>
+                            <div class="col-span-3 text-[11px] text-zinc-400 font-sans font-medium">Efectividad 4ta Oportunidad</div>
+                            <div class="col-span-2 text-right text-zinc-200">{{$home.FourthDownEff}}</div>
+                        </div>
+
+                        <!-- 8. Turnovers -->
+                        <div class="p-2.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 grid grid-cols-7 items-center text-center font-mono text-xs">
+                            <div class="col-span-2 text-left font-bold {{if and (ne $away.Turnovers "") (ne $away.Turnovers "0")}}text-rose-400{{else}}text-zinc-400{{end}}">{{$away.Turnovers}}</div>
+                            <div class="col-span-3 text-[11px] text-zinc-400 font-sans font-medium">Pérdidas de Balón</div>
+                            <div class="col-span-2 text-right font-bold {{if and (ne $home.Turnovers "") (ne $home.Turnovers "0")}}text-rose-400{{else}}text-zinc-400{{end}}">{{$home.Turnovers}}</div>
+                        </div>
+
+                        <!-- 9. Penalties -->
+                        <div class="p-2.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 grid grid-cols-7 items-center text-center font-mono text-xs">
+                            <div class="col-span-2 text-left text-zinc-300">{{$away.Penalties}}</div>
+                            <div class="col-span-3 text-[11px] text-zinc-400 font-sans font-medium">Castigos / Yardas</div>
+                            <div class="col-span-2 text-right text-zinc-300">{{$home.Penalties}}</div>
+                        </div>
+
+                        <!-- 10. Possession Time -->
+                        <div class="p-2.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 grid grid-cols-7 items-center text-center font-mono text-xs">
+                            <div class="col-span-2 text-left font-bold text-amber-400">{{$away.PossessionTime}}</div>
+                            <div class="col-span-3 text-[11px] text-zinc-400 font-sans font-medium">Tiempo de Posesión</div>
+                            <div class="col-span-2 text-right font-bold text-amber-400">{{$home.PossessionTime}}</div>
+                        </div>
+                    </div>
+                {{else}}
+                    <div class="p-8 text-center rounded-2xl bg-zinc-900/30 border border-dashed border-zinc-800 space-y-3">
+                        <div class="w-12 h-12 mx-auto rounded-full bg-zinc-900 flex items-center justify-center text-zinc-500">
+                            <i class="fa-solid fa-chart-line text-lg"></i>
+                        </div>
+                        <h4 class="text-sm font-bold text-white">Estadísticas por equipo no disponibles aún</h4>
+                        <p class="text-xs text-zinc-400 max-w-sm mx-auto">
+                            Las métricas detalladas se sincronizan en tiempo real una vez iniciado o concluido el encuentro.
+                        </p>
+                    </div>
+                {{end}}
+            </div>
+
+            <!-- TAB 2: INDIVIDUAL PLAYER STATISTICS -->
+            <div x-show="activeTab === 'players'" class="space-y-4">
+                {{if and .Summary .Summary.HasPlayerStats}}
+                    <!-- Team Switcher -->
+                    <div class="flex items-center justify-center space-x-2 sm:space-x-3 pb-3 border-b border-zinc-800">
+                        <button type="button"
+                                @click="playerTeam = 'away'"
+                                :class="playerTeam === 'away' ? 'bg-white text-black font-bold shadow' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                                class="flex-1 sm:flex-initial py-1.5 sm:py-2 px-3 sm:px-4 rounded-xl text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer truncate">
+                            <img src="{{.Game.AwayTeam.LogoURL}}" class="w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0">
+                            <span class="truncate">{{.Game.AwayTeam.Name}}</span>
+                        </button>
+
+                        <button type="button"
+                                @click="playerTeam = 'home'"
+                                :class="playerTeam === 'home' ? 'bg-white text-black font-bold shadow' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                                class="flex-1 sm:flex-initial py-1.5 sm:py-2 px-3 sm:px-4 rounded-xl text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer truncate">
+                            <img src="{{.Game.HomeTeam.LogoURL}}" class="w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0">
+                            <span class="truncate">{{.Game.HomeTeam.Name}}</span>
+                        </button>
+                    </div>
+
+                    <!-- Away Players View -->
+                    <div x-show="playerTeam === 'away'" class="space-y-6">
+                        {{if .Summary.AwayPlayerStats}}
+                            {{range .Summary.AwayPlayerStats.Categories}}
+                                <div class="p-3 sm:p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800/80 space-y-2.5 sm:space-y-3">
+                                    <div class="flex items-center justify-between">
+                                        <h4 class="text-xs font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+                                            <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                                            <span>{{.Title}}</span>
+                                        </h4>
+                                    </div>
+
+                                    <div class="overflow-x-auto overscroll-x-contain pb-1.5 -mx-1 px-1">
+                                        <table class="w-full min-w-[460px] text-left text-xs">
+                                            <thead>
+                                                <tr class="border-b border-zinc-800 text-[10px] font-mono uppercase text-zinc-500">
+                                                    <th class="py-2 px-2.5 font-semibold">Jugador</th>
+                                                    {{range .Labels}}
+                                                        <th class="py-2 px-2 font-semibold text-right">{{.}}</th>
+                                                    {{end}}
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-zinc-900">
+                                                {{range .Players}}
+                                                    <tr class="hover:bg-zinc-900/60 transition-colors">
+                                                        <td class="py-2 px-2 sm:px-2.5 flex items-center space-x-2 sm:space-x-2.5 min-w-[150px]">
+                                                            {{if .HeadshotURL}}
+                                                                <img src="{{.HeadshotURL}}" alt="{{.Name}}" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover bg-zinc-800 shrink-0 border border-zinc-700">
+                                                            {{else}}
+                                                                <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zinc-800 text-zinc-400 flex items-center justify-center text-[9px] sm:text-[10px] font-mono shrink-0 border border-zinc-700">
+                                                                    {{.Position}}
+                                                                </div>
+                                                            {{end}}
+                                                            <div class="min-w-0">
+                                                                <span class="font-bold text-white block truncate text-xs">{{.Name}}</span>
+                                                                <span class="text-[9px] sm:text-[10px] font-mono text-zinc-500">#{{.Jersey}} &bull; {{.Position}}</span>
+                                                            </div>
+                                                        </td>
+                                                        {{range .Stats}}
+                                                            <td class="py-2 px-2 font-mono text-right text-zinc-300 font-medium whitespace-nowrap">{{.}}</td>
+                                                        {{end}}
+                                                    </tr>
+                                                {{end}}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            {{end}}
+                        {{else}}
+                            <p class="text-center text-xs text-zinc-500 py-6">Sin estadísticas individuales disponibles para {{.Game.AwayTeam.Name}}.</p>
+                        {{end}}
+                    </div>
+
+                    <!-- Home Players View -->
+                    <div x-show="playerTeam === 'home'" class="space-y-6">
+                        {{if .Summary.HomePlayerStats}}
+                            {{range .Summary.HomePlayerStats.Categories}}
+                                <div class="p-3 sm:p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800/80 space-y-2.5 sm:space-y-3">
+                                    <div class="flex items-center justify-between">
+                                        <h4 class="text-xs font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+                                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                            <span>{{.Title}}</span>
+                                        </h4>
+                                    </div>
+
+                                    <div class="overflow-x-auto overscroll-x-contain pb-1.5 -mx-1 px-1">
+                                        <table class="w-full min-w-[460px] text-left text-xs">
+                                            <thead>
+                                                <tr class="border-b border-zinc-800 text-[10px] font-mono uppercase text-zinc-500">
+                                                    <th class="py-2 px-2.5 font-semibold">Jugador</th>
+                                                    {{range .Labels}}
+                                                        <th class="py-2 px-2 font-semibold text-right">{{.}}</th>
+                                                    {{end}}
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-zinc-900">
+                                                {{range .Players}}
+                                                    <tr class="hover:bg-zinc-900/60 transition-colors">
+                                                        <td class="py-2 px-2 sm:px-2.5 flex items-center space-x-2 sm:space-x-2.5 min-w-[150px]">
+                                                            {{if .HeadshotURL}}
+                                                                <img src="{{.HeadshotURL}}" alt="{{.Name}}" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover bg-zinc-800 shrink-0 border border-zinc-700">
+                                                            {{else}}
+                                                                <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zinc-800 text-zinc-400 flex items-center justify-center text-[9px] sm:text-[10px] font-mono shrink-0 border border-zinc-700">
+                                                                    {{.Position}}
+                                                                </div>
+                                                            {{end}}
+                                                            <div class="min-w-0">
+                                                                <span class="font-bold text-white block truncate text-xs">{{.Name}}</span>
+                                                                <span class="text-[9px] sm:text-[10px] font-mono text-zinc-500">#{{.Jersey}} &bull; {{.Position}}</span>
+                                                            </div>
+                                                        </td>
+                                                        {{range .Stats}}
+                                                            <td class="py-2 px-2 font-mono text-right text-zinc-300 font-medium whitespace-nowrap">{{.}}</td>
+                                                        {{end}}
+                                                    </tr>
+                                                {{end}}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            {{end}}
+                        {{else}}
+                            <p class="text-center text-xs text-zinc-500 py-6">Sin estadísticas individuales disponibles para {{.Game.HomeTeam.Name}}.</p>
+                        {{end}}
+                    </div>
+                {{else}}
+                    <div class="p-8 text-center rounded-2xl bg-zinc-900/30 border border-dashed border-zinc-800 space-y-3">
+                        <div class="w-12 h-12 mx-auto rounded-full bg-zinc-900 flex items-center justify-center text-zinc-500">
+                            <i class="fa-solid fa-users text-lg"></i>
+                        </div>
+                        <h4 class="text-sm font-bold text-white">Estadísticas de jugadores aún no publicadas</h4>
+                        <p class="text-xs text-zinc-400 max-w-sm mx-auto">
+                            Las tablas de pasadores, corredores, receptores y defensivos se actualizan automáticamente durante y tras el partido.
+                        </p>
+                    </div>
+                {{end}}
+            </div>
+
+            <!-- TAB 3: SCORING TIMELINE -->
+            <div x-show="activeTab === 'scoring'" class="space-y-3">
+                {{if and .Summary .Summary.ScoringPlays (gt (len .Summary.ScoringPlays) 0)}}
+                    <div class="space-y-2.5">
+                        {{range .Summary.ScoringPlays}}
+                            <div class="p-3.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 flex items-start space-x-3 transition-colors hover:bg-zinc-900/60">
+                                <img src="{{.TeamLogoURL}}" alt="{{.TeamCode}}" class="w-8 h-8 object-contain shrink-0 mt-0.5">
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between gap-2 mb-1">
+                                        <span class="text-[10px] font-mono font-bold uppercase text-zinc-400">
+                                            Q{{.Quarter}} &bull; {{.Clock}}
+                                        </span>
+                                        <div class="px-2 py-0.5 rounded font-mono font-bold text-xs bg-zinc-800 text-amber-400 border border-zinc-700 shrink-0">
+                                            {{.AwayScore}} - {{.HomeScore}}
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-zinc-200 leading-relaxed">{{.Text}}</p>
+                                </div>
+                            </div>
+                        {{end}}
+                    </div>
+                {{else}}
+                    <div class="p-8 text-center rounded-2xl bg-zinc-900/30 border border-dashed border-zinc-800 space-y-3">
+                        <div class="w-12 h-12 mx-auto rounded-full bg-zinc-900 flex items-center justify-center text-zinc-500">
+                            <i class="fa-solid fa-football text-lg"></i>
+                        </div>
+                        <h4 class="text-sm font-bold text-white">Sin jugadas de anotación registradas</h4>
+                        <p class="text-xs text-zinc-400 max-w-sm mx-auto">
+                            El desglose de touchdowns y goles de campo aparecerá aquí en orden cronológico.
+                        </p>
+                    </div>
+                {{end}}
+            </div>
+
+            <!-- TAB 4: OFFENSIVE DRIVES CHART -->
+            <div x-show="activeTab === 'drives'" class="space-y-3">
+                {{if and .Summary .Summary.HasDrives}}
+                    <div class="space-y-2.5">
+                        {{range $idx, $drv := .Summary.Drives}}
+                            <div class="rounded-xl border {{if $drv.IsCurrent}}bg-zinc-900/80 border-cyan-500/50 shadow-md shadow-cyan-500/10{{else}}bg-zinc-900/40 border-zinc-800/80{{end}} overflow-hidden">
+                                <!-- Drive Header Item -->
+                                <button type="button"
+                                        @click="expandedDrive = (expandedDrive === {{$idx}} ? null : {{$idx}})"
+                                        class="w-full p-3.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:bg-zinc-900/60 transition-colors">
+                                    <div class="flex items-center space-x-3 min-w-0">
+                                        <img src="{{$drv.TeamLogoURL}}" alt="{{$drv.TeamCode}}" class="w-7 h-7 object-contain shrink-0">
+                                        <div class="min-w-0">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="font-bold text-white text-xs">{{$drv.TeamCode}}</span>
+                                                <span class="text-[10px] font-mono text-zinc-400">{{$drv.Description}}</span>
+                                                {{if $drv.IsCurrent}}
+                                                    <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 uppercase animate-pulse">En Curso</span>
+                                                {{end}}
+                                            </div>
+                                            <div class="text-[10px] font-mono text-zinc-500 mt-0.5">
+                                                Inicio: Q{{$drv.StartPeriod}} {{$drv.StartClock}} ({{$drv.StartField}}) &bull; Fin: {{$drv.EndField}}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center space-x-2 shrink-0">
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold border {{$drv.ResultBadgeClass}}">
+                                            {{$drv.DisplayResult}}
+                                        </span>
+                                        <i class="fa-solid fa-chevron-down text-zinc-500 text-xs transition-transform duration-200"
+                                           :class="expandedDrive === {{$idx}} ? 'rotate-180 text-white' : ''"></i>
+                                    </div>
+                                </button>
+
+                                <!-- Play-by-Play list inside drive -->
+                                <div x-show="expandedDrive === {{$idx}}"
+                                     x-collapse
+                                     class="p-3 border-t border-zinc-800/60 bg-black/40 space-y-2">
+                                    {{if $drv.Plays}}
+                                        <div class="space-y-2 text-xs divide-y divide-zinc-900">
+                                            {{range $drv.Plays}}
+                                                <div class="pt-2 first:pt-0 flex items-start space-x-2">
+                                                    <span class="text-[10px] font-mono text-zinc-500 shrink-0 mt-0.5">{{.Clock}}</span>
+                                                    <div class="flex-1 min-w-0">
+                                                        <span class="text-[10px] font-mono font-bold text-zinc-400 uppercase mr-1">{{.Type}}</span>
+                                                        <span class="text-zinc-300 leading-snug">{{.Text}}</span>
+                                                        {{if .StatYardage}}
+                                                            <span class="text-[10px] font-mono text-cyan-400 font-semibold ml-1">({{.StatYardage}} yds)</span>
+                                                        {{end}}
+                                                    </div>
+                                                </div>
+                                            {{end}}
+                                        </div>
+                                    {{else}}
+                                        <p class="text-[11px] text-zinc-500 italic">Detalle de jugadas individuales no disponible para esta serie.</p>
+                                    {{end}}
+                                </div>
+                            </div>
+                        {{end}}
+                    </div>
+                {{else}}
+                    <div class="p-8 text-center rounded-2xl bg-zinc-900/30 border border-dashed border-zinc-800 space-y-3">
+                        <div class="w-12 h-12 mx-auto rounded-full bg-zinc-900 flex items-center justify-center text-zinc-500">
+                            <i class="fa-solid fa-route text-lg"></i>
+                        </div>
+                        <h4 class="text-sm font-bold text-white">Sin series ofensivas registradas</h4>
+                        <p class="text-xs text-zinc-400 max-w-sm mx-auto">
+                            El mapa de posesiones y avance yarda por yarda se habilitará al iniciar el partido.
+                        </p>
+                    </div>
+                {{end}}
+            </div>
+
+        </div>
+
+        <!-- 3. Footer (shrink-0) -->
+        <div class="shrink-0 p-3 sm:p-4 border-t border-zinc-800/80 bg-zinc-900/60 flex items-center justify-between">
+            <span class="text-[10px] font-mono text-zinc-500 flex items-center">
+                <i class="fa-solid fa-satellite-dish mr-1.5 text-cyan-400"></i> Datos oficiales en vivo vía ESPN API
+            </span>
+
+            <button type="button"
+                    data-close-modal="true"
+                    class="py-2 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs transition-colors cursor-pointer">
+                Cerrar
+            </button>
+        </div>
+
+    </div>
+</div>

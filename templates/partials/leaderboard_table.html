@@ -22,35 +22,36 @@
                                 {{end}}
                             </div>
 
-                            <!-- Avatar -->
-                            <div class="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-bold text-white uppercase shrink-0">
-                                {{slice .Username 0 1}}
-                            </div>
+                            <!-- Avatar & Username clickable link to Profile -->
+                            <a href="/profile?user_id={{.UserID}}" class="flex items-center space-x-2.5 min-w-0 group hover:opacity-90 transition-all cursor-pointer">
+                                <div class="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 group-hover:border-cyan-500/80 flex items-center justify-center text-xs font-bold text-white uppercase shrink-0 transition-colors">
+                                    {{slice .Username 0 1}}
+                                </div>
 
-                            <!-- Username & Stats -->
-                            <div class="min-w-0">
-                                <div class="font-bold text-white text-sm truncate flex items-center">
-                                    <span class="truncate">{{.Username}}</span>
-                                    {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}
-                                        <span class="ml-1.5 text-[9px] font-mono uppercase font-black bg-white text-black px-1.5 py-0.2 rounded-full shrink-0">Tú</span>
-                                    {{end}}
-                                    {{if .Achievements}}
-                                        <div class="flex items-center space-x-0.5 ml-1.5 shrink-0" title="{{len .Achievements}} insignias">
-                                            {{range .TopAchievements 3}}
-                                                <span class="text-[11px] leading-none select-none" title="{{.BadgeName}}">{{.Icon}}</span>
-                                            {{end}}
-                                            {{if gt (.ExtraAchievementsCount 3) 0}}
-                                                <span class="text-[9px] text-zinc-500 font-mono font-bold">+{{.ExtraAchievementsCount 3}}</span>
-                                            {{end}}
-                                        </div>
-                                    {{end}}
+                                <div class="min-w-0">
+                                    <div class="font-bold text-white text-sm truncate flex items-center group-hover:text-cyan-400 transition-colors">
+                                        <span class="truncate">{{.Username}}</span>
+                                        {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}
+                                            <span class="ml-1.5 text-[9px] font-mono uppercase font-black bg-white text-black px-1.5 py-0.2 rounded-full shrink-0">Tú</span>
+                                        {{end}}
+                                        {{if .Achievements}}
+                                            <div class="flex items-center space-x-0.5 ml-1.5 shrink-0" title="{{len .Achievements}} insignias">
+                                                {{range .TopAchievements 3}}
+                                                    <span class="text-[11px] leading-none select-none" title="{{.BadgeName}}">{{.Icon}}</span>
+                                                {{end}}
+                                                {{if gt (.ExtraAchievementsCount 3) 0}}
+                                                    <span class="text-[9px] text-zinc-500 font-mono font-bold">+{{.ExtraAchievementsCount 3}}</span>
+                                                {{end}}
+                                            </div>
+                                        {{end}}
+                                    </div>
+                                    <div class="text-[11px] font-mono text-zinc-400 flex items-center space-x-1.5 mt-0.5">
+                                        <span>{{.CorrectPicks}}/{{.TotalPicks}} aciertos</span>
+                                        <span class="text-zinc-600">•</span>
+                                        <span class="text-emerald-400 font-semibold">{{printf "%.1f" .WinPercentage}}%</span>
+                                    </div>
                                 </div>
-                                <div class="text-[11px] font-mono text-zinc-400 flex items-center space-x-1.5 mt-0.5">
-                                    <span>{{.CorrectPicks}}/{{.TotalPicks}} aciertos</span>
-                                    <span class="text-zinc-600">•</span>
-                                    <span class="text-emerald-400 font-semibold">{{printf "%.1f" .WinPercentage}}%</span>
-                                </div>
-                            </div>
+                            </a>
                         </div>
 
                         <!-- Right: Total Points & Live Projected -->
@@ -139,11 +140,11 @@
 
                             <!-- Player Info -->
                             <td class="py-3 px-4">
-                                <div class="flex items-center space-x-2.5">
-                                    <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[10px] font-bold text-zinc-200 uppercase">
+                                <a href="/profile?user_id={{.UserID}}" class="flex items-center space-x-2.5 group hover:opacity-90 transition-all cursor-pointer">
+                                    <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 group-hover:border-cyan-500/80 flex items-center justify-center text-[10px] font-bold text-zinc-200 uppercase transition-colors">
                                         {{slice .Username 0 1}}
                                     </div>
-                                    <div class="font-medium text-white flex items-center">
+                                    <div class="font-medium text-white flex items-center group-hover:text-cyan-400 transition-colors">
                                         <span>{{.Username}}</span>
                                         {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}
                                             <span class="ml-2 text-[9px] font-mono uppercase font-bold bg-white text-black px-1.5 py-0.2 rounded-full">Tú</span>
@@ -159,7 +160,7 @@
                                             </div>
                                         {{end}}
                                     </div>
-                                </div>
+                                </a>
                             </td>
 
                             <!-- Total Points & Live Projected -->

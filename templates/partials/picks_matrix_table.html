@@ -100,25 +100,28 @@
                                 #{{$row.Rank}}
                             </span>
 
-                            <!-- Avatar -->
-                            {{if $row.User.AvatarURL}}
-                                <img src="{{$row.User.AvatarURL}}" alt="{{$row.User.Username}}" class="w-6 h-6 rounded-full object-cover border border-zinc-700 shrink-0">
-                            {{else}}
-                                <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white font-bold text-[10px] uppercase shrink-0 leading-none">
-                                    {{slice $row.User.Username 0 1}}
-                                </div>
-                            {{end}}
+                            <!-- Avatar & Username clickable link to Profile -->
+                            <a href="/profile?user_id={{$row.User.ID}}" class="flex items-center space-x-2 min-w-0 group hover:opacity-90 transition-all cursor-pointer">
+                                {{if $row.User.AvatarURL}}
+                                    <img src="{{$row.User.AvatarURL}}" alt="{{$row.User.Username}}" class="w-6 h-6 rounded-full object-cover border border-zinc-700 group-hover:border-cyan-500/80 shrink-0 transition-colors">
+                                {{else}}
+                                    <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 group-hover:border-cyan-500/80 flex items-center justify-center text-white font-bold text-[10px] uppercase shrink-0 leading-none transition-colors">
+                                        {{slice $row.User.Username 0 1}}
+                                    </div>
+                                {{end}}
 
-                            <!-- Username, Tag & H2H duel button -->
-                            <div class="min-w-0 flex-1 flex items-center justify-between space-x-1">
                                 <div class="flex items-center space-x-1 min-w-0">
-                                    <span class="font-bold text-xs truncate max-w-[85px] sm:max-w-[110px] {{if $row.IsCurrent}}text-white font-black{{else}}text-zinc-300{{end}}">
+                                    <span class="font-bold text-xs truncate max-w-[85px] sm:max-w-[110px] group-hover:text-cyan-400 transition-colors {{if $row.IsCurrent}}text-white font-black{{else}}text-zinc-300{{end}}">
                                         {{$row.User.Username}}
                                     </span>
                                     {{if $row.IsCurrent}}
                                         <span class="px-1 py-0.2 rounded bg-white text-black text-[8px] font-black leading-none uppercase shrink-0">TÚ</span>
                                     {{end}}
                                 </div>
+                            </a>
+
+                            <!-- H2H duel button -->
+                            <div class="min-w-0 shrink-0 flex items-center justify-end">
                                 {{if and $.User (ne $row.User.ID $.User.ID)}}
                                     <button type="button"
                                             hx-get="/picks/compare?rival_id={{$row.User.ID}}&week_id={{$.SelectedWeek.ID}}"

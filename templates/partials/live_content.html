@@ -697,34 +697,49 @@
                                 </div>
                                 <p class="text-[11px] text-zinc-500 mt-0.5">Distribución de votos de la comunidad en este partido</p>
                             </div>
-                            {{if .FeaturedPicks}}
+                            <div class="flex flex-wrap items-center gap-2">
+                                <!-- Game Stats Modal Button -->
+                                <button type="button"
+                                        hx-get="/games/{{$fg.ID}}/stats"
+                                        hx-target="#game-stats-modal-container"
+                                        hx-swap="innerHTML"
+                                        title="Ver estadísticas completas del partido, jugadores y jugadas"
+                                        class="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 hover:border-zinc-500 text-white text-xs font-bold transition-all shadow-sm hover:scale-[1.02] cursor-pointer">
+                                    <i class="fa-solid fa-chart-column text-cyan-400 text-xs"></i>
+                                    <span>Estadísticas & Jugadores</span>
+                                </button>
+
+                                <!-- Rivals Picks Modal Button -->
                                 <button type="button" 
                                         @click="window.dispatchEvent(new CustomEvent('open-rivals')); const m = document.getElementById('rivals-modal'); if (m) { m.style.display = 'flex'; try { if (window.Alpine) Alpine.$data(m).open(); } catch(e){} }"
                                         title="Ver pronósticos detallados de los rivales en este partido"
-                                        class="group inline-flex items-center justify-between sm:justify-start space-x-3 px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-950/70 via-blue-950/50 to-zinc-900 border border-cyan-500/40 hover:border-cyan-400 text-white text-xs font-bold transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
-                                    <!-- Overlapping mini avatars stack -->
-                                    <div class="flex -space-x-2 items-center">
-                                        {{range $idx, $p := .FeaturedPicks}}
-                                            {{if lt $idx 4}}
-                                                <div class="w-6 h-6 rounded-full bg-zinc-800 border-2 border-cyan-500/50 flex items-center justify-center text-[9px] font-bold text-white shadow-xs overflow-hidden shrink-0">
-                                                    {{if $p.User.AvatarURL}}
-                                                        <img src="{{$p.User.AvatarURL}}" class="w-full h-full object-cover">
-                                                    {{else}}
-                                                        {{slice $p.User.Username 0 1}}
-                                                    {{end}}
-                                                </div>
+                                        class="group inline-flex items-center justify-between sm:justify-start space-x-2.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-950/70 via-blue-950/50 to-zinc-900 border border-cyan-500/40 hover:border-cyan-400 text-white text-xs font-bold transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
+                                    {{if .FeaturedPicks}}
+                                        <div class="flex -space-x-2 items-center">
+                                            {{range $idx, $p := .FeaturedPicks}}
+                                                {{if lt $idx 3}}
+                                                    <div class="w-5 h-5 rounded-full bg-zinc-800 border-2 border-cyan-500/50 flex items-center justify-center text-[8px] font-bold text-white shadow-xs overflow-hidden shrink-0">
+                                                        {{if $p.User.AvatarURL}}
+                                                            <img src="{{$p.User.AvatarURL}}" class="w-full h-full object-cover">
+                                                        {{else}}
+                                                            {{slice $p.User.Username 0 1}}
+                                                        {{end}}
+                                                    </div>
+                                                {{end}}
                                             {{end}}
-                                        {{end}}
-                                    </div>
+                                        </div>
+                                    {{else}}
+                                        <i class="fa-solid fa-users text-cyan-400 text-xs"></i>
+                                    {{end}}
                                     <div class="flex items-center space-x-1.5">
-                                        <span>Ver picks de rivales</span>
+                                        <span>Picks de rivales</span>
                                         <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black bg-cyan-500/25 text-cyan-300 border border-cyan-500/40">
                                             {{len .FeaturedPicks}}
                                         </span>
                                     </div>
                                     <i class="fa-solid fa-chevron-right text-[10px] text-cyan-400 group-hover:translate-x-0.5 transition-transform"></i>
                                 </button>
-                            {{end}}
+                            </div>
                         </div>
 
                         <!-- Visual Progress Bar for Community Pick Spread -->
@@ -1526,58 +1541,69 @@
                         </div>
                     {{end}}
 
-                    <!-- Rivals Picks Drawer for each Game (if in_progress or final) -->
-                    {{if or (eq $g.Status "in_progress") (eq $g.Status "final")}}
-                        <div x-data="{ openCommunity: false }" class="mt-2.5 pt-2.5 border-t border-zinc-900/90 space-y-1.5">
-                            
-                            {{if gt $g.TotalPicks 0}}
-                                <!-- Mini Visual Consensus Split Bar -->
-                                <div class="space-y-1">
-                                    <div class="flex justify-between text-[10px] font-mono">
-                                        <span class="text-cyan-400 font-bold flex items-center space-x-1">
-                                            <span>{{$g.AwayTeam.Code}}</span>
-                                            <span class="text-zinc-500 font-normal">({{$g.AwayPickPercent}}%)</span>
-                                        </span>
-                                        <span class="text-zinc-500 text-[9px] uppercase font-bold tracking-wider">Consenso</span>
-                                        <span class="text-amber-400 font-bold flex items-center space-x-1">
-                                            <span class="text-zinc-500 font-normal">({{$g.HomePickPercent}}%)</span>
-                                            <span>{{$g.HomeTeam.Code}}</span>
-                                        </span>
-                                    </div>
-                                    <div class="w-full h-1.5 rounded-full overflow-hidden flex bg-zinc-900 border border-zinc-800/80">
-                                        <div class="bg-cyan-500 h-full transition-all duration-300" style="width: {{$g.AwayPickPercent}}%;"></div>
-                                        <div class="bg-amber-400 h-full transition-all duration-300" style="width: {{$g.HomePickPercent}}%;"></div>
-                                    </div>
+                    <!-- Game Card Actions: Stats Modal & Rivals Drawer -->
+                    <div x-data="{ openCommunity: false }" class="mt-2.5 pt-2.5 border-t border-zinc-900/90 space-y-2">
+                        {{if gt $g.TotalPicks 0}}
+                            <!-- Mini Visual Consensus Split Bar -->
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-[10px] font-mono">
+                                    <span class="text-cyan-400 font-bold flex items-center space-x-1">
+                                        <span>{{$g.AwayTeam.Code}}</span>
+                                        <span class="text-zinc-500 font-normal">({{$g.AwayPickPercent}}%)</span>
+                                    </span>
+                                    <span class="text-zinc-500 text-[9px] uppercase font-bold tracking-wider">Consenso</span>
+                                    <span class="text-amber-400 font-bold flex items-center space-x-1">
+                                        <span class="text-zinc-500 font-normal">({{$g.HomePickPercent}}%)</span>
+                                        <span>{{$g.HomeTeam.Code}}</span>
+                                    </span>
                                 </div>
-                            {{end}}
+                                <div class="w-full h-1.5 rounded-full overflow-hidden flex bg-zinc-900 border border-zinc-800/80">
+                                    <div class="bg-cyan-500 h-full transition-all duration-300" style="width: {{$g.AwayPickPercent}}%;"></div>
+                                    <div class="bg-amber-400 h-full transition-all duration-300" style="width: {{$g.HomePickPercent}}%;"></div>
+                                </div>
+                            </div>
+                        {{end}}
 
+                        <div class="flex items-center gap-2">
+                            <!-- Game Stats Modal Button -->
+                            <button type="button"
+                                    hx-get="/games/{{$g.ID}}/stats"
+                                    hx-target="#game-stats-modal-container"
+                                    hx-swap="innerHTML"
+                                    title="Estadísticas y resumen del partido"
+                                    class="py-1.5 px-2.5 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800/80 hover:border-zinc-600 text-[11px] font-semibold text-zinc-300 hover:text-white transition-all cursor-pointer flex items-center space-x-1.5 shrink-0">
+                                <i class="fa-solid fa-chart-column text-cyan-400 text-xs"></i>
+                                <span class="hidden sm:inline">Estadísticas</span>
+                            </button>
+
+                            <!-- Toggle Rivals Drawer Button -->
                             <button type="button" 
-                                    @click="openCommunity = !openCommunity" 
+                                    @click.prevent="openCommunity = !openCommunity; if (openCommunity && !$el.dataset.loaded) { htmx.trigger($el, 'load-community'); $el.dataset.loaded = 'true'; }"
                                     hx-get="/picks/community/{{$g.ID}}"
                                     hx-target="#live-community-{{$g.ID}}"
-                                    hx-trigger="click"
-                                    class="w-full flex items-center justify-between px-3 py-1.5 rounded-xl bg-zinc-900/80 hover:bg-zinc-850 border border-zinc-800/80 hover:border-cyan-500/40 text-[11px] font-semibold text-zinc-300 hover:text-white transition-all cursor-pointer group">
-                                <span class="flex items-center space-x-1.5">
+                                    hx-trigger="load-community"
+                                    class="flex-1 flex items-center justify-between px-3 py-1.5 rounded-xl bg-zinc-900/80 hover:bg-zinc-850 border border-zinc-800/80 hover:border-cyan-500/40 text-[11px] font-semibold text-zinc-300 hover:text-white transition-all cursor-pointer group">
+                                <span class="flex items-center space-x-1.5 truncate">
                                     <i class="fa-solid fa-users text-zinc-500 group-hover:text-cyan-400 transition-colors"></i>
-                                    <span>Pronósticos de rivales</span>
+                                    <span>Picks de rivales</span>
                                     {{if gt $g.TotalPicks 0}}
                                         <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-zinc-800 text-zinc-300 border border-zinc-700">
                                             {{$g.TotalPicks}}
                                         </span>
                                     {{end}}
                                 </span>
-                                <i class="fa-solid text-[10px] text-zinc-500 group-hover:text-cyan-400 transition-transform duration-200" :class="openCommunity ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                                <i class="fa-solid text-[10px] text-zinc-500 group-hover:text-cyan-400 transition-transform duration-200 shrink-0 ml-1" :class="openCommunity ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                             </button>
+                        </div>
 
-                            <div x-show="openCommunity" x-cloak class="mt-2 pt-2 border-t border-zinc-900">
-                                <div id="live-community-{{$g.ID}}" class="space-y-1.5 text-xs text-zinc-300">
-                                    <div class="py-3 text-center text-zinc-500 text-xs">
-                                        <i class="fa-solid fa-spinner fa-spin mr-1 text-cyan-400"></i> Cargando pronósticos de rivales...
-                                    </div>
+                        <div x-show="openCommunity" x-cloak class="pt-2 border-t border-zinc-900">
+                            <div id="live-community-{{$g.ID}}" class="space-y-1.5 text-xs text-zinc-300">
+                                <div class="py-3 text-center text-zinc-500 text-xs">
+                                    <i class="fa-solid fa-spinner fa-spin mr-1 text-cyan-400"></i> Cargando pronósticos de rivales...
                                 </div>
                             </div>
                         </div>
-                    {{end}}
+                    </div>
 
                 </div>
             {{end}}

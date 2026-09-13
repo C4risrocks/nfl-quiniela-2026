@@ -160,7 +160,85 @@ func (c *Calculator) evaluateAchievements(week *db.Week, games []*db.Game, leade
 			}
 		}
 
-		// 7. Veterano de Acero (iron_streak): 4+ consecutive participating weeks
+		// 7. Ojo de Halcón (hawk_eye): >= 10 correct picks in a single week
+		if entry.CorrectPicks >= 10 {
+			_, _ = c.repo.AwardAchievement(
+				entry.UserID,
+				"hawk_eye",
+				"Ojo de Halcón",
+				"Acertaste 10 o más ganadores en una sola jornada",
+				"🦅",
+				&weekNum,
+			)
+		}
+
+		// 8. Maestro del Kickoff (tnf_master): hit the earliest/TNF kickoff game
+		var earliestGame *db.Game
+		for _, g := range games {
+			if earliestGame == nil || g.KickoffTime.Before(earliestGame.KickoffTime) {
+				earliestGame = g
+			}
+		}
+		if earliestGame != nil && earliestGame.Status == "final" {
+			for _, p := range picks {
+				if p.GameID == earliestGame.ID && p.IsCorrect != nil && *p.IsCorrect {
+					_, _ = c.repo.AwardAchievement(
+						entry.UserID,
+						"tnf_master",
+						"Maestro del Kickoff",
+						"Acertaste el partido inaugural de Thursday Night Football de la jornada",
+						"⚡",
+						&weekNum,
+					)
+				}
+			}
+		}
+
+		// 9. Remontada Legendaria (comeback_kid): climbed 4+ positions in weekly rank
+		if allGamesFinal && weekNum >= 2 {
+			history, _ := c.repo.GetUserWeeklyBreakdown(entry.UserID, week.SeasonID)
+			if len(history) >= 2 {
+				// Find previous week's rank
+				for i := len(history) - 1; i >= 0; i-- {
+					if history[i].WeekNumber < weekNum && history[i].Rank > 0 {
+						if history[i].Rank-entry.Rank >= 4 {
+							_, _ = c.repo.AwardAchievement(
+								entry.UserID,
+								"comeback_kid",
+								"Remontada Legendaria",
+								"Escalaste 4 o más posiciones en la tabla dentro de una sola jornada",
+								"🚀",
+								&weekNum,
+							)
+						}
+						break
+					}
+				}
+			}
+		}
+
+		// 10. Verdugo de Rivales (rival_slayer): won 3+ weeks or top finishes in the season
+		if allGamesFinal {
+			history, _ := c.repo.GetUserWeeklyBreakdown(entry.UserID, week.SeasonID)
+			topFinishes := 0
+			for _, h := range history {
+				if h.Rank == 1 || h.Rank == 2 {
+					topFinishes++
+				}
+			}
+			if topFinishes >= 3 {
+				_, _ = c.repo.AwardAchievement(
+					entry.UserID,
+					"rival_slayer",
+					"Verdugo de Rivales",
+					"Conquistaste 3 o más duelos y victorias directas en la temporada",
+					"🥊",
+					nil,
+				)
+			}
+		}
+
+		// 11. Veterano de Acero (iron_streak): 4+ consecutive participating weeks
 		if weekNum >= 4 {
 			history, _ := c.repo.GetUserWeeklyBreakdown(entry.UserID, week.SeasonID)
 			consecutiveParticipations := 0
@@ -184,4 +262,22 @@ func (c *Calculator) evaluateAchievements(week *db.Week, games []*db.Game, leade
 			}
 		}
 	}
+
+	// 12. Club de los 100 (century_club): 100+ total points in season
+	seasonLB, err := c.repo.GetSeasonLeaderboard(week.SeasonID)
+	if err == nil {
+		for _, sEntry := range seasonLB {
+			if sEntry.TotalPoints >= 100 {
+				_, _ = c.repo.AwardAchievement(
+					sEntry.UserID,
+					"century_club",
+					"Club de los 100",
+					"Acumulaste 100 o más puntos totales a lo largo de la temporada",
+					"💯",
+					nil,
+				)
+			}
+		}
+	}
 }
+

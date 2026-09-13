@@ -3,6 +3,7 @@ package db
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 )
@@ -310,14 +311,42 @@ func (d DriveItem) ResultBadgeClass() string {
 	}
 }
 
-// GameDetailedSummary combines boxscore team statistics, scoring plays and offensive drives
+// PlayerStatEntry represents a single player's boxscore stat line
+type PlayerStatEntry struct {
+	Name        string   `json:"name"`
+	Jersey      string   `json:"jersey"`
+	Position    string   `json:"position"`
+	HeadshotURL string   `json:"headshot_url"`
+	Stats       []string `json:"stats"`
+}
+
+// PlayerStatCategory groups athletes for a stat category (passing, rushing, receiving, defensive)
+type PlayerStatCategory struct {
+	Name    string            `json:"name"`  // e.g. "passing", "rushing", "receiving", "defensive"
+	Title   string            `json:"title"` // e.g. "Pase", "Acarreo", "Recepción", "Defensa"
+	Labels  []string          `json:"labels"`
+	Players []PlayerStatEntry `json:"players"`
+}
+
+// TeamPlayerStats holds player stat categories for one team
+type TeamPlayerStats struct {
+	TeamCode   string               `json:"team_code"`
+	TeamName   string               `json:"team_name"`
+	TeamLogo   string               `json:"team_logo"`
+	Categories []PlayerStatCategory `json:"categories"`
+}
+
+// GameDetailedSummary combines boxscore team statistics, player statistics, scoring plays and offensive drives
 type GameDetailedSummary struct {
-	AwayStats    *TeamBoxscoreStats `json:"away_stats,omitempty"`
-	HomeStats    *TeamBoxscoreStats `json:"home_stats,omitempty"`
-	ScoringPlays []ScoringPlayItem  `json:"scoring_plays,omitempty"`
-	Drives       []DriveItem        `json:"drives,omitempty"`
-	HasStats     bool               `json:"has_stats"`
-	HasDrives    bool               `json:"has_drives"`
+	AwayStats       *TeamBoxscoreStats `json:"away_stats,omitempty"`
+	HomeStats       *TeamBoxscoreStats `json:"home_stats,omitempty"`
+	AwayPlayerStats *TeamPlayerStats   `json:"away_player_stats,omitempty"`
+	HomePlayerStats *TeamPlayerStats   `json:"home_player_stats,omitempty"`
+	ScoringPlays    []ScoringPlayItem  `json:"scoring_plays,omitempty"`
+	Drives          []DriveItem        `json:"drives,omitempty"`
+	HasStats        bool               `json:"has_stats"`
+	HasPlayerStats  bool               `json:"has_player_stats"`
+	HasDrives       bool               `json:"has_drives"`
 }
 
 
@@ -350,15 +379,23 @@ func (g *Game) IsAwayLeading() bool {
 }
 
 func (g *Game) HomePickPercent() int {
-	if g == nil || g.TotalPicks == 0 {
-		return 50
+	if g == nil {
+		return 0
 	}
-	return int(float64(g.HomePickCount) / float64(g.TotalPicks) * 100.0)
+	valid := g.HomePickCount + g.AwayPickCount
+	if valid == 0 {
+		return 0
+	}
+	return int(math.Round(float64(g.HomePickCount) / float64(valid) * 100.0))
 }
 
 func (g *Game) AwayPickPercent() int {
-	if g == nil || g.TotalPicks == 0 {
-		return 50
+	if g == nil {
+		return 0
+	}
+	valid := g.HomePickCount + g.AwayPickCount
+	if valid == 0 {
+		return 0
 	}
 	return 100 - g.HomePickPercent()
 }
@@ -1085,10 +1122,31 @@ func GetAllBadgeDefinitions() []BadgeDefinition {
 			Rarity:      "legendary",
 		},
 		{
+			Code:        "comeback_kid",
+			Name:        "Remontada Legendaria",
+			Description: "Escalaste 4 o más posiciones en la tabla general dentro de una sola jornada.",
+			Icon:        "🚀",
+			Rarity:      "legendary",
+		},
+		{
 			Code:        "week_champion",
 			Name:        "Campeón de Jornada",
 			Description: "Conquistaste el 1er lugar de la tabla semanal en una jornada finalizada.",
 			Icon:        "👑",
+			Rarity:      "epic",
+		},
+		{
+			Code:        "century_club",
+			Name:        "Club de los 100",
+			Description: "Acumulaste 100 o más puntos totales a lo largo de la temporada.",
+			Icon:        "💯",
+			Rarity:      "epic",
+		},
+		{
+			Code:        "rival_slayer",
+			Name:        "Verdugo de Rivales",
+			Description: "Conquistaste 3 o más duelos cara a cara directos en la temporada.",
+			Icon:        "🥊",
 			Rarity:      "epic",
 		},
 		{
@@ -1097,6 +1155,20 @@ func GetAllBadgeDefinitions() []BadgeDefinition {
 			Description: "Acertaste con exactitud la suma total de puntos en el partido de desempate.",
 			Icon:        "🎯",
 			Rarity:      "epic",
+		},
+		{
+			Code:        "tnf_master",
+			Name:        "Maestro del Kickoff",
+			Description: "Acertaste el partido inaugural de Thursday Night Football de la jornada.",
+			Icon:        "⚡",
+			Rarity:      "rare",
+		},
+		{
+			Code:        "hawk_eye",
+			Name:        "Ojo de Halcón",
+			Description: "Acertaste 10 o más ganadores en una sola jornada.",
+			Icon:        "🦅",
+			Rarity:      "rare",
 		},
 		{
 			Code:        "underdog_king",
@@ -1116,7 +1188,7 @@ func GetAllBadgeDefinitions() []BadgeDefinition {
 			Code:        "elite_accuracy",
 			Name:        "Efectividad Élite",
 			Description: "Superaste el 75% de efectividad en pronósticos de una jornada (mín. 12 partidos).",
-			Icon:        "⚡",
+			Icon:        "📊",
 			Rarity:      "rare",
 		},
 		{

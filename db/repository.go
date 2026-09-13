@@ -1037,6 +1037,49 @@ func (r *Repository) GetGameCommunityStats(gameID int64) (*GameCommunityStats, e
 	return stats, nil
 }
 
+// GetWeekCommunityStats returns aggregated community pick stats for all games in a given week in a single query
+func (r *Repository) GetWeekCommunityStats(weekID int64) (map[int64]*GameCommunityStats, error) {
+	query := `
+		SELECT 
+			g.id,
+			COUNT(p.id) as total_picks,
+			COALESCE(SUM(CASE WHEN p.picked_team_id = g.home_team_id THEN 1 ELSE 0 END), 0) as home_picks,
+			COALESCE(SUM(CASE WHEN p.picked_team_id = g.away_team_id THEN 1 ELSE 0 END), 0) as away_picks
+		FROM games g
+		LEFT JOIN picks p ON p.game_id = g.id
+		WHERE g.week_id = ?
+		GROUP BY g.id
+	`
+	rows, err := r.db.Query(query, weekID)
+	if err != nil {
+		return nil, fmt.Errorf("querying week community stats: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[int64]*GameCommunityStats)
+	for rows.Next() {
+		var gameID int64
+		var total, home, away int
+		if err := rows.Scan(&gameID, &total, &home, &away); err != nil {
+			return nil, fmt.Errorf("scanning week community stats row: %w", err)
+		}
+
+		st := &GameCommunityStats{
+			TotalPicks:     total,
+			HomePicksCount: home,
+			AwayPicksCount: away,
+		}
+		valid := home + away
+		if valid > 0 {
+			st.HomePct = int(math.Round(float64(home) / float64(valid) * 100.0))
+			st.AwayPct = 100 - st.HomePct
+		}
+		result[gameID] = st
+	}
+
+	return result, nil
+}
+
 func (r *Repository) GetHeadToHeadComparison(weekID, userAID, userBID int64) (*HeadToHeadComparison, error) {
 	userA, err := r.GetUserByID(userAID)
 	if err != nil {

@@ -389,30 +389,40 @@
         </div>
     {{end}}
 
-    <!-- Community Picks Drawer -->
-    {{if $locked}}
-        <div x-data="{ openCommunity: false }" class="mt-2.5 pt-2 border-t border-[#1c1c1c]">
+    <!-- Actions Row: Game Stats Modal & Community Picks Drawer -->
+    <div x-data="{ openCommunity: false }" class="mt-2.5 pt-2 border-t border-[#1c1c1c] space-y-2">
+        <div class="flex items-center justify-between gap-2">
+            <!-- Game Stats Modal Button -->
             <button type="button"
-                    @click.prevent="openCommunity = !openCommunity" 
-                    hx-get="/picks/community/{{.Game.ID}}"
-                    hx-target="#community-list-{{.Game.ID}}"
-                    hx-trigger="click"
-                    class="w-full flex items-center justify-between text-[11px] text-zinc-400 hover:text-zinc-200 py-1 transition-colors cursor-pointer">
-                <span class="flex items-center space-x-1.5">
-                    <i class="fa-solid fa-users text-zinc-500"></i>
-                    <span>Ver pronósticos de la comunidad</span>
-                </span>
-                <i class="fa-solid text-[9px] text-zinc-500" :class="openCommunity ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                    hx-get="/games/{{.Game.ID}}/stats"
+                    hx-target="#game-stats-modal-container"
+                    hx-swap="innerHTML"
+                    title="Ver estadísticas y resumen del partido"
+                    class="inline-flex items-center space-x-1.5 text-[11px] font-semibold text-zinc-400 hover:text-white py-1 px-2.5 rounded-lg bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800/80 hover:border-zinc-700 transition-all cursor-pointer">
+                <i class="fa-solid fa-chart-column text-cyan-400 text-xs"></i>
+                <span>Estadísticas</span>
             </button>
 
-            <div x-show="openCommunity" x-cloak class="mt-2 pt-2 border-t border-zinc-900">
-                <div id="community-list-{{.Game.ID}}" class="space-y-1.5 text-xs text-zinc-300">
-                    <div class="py-2 text-center text-zinc-500 text-xs">
-                        <i class="fa-solid fa-spinner fa-spin mr-1"></i> Cargando pronósticos...
-                    </div>
+            <!-- Toggle Community Drawer Button -->
+            <button type="button"
+                    @click.prevent="openCommunity = !openCommunity; if (openCommunity && !$el.dataset.loaded) { htmx.trigger($el, 'load-community'); $el.dataset.loaded = 'true'; }"
+                    hx-get="/picks/community/{{.Game.ID}}"
+                    hx-target="#community-list-{{.Game.ID}}"
+                    hx-trigger="load-community"
+                    class="inline-flex items-center space-x-1.5 text-[11px] font-semibold text-zinc-400 hover:text-zinc-200 py-1 px-2.5 rounded-lg bg-zinc-900/40 hover:bg-zinc-800/60 border border-zinc-800/60 transition-colors cursor-pointer">
+                <i class="fa-solid fa-users text-zinc-500"></i>
+                <span>Picks comunidad</span>
+                <i class="fa-solid text-[9px] text-zinc-500 transition-transform duration-200" :class="openCommunity ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+            </button>
+        </div>
+
+        <div x-show="openCommunity" x-cloak class="pt-2 border-t border-zinc-900">
+            <div id="community-list-{{.Game.ID}}" class="space-y-1.5 text-xs text-zinc-300">
+                <div class="py-2 text-center text-zinc-500 text-xs">
+                    <i class="fa-solid fa-spinner fa-spin mr-1"></i> Cargando pronósticos...
                 </div>
             </div>
         </div>
-    {{end}}
+    </div>
 
 </div>

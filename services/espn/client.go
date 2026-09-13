@@ -371,6 +371,26 @@ func (c *Client) FetchGameSummary(espnGameID string) (*db.GameDetailedSummary, e
 
 	result.HasStats = result.AwayStats != nil && result.HomeStats != nil
 
+	// Parse individual player statistics (Passing, Rushing, Receiving, Defense)
+	if len(espnResp.Boxscore.Players) > 0 {
+		for _, pItem := range espnResp.Boxscore.Players {
+			tStats := parseTeamPlayerStats(pItem)
+			if tStats != nil {
+				code := NormalizeTeamCode(pItem.Team.Abbreviation)
+				if result.AwayStats != nil && code == result.AwayStats.TeamCode {
+					result.AwayPlayerStats = tStats
+				} else if result.HomeStats != nil && code == result.HomeStats.TeamCode {
+					result.HomePlayerStats = tStats
+				} else if result.AwayPlayerStats == nil {
+					result.AwayPlayerStats = tStats
+				} else {
+					result.HomePlayerStats = tStats
+				}
+			}
+		}
+		result.HasPlayerStats = result.AwayPlayerStats != nil || result.HomePlayerStats != nil
+	}
+
 	// Parse offensive drives (Drive Chart & Play-by-Play)
 	allDrives := make([]db.DriveItem, 0, len(espnResp.Drives.Previous)+1)
 	for _, drv := range espnResp.Drives.Previous {
@@ -475,4 +495,82 @@ func parseESPNDrive(d ESPNDrive, isCurrent bool) db.DriveItem {
 		Plays:         plays,
 	}
 }
+
+func parseTeamPlayerStats(item ESPNBoxscorePlayerTeam) *db.TeamPlayerStats {
+	if len(item.Statistics) == 0 {
+		return nil
+	}
+
+	code := NormalizeTeamCode(item.Team.Abbreviation)
+	cats := make([]db.PlayerStatCategory, 0, len(item.Statistics))
+
+	for _, c := range item.Statistics {
+		if len(c.Athletes) == 0 {
+			continue
+		}
+
+		title := c.Text
+		switch strings.ToLower(c.Name) {
+		case "passing":
+			title = "Pase"
+		case "rushing":
+			title = "Acarreo"
+		case "receiving":
+			title = "Recepción"
+		case "defensive":
+			title = "Defensiva"
+		case "kicking":
+			title = "Pateo"
+		case "punting":
+			title = "Despejes"
+		case "interceptions":
+			title = "Intercepciones"
+		default:
+			if title == "" {
+				title = strings.Title(c.Name)
+			}
+		}
+
+		players := make([]db.PlayerStatEntry, 0, len(c.Athletes))
+		for _, a := range c.Athletes {
+			name := a.Athlete.DisplayName
+			if name == "" {
+				name = a.Athlete.ShortName
+			}
+			headshot := ""
+			if a.Athlete.Headshot != nil {
+				headshot = a.Athlete.Headshot.Href
+			}
+
+			players = append(players, db.PlayerStatEntry{
+				Name:        name,
+				Jersey:      a.Athlete.Jersey,
+				Position:    a.Athlete.Position.Abbreviation,
+				HeadshotURL: headshot,
+				Stats:       a.Stats,
+			})
+		}
+
+		if len(players) > 0 {
+			cats = append(cats, db.PlayerStatCategory{
+				Name:    c.Name,
+				Title:   title,
+				Labels:  c.Labels,
+				Players: players,
+			})
+		}
+	}
+
+	if len(cats) == 0 {
+		return nil
+	}
+
+	return &db.TeamPlayerStats{
+		TeamCode:   code,
+		TeamName:   item.Team.DisplayName,
+		TeamLogo:   item.Team.Logo,
+		Categories: cats,
+	}
+}
+
 

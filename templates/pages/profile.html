@@ -1,59 +1,90 @@
 {{template "base.html" .}}
 
-{{define "title"}}Mi Perfil - NFL Quiniela 2026{{end}}
+{{define "title"}}{{if .IsOwnProfile}}Mi Perfil{{else}}Perfil de {{.ProfileUser.Username}}{{end}} - NFL Quiniela 2026{{end}}
 
 {{define "content"}}
-<div class="max-w-4xl mx-auto space-y-6" x-data="{ shareProfileModalOpen: false }">
+<div class="max-w-4xl mx-auto space-y-6" x-data="{ shareProfileModalOpen: false, badgeModalOpen: false, selectedBadge: null }">
 
     <!-- Profile Header Card -->
     <div class="vercel-card p-6 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div class="flex items-center space-x-4">
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-zinc-800 to-zinc-700 border border-zinc-600/50 flex items-center justify-center text-white text-2xl font-black shadow-lg">
-                {{slice .User.Username 0 1}}
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-zinc-800 to-zinc-700 border border-zinc-600/50 flex items-center justify-center text-white text-2xl font-black shadow-lg overflow-hidden shrink-0">
+                {{if .ProfileUser.AvatarURL}}
+                    <img src="{{.ProfileUser.AvatarURL}}" alt="{{.ProfileUser.Username}}" class="w-full h-full object-cover">
+                {{else}}
+                    {{slice .ProfileUser.Username 0 1}}
+                {{end}}
             </div>
             <div>
                 <div class="flex items-center space-x-2 mb-1">
-                    <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white">{{.User.Username}}</h1>
-                    {{if .User.IsAdmin}}
+                    <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white">{{.ProfileUser.Username}}</h1>
+                    {{if .ProfileUser.IsAdmin}}
                         <span class="text-[9px] uppercase font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded">Admin</span>
                     {{end}}
-                </div>
-                <div class="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-                    <span class="flex items-center">
-                        <i class="fa-regular fa-envelope mr-1.5 text-zinc-500"></i> {{.User.Email}}
-                    </span>
-                    <span>&bull;</span>
-                    {{if .User.EmailVerified}}
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-medium">
-                            <i class="fa-solid fa-circle-check text-[9px] mr-1"></i> Correo Verificado
-                        </span>
-                    {{else}}
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-medium">
-                            <i class="fa-solid fa-triangle-exclamation text-[9px] mr-1"></i> Correo Pendiente
-                        </span>
+                    {{if not .IsOwnProfile}}
+                        <span class="text-[9px] uppercase font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded">Rival</span>
                     {{end}}
                 </div>
+                {{if .IsOwnProfile}}
+                    <div class="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+                        <span class="flex items-center">
+                            <i class="fa-regular fa-envelope mr-1.5 text-zinc-500"></i> {{.ProfileUser.Email}}
+                        </span>
+                        <span>&bull;</span>
+                        {{if .ProfileUser.EmailVerified}}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-medium">
+                                <i class="fa-solid fa-circle-check text-[9px] mr-1"></i> Correo Verificado
+                            </span>
+                        {{else}}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-medium">
+                                <i class="fa-solid fa-triangle-exclamation text-[9px] mr-1"></i> Correo Pendiente
+                            </span>
+                        {{end}}
+                    </div>
+                {{else}}
+                    <div class="text-xs text-zinc-400 flex items-center space-x-2">
+                        <span>Perfil de competidor en la Quiniela NFL 2026</span>
+                    </div>
+                {{end}}
             </div>
         </div>
 
         <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
-            <button type="button"
-                    @click="shareProfileModalOpen = true"
-                    class="py-2 px-3.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 border border-amber-500/40 text-amber-300 font-bold text-xs flex items-center space-x-1.5 transition-all shadow-sm cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
-                <i class="fa-solid fa-share-nodes text-xs"></i>
-                <span>Compartir Perfil & Logros</span>
-            </button>
-
-            {{if not .User.EmailVerified}}
-            <div id="resend-profile-container">
-                <button hx-post="/verify-email/resend"
-                        hx-target="#resend-profile-container"
-                        hx-swap="innerHTML"
-                        class="py-2 px-3.5 rounded-xl bg-zinc-900 border border-amber-500/30 text-amber-300 hover:bg-amber-500/10 text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer">
-                    <i class="fa-solid fa-paper-plane text-[10px]"></i>
-                    <span>Reenviar Confirmación</span>
+            {{if .IsOwnProfile}}
+                <button type="button"
+                        @click="shareProfileModalOpen = true"
+                        class="py-2 px-3.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 border border-amber-500/40 text-amber-300 font-bold text-xs flex items-center space-x-1.5 transition-all shadow-sm cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
+                    <i class="fa-solid fa-share-nodes text-xs"></i>
+                    <span>Compartir Perfil & Logros</span>
                 </button>
-            </div>
+
+                {{if not .ProfileUser.EmailVerified}}
+                <div id="resend-profile-container">
+                    <button hx-post="/verify-email/resend"
+                            hx-target="#resend-profile-container"
+                            hx-swap="innerHTML"
+                            class="py-2 px-3.5 rounded-xl bg-zinc-900 border border-amber-500/30 text-amber-300 hover:bg-amber-500/10 text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer">
+                        <i class="fa-solid fa-paper-plane text-[10px]"></i>
+                        <span>Reenviar Confirmación</span>
+                    </button>
+                </div>
+                {{end}}
+            {{else}}
+                <!-- H2H Duel Button against this rival -->
+                <button type="button"
+                        hx-get="/picks/compare?rival_id={{.ProfileUser.ID}}"
+                        hx-target="#h2h-modal-container"
+                        hx-swap="innerHTML"
+                        class="py-2 px-3.5 rounded-xl bg-gradient-to-r from-rose-600/25 via-red-600/25 to-zinc-900 hover:from-rose-600/35 hover:to-red-600/35 border border-rose-500/40 text-rose-200 font-bold text-xs flex items-center space-x-1.5 transition-all shadow-sm cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
+                    <i class="fa-solid fa-code-compare text-xs text-rose-400"></i>
+                    <span>Duelo Cara a Cara</span>
+                </button>
+
+                <a href="/leaderboard"
+                   class="py-2 px-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white text-xs font-semibold transition-colors flex items-center space-x-1.5">
+                    <i class="fa-solid fa-arrow-left text-[10px]"></i>
+                    <span>Volver a la Tabla</span>
+                </a>
             {{end}}
         </div>
     </div>
@@ -109,7 +140,7 @@
                 <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center">
                     <i class="fa-solid fa-medal text-amber-400 mr-2"></i> Vitrina de Logros y Condecoraciones
                 </h2>
-                <p class="text-xs text-zinc-400 mt-0.5">Insignias exclusivas desbloqueadas por hitos excepcionales durante la temporada.</p>
+                <p class="text-xs text-zinc-400 mt-0.5">Insignias exclusivas desbloqueadas por hitos excepcionales durante la temporada. Haz clic para inspeccionar detalles.</p>
             </div>
             <div class="inline-flex items-center px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300">
                 <span class="text-amber-400 font-bold mr-1.5">{{.UnlockedAchievementsCount}}</span> / {{.TotalBadgesCount}} Desbloqueados
@@ -118,9 +149,34 @@
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {{range .AchievementDisplays}}
-                <div class="p-3.5 rounded-xl border transition-all flex items-start space-x-3 {{if .IsUnlocked}}bg-gradient-to-b from-amber-500/10 via-zinc-900/60 to-zinc-950 border-amber-500/40 shadow-sm{{else}}bg-zinc-950/40 border-zinc-800/60 opacity-50{{end}}">
+                {{$rarity := .Definition.Rarity}}
+                <div @click="selectedBadge = { name: '{{.Definition.Name}}', icon: '{{.Definition.Icon}}', desc: '{{.Definition.Description}}', rarity: '{{.Definition.Rarity}}', isUnlocked: {{if .IsUnlocked}}true{{else}}false{{end}}, week: '{{if .WeekNumber}}Semana {{.WeekNumber}}{{end}}' }; badgeModalOpen = true;"
+                     class="p-3.5 rounded-xl border transition-all flex items-start space-x-3 cursor-pointer hover:scale-[1.02] active:scale-[0.98] 
+                            {{if .IsUnlocked}}
+                                {{if eq $rarity "legendary"}}
+                                    bg-gradient-to-b from-amber-500/15 via-zinc-900/70 to-zinc-950 border-amber-500/50 shadow-md shadow-amber-500/5 hover:border-amber-400
+                                {{else if eq $rarity "epic"}}
+                                    bg-gradient-to-b from-purple-500/15 via-zinc-900/70 to-zinc-950 border-purple-500/50 shadow-md shadow-purple-500/5 hover:border-purple-400
+                                {{else if eq $rarity "rare"}}
+                                    bg-gradient-to-b from-cyan-500/15 via-zinc-900/70 to-zinc-950 border-cyan-500/50 shadow-md shadow-cyan-500/5 hover:border-cyan-400
+                                {{else}}
+                                    bg-gradient-to-b from-zinc-800/40 via-zinc-900/70 to-zinc-950 border-zinc-700/80 hover:border-zinc-500
+                                {{end}}
+                            {{else}}
+                                bg-zinc-950/40 border-zinc-800/60 opacity-50 hover:opacity-75
+                            {{end}}">
+                    
                     <!-- Badge Icon Box -->
-                    <div class="w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0 {{if .IsUnlocked}}bg-amber-500/20 border border-amber-500/40 shadow-inner{{else}}bg-zinc-900 border border-zinc-800 text-zinc-600 grayscale{{end}}">
+                    <div class="w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0 
+                                {{if .IsUnlocked}}
+                                    {{if eq $rarity "legendary"}}bg-amber-500/20 border border-amber-500/50 shadow-inner
+                                    {{else if eq $rarity "epic"}}bg-purple-500/20 border border-purple-500/50 shadow-inner
+                                    {{else if eq $rarity "rare"}}bg-cyan-500/20 border border-cyan-500/50 shadow-inner
+                                    {{else}}bg-zinc-800 border border-zinc-700
+                                    {{end}}
+                                {{else}}
+                                    bg-zinc-900 border border-zinc-800 text-zinc-600 grayscale
+                                {{end}}">
                         {{if .IsUnlocked}}
                             <span>{{.Definition.Icon}}</span>
                         {{else}}
@@ -135,7 +191,12 @@
                                 {{.Definition.Name}}
                             </h3>
                             {{if .IsUnlocked}}
-                                <span class="text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+                                <span class="text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded 
+                                             {{if eq $rarity "legendary"}}bg-amber-500/15 text-amber-300 border border-amber-500/30
+                                             {{else if eq $rarity "epic"}}bg-purple-500/15 text-purple-300 border border-purple-500/30
+                                             {{else if eq $rarity "rare"}}bg-cyan-500/15 text-cyan-300 border border-cyan-500/30
+                                             {{else}}bg-emerald-500/15 text-emerald-400 border border-emerald-500/30
+                                             {{end}} shrink-0">
                                     {{if .WeekNumber}}Sem {{.WeekNumber}}{{else}}Obtenido{{end}}
                                 </span>
                             {{else}}
@@ -144,7 +205,7 @@
                                 </span>
                             {{end}}
                         </div>
-                        <p class="text-[11px] leading-relaxed mt-1 {{if .IsUnlocked}}text-zinc-300{{else}}text-zinc-500{{end}}">
+                        <p class="text-[11px] leading-relaxed mt-1 line-clamp-2 {{if .IsUnlocked}}text-zinc-300{{else}}text-zinc-500{{end}}">
                             {{.Definition.Description}}
                         </p>
                     </div>
@@ -368,7 +429,8 @@
         </div>
     </div>
 
-    <!-- Settings Grid (2 columns) -->
+    <!-- Settings Grid (2 columns, only visible on own profile) -->
+    {{if .IsOwnProfile}}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         <!-- Card 1: Preferences -->
@@ -384,7 +446,7 @@
                     <select name="favorite_team_id" class="w-full bg-zinc-900 border border-zinc-700/80 text-white text-xs font-medium rounded-xl px-3.5 py-2.5 focus:ring-1 focus:ring-white focus:border-white transition-all">
                         <option value="0">-- Ninguno seleccionado --</option>
                         {{range .Teams}}
-                            <option value="{{.ID}}" {{if and $.User.FavoriteTeamID (eq $.User.FavoriteTeamID .ID)}}selected{{end}}>
+                            <option value="{{.ID}}" {{if and $.ProfileUser.FavoriteTeamID (eq $.ProfileUser.FavoriteTeamID .ID)}}selected{{end}}>
                                 {{.City}} {{.Name}} ({{.Code}})
                             </option>
                         {{end}}
@@ -393,8 +455,8 @@
 
                 <div class="pt-2">
                     <label class="flex items-start space-x-3 cursor-pointer select-none">
-                        <input type="checkbox" name="notify_email" value="1" {{if .User.NotifyEmail}}checked{{end}}
-                               class="w-4 h-4 mt-0.5 rounded bg-zinc-900 border-zinc-700 text-white focus:ring-0 focus:ring-offset-0">
+                        <input type="checkbox" name="notify_email" value="1" {{if .ProfileUser.NotifyEmail}}checked{{end}}
+                                class="w-4 h-4 mt-0.5 rounded bg-zinc-900 border-zinc-700 text-white focus:ring-0 focus:ring-offset-0">
                         <div>
                             <span class="text-xs font-medium text-white block">Recordatorios por Correo</span>
                             <span class="text-[11px] text-zinc-400 block mt-0.5 leading-relaxed">Recibir alertas automáticas antes de que inicien los partidos si aún tienes pronósticos pendientes.</span>
@@ -444,6 +506,88 @@
             </form>
         </div>
 
+    </div>
+    {{end}}
+
+    <!-- Interactive Badge Inspection Modal -->
+    <div x-show="badgeModalOpen"
+         x-cloak
+         data-close-modal="backdrop"
+         class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
+         @click.self="badgeModalOpen = false"
+         @keydown.escape.window="badgeModalOpen = false">
+        <div class="vercel-card w-full max-w-md max-h-[92vh] sm:max-h-[90vh] rounded-2xl flex flex-col overflow-hidden border border-zinc-700 bg-zinc-950 shadow-2xl relative"
+             @click.stop>
+            
+            <!-- Header (Fixed shrink-0) -->
+            <div class="shrink-0 p-4 border-b border-zinc-800/80 flex items-center justify-between">
+                <span class="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">Detalles de la Insignia</span>
+                <button type="button"
+                        @click="badgeModalOpen = false"
+                        data-close-modal="true"
+                        class="w-8 h-8 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <!-- Scrollable Content -->
+            <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 space-y-4 text-center">
+                <!-- Huge Badge Icon with rarity glow -->
+                <div class="w-24 h-24 mx-auto rounded-2xl flex items-center justify-center text-5xl shadow-xl border shrink-0"
+                     :class="{
+                         'bg-amber-500/20 border-amber-500/50 shadow-amber-500/20 text-amber-300': selectedBadge?.rarity === 'legendary',
+                         'bg-purple-500/20 border-purple-500/50 shadow-purple-500/20 text-purple-300': selectedBadge?.rarity === 'epic',
+                         'bg-cyan-500/20 border-cyan-500/50 shadow-cyan-500/20 text-cyan-300': selectedBadge?.rarity === 'rare',
+                         'bg-zinc-800 border-zinc-700 text-zinc-300': selectedBadge?.rarity === 'common'
+                     }">
+                    <span x-text="selectedBadge?.icon"></span>
+                </div>
+
+                <div class="space-y-1.5">
+                    <div class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider border"
+                         :class="{
+                             'bg-amber-500/20 text-amber-300 border-amber-500/40': selectedBadge?.rarity === 'legendary',
+                             'bg-purple-500/20 text-purple-300 border-purple-500/40': selectedBadge?.rarity === 'epic',
+                             'bg-cyan-500/20 text-cyan-300 border-cyan-500/40': selectedBadge?.rarity === 'rare',
+                             'bg-zinc-800 text-zinc-300 border-zinc-700': selectedBadge?.rarity === 'common'
+                         }">
+                        <span x-text="selectedBadge?.rarity === 'legendary' ? '🏆 Rareza Legendaria' : (selectedBadge?.rarity === 'epic' ? '🟣 Rareza Épica' : (selectedBadge?.rarity === 'rare' ? '🔷 Rareza Rara' : '⚪ Rareza Común'))"></span>
+                    </div>
+                    <h3 class="text-xl font-black text-white" x-text="selectedBadge?.name"></h3>
+                    <p class="text-xs text-zinc-300 leading-relaxed px-2" x-text="selectedBadge?.desc"></p>
+                </div>
+
+                <!-- Status Box -->
+                <div class="p-3.5 rounded-xl border text-xs"
+                     :class="selectedBadge?.isUnlocked ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300' : 'bg-zinc-900/50 border-zinc-800 text-zinc-400'">
+                    <div class="flex items-center justify-center space-x-1.5 font-semibold">
+                        <template x-if="selectedBadge?.isUnlocked">
+                            <span class="flex items-center space-x-1.5 text-emerald-400">
+                                <i class="fa-solid fa-circle-check text-sm"></i>
+                                <span>Insignia Desbloqueada</span>
+                                <span x-show="selectedBadge?.week" x-text="'• ' + selectedBadge?.week" class="text-emerald-300 font-mono text-[11px]"></span>
+                            </span>
+                        </template>
+                        <template x-if="!selectedBadge?.isUnlocked">
+                            <span class="flex items-center space-x-1.5 text-zinc-500">
+                                <i class="fa-solid fa-lock text-sm"></i>
+                                <span>Insignia Bloqueada para este jugador</span>
+                            </span>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer (Fixed shrink-0) -->
+            <div class="shrink-0 p-3 sm:p-4 border-t border-zinc-800/80 bg-zinc-900/60">
+                <button type="button"
+                        @click="badgeModalOpen = false"
+                        data-close-modal="true"
+                        class="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs transition-colors cursor-pointer">
+                    Cerrar
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Share Profile & Trophies Card Modal -->

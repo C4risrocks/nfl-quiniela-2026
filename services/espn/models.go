@@ -111,6 +111,7 @@ type ESPNSummaryResponse struct {
 				Label        string `json:"label"`
 			} `json:"statistics"`
 		} `json:"teams"`
+		Players []ESPNBoxscorePlayerTeam `json:"players"`
 	} `json:"boxscore"`
 	ScoringPlays []struct {
 		ID     string `json:"id"`
@@ -195,5 +196,44 @@ type ESPNDrive struct {
 	} `json:"team"`
 	Plays []ESPNDrivePlay `json:"plays"`
 }
+
+// ESPNBoxscorePlayerTeam represents one team's player statistics in ESPN boxscore
+type ESPNBoxscorePlayerTeam struct {
+	Team struct {
+		ID           string `json:"id"`
+		Abbreviation string `json:"abbreviation"`
+		DisplayName  string `json:"displayName"`
+		Logo         string `json:"logo"`
+	} `json:"team"`
+	Statistics []ESPNPlayerStatCategory `json:"statistics"`
+}
+
+// ESPNPlayerStatCategory represents a category like passing, rushing, receiving, defensive
+type ESPNPlayerStatCategory struct {
+	Name         string                `json:"name"`
+	Keys         []string              `json:"keys"`
+	Text         string                `json:"text"`
+	Labels       []string              `json:"labels"`
+	Descriptions []string              `json:"descriptions"`
+	Athletes     []ESPNAthleteStatItem `json:"athletes"`
+}
+
+// ESPNAthleteStatItem represents an athlete's stats within a category
+type ESPNAthleteStatItem struct {
+	Athlete struct {
+		ID          string `json:"id"`
+		DisplayName string `json:"displayName"`
+		ShortName   string `json:"shortName"`
+		Jersey      string `json:"jersey"`
+		Position    struct {
+			Abbreviation string `json:"abbreviation"`
+		} `json:"position"`
+		Headshot *struct {
+			Href string `json:"href"`
+		} `json:"headshot"`
+	} `json:"athlete"`
+	Stats []string `json:"stats"`
+}
+
 
 

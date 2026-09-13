@@ -312,6 +312,8 @@
 
     <!-- Global Head-to-Head & Interaction Modals Container -->
     <div id="h2h-modal-container"></div>
+    <div id="game-stats-modal-container"></div>
+
 
     <!-- Real-Time Live Game Alerts HUD (Kickoff, Lead Change, Pick Lock, Final) -->
     <div id="live-alert-container"
@@ -669,6 +671,9 @@
                     const admin = document.getElementById('admin-modal-container');
                     if (admin && (admin.contains(trigger) || trigger === admin)) admin.innerHTML = '';
 
+                    const gameStats = document.getElementById('game-stats-modal-container');
+                    if (gameStats && (gameStats.contains(trigger) || trigger === gameStats)) gameStats.innerHTML = '';
+
                     window.dispatchEvent(new CustomEvent('close-whatif'));
                     window.dispatchEvent(new CustomEvent('close-rivals'));
                     window.__rivalsOpen = false;
@@ -686,6 +691,9 @@
 
                     const admin = document.getElementById('admin-modal-container');
                     if (admin && admin.innerHTML.trim()) admin.innerHTML = '';
+
+                    const gameStats = document.getElementById('game-stats-modal-container');
+                    if (gameStats && gameStats.innerHTML.trim()) gameStats.innerHTML = '';
 
                     window.dispatchEvent(new CustomEvent('close-whatif'));
                     window.dispatchEvent(new CustomEvent('close-rivals'));

@@ -98,7 +98,19 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 	userWeeklyPts := 0
 	userCorrectPicks := 0
 
+	var weekCommunityStats map[int64]*db.GameCommunityStats
+	if selectedWeek != nil {
+		weekCommunityStats, _ = h.repo.GetWeekCommunityStats(selectedWeek.ID)
+	}
+
 	for _, g := range games {
+		if weekCommunityStats != nil {
+			if cs, exists := weekCommunityStats[g.ID]; exists && cs != nil {
+				g.TotalPicks = cs.TotalPicks
+				g.HomePickCount = cs.HomePicksCount
+				g.AwayPickCount = cs.AwayPicksCount
+			}
+		}
 		if userPicks != nil {
 			if pick, exists := userPicks[g.ID]; exists {
 				pick.InferWinnerFromScores(g)
