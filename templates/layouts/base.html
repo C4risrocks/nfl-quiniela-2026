@@ -812,6 +812,19 @@
                 stripAlpine(clone);
                 clone.querySelectorAll('*').forEach(stripAlpine);
 
+                // Normalization pass to prevent html2canvas clipping/misalignment bugs:
+                // 1. Text elements with truncate or overflow-hidden clip font descenders (p, y, g, j, q).
+                clone.querySelectorAll('.truncate, [class*="truncate"]').forEach(el => {
+                    el.style.overflow = 'visible';
+                    el.style.textOverflow = 'clip';
+                    el.style.lineHeight = '1.4';
+                    el.style.paddingBottom = '3px';
+                });
+                // 2. Elements with leading-none cause baseline drop/sunk text inside flex in html2canvas.
+                clone.querySelectorAll('.leading-none').forEach(el => {
+                    el.style.lineHeight = 'normal';
+                });
+
                 clone.style.width = width + 'px';
                 clone.style.maxWidth = width + 'px';
                 clone.style.minWidth = width + 'px';

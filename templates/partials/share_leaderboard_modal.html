@@ -135,8 +135,8 @@
                             <img src="https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png" alt="NFL" class="w-full h-full object-contain" crossorigin="anonymous">
                         </div>
                         <div>
-                            <div class="text-[10px] font-mono uppercase tracking-widest text-zinc-400 font-bold leading-none mb-1">NFL Quiniela 2026</div>
-                            <div class="text-lg font-black text-white tracking-tight leading-none">
+                            <div class="text-[10px] font-mono uppercase tracking-widest text-zinc-400 font-bold leading-normal mb-0.5">NFL Quiniela 2026</div>
+                            <div class="text-lg font-black text-white tracking-tight leading-normal">
                                 Tabla de Posiciones
                             </div>
                         </div>
@@ -144,52 +144,52 @@
 
                     <!-- Week Pill Badge -->
                     <div class="flex flex-col items-end">
-                        <span class="inline-flex items-center justify-center px-3 py-1 rounded-full bg-white text-black font-black text-[11px] uppercase tracking-wider leading-none shadow-sm whitespace-nowrap">
+                        <span class="inline-flex items-center justify-center px-3.5 py-1.5 rounded-full bg-white text-black font-black text-[11px] uppercase tracking-wider leading-normal shadow-sm whitespace-nowrap">
                             {{if eq .ViewMode "season"}}GENERAL 2026{{else}}{{.SelectedWeek.Name}}{{end}}
                         </span>
-                        <span class="text-[9px] font-mono text-zinc-500 mt-1 leading-none">Clasificación Oficial</span>
+                        <span class="text-[9px] font-mono text-zinc-500 mt-1 leading-normal">Clasificación Oficial</span>
                     </div>
                 </div>
 
                 <!-- Leaderboard Top List (Up to 10) -->
-                <div class="space-y-1.5 relative z-10 my-1">
+                <div class="space-y-2 relative z-10 my-1">
                     {{range $index, $entry := .Leaderboard}}
                         {{if lt $index 10}}
-                            <div class="flex items-center justify-between px-3 py-2 rounded-xl border transition-colors {{if and $.User (eq $entry.UserID $.User.ID)}}bg-zinc-800/90 border-white/40 ring-1 ring-white/20{{else}}bg-zinc-950/70 border-zinc-900{{end}}">
+                            <div class="flex items-center justify-between px-3.5 py-2 rounded-xl border transition-colors {{if and $.User (eq $entry.UserID $.User.ID)}}bg-zinc-800/90 border-white/40 ring-1 ring-white/20{{else}}bg-zinc-950/70 border-zinc-900{{end}}">
                                 
                                 <!-- Left: Rank + Avatar + Username -->
                                 <div class="flex items-center space-x-2.5 min-w-0 flex-1">
                                     <!-- Rank Badge -->
                                     <div class="w-6 flex items-center justify-center shrink-0">
                                         {{if eq $entry.Rank 1}}
-                                            <span class="w-[22px] h-[22px] rounded-full bg-amber-400 border border-amber-300 flex items-center justify-center text-black font-black text-[11px] leading-none shrink-0 shadow-sm">1</span>
+                                            <span class="w-6 h-6 rounded-full bg-amber-400 border border-amber-300 inline-flex items-center justify-center text-black font-black text-[11px] leading-normal shrink-0 shadow-sm">1</span>
                                         {{else if eq $entry.Rank 2}}
-                                            <span class="w-[22px] h-[22px] rounded-full bg-zinc-300 border border-zinc-200 flex items-center justify-center text-black font-black text-[11px] leading-none shrink-0 shadow-sm">2</span>
+                                            <span class="w-6 h-6 rounded-full bg-zinc-300 border border-zinc-200 inline-flex items-center justify-center text-black font-black text-[11px] leading-normal shrink-0 shadow-sm">2</span>
                                         {{else if eq $entry.Rank 3}}
-                                            <span class="w-[22px] h-[22px] rounded-full bg-amber-700 border border-amber-600 flex items-center justify-center text-white font-black text-[11px] leading-none shrink-0 shadow-sm">3</span>
+                                            <span class="w-6 h-6 rounded-full bg-amber-700 border border-amber-600 inline-flex items-center justify-center text-white font-black text-[11px] leading-normal shrink-0 shadow-sm">3</span>
                                         {{else}}
-                                            <span class="font-mono font-bold text-[11px] text-zinc-400 leading-none">#{{$entry.Rank}}</span>
+                                            <span class="font-mono font-bold text-[11px] text-zinc-400 leading-normal">#{{$entry.Rank}}</span>
                                         {{end}}
                                     </div>
 
                                     <!-- Initial Avatar -->
-                                    <div class="w-[26px] h-[26px] rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white font-black text-[11px] leading-none shrink-0 uppercase shadow-sm">
+                                    <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 inline-flex items-center justify-center text-white font-black text-[10px] leading-normal shrink-0 uppercase shadow-sm">
                                         {{slice $entry.Username 0 1}}
                                     </div>
 
                                     <!-- Username + You Indicator -->
                                     <div class="min-w-0 flex items-center space-x-1.5 flex-1">
-                                        <span class="font-bold text-xs text-white truncate max-w-[220px] leading-tight">{{$entry.Username}}</span>
+                                        <span class="font-bold text-xs text-white max-w-[200px] leading-normal pb-0.5 truncate">{{$entry.Username}}</span>
                                         {{if and $.User (eq $entry.UserID $.User.ID)}}
-                                            <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded bg-white text-black font-black text-[8px] leading-none shrink-0 uppercase">TÚ</span>
+                                            <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded bg-white text-black font-black text-[8px] leading-normal shrink-0 uppercase">TÚ</span>
                                         {{end}}
                                     </div>
                                 </div>
 
                                 <!-- Right: Win Rate + Total Points (Tabular figures) -->
                                 <div class="flex items-center space-x-3 font-mono text-right shrink-0">
-                                    <span class="text-[10px] text-zinc-400 font-semibold tabular-nums">{{printf "%.0f" $entry.WinPercentage}}%</span>
-                                    <span class="font-black text-xs text-amber-400 min-w-[50px] tabular-nums text-right">{{$entry.TotalPoints}} pts</span>
+                                    <span class="text-[10px] text-zinc-400 font-semibold tabular-nums leading-normal">{{printf "%.0f" $entry.WinPercentage}}%</span>
+                                    <span class="font-black text-xs text-amber-400 min-w-[50px] tabular-nums text-right leading-normal">{{$entry.TotalPoints}} pts</span>
                                 </div>
                             </div>
                         {{end}}
@@ -197,7 +197,7 @@
                 </div>
 
                 <!-- Footer Watermark & Branding -->
-                <div class="mt-3 pt-3 border-t border-zinc-800/80 flex items-center justify-between text-[10px] text-zinc-500 font-mono relative z-10 leading-none">
+                <div class="mt-3 pt-3 border-t border-zinc-800/80 flex items-center justify-between text-[10px] text-zinc-500 font-mono relative z-10 leading-normal">
                     <span class="flex items-center space-x-1.5">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                         <span>quiniela.cmoreno.org</span>
@@ -220,68 +220,80 @@
                 <div class="absolute -bottom-32 -left-32 w-80 h-80 bg-amber-500/15 rounded-full blur-3xl pointer-events-none"></div>
 
                 <!-- Story Top Header -->
-                <div class="relative z-10 border-b border-zinc-800/80 pb-4">
+                <div class="relative z-10 border-b border-zinc-800/80 pb-4 shrink-0">
                     <div class="flex items-center justify-between mb-3">
                         <div class="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-700/80 flex items-center justify-center p-1.5 shadow">
                             <img src="https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png" alt="NFL" class="w-full h-full object-contain" crossorigin="anonymous">
                         </div>
-                        <span class="inline-flex items-center justify-center px-3 py-1 rounded-full bg-white text-black font-black text-[11px] uppercase tracking-wider leading-none shadow-sm whitespace-nowrap">
-                            {{if eq .ViewMode "season"}}GENERAL 2026{{else}}{{.SelectedWeek.Name}}{{end}}
-                        </span>
+                        <div class="flex flex-col items-end">
+                            <span class="inline-flex items-center justify-center px-3.5 py-1.5 rounded-full bg-white text-black font-black text-[11px] uppercase tracking-wider leading-normal shadow-sm whitespace-nowrap">
+                                {{if eq .ViewMode "season"}}GENERAL 2026{{else}}{{.SelectedWeek.Name}}{{end}}
+                            </span>
+                            <span class="text-[9px] font-mono text-zinc-500 mt-1 leading-normal">Clasificación Oficial</span>
+                        </div>
                     </div>
 
-                    <div class="text-[11px] font-mono uppercase tracking-widest text-zinc-400 font-bold mb-0.5">NFL Quiniela 2026</div>
-                    <div class="text-xl font-black text-white tracking-tight">Tabla de Posiciones</div>
+                    <div class="text-[11px] font-mono uppercase tracking-widest text-zinc-400 font-bold mb-0.5 leading-normal">NFL Quiniela 2026</div>
+                    <div class="text-xl font-black text-white tracking-tight leading-normal">Tabla de Posiciones</div>
                 </div>
 
                 <!-- Top Ranked Podium Banner in Story (Highlights Current User or Top 3) -->
                 {{if .User}}
                     {{range $index, $entry := .Leaderboard}}
                         {{if eq $entry.UserID $.User.ID}}
-                            <div class="my-3 p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-zinc-900 to-zinc-900 border border-amber-500/30 relative z-10 flex items-center justify-between">
-                                <div class="flex items-center space-x-3">
-                                    <div class="w-10 h-10 rounded-xl bg-amber-400 text-black font-black font-mono text-base flex items-center justify-center shadow">
+                            <div class="my-2 p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-zinc-900 to-zinc-900 border border-amber-500/30 relative z-10 flex items-center justify-between shrink-0 shadow-sm">
+                                <div class="flex items-center space-x-3 min-w-0 flex-1">
+                                    <div class="w-10 h-10 rounded-xl bg-amber-400 text-black font-black font-mono text-base flex items-center justify-center shadow shrink-0">
                                         #{{$entry.Rank}}
                                     </div>
-                                    <div>
-                                        <div class="text-[10px] font-mono text-amber-400 font-bold uppercase">Tu Posición Actual</div>
-                                        <div class="text-sm font-black text-white">{{$entry.Username}}</div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="text-[10px] font-mono text-amber-400 font-bold uppercase leading-normal">Tu Posición Actual</div>
+                                        <div class="text-sm font-black text-white leading-normal truncate">{{$entry.Username}}</div>
                                     </div>
                                 </div>
-                                <div class="text-right font-mono">
-                                    <div class="text-base font-black text-amber-400">{{$entry.TotalPoints}} pts</div>
-                                    <div class="text-[10px] text-zinc-400">{{printf "%.0f" $entry.WinPercentage}}% acierto</div>
+                                <div class="text-right font-mono shrink-0 pl-2">
+                                    <div class="text-base font-black text-amber-400 leading-normal">{{$entry.TotalPoints}} pts</div>
+                                    <div class="text-[10px] text-zinc-400 leading-normal">{{printf "%.0f" $entry.WinPercentage}}% acierto</div>
                                 </div>
                             </div>
                         {{end}}
                     {{end}}
                 {{end}}
 
-                <!-- Story Leaderboard List -->
-                <div class="space-y-1.5 relative z-10 flex-1 my-2 overflow-hidden">
+                <!-- Story Leaderboard List (Centered with proper row heights and medals) -->
+                <div class="space-y-2.5 relative z-10 flex-1 my-3 flex flex-col justify-center min-h-0">
                     {{range $index, $entry := .Leaderboard}}
                         {{if lt $index 8}}
-                            <div class="flex items-center justify-between px-3 py-2 rounded-xl border {{if and $.User (eq $entry.UserID $.User.ID)}}bg-zinc-800 border-white/40{{else}}bg-zinc-950/60 border-zinc-900{{end}}">
-                                <div class="flex items-center space-x-2.5 min-w-0 flex-1">
-                                    <div class="w-5 flex items-center justify-center shrink-0">
+                            <div class="flex items-center justify-between px-3.5 py-2.5 sm:py-3 rounded-2xl border {{if and $.User (eq $entry.UserID $.User.ID)}}bg-zinc-800/90 border-white/40 ring-1 ring-white/20{{else}}bg-zinc-950/70 border-zinc-900{{end}} shadow-sm">
+                                <div class="flex items-center space-x-3 min-w-0 flex-1">
+                                    <!-- Rank badge -->
+                                    <div class="w-6 flex items-center justify-center shrink-0">
                                         {{if eq $entry.Rank 1}}
-                                            <span class="text-amber-400 font-black text-xs font-mono">#1</span>
+                                            <span class="w-6 h-6 rounded-full bg-amber-400 border border-amber-300 inline-flex items-center justify-center text-black font-black text-xs leading-normal shrink-0 shadow-sm">1</span>
                                         {{else if eq $entry.Rank 2}}
-                                            <span class="text-zinc-300 font-black text-xs font-mono">#2</span>
+                                            <span class="w-6 h-6 rounded-full bg-zinc-300 border border-zinc-200 inline-flex items-center justify-center text-black font-black text-xs leading-normal shrink-0 shadow-sm">2</span>
                                         {{else if eq $entry.Rank 3}}
-                                            <span class="text-amber-600 font-black text-xs font-mono">#3</span>
+                                            <span class="w-6 h-6 rounded-full bg-amber-700 border border-amber-600 inline-flex items-center justify-center text-white font-black text-xs leading-normal shrink-0 shadow-sm">3</span>
                                         {{else}}
-                                            <span class="text-zinc-400 font-mono text-[11px]">#{{$entry.Rank}}</span>
+                                            <span class="text-zinc-400 font-mono font-bold text-xs leading-normal">#{{$entry.Rank}}</span>
                                         {{end}}
                                     </div>
-                                    <span class="font-bold text-xs text-white truncate max-w-[160px]">{{$entry.Username}}</span>
-                                    {{if and $.User (eq $entry.UserID $.User.ID)}}
-                                        <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded bg-white text-black font-black text-[8px] leading-none shrink-0 uppercase">TÚ</span>
-                                    {{end}}
+                                    
+                                    <!-- Initial Avatar -->
+                                    <div class="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 inline-flex items-center justify-center text-white font-black text-xs leading-normal shrink-0 uppercase shadow-sm">
+                                        {{slice $entry.Username 0 1}}
+                                    </div>
+
+                                    <div class="min-w-0 flex items-center space-x-1.5 flex-1">
+                                        <span class="font-bold text-xs sm:text-sm text-white max-w-[140px] sm:max-w-[170px] leading-normal pb-0.5 truncate">{{$entry.Username}}</span>
+                                        {{if and $.User (eq $entry.UserID $.User.ID)}}
+                                            <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded bg-white text-black font-black text-[8px] leading-normal shrink-0 uppercase">TÚ</span>
+                                        {{end}}
+                                    </div>
                                 </div>
-                                <div class="flex items-center space-x-2 font-mono text-right shrink-0">
-                                    <span class="text-[10px] text-zinc-400 font-semibold tabular-nums">{{printf "%.0f" $entry.WinPercentage}}%</span>
-                                    <span class="font-black text-xs text-amber-400 tabular-nums">{{$entry.TotalPoints}} pts</span>
+                                <div class="flex items-center space-x-2.5 font-mono text-right shrink-0">
+                                    <span class="text-[11px] text-zinc-400 font-semibold tabular-nums leading-normal">{{printf "%.0f" $entry.WinPercentage}}%</span>
+                                    <span class="font-black text-xs sm:text-sm text-amber-400 tabular-nums leading-normal">{{$entry.TotalPoints}} pts</span>
                                 </div>
                             </div>
                         {{end}}
@@ -289,10 +301,10 @@
                 </div>
 
                 <!-- Story Bottom CTA -->
-                <div class="relative z-10 pt-3 border-t border-zinc-800/80">
-                    <div class="p-3 rounded-2xl bg-zinc-900/90 border border-zinc-800 text-center">
-                        <div class="text-xs font-bold text-white mb-0.5">¿Crees que puedes superarme? 🏈</div>
-                        <div class="text-[10px] font-mono text-cyan-400">quiniela.cmoreno.org</div>
+                <div class="relative z-10 pt-3 border-t border-zinc-800/80 shrink-0">
+                    <div class="p-3 rounded-2xl bg-zinc-900/90 border border-zinc-800 text-center shadow-lg">
+                        <div class="text-xs font-bold text-white mb-0.5 leading-normal">¿Crees que puedes superarme? 🏈</div>
+                        <div class="text-[10px] font-mono font-bold text-cyan-400 leading-normal">quiniela.cmoreno.org</div>
                     </div>
                 </div>
 
