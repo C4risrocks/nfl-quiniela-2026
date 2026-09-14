@@ -13,68 +13,21 @@
             if (!card) return null;
 
             const isStory = this.format === 'story';
-            const targetWidth = isStory ? 540 : 640;
-            const targetHeight = isStory ? 960 : 'auto';
-
-            // Clone card into off-screen container with fixed standard width
-            const clone = card.cloneNode(true);
-            clone.id = cardId + '-clone';
-            clone.style.width = targetWidth + 'px';
-            clone.style.maxWidth = targetWidth + 'px';
-            clone.style.minWidth = targetWidth + 'px';
-            if (isStory) {
-                clone.style.height = targetHeight + 'px';
-                clone.style.minHeight = targetHeight + 'px';
-                const storyList = clone.querySelector('.overflow-y-auto');
-                if (storyList) {
-                    storyList.style.overflow = 'visible';
+            return await window.generateCardImageBlob(card, {
+                isStory: isStory,
+                width: isStory ? 540 : 640,
+                height: isStory ? 960 : 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                beforeRender(clone) {
+                    const grid = clone.querySelector('.matchups-grid');
+                    if (grid && !isStory) {
+                        grid.style.display = 'grid';
+                        grid.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
+                        grid.style.gap = '8px';
+                    }
                 }
-            }
-            clone.style.position = 'fixed';
-            clone.style.left = '0';
-            clone.style.top = '0';
-            clone.style.zIndex = '-9999';
-            clone.style.opacity = '1';
-            clone.style.pointerEvents = 'none';
-            clone.style.transform = 'none';
-            clone.style.display = 'flex';
-            clone.style.flexDirection = 'column';
-
-            // Ensure 2-column grid in square clone
-            const grid = clone.querySelector('.matchups-grid');
-            if (grid && !isStory) {
-                grid.style.display = 'grid';
-                grid.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
-                grid.style.gap = '8px';
-            }
-
-            document.body.appendChild(clone);
-            if (document.fonts && document.fonts.ready) {
-                await document.fonts.ready;
-            }
-            await new Promise(r => setTimeout(r, 140));
-
-            try {
-                const canvas = await html2canvas(clone, {
-                    scale: 2.5,
-                    useCORS: true,
-                    allowTaint: true,
-                    backgroundColor: '#09090b',
-                    logging: false,
-                    x: 0,
-                    y: 0,
-                    scrollX: 0,
-                    scrollY: 0,
-                    windowWidth: targetWidth,
-                    width: targetWidth,
-                    height: isStory ? targetHeight : clone.offsetHeight
-                });
-                return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-            } finally {
-                if (clone.parentNode) {
-                    clone.parentNode.removeChild(clone);
-                }
-            }
+            });
         },
         async downloadImage() {
             this.generating = true;

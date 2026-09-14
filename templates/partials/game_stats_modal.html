@@ -4,8 +4,8 @@
      data-tab="{{if .ActiveTab}}{{.ActiveTab}}{{else}}boxscore{{end}}"
      data-team="{{if .PlayerTeam}}{{.PlayerTeam}}{{else}}away{{end}}"
      data-cat="{{if .PlayerCat}}{{.PlayerCat}}{{else}}passing{{end}}"
-     @click.self="document.getElementById('game-stats-modal-container').innerHTML = ''; window.__statsModalTab = null; window.__statsModalTeam = null; window.__statsModalExpandedDrive = null; try { cleanupModalState(); } catch(e){ document.body.classList.remove('overflow-hidden'); }"
-     @keydown.escape.window="document.getElementById('game-stats-modal-container').innerHTML = ''; window.__statsModalTab = null; window.__statsModalTeam = null; window.__statsModalExpandedDrive = null; try { cleanupModalState(); } catch(e){ document.body.classList.remove('overflow-hidden'); }"
+     @click.self="window.closeGameStatsModal()"
+     @keydown.escape.window="window.closeGameStatsModal()"
      {{if eq .Game.Status "in_progress"}}
      hx-get="/games/{{.Game.ID}}/stats"
      hx-trigger="every 15s"
@@ -81,7 +81,7 @@
                         </button>
                     {{end}}
                     <button type="button"
-                            onclick="document.getElementById('game-stats-modal-container').innerHTML = ''; window.__statsModalTab = null; window.__statsModalTeam = null; window.__statsModalExpandedDrive = null; try { cleanupModalState(); } catch(e){ document.body.classList.remove('overflow-hidden'); }"
+                            onclick="window.closeGameStatsModal()"
                             data-close-modal="true"
                             class="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
                             title="Cerrar modal">
@@ -581,6 +581,7 @@
             </span>
 
             <button type="button"
+                    onclick="window.closeGameStatsModal()"
                     data-close-modal="true"
                     class="py-2 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-semibold text-xs transition-colors cursor-pointer">
                 Cerrar

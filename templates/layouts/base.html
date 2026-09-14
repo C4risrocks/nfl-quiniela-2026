@@ -634,66 +634,117 @@
                 }
             }
 
+            window.closeGameStatsModal = function() {
+                window.__statsModalClosed = true;
+                window.__statsModalTab = null;
+                window.__statsModalTeam = null;
+                window.__statsModalExpandedDrive = null;
+                const gameStats = document.getElementById('game-stats-modal-container');
+                if (gameStats) gameStats.innerHTML = '';
+                cleanupModalState();
+            };
+
+            window.closeH2HModal = function() {
+                const h2h = document.getElementById('h2h-modal-container');
+                if (h2h) h2h.innerHTML = '';
+                cleanupModalState();
+            };
+
+            window.closeAdminModal = function() {
+                const admin = document.getElementById('admin-modal-container');
+                if (admin) admin.innerHTML = '';
+                cleanupModalState();
+            };
+
+            document.addEventListener('htmx:beforeRequest', function(e) {
+                if (e.detail && e.detail.target && e.detail.target.id === 'game-stats-modal-container') {
+                    window.__statsModalClosed = false;
+                }
+            });
+
+            document.addEventListener('htmx:beforeSwap', function(e) {
+                if (e.detail && e.detail.target && e.detail.target.id === 'game-stats-modal-container') {
+                    if (window.__statsModalClosed) {
+                        e.detail.shouldSwap = false;
+                        e.preventDefault();
+                    }
+                }
+            });
+
             function safelyCloseModalElement(modal) {
                 if (!modal) return;
                 if (window.Alpine && typeof Alpine.$data === 'function') {
-                    try {
-                        const data = Alpine.$data(modal);
-                        if (data) {
-                            if ('isOpen' in data) data.isOpen = false;
-                            if (typeof data.close === 'function') data.close();
-                            if ('shareModalOpen' in data) data.shareModalOpen = false;
-                            if ('shareProfileModalOpen' in data) data.shareProfileModalOpen = false;
-                            if ('summaryModalOpen' in data) data.summaryModalOpen = false;
-                            if ('confirmOpen' in data) data.confirmOpen = false;
-                        }
-                    } catch(err) {}
+                    const elementsToCheck = new Set();
+                    let curr = modal;
+                    while (curr && curr !== document.body) {
+                        elementsToCheck.add(curr);
+                        curr = curr.parentElement;
+                    }
+                    document.querySelectorAll('[x-data]').forEach(el => elementsToCheck.add(el));
+
+                    elementsToCheck.forEach(el => {
+                        try {
+                            const data = Alpine.$data(el);
+                            if (data) {
+                                if ('isOpen' in data && (el.contains(modal) || modal.contains(el))) data.isOpen = false;
+                                if ('shareModalOpen' in data) data.shareModalOpen = false;
+                                if ('shareProfileModalOpen' in data) data.shareProfileModalOpen = false;
+                                if ('summaryModalOpen' in data) data.summaryModalOpen = false;
+                                if ('confirmOpen' in data) data.confirmOpen = false;
+                                if ('badgeModalOpen' in data) data.badgeModalOpen = false;
+                                if ('editAvatarOpen' in data) data.editAvatarOpen = false;
+                                if ('rivalsModalOpen' in data) data.rivalsModalOpen = false;
+                                if (typeof data.close === 'function' && (el.contains(modal) || modal.contains(el))) data.close();
+                            }
+                        } catch(err) {}
+                    });
                 }
                 modal.style.display = 'none';
             }
 
-            // Global Click Delegation for Closing Modals
+            // Global Click Delegation for Closing Modals using CAPTURE phase so @click.stop cannot block close triggers
             document.addEventListener('click', function(e) {
                 const closeBtn = e.target.closest('[data-close-modal="true"]');
-                const backdrop = e.target.matches('[data-close-modal="backdrop"]') ? e.target : null;
+                const backdrop = (e.target.dataset && e.target.dataset.closeModal === 'backdrop') ? e.target : null;
                 const trigger = closeBtn || backdrop;
 
                 if (trigger) {
-                    const modal = trigger.closest('.fixed.inset-0');
-                    if (modal) {
+                    const modal = trigger.closest('.fixed.inset-0') || trigger;
+                    if (modal && modal !== document.body) {
                         safelyCloseModalElement(modal);
                     }
 
-                    // Reset dynamic containers
+                    // Reset dynamic containers if trigger is inside or is the container
+                    const gameStats = document.getElementById('game-stats-modal-container');
+                    if (gameStats && (gameStats.contains(trigger) || trigger === gameStats)) {
+                        window.closeGameStatsModal();
+                    }
+
                     const h2h = document.getElementById('h2h-modal-container');
-                    if (h2h && (h2h.contains(trigger) || trigger === h2h)) h2h.innerHTML = '';
+                    if (h2h && (h2h.contains(trigger) || trigger === h2h)) {
+                        window.closeH2HModal();
+                    }
 
                     const admin = document.getElementById('admin-modal-container');
-                    if (admin && (admin.contains(trigger) || trigger === admin)) admin.innerHTML = '';
-
-                    const gameStats = document.getElementById('game-stats-modal-container');
-                    if (gameStats && (gameStats.contains(trigger) || trigger === gameStats)) gameStats.innerHTML = '';
+                    if (admin && (admin.contains(trigger) || trigger === admin)) {
+                        window.closeAdminModal();
+                    }
 
                     window.dispatchEvent(new CustomEvent('close-whatif'));
                     window.dispatchEvent(new CustomEvent('close-rivals'));
                     window.__rivalsOpen = false;
                     setTimeout(cleanupModalState, 30);
                 }
-            });
+            }, true);
 
             // Global Keydown Escape listener as safety net
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape' || e.keyCode === 27) {
                     document.querySelectorAll('.fixed.inset-0').forEach(safelyCloseModalElement);
 
-                    const h2h = document.getElementById('h2h-modal-container');
-                    if (h2h && h2h.innerHTML.trim()) h2h.innerHTML = '';
-
-                    const admin = document.getElementById('admin-modal-container');
-                    if (admin && admin.innerHTML.trim()) admin.innerHTML = '';
-
-                    const gameStats = document.getElementById('game-stats-modal-container');
-                    if (gameStats && gameStats.innerHTML.trim()) gameStats.innerHTML = '';
+                    window.closeGameStatsModal();
+                    window.closeH2HModal();
+                    window.closeAdminModal();
 
                     window.dispatchEvent(new CustomEvent('close-whatif'));
                     window.dispatchEvent(new CustomEvent('close-rivals'));
@@ -721,6 +772,179 @@
                 });
                 observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
             }
+
+            // Robust Card Image Generator Helper (pre-inlines images to prevent canvas tainting)
+            function dataURLtoBlob(dataurl) {
+                if (!dataurl || typeof dataurl !== 'string' || !dataurl.includes(',')) {
+                    throw new Error('Canvas data URL inválido');
+                }
+                const arr = dataurl.split(',');
+                const mimeMatch = arr[0].match(/:(.*?);/);
+                const mime = (mimeMatch && mimeMatch[1]) ? mimeMatch[1] : 'image/png';
+                const bstr = atob(arr[1] || '');
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while (n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                return new Blob([u8arr], { type: mime });
+            }
+
+            window.generateCardImageBlob = async function(cardElement, options) {
+                options = options || {};
+                if (!cardElement) throw new Error('Elemento de tarjeta no encontrado');
+
+                const width = options.width || (options.isStory ? 540 : 640);
+                const height = options.isStory ? (options.height || 960) : 'auto';
+
+                // 1. Clone node into off-screen staging area
+                const clone = cardElement.cloneNode(true);
+                clone.id = (cardElement.id || 'card') + '-export-' + Date.now();
+
+                // Strip all Alpine attributes so Alpine does not evaluate and hide the clone
+                const stripAlpine = (el) => {
+                    Array.from(el.attributes || []).forEach(attr => {
+                        if (attr.name.startsWith('x-') || attr.name.startsWith('@') || attr.name.startsWith(':')) {
+                            el.removeAttribute(attr.name);
+                        }
+                    });
+                };
+                stripAlpine(clone);
+                clone.querySelectorAll('*').forEach(stripAlpine);
+
+                clone.style.width = width + 'px';
+                clone.style.maxWidth = width + 'px';
+                clone.style.minWidth = width + 'px';
+                if (options.isStory) {
+                    clone.style.height = height + 'px';
+                    clone.style.minHeight = height + 'px';
+                    const storyList = clone.querySelector('.overflow-y-auto');
+                    if (storyList) {
+                        storyList.style.overflow = 'visible';
+                    }
+                }
+                clone.style.position = 'fixed';
+                clone.style.left = '0';
+                clone.style.top = '0';
+                clone.style.zIndex = '-9999';
+                clone.style.opacity = '1';
+                clone.style.pointerEvents = 'none';
+                clone.style.transform = 'none';
+                clone.style.setProperty('display', options.display || 'flex', 'important');
+                if (options.flexDirection) {
+                    clone.style.flexDirection = options.flexDirection;
+                }
+
+                if (typeof options.beforeRender === 'function') {
+                    try { options.beforeRender(clone); } catch(e) {}
+                }
+
+                document.body.appendChild(clone);
+
+                try {
+                    // 2. Pre-inline external images to Base64 data URLs so canvas is never tainted
+                    const imgs = Array.from(clone.querySelectorAll('img'));
+                    await Promise.all(imgs.map(async (img) => {
+                        const src = img.src || img.getAttribute('src');
+                        if (!src || src.startsWith('data:')) return;
+                        try {
+                            const resp = await fetch(src, { mode: 'cors', credentials: 'omit' });
+                            if (resp.ok) {
+                                const blob = await resp.blob();
+                                await new Promise((res) => {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                        img.src = reader.result;
+                                        res();
+                                    };
+                                    reader.onerror = () => res();
+                                    reader.readAsDataURL(blob);
+                                });
+                            }
+                        } catch (err) {
+                            try {
+                                const tempImg = new Image();
+                                tempImg.crossOrigin = 'anonymous';
+                                await new Promise((res, rej) => {
+                                    tempImg.onload = res;
+                                    tempImg.onerror = rej;
+                                    tempImg.src = src;
+                                    setTimeout(rej, 1200);
+                                });
+                                const c = document.createElement('canvas');
+                                c.width = tempImg.naturalWidth || 64;
+                                c.height = tempImg.naturalHeight || 64;
+                                const ctx = c.getContext('2d');
+                                ctx.drawImage(tempImg, 0, 0);
+                                const dUrl = c.toDataURL('image/png');
+                                if (dUrl && dUrl.length > 30) {
+                                    img.src = dUrl;
+                                }
+                            } catch(e2) {
+                                // Keep original img
+                            }
+                        }
+                    }));
+
+                    // 3. Ensure all images are decoded
+                    const decodePromises = Array.from(clone.querySelectorAll('img')).map(img => {
+                        if (img.complete) return Promise.resolve();
+                        if (typeof img.decode === 'function') return img.decode().catch(() => {});
+                        return new Promise(r => {
+                            img.onload = r;
+                            img.onerror = r;
+                            setTimeout(r, 400);
+                        });
+                    });
+                    await Promise.all(decodePromises);
+
+                    // 4. Wait for webfonts to be ready
+                    if (document.fonts && document.fonts.ready) {
+                        try { await document.fonts.ready; } catch(e) {}
+                    }
+                    await new Promise(r => setTimeout(r, 120));
+
+                    // 5. Render canvas with html2canvas (CRITICAL: allowTaint MUST be false)
+                    const canvas = await html2canvas(clone, {
+                        scale: options.scale || 2.5,
+                        useCORS: true,
+                        allowTaint: false,
+                        backgroundColor: options.backgroundColor || '#09090b',
+                        logging: false,
+                        width: width,
+                        height: options.isStory ? height : (clone.offsetHeight || clone.scrollHeight)
+                    });
+
+                    // 6. Convert canvas to Blob with toDataURL fallback
+                    return await new Promise((resolve, reject) => {
+                        try {
+                            canvas.toBlob((blob) => {
+                                if (blob) {
+                                    resolve(blob);
+                                } else {
+                                    try {
+                                        const dataUrl = canvas.toDataURL('image/png');
+                                        resolve(dataURLtoBlob(dataUrl));
+                                    } catch (toDataErr) {
+                                        reject(new Error('No se pudo convertir el canvas a imagen: ' + toDataErr.message));
+                                    }
+                                }
+                            }, 'image/png');
+                        } catch (toBlobErr) {
+                            try {
+                                const dataUrl = canvas.toDataURL('image/png');
+                                resolve(dataURLtoBlob(dataUrl));
+                            } catch (fallbackErr) {
+                                reject(new Error('Error al procesar la imagen generada: ' + toBlobErr.message));
+                            }
+                        }
+                    });
+                } finally {
+                    if (clone && clone.parentNode) {
+                        clone.parentNode.removeChild(clone);
+                    }
+                }
+            };
         })();
     </script>
 

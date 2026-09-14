@@ -6,112 +6,71 @@
      @keydown.escape.window="shareProfileModalOpen = false"
      x-data="{
          format: 'square', // 'square' (1:1) or 'story' (9:16)
-         generating: false,
-         async generateCardBlob() {
-             const cardId = this.format === 'story' ? 'shareable-profile-story' : 'shareable-profile-card';
-             const card = document.getElementById(cardId);
-             if (!card) return null;
+        generating: false,
+        async generateCardBlob() {
+            const cardId = this.format === 'story' ? 'shareable-profile-story' : 'shareable-profile-card';
+            const card = document.getElementById(cardId);
+            if (!card) return null;
 
-             const isStory = this.format === 'story';
-             const targetWidth = isStory ? 540 : 640;
-             const targetHeight = isStory ? 960 : 'auto';
-
-             const clone = card.cloneNode(true);
-             clone.id = cardId + '-clone';
-             clone.style.width = targetWidth + 'px';
-             clone.style.maxWidth = targetWidth + 'px';
-             clone.style.minWidth = targetWidth + 'px';
-             if (isStory) {
-                 clone.style.height = targetHeight + 'px';
-                 clone.style.minHeight = targetHeight + 'px';
-             }
-             clone.style.position = 'fixed';
-             clone.style.left = '0';
-             clone.style.top = '0';
-             clone.style.zIndex = '-9999';
-             clone.style.opacity = '1';
-             clone.style.pointerEvents = 'none';
-             clone.style.transform = 'none';
-             clone.style.display = 'flex';
-             clone.style.flexDirection = 'column';
-
-             document.body.appendChild(clone);
-             if (document.fonts && document.fonts.ready) {
-                 await document.fonts.ready;
-             }
-             await new Promise(r => setTimeout(r, 150));
-
-             try {
-                 const canvas = await html2canvas(clone, {
-                     scale: 2.5,
-                     useCORS: true,
-                     allowTaint: true,
-                     backgroundColor: '#09090b',
-                     logging: false,
-                     x: 0,
-                     y: 0,
-                     scrollX: 0,
-                     scrollY: 0,
-                     windowWidth: targetWidth,
-                     width: targetWidth,
-                     height: isStory ? targetHeight : clone.offsetHeight
-                 });
-                 return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-             } finally {
-                 if (clone.parentNode) {
-                     clone.parentNode.removeChild(clone);
-                 }
-             }
-         },
-         async shareImage() {
-             this.generating = true;
-             try {
-                 const blob = await this.generateCardBlob();
-                 if (!blob) throw new Error('Error generando imagen');
-                 const file = new File([blob], 'quiniela-perfil-{{.User.Username}}-' + this.format + '.png', { type: 'image/png' });
-                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                     await navigator.share({
-                         title: 'Mi Perfil & Logros - Quiniela NFL 2026',
-                         text: '¡Mira mi rendimiento y medallas en la Quiniela NFL 2026! 🏈🏅',
-                         files: [file]
-                     });
-                     $dispatch('show-toast', { message: '¡Imagen compartida exitosamente!', type: 'success' });
-                 } else {
-                     this.downloadImageBlob(blob);
-                     $dispatch('show-toast', { message: '¡Imagen descargada! Cópiala a tus redes o grupos.', type: 'info' });
-                 }
-             } catch (e) {
-                 if (e.name !== 'AbortError') {
-                     this.downloadImage();
-                 }
-             } finally {
-                 this.generating = false;
-             }
-         },
-         async downloadImage() {
-             this.generating = true;
-             try {
-                 const blob = await this.generateCardBlob();
-                 if (!blob) throw new Error('Error al generar imagen');
-                 this.downloadImageBlob(blob);
-                 $dispatch('show-toast', { message: '¡Tarjeta de perfil descargada en alta resolución!', type: 'success' });
-             } catch (e) {
-                 alert('Error al generar la imagen: ' + e.message);
-             } finally {
-                 this.generating = false;
-             }
-         },
-         downloadImageBlob(blob) {
-             const url = URL.createObjectURL(blob);
-             const a = document.createElement('a');
-             a.href = url;
-             a.download = 'quiniela-perfil-{{.User.Username}}-' + this.format + '.png';
-             document.body.appendChild(a);
-             a.click();
-             document.body.removeChild(a);
-             URL.revokeObjectURL(url);
-         }
-     }">
+            return await window.generateCardImageBlob(card, {
+                isStory: this.format === 'story',
+                width: this.format === 'story' ? 540 : 640,
+                height: this.format === 'story' ? 960 : 'auto',
+                display: 'flex',
+                flexDirection: 'column'
+            });
+        },
+        async shareImage() {
+            this.generating = true;
+            try {
+                const blob = await this.generateCardBlob();
+                if (!blob) throw new Error('Error generando imagen');
+                const file = new File([blob], 'quiniela-perfil-{{.User.Username}}-' + this.format + '.png', { type: 'image/png' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: 'Mi Perfil & Logros - Quiniela NFL 2026',
+                        text: '¡Mira mi rendimiento y medallas en la Quiniela NFL 2026! 🏈🏅',
+                        files: [file]
+                    });
+                    $dispatch('show-toast', { message: '¡Imagen compartida exitosamente!', type: 'success' });
+                } else {
+                    this.downloadImageBlob(blob);
+                    $dispatch('show-toast', { message: '¡Imagen descargada! Cópiala a tus redes o grupos.', type: 'info' });
+                }
+            } catch (e) {
+                if (e.name !== 'AbortError') {
+                    this.downloadImage();
+                }
+            } finally {
+                this.generating = false;
+            }
+        },
+        async downloadImage() {
+            this.generating = true;
+            try {
+                const blob = await this.generateCardBlob();
+                if (!blob) throw new Error('No se pudo generar la imagen');
+                this.downloadImageBlob(blob);
+                $dispatch('show-toast', { message: '¡Tarjeta de perfil descargada en alta resolución!', type: 'success' });
+            } catch (e) {
+                alert('Error al generar la imagen: ' + (e.message || 'Error desconocido'));
+            } finally {
+                this.generating = false;
+            }
+        },
+        downloadImageBlob(blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'quiniela-perfil-{{.User.Username}}-' + this.format + '.png';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 150);
+        }
+    }">
     
     <div class="vercel-card rounded-2xl w-full max-w-2xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[90vh] bg-zinc-950" @click.stop>
         

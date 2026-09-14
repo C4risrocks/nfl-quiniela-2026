@@ -213,46 +213,10 @@
                 async generateBlob() {
                     const target = document.getElementById('shareable-week-summary-card');
                     if (!target) return null;
-                    const clone = target.cloneNode(true);
-                    clone.id = 'shareable-week-summary-clone';
-                    const targetWidth = 600;
-                    clone.style.width = targetWidth + 'px';
-                    clone.style.maxWidth = targetWidth + 'px';
-                    clone.style.minWidth = targetWidth + 'px';
-                    clone.style.position = 'fixed';
-                    clone.style.left = '0';
-                    clone.style.top = '0';
-                    clone.style.zIndex = '-9999';
-                    clone.style.opacity = '1';
-                    clone.style.pointerEvents = 'none';
-                    clone.style.transform = 'none';
-                    clone.style.display = 'block';
-                    document.body.appendChild(clone);
-
-                    if (document.fonts && document.fonts.ready) {
-                        await document.fonts.ready;
-                    }
-                    await new Promise(r => setTimeout(r, 140));
-
-                    try {
-                        const canvas = await html2canvas(clone, {
-                            scale: 2.5,
-                            useCORS: true,
-                            allowTaint: true,
-                            backgroundColor: '#09090b',
-                            logging: false,
-                            x: 0,
-                            y: 0,
-                            scrollX: 0,
-                            scrollY: 0,
-                            windowWidth: targetWidth,
-                            width: targetWidth,
-                            height: clone.offsetHeight
-                        });
-                        return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-                    } finally {
-                        if (clone.parentNode) clone.parentNode.removeChild(clone);
-                    }
+                    return await window.generateCardImageBlob(target, {
+                        width: 600,
+                        display: 'block'
+                    });
                 },
                 async shareWhatsApp() {
                     this.generating = true;
