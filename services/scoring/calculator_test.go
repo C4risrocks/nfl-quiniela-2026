@@ -264,3 +264,140 @@ func TestStandardCompetitionRankingAndTiebreakers(t *testing.T) {
 	}
 }
 
+func TestTiebreakerWinnerPriorityAndPointsSupremacy(t *testing.T) {
+	testDB := "test_tb_priority.db"
+	defer os.Remove(testDB)
+
+	database, err := db.InitDB("sqlite", testDB)
+	if err != nil {
+		t.Fatalf("InitDB error: %v", err)
+	}
+	defer database.Close()
+
+	repo := db.NewRepository(database)
+	_ = db.SeedDatabase(repo, "admin", "admin@test.com", "pass", 2026)
+	calc := NewCalculator(repo)
+
+	season, _ := repo.GetActiveSeason(2026)
+	week3, _ := repo.GetWeekByNumber(season.ID, 3)
+
+	kc, _ := repo.GetTeamByCode("KC")
+	bal, _ := repo.GetTeamByCode("BAL")
+	sf, _ := repo.GetTeamByCode("SF")
+	lar, _ := repo.GetTeamByCode("LAR")
+
+	// Game 1: Normal Game (KC 20, BAL 10 -> Winner KC)
+	hScore1, aScore1 := 20, 10
+	game1, err := repo.CreateManualGame(&db.Game{
+		WeekID:       week3.ID,
+		HomeTeamID:   kc.ID,
+		AwayTeamID:   bal.ID,
+		KickoffTime:  time.Now().Add(-2 * time.Hour),
+		HomeScore:    &hScore1,
+		AwayScore:    &aScore1,
+		Status:       "final",
+		IsTiebreaker: false,
+	})
+	if err != nil {
+		t.Fatalf("CreateManualGame game1 failed: %v", err)
+	}
+
+	// Game 2: MNF Tiebreaker (SF 24, LAR 20 -> Winner SF, Total 44)
+	hScore2, aScore2 := 24, 20
+	tbGame, err := repo.CreateManualGame(&db.Game{
+		WeekID:       week3.ID,
+		HomeTeamID:   sf.ID,
+		AwayTeamID:   lar.ID,
+		KickoffTime:  time.Now().Add(-1 * time.Hour),
+		HomeScore:    &hScore2,
+		AwayScore:    &aScore2,
+		Status:       "final",
+		IsTiebreaker: true,
+	})
+	if err != nil {
+		t.Fatalf("CreateManualGame tbGame failed: %v", err)
+	}
+
+	// User Victor: Picks KC (correct) & SF (correct) -> 2 points
+	userVictor, _ := repo.CreateUser("Victor", "victor@test.com", "hash", "player")
+	_, _ = repo.SavePick(userVictor.ID, game1.ID, &kc.ID, nil, nil)
+	pVH, pVA := 10, 10 // Total 20 -> error 24
+	_, _ = repo.SavePick(userVictor.ID, tbGame.ID, &sf.ID, &pVH, &pVA)
+
+	// User Mariana: Picks BAL (incorrect) & SF (correct) -> 1 point, tb error 9
+	userMariana, _ := repo.CreateUser("Mariana", "mariana@test.com", "hash", "player")
+	_, _ = repo.SavePick(userMariana.ID, game1.ID, &bal.ID, nil, nil)
+	pMH, pMA := 20, 15 // Total 35 -> error 9
+	_, _ = repo.SavePick(userMariana.ID, tbGame.ID, &sf.ID, &pMH, &pMA)
+
+	// User Oscar: Picks KC (correct) & LAR (INCORRECT winner) -> 1 point, tb error 0
+	userOscar, _ := repo.CreateUser("Oscar", "oscar@test.com", "hash", "player")
+	_, _ = repo.SavePick(userOscar.ID, game1.ID, &kc.ID, nil, nil)
+	pOH, pOA := 24, 20 // Total 44 -> error 0
+	_, _ = repo.SavePick(userOscar.ID, tbGame.ID, &lar.ID, &pOH, &pOA)
+
+	_ = repo.SetScoringConfig(&db.ScoringConfig{
+		ScoringMode:  "pure_tiebreaker",
+		WinnerPoints: 1,
+	})
+
+	if err := calc.CalculateWeekScores(week3.ID); err != nil {
+		t.Fatalf("CalculateWeekScores failed: %v", err)
+	}
+
+	lb, err := repo.GetWeeklyLeaderboard(week3.ID)
+	if err != nil {
+		t.Fatalf("GetWeeklyLeaderboard failed: %v", err)
+	}
+	if len(lb) != 3 {
+		t.Fatalf("Expected 3 users in leaderboard, got %d", len(lb))
+	}
+
+	// 1. Victor MUST be Rank 1 because he has 2 points (most points always wins the week)
+	if lb[0].Username != "Victor" || lb[0].Rank != 1 || lb[0].TotalPoints != 2 {
+		t.Errorf("Expected Victor at Rank 1 with 2 points, got %+v", lb[0])
+	}
+
+	// 2. Mariana and Oscar tie in points (1 pt each).
+	// Mariana picked the WINNER of MNF (SF), while Oscar picked LAR (loser).
+	// Therefore, Mariana MUST be Rank 2, and Oscar MUST be Rank 3 (despite Oscar's 0 pt error).
+	if lb[1].Username != "Mariana" || lb[1].Rank != 2 || !lb[1].TiebreakerWinnerCorrect {
+		t.Errorf("Expected Mariana at Rank 2 with TiebreakerWinnerCorrect=true, got %+v", lb[1])
+	}
+	if lb[2].Username != "Oscar" || lb[2].Rank != 3 || lb[2].TiebreakerWinnerCorrect {
+		t.Errorf("Expected Oscar at Rank 3 with TiebreakerWinnerCorrect=false, got %+v", lb[2])
+	}
+
+	// 3. Season Leaderboard check:
+	// Victor: 2 pts -> Rank 1
+	// Mariana & Oscar: 1 pt each -> share Rank 2 (1, 2, 2)
+	seasonLB, err := repo.GetSeasonLeaderboard(season.ID)
+	if err != nil {
+		t.Fatalf("GetSeasonLeaderboard failed: %v", err)
+	}
+	if len(seasonLB) < 3 {
+		t.Fatalf("Expected at least 3 users in season leaderboard")
+	}
+	var sVictor, sMariana, sOscar *db.LeaderboardEntry
+	for _, e := range seasonLB {
+		switch e.Username {
+		case "Victor":
+			sVictor = e
+		case "Mariana":
+			sMariana = e
+		case "Oscar":
+			sOscar = e
+		}
+	}
+	if sVictor == nil || sVictor.Rank != 1 {
+		t.Errorf("Expected Victor at Rank 1 in season leaderboard, got %+v", sVictor)
+	}
+	if sMariana == nil || sMariana.Rank != 2 {
+		t.Errorf("Expected Mariana at Rank 2 in season leaderboard, got %+v", sMariana)
+	}
+	if sOscar == nil || sOscar.Rank != 2 {
+		t.Errorf("Expected Oscar tied at Rank 2 in season leaderboard, got %+v", sOscar)
+	}
+}
+
+

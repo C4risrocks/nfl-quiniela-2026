@@ -919,11 +919,12 @@ type LeaderboardEntry struct {
 	LiveProjectedPoints int                `json:"live_projected_points"`
 	CorrectPicks        int                `json:"correct_picks"`
 	TotalPicks          int                `json:"total_picks"`
-	TiebreakerError     int                `json:"tiebreaker_error"`
-	WinPercentage       float64            `json:"win_percentage"`
-	HasTiebreaker       bool               `json:"has_tiebreaker"`
-	HasLiveGames        bool               `json:"has_live_games"`
-	Achievements        []*UserAchievement `json:"achievements,omitempty"`
+	TiebreakerError         int                `json:"tiebreaker_error"`
+	TiebreakerWinnerCorrect bool               `json:"tiebreaker_winner_correct"`
+	WinPercentage           float64            `json:"win_percentage"`
+	HasTiebreaker           bool               `json:"has_tiebreaker"`
+	HasLiveGames            bool               `json:"has_live_games"`
+	Achievements            []*UserAchievement `json:"achievements,omitempty"`
 }
 
 func (e *LeaderboardEntry) TopAchievements(limit int) []*UserAchievement {

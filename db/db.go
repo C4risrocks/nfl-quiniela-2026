@@ -164,6 +164,18 @@ func (d *DB) migrate() error {
 		_, _ = d.Exec(colStmt) // Safe ignore if column already exists
 	}
 
+	lbCols := []string{
+		"ALTER TABLE weekly_leaderboard ADD COLUMN tiebreaker_winner_correct BOOLEAN NOT NULL DEFAULT 0",
+	}
+	if d.DriverName == "pgx" {
+		lbCols = []string{
+			"ALTER TABLE weekly_leaderboard ADD COLUMN IF NOT EXISTS tiebreaker_winner_correct BOOLEAN NOT NULL DEFAULT FALSE",
+		}
+	}
+	for _, colStmt := range lbCols {
+		_, _ = d.Exec(colStmt) // Safe ignore if column already exists
+	}
+
 	return nil
 }
 

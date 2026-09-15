@@ -1315,27 +1315,28 @@ func (r *Repository) UpdatePickPoints(pickID int64, pointsEarned, bonusPoints in
 
 func (r *Repository) UpsertWeeklyLeaderboard(entry *LeaderboardEntry, weekID int64) error {
 	query := `
-	INSERT INTO weekly_leaderboard (week_id, user_id, total_points, correct_picks, total_picks, tiebreaker_error, rank, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	INSERT INTO weekly_leaderboard (week_id, user_id, total_points, correct_picks, total_picks, tiebreaker_error, tiebreaker_winner_correct, rank, updated_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 	ON CONFLICT(week_id, user_id) DO UPDATE SET
 		total_points = excluded.total_points,
 		correct_picks = excluded.correct_picks,
 		total_picks = excluded.total_picks,
 		tiebreaker_error = excluded.tiebreaker_error,
+		tiebreaker_winner_correct = excluded.tiebreaker_winner_correct,
 		rank = excluded.rank,
 		updated_at = CURRENT_TIMESTAMP;`
 
-	_, err := r.db.Exec(query, weekID, entry.UserID, entry.TotalPoints, entry.CorrectPicks, entry.TotalPicks, entry.TiebreakerError, entry.Rank)
+	_, err := r.db.Exec(query, weekID, entry.UserID, entry.TotalPoints, entry.CorrectPicks, entry.TotalPicks, entry.TiebreakerError, entry.TiebreakerWinnerCorrect, entry.Rank)
 	return err
 }
 
 func (r *Repository) GetWeeklyLeaderboard(weekID int64) ([]*LeaderboardEntry, error) {
 	query := `
-	SELECT wl.rank, wl.user_id, u.username, u.avatar_url, wl.total_points, wl.correct_picks, wl.total_picks, wl.tiebreaker_error
+	SELECT wl.rank, wl.user_id, u.username, u.avatar_url, wl.total_points, wl.correct_picks, wl.total_picks, wl.tiebreaker_error, COALESCE(wl.tiebreaker_winner_correct, 0)
 	FROM weekly_leaderboard wl
 	JOIN users u ON wl.user_id = u.id
 	WHERE wl.week_id = ? AND COALESCE(u.role, 'player') != 'admin'
-	ORDER BY wl.total_points DESC, wl.correct_picks DESC, wl.tiebreaker_error ASC, u.username ASC`
+	ORDER BY wl.total_points DESC, wl.correct_picks DESC, wl.tiebreaker_winner_correct DESC, wl.tiebreaker_error ASC, u.username ASC`
 
 	rows, err := r.db.Query(query, weekID)
 	if err != nil {
@@ -1346,7 +1347,7 @@ func (r *Repository) GetWeeklyLeaderboard(weekID int64) ([]*LeaderboardEntry, er
 	var entries []*LeaderboardEntry
 	for rows.Next() {
 		var e LeaderboardEntry
-		if err := rows.Scan(&e.Rank, &e.UserID, &e.Username, &e.AvatarURL, &e.TotalPoints, &e.CorrectPicks, &e.TotalPicks, &e.TiebreakerError); err != nil {
+		if err := rows.Scan(&e.Rank, &e.UserID, &e.Username, &e.AvatarURL, &e.TotalPoints, &e.CorrectPicks, &e.TotalPicks, &e.TiebreakerError, &e.TiebreakerWinnerCorrect); err != nil {
 			return nil, err
 		}
 		if e.TotalPicks > 0 {
@@ -1357,12 +1358,13 @@ func (r *Repository) GetWeeklyLeaderboard(weekID int64) ([]*LeaderboardEntry, er
 	}
 
 	// Standard competition ranking (1224 ranking) for weekly standings:
-	// If two entries have the same points, same correct picks, and same tiebreaker error, they share the rank.
+	// If two entries have the same points, same correct picks, same tiebreaker winner pick, and same tiebreaker error, they share the rank.
 	for i, entry := range entries {
 		if i > 0 {
 			prev := entries[i-1]
 			if entry.TotalPoints == prev.TotalPoints &&
 				entry.CorrectPicks == prev.CorrectPicks &&
+				entry.TiebreakerWinnerCorrect == prev.TiebreakerWinnerCorrect &&
 				entry.TiebreakerError == prev.TiebreakerError {
 				entry.Rank = prev.Rank
 				continue

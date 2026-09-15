@@ -73,7 +73,13 @@
                             {{if eq $.ViewMode "weekly"}}
                                 {{if .HasTiebreaker}}
                                     <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">
-                                        Desempate MNF: <strong class="text-amber-400 font-bold">±{{.TiebreakerError}} pts</strong>
+                                        Desempate MNF: 
+                                        {{if .TiebreakerWinnerCorrect}}
+                                            <strong class="text-emerald-400 font-bold">✓ Ganador</strong> · 
+                                        {{else}}
+                                            <span class="text-zinc-500 font-medium">✗ Ganador · </span>
+                                        {{end}}
+                                        <strong class="text-amber-400 font-bold">±{{.TiebreakerError}} pts</strong>
                                     </span>
                                 {{else}}
                                     <span class="text-[10px] text-zinc-600 font-mono">Sin desempate MNF</span>
@@ -198,8 +204,13 @@
                             {{if eq $.ViewMode "weekly"}}
                                 <td class="py-3 px-4 text-center font-mono">
                                     {{if .HasTiebreaker}}
-                                        <span class="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 text-[11px]" title="Diferencia contra marcador total en MNF">
-                                            ±{{.TiebreakerError}} pts
+                                        <span class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[11px]" title="Desempate MNF: 1º Ganador, 2º Marcador total">
+                                            {{if .TiebreakerWinnerCorrect}}
+                                                <span class="text-emerald-400 font-bold" title="Acertó al ganador del MNF">✓</span>
+                                            {{else}}
+                                                <span class="text-zinc-500 font-bold" title="No acertó al ganador del MNF">✗</span>
+                                            {{end}}
+                                            <span class="text-zinc-300">±{{.TiebreakerError}} pts</span>
                                         </span>
                                     {{else}}
                                         <span class="text-zinc-600 text-[11px]" title="Sin evaluación de desempate aún">--</span>

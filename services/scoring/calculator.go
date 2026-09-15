@@ -130,6 +130,7 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 		correctCount := 0
 		totalCount := len(picksList)
 		tbError := 999 // default high error
+		tbWinnerCorrect := false
 		liveProjectedPts := 0
 
 		for _, p := range picksList {
@@ -160,7 +161,7 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 				}
 			}
 
-			// If this is the tiebreaker game, compute score distance ONLY when game is final
+			// If this is the tiebreaker game, compute score distance and winner ONLY when game is final
 			if tiebreakerGame != nil && p.GameID == tiebreakerGame.ID &&
 				tiebreakerGame.Status == "final" &&
 				tiebreakerGame.HomeScore != nil && tiebreakerGame.AwayScore != nil &&
@@ -168,24 +169,33 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 				actualTotal := *tiebreakerGame.HomeScore + *tiebreakerGame.AwayScore
 				predTotal := *p.PredictedHomeScore + *p.PredictedAwayScore
 				tbError = int(math.Abs(float64(actualTotal - predTotal)))
+				if p.IsCorrect != nil && *p.IsCorrect {
+					tbWinnerCorrect = true
+				}
 			}
 		}
 
 		entry := &db.LeaderboardEntry{
-			UserID:              u.ID,
-			Username:            u.Username,
-			AvatarURL:           u.AvatarURL,
-			TotalPoints:         totalPts,
-			LiveProjectedPoints: totalPts + liveProjectedPts,
-			CorrectPicks:        correctCount,
-			TotalPicks:          totalCount,
-			TiebreakerError:     tbError,
-			HasLiveGames:        hasLiveGames,
+			UserID:                  u.ID,
+			Username:                u.Username,
+			AvatarURL:               u.AvatarURL,
+			TotalPoints:             totalPts,
+			LiveProjectedPoints:     totalPts + liveProjectedPts,
+			CorrectPicks:            correctCount,
+			TotalPicks:              totalCount,
+			TiebreakerError:         tbError,
+			TiebreakerWinnerCorrect: tbWinnerCorrect,
+			HasLiveGames:            hasLiveGames,
 		}
 		leaderboardEntries = append(leaderboardEntries, entry)
 	}
 
-	// Sort leaderboard entries
+	// Sort leaderboard entries:
+	// 1. Total Points Descending (Most points ALWAYS wins the week)
+	// 2. Correct Picks Descending
+	// 3. Tiebreaker Winner Correct (If points & picks tie, whoever picked the MNF winner wins)
+	// 4. Tiebreaker error Ascending (Closer combined score wins)
+	// 5. Username Ascending
 	sort.Slice(leaderboardEntries, func(i, j int) bool {
 		a := leaderboardEntries[i]
 		b := leaderboardEntries[j]
@@ -198,11 +208,15 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 		if a.CorrectPicks != b.CorrectPicks {
 			return a.CorrectPicks > b.CorrectPicks
 		}
-		// 3. Tiebreaker error Ascending (lower is closer)
+		// 3. Tiebreaker Winner Correct (true ranks ahead of false)
+		if a.TiebreakerWinnerCorrect != b.TiebreakerWinnerCorrect {
+			return a.TiebreakerWinnerCorrect
+		}
+		// 4. Tiebreaker error Ascending (lower is closer)
 		if a.TiebreakerError != b.TiebreakerError {
 			return a.TiebreakerError < b.TiebreakerError
 		}
-		// 4. Username Ascending
+		// 5. Username Ascending
 		return a.Username < b.Username
 	})
 
@@ -212,6 +226,7 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 			prev := leaderboardEntries[idx-1]
 			if entry.TotalPoints == prev.TotalPoints &&
 				entry.CorrectPicks == prev.CorrectPicks &&
+				entry.TiebreakerWinnerCorrect == prev.TiebreakerWinnerCorrect &&
 				entry.TiebreakerError == prev.TiebreakerError {
 				entry.Rank = prev.Rank
 			} else {
