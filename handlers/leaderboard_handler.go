@@ -112,6 +112,7 @@ func (h *LeaderboardHandler) LeaderboardTable(w http.ResponseWriter, r *http.Req
 		"Leaderboard":  leaderboard,
 		"CurrentUser":  user,
 		"SelectedWeek": selectedWeek,
+		"ViewMode":     viewMode,
 	})
 }
 

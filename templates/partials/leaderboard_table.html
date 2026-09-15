@@ -67,15 +67,21 @@
                         </div>
                     </div>
 
-                    <!-- Bottom Bar on Mobile Card (Tiebreaker & Compare Button) -->
+                    <!-- Bottom Bar on Mobile Card (Tiebreaker / Season Summary & Compare Button) -->
                     <div class="mt-2.5 pt-2 border-t border-zinc-900 flex items-center justify-between text-xs">
                         <div>
-                            {{if .HasTiebreaker}}
-                                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
-                                    Desempate: <strong class="text-zinc-200">±{{.TiebreakerError}} pts</strong>
-                                </span>
+                            {{if eq $.ViewMode "weekly"}}
+                                {{if .HasTiebreaker}}
+                                    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">
+                                        Desempate MNF: <strong class="text-amber-400 font-bold">±{{.TiebreakerError}} pts</strong>
+                                    </span>
+                                {{else}}
+                                    <span class="text-[10px] text-zinc-600 font-mono">Sin desempate MNF</span>
+                                {{end}}
                             {{else}}
-                                <span class="text-[10px] text-zinc-600 font-mono">Sin desempate</span>
+                                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
+                                    General: <strong class="text-emerald-400 font-semibold">{{printf "%.1f" .WinPercentage}}%</strong> efectividad
+                                </span>
                             {{end}}
                         </div>
 
@@ -110,7 +116,9 @@
                     <th class="py-3 px-4 text-center">Puntos Totales</th>
                     <th class="py-3 px-4 text-center">Aciertos</th>
                     <th class="py-3 px-4 text-center">Efectividad</th>
-                    <th class="py-3 px-4 text-center">Dif. Desempate</th>
+                    {{if eq $.ViewMode "weekly"}}
+                        <th class="py-3 px-4 text-center" title="Criterio de desempate en la jornada">Desempate MNF</th>
+                    {{end}}
                     <th class="py-3 px-4 text-center">Duelo</th>
                 </tr>
             </thead>
@@ -186,16 +194,18 @@
                                 {{printf "%.1f" .WinPercentage}}%
                             </td>
 
-                            <!-- Tiebreaker Error -->
-                            <td class="py-3 px-4 text-center font-mono">
-                                {{if .HasTiebreaker}}
-                                    <span class="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 text-[11px]">
-                                        ±{{.TiebreakerError}} pts
-                                    </span>
-                                {{else}}
-                                    <span class="text-zinc-600 text-[11px]">--</span>
-                                {{end}}
-                            </td>
+                            <!-- Tiebreaker Error (Only in weekly mode) -->
+                            {{if eq $.ViewMode "weekly"}}
+                                <td class="py-3 px-4 text-center font-mono">
+                                    {{if .HasTiebreaker}}
+                                        <span class="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300 text-[11px]" title="Diferencia contra marcador total en MNF">
+                                            ±{{.TiebreakerError}} pts
+                                        </span>
+                                    {{else}}
+                                        <span class="text-zinc-600 text-[11px]" title="Sin evaluación de desempate aún">--</span>
+                                    {{end}}
+                                </td>
+                            {{end}}
 
                             <!-- Head-to-Head Compare Button -->
                             <td class="py-3 px-4 text-center">
@@ -217,7 +227,7 @@
                     {{end}}
                 {{else}}
                     <tr>
-                        <td colspan="7" class="py-12 text-center text-zinc-500">
+                        <td colspan="{{if eq $.ViewMode "weekly"}}7{{else}}6{{end}}" class="py-12 text-center text-zinc-500">
                             <i class="fa-solid fa-trophy text-zinc-700 text-2xl mb-2 block"></i>
                             Aún no se han registrado puntuaciones para esta vista.
                         </td>

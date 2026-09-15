@@ -1288,20 +1288,33 @@ func (r *Repository) GetWeeklyLeaderboard(weekID int64) ([]*LeaderboardEntry, er
 	defer rows.Close()
 
 	var entries []*LeaderboardEntry
-	rank := 1
 	for rows.Next() {
 		var e LeaderboardEntry
 		if err := rows.Scan(&e.Rank, &e.UserID, &e.Username, &e.AvatarURL, &e.TotalPoints, &e.CorrectPicks, &e.TotalPicks, &e.TiebreakerError); err != nil {
 			return nil, err
 		}
-		e.Rank = rank
 		if e.TotalPicks > 0 {
 			e.WinPercentage = (float64(e.CorrectPicks) / float64(e.TotalPicks)) * 100.0
 		}
 		e.HasTiebreaker = e.TiebreakerError >= 0 && e.TiebreakerError < 999
 		entries = append(entries, &e)
-		rank++
 	}
+
+	// Standard competition ranking (1224 ranking) for weekly standings:
+	// If two entries have the same points, same correct picks, and same tiebreaker error, they share the rank.
+	for i, entry := range entries {
+		if i > 0 {
+			prev := entries[i-1]
+			if entry.TotalPoints == prev.TotalPoints &&
+				entry.CorrectPicks == prev.CorrectPicks &&
+				entry.TiebreakerError == prev.TiebreakerError {
+				entry.Rank = prev.Rank
+				continue
+			}
+		}
+		entry.Rank = i + 1
+	}
+
 	return entries, nil
 }
 
@@ -1310,15 +1323,18 @@ func (r *Repository) GetSeasonLeaderboard(seasonID int64) ([]*LeaderboardEntry, 
 	SELECT u.id, u.username, u.avatar_url,
 	       COALESCE(SUM(wl.total_points), 0) as grand_total_points,
 	       COALESCE(SUM(wl.correct_picks), 0) as grand_correct_picks,
-	       COALESCE(SUM(wl.total_picks), 0) as grand_total_picks,
-	       COALESCE(SUM(CASE WHEN wl.tiebreaker_error < 999 AND wl.tiebreaker_error >= 0 THEN wl.tiebreaker_error ELSE 0 END), 0) as grand_tiebreaker_error,
-	       COALESCE(SUM(CASE WHEN wl.tiebreaker_error < 999 AND wl.tiebreaker_error >= 0 THEN 1 ELSE 0 END), 0) as evaluated_tiebreakers
+	       COALESCE(SUM(wl.total_picks), 0) as grand_total_picks
 	FROM users u
-	LEFT JOIN weekly_leaderboard wl ON u.id = wl.user_id
-	LEFT JOIN weeks w ON wl.week_id = w.id AND w.season_id = ?
+	LEFT JOIN (
+	    weekly_leaderboard wl
+	    JOIN weeks w ON wl.week_id = w.id AND w.season_id = ?
+	) ON u.id = wl.user_id
 	WHERE COALESCE(u.role, 'player') != 'admin'
 	GROUP BY u.id, u.username, u.avatar_url
-	ORDER BY grand_total_points DESC, grand_correct_picks DESC, grand_tiebreaker_error ASC, u.username ASC`
+	ORDER BY grand_total_points DESC, 
+	         grand_correct_picks DESC, 
+	         (CAST(COALESCE(SUM(wl.correct_picks), 0) AS FLOAT) / NULLIF(COALESCE(SUM(wl.total_picks), 0), 0)) DESC, 
+	         u.username ASC`
 
 	rows, err := r.db.Query(query, seasonID)
 	if err != nil {
@@ -1327,21 +1343,34 @@ func (r *Repository) GetSeasonLeaderboard(seasonID int64) ([]*LeaderboardEntry, 
 	defer rows.Close()
 
 	var entries []*LeaderboardEntry
-	rank := 1
 	for rows.Next() {
 		var e LeaderboardEntry
-		var evaluatedCount int
-		if err := rows.Scan(&e.UserID, &e.Username, &e.AvatarURL, &e.TotalPoints, &e.CorrectPicks, &e.TotalPicks, &e.TiebreakerError, &evaluatedCount); err != nil {
+		if err := rows.Scan(&e.UserID, &e.Username, &e.AvatarURL, &e.TotalPoints, &e.CorrectPicks, &e.TotalPicks); err != nil {
 			return nil, err
 		}
-		e.Rank = rank
 		if e.TotalPicks > 0 {
 			e.WinPercentage = (float64(e.CorrectPicks) / float64(e.TotalPicks)) * 100.0
 		}
-		e.HasTiebreaker = evaluatedCount > 0
+		e.TiebreakerError = 0
+		e.HasTiebreaker = false // Season standings do not use weekly MNF tiebreaker
 		entries = append(entries, &e)
-		rank++
 	}
+
+	// Standard competition ranking (1224 ranking) for season standings:
+	// Points > Correct Picks > Win Percentage. If all are equal, players share the rank.
+	for i, entry := range entries {
+		if i > 0 {
+			prev := entries[i-1]
+			if entry.TotalPoints == prev.TotalPoints &&
+				entry.CorrectPicks == prev.CorrectPicks &&
+				math.Abs(entry.WinPercentage-prev.WinPercentage) < 0.001 {
+				entry.Rank = prev.Rank
+				continue
+			}
+		}
+		entry.Rank = i + 1
+	}
+
 	return entries, nil
 }
 

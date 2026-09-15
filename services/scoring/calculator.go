@@ -160,8 +160,9 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 				}
 			}
 
-			// If this is the tiebreaker game, compute score distance
+			// If this is the tiebreaker game, compute score distance ONLY when game is final
 			if tiebreakerGame != nil && p.GameID == tiebreakerGame.ID &&
+				tiebreakerGame.Status == "final" &&
 				tiebreakerGame.HomeScore != nil && tiebreakerGame.AwayScore != nil &&
 				p.PredictedHomeScore != nil && p.PredictedAwayScore != nil {
 				actualTotal := *tiebreakerGame.HomeScore + *tiebreakerGame.AwayScore
@@ -205,9 +206,20 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 		return a.Username < b.Username
 	})
 
-	// Assign rank and upsert
+	// Assign rank (handling shared ties: 1, 1, 3, 4) and upsert
 	for idx, entry := range leaderboardEntries {
-		entry.Rank = idx + 1
+		if idx > 0 {
+			prev := leaderboardEntries[idx-1]
+			if entry.TotalPoints == prev.TotalPoints &&
+				entry.CorrectPicks == prev.CorrectPicks &&
+				entry.TiebreakerError == prev.TiebreakerError {
+				entry.Rank = prev.Rank
+			} else {
+				entry.Rank = idx + 1
+			}
+		} else {
+			entry.Rank = 1
+		}
 		if err := c.repo.UpsertWeeklyLeaderboard(entry, weekID); err != nil {
 			log.Printf("[Scoring] Error saving weekly leaderboard for user %d: %v", entry.UserID, err)
 		}

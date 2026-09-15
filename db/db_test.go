@@ -131,7 +131,7 @@ func TestDatabaseAndRepository(t *testing.T) {
 		TotalPoints:     20,
 		CorrectPicks:    2,
 		TotalPicks:      2,
-		TiebreakerError: 3, // evaluated!
+		TiebreakerError: 3,
 		Rank:            1,
 	}, weeks[1].ID)
 
@@ -139,11 +139,15 @@ func TestDatabaseAndRepository(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get season leaderboard: %v", err)
 	}
-	if !seasonLBAfter[0].HasTiebreaker {
-		t.Errorf("Expected HasTiebreaker to be true after evaluated week")
+	// Season leaderboard does not use weekly MNF tiebreaker
+	if seasonLBAfter[0].HasTiebreaker {
+		t.Errorf("Expected HasTiebreaker to be false for season leaderboard")
 	}
-	if seasonLBAfter[0].TiebreakerError != 3 {
-		t.Errorf("Expected TiebreakerError to be 3, got %d", seasonLBAfter[0].TiebreakerError)
+	if seasonLBAfter[0].TotalPoints != 30 {
+		t.Errorf("Expected TotalPoints to be 30, got %d", seasonLBAfter[0].TotalPoints)
+	}
+	if seasonLBAfter[0].CorrectPicks != 3 {
+		t.Errorf("Expected CorrectPicks to be 3, got %d", seasonLBAfter[0].CorrectPicks)
 	}
 }
 
