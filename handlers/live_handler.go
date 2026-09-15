@@ -119,12 +119,7 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 	}
 
 	if selectedWeek == nil {
-		for _, w := range weeks {
-			if w.Status == "active" {
-				selectedWeek = w
-				break
-			}
-		}
+		selectedWeek, _ = h.repo.GetActiveWeek(season.ID)
 	}
 	if selectedWeek == nil && len(weeks) > 0 {
 		selectedWeek = weeks[0]

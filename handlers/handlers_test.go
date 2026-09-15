@@ -1022,7 +1022,7 @@ func TestLeaderboardAndRulesRendering(t *testing.T) {
 	leaderboardHandler := NewLeaderboardHandler(repo, renderer, 2026)
 	rulesHandler := NewRulesHandler(repo, renderer)
 
-	// 1. Test ShowLeaderboard
+	// 1. Test ShowLeaderboard (defaults to weekly mode and active week)
 	req1 := httptest.NewRequest(http.MethodGet, "/leaderboard", nil)
 	rr1 := httptest.NewRecorder()
 	leaderboardHandler.ShowLeaderboard(rr1, req1)
@@ -1039,8 +1039,39 @@ func TestLeaderboardAndRulesRendering(t *testing.T) {
 	if !strings.Contains(body1, "shareable-leaderboard-card") {
 		t.Errorf("Expected ShowLeaderboard to contain 'shareable-leaderboard-card'")
 	}
+	// Default must be weekly of active week (Semana 1)
+	if !strings.Contains(body1, "Semana 1") {
+		t.Errorf("Expected default ShowLeaderboard to show active week (Semana 1)")
+	}
+	if !strings.Contains(body1, "Desempate MNF") {
+		t.Errorf("Expected default ShowLeaderboard to include weekly tiebreaker 'Desempate MNF'")
+	}
 
-	// 2. Test LeaderboardTable partial
+	// 1b. Test ShowLeaderboard with explicit mode=season
+	req1Season := httptest.NewRequest(http.MethodGet, "/leaderboard?mode=season", nil)
+	rr1Season := httptest.NewRecorder()
+	leaderboardHandler.ShowLeaderboard(rr1Season, req1Season)
+	if rr1Season.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from ShowLeaderboard mode=season, got %d: %s", rr1Season.Code, rr1Season.Body.String())
+	}
+	body1Season := rr1Season.Body.String()
+	if !strings.Contains(body1Season, "Temporada Regular 2026") {
+		t.Errorf("Expected season mode to display 'Temporada Regular 2026'")
+	}
+
+	// 2. Test LeaderboardTable partial (defaults to weekly)
+	req2Default := httptest.NewRequest(http.MethodGet, "/leaderboard/table", nil)
+	rr2Default := httptest.NewRecorder()
+	leaderboardHandler.LeaderboardTable(rr2Default, req2Default)
+	if rr2Default.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from LeaderboardTable default, got %d: %s", rr2Default.Code, rr2Default.Body.String())
+	}
+	body2Default := rr2Default.Body.String()
+	if !strings.Contains(body2Default, "Desempate MNF") {
+		t.Errorf("Expected default LeaderboardTable partial to include 'Desempate MNF'")
+	}
+
+	// 2b. Test LeaderboardTable partial with mode=season
 	req2 := httptest.NewRequest(http.MethodGet, "/leaderboard/table?mode=season", nil)
 	rr2 := httptest.NewRecorder()
 	leaderboardHandler.LeaderboardTable(rr2, req2)
@@ -1053,6 +1084,9 @@ func TestLeaderboardAndRulesRendering(t *testing.T) {
 	}
 	if !strings.Contains(body2, "hidden md:block") {
 		t.Errorf("Expected LeaderboardTable to contain desktop view 'hidden md:block'")
+	}
+	if strings.Contains(body2, "Desempate MNF") {
+		t.Errorf("Expected season mode LeaderboardTable partial NOT to contain 'Desempate MNF'")
 	}
 
 	// 3. Test ShowRules

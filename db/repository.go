@@ -576,6 +576,62 @@ func (r *Repository) GetWeekByNumber(seasonID int64, weekNumber int) (*Week, err
 	return &w, nil
 }
 
+// GetActiveWeek determines the current active week for a season based on game status and schedule:
+// 1. Week with status = 'active'
+// 2. Week with games currently in progress
+// 3. Week with upcoming scheduled games (earliest kickoff)
+// 4. Most recently completed week (latest final kickoff)
+// 5. Fallback: First week of the season
+func (r *Repository) GetActiveWeek(seasonID int64) (*Week, error) {
+	var w Week
+
+	// 1. Explicitly marked active week
+	queryActive := `SELECT id, season_id, week_number, name, status, lock_type, created_at 
+	                FROM weeks WHERE season_id = ? AND status = 'active' LIMIT 1`
+	if err := r.db.QueryRow(queryActive, seasonID).Scan(&w.ID, &w.SeasonID, &w.WeekNumber, &w.Name, &w.Status, &w.LockType, &w.CreatedAt); err == nil {
+		return &w, nil
+	}
+
+	// 2. Week with games in progress
+	queryInProgress := `SELECT w.id, w.season_id, w.week_number, w.name, w.status, w.lock_type, w.created_at 
+	                    FROM weeks w 
+	                    JOIN games g ON g.week_id = w.id 
+	                    WHERE w.season_id = ? AND g.status = 'in_progress' 
+	                    ORDER BY g.kickoff_time ASC LIMIT 1`
+	if err := r.db.QueryRow(queryInProgress, seasonID).Scan(&w.ID, &w.SeasonID, &w.WeekNumber, &w.Name, &w.Status, &w.LockType, &w.CreatedAt); err == nil {
+		return &w, nil
+	}
+
+	// 3. Week with earliest upcoming scheduled games
+	queryScheduled := `SELECT w.id, w.season_id, w.week_number, w.name, w.status, w.lock_type, w.created_at 
+	                   FROM weeks w 
+	                   JOIN games g ON g.week_id = w.id 
+	                   WHERE w.season_id = ? AND g.status = 'scheduled' 
+	                   ORDER BY g.kickoff_time ASC LIMIT 1`
+	if err := r.db.QueryRow(queryScheduled, seasonID).Scan(&w.ID, &w.SeasonID, &w.WeekNumber, &w.Name, &w.Status, &w.LockType, &w.CreatedAt); err == nil {
+		return &w, nil
+	}
+
+	// 4. Most recently completed week
+	queryFinal := `SELECT w.id, w.season_id, w.week_number, w.name, w.status, w.lock_type, w.created_at 
+	               FROM weeks w 
+	               JOIN games g ON g.week_id = w.id 
+	               WHERE w.season_id = ? AND g.status = 'final' 
+	               ORDER BY g.kickoff_time DESC LIMIT 1`
+	if err := r.db.QueryRow(queryFinal, seasonID).Scan(&w.ID, &w.SeasonID, &w.WeekNumber, &w.Name, &w.Status, &w.LockType, &w.CreatedAt); err == nil {
+		return &w, nil
+	}
+
+	// 5. Fallback: First week of the season
+	queryFirst := `SELECT id, season_id, week_number, name, status, lock_type, created_at 
+	               FROM weeks WHERE season_id = ? ORDER BY week_number ASC LIMIT 1`
+	if err := r.db.QueryRow(queryFirst, seasonID).Scan(&w.ID, &w.SeasonID, &w.WeekNumber, &w.Name, &w.Status, &w.LockType, &w.CreatedAt); err == nil {
+		return &w, nil
+	}
+
+	return nil, fmt.Errorf("no weeks found for season %d", seasonID)
+}
+
 func (r *Repository) CreateWeek(seasonID int64, weekNum int, name string) (*Week, error) {
 	query := `INSERT INTO weeks (season_id, week_number, name, status, lock_type) VALUES (?, ?, ?, 'scheduled', 'per_game')`
 	res, err := r.db.Exec(query, seasonID, weekNum, name)

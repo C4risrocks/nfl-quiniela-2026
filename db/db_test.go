@@ -1071,3 +1071,106 @@ func TestGameStatsJSONPersistence(t *testing.T) {
 	}
 }
 
+func TestGetActiveWeek(t *testing.T) {
+	testDBPath := "test_active_week.db"
+	defer os.Remove(testDBPath)
+
+	database, err := InitDB("sqlite", testDBPath)
+	if err != nil {
+		t.Fatalf("Failed to init db: %v", err)
+	}
+	defer database.Close()
+
+	repo := NewRepository(database)
+	_ = SeedDatabase(repo, "admin", "admin@test.com", "pass123", 2026)
+
+	season, err := repo.GetActiveSeason(2026)
+	if err != nil {
+		t.Fatalf("GetActiveSeason failed: %v", err)
+	}
+	weeks, err := repo.ListWeeks(season.ID)
+	if err != nil || len(weeks) < 4 {
+		t.Fatalf("Expected at least 4 weeks, got %d", len(weeks))
+	}
+
+	teams, _ := repo.ListTeams()
+	t1, t2 := teams[0], teams[1]
+
+	// 1. Initial seeded state: Week 1 has scheduled/seeded games -> GetActiveWeek returns Week 1
+	activeWk, err := repo.GetActiveWeek(season.ID)
+	if err != nil {
+		t.Fatalf("GetActiveWeek failed: %v", err)
+	}
+	if activeWk.WeekNumber != 1 {
+		t.Errorf("Expected Week 1 initially, got %d", activeWk.WeekNumber)
+	}
+
+	// 2. Mark all Week 1 games as final, create scheduled game in Week 2 -> GetActiveWeek returns Week 2
+	_, _ = database.Exec("UPDATE games SET status = 'final' WHERE week_id = ?", weeks[0].ID)
+	g2, err := repo.CreateManualGame(&Game{
+		WeekID:       weeks[1].ID,
+		HomeTeamID:   t1.ID,
+		AwayTeamID:   t2.ID,
+		KickoffTime:  time.Now().Add(24 * time.Hour),
+		Status:       "scheduled",
+		IsTiebreaker: true,
+	})
+	if err != nil {
+		t.Fatalf("CreateManualGame week 2 failed: %v", err)
+	}
+
+	activeWk, err = repo.GetActiveWeek(season.ID)
+	if err != nil {
+		t.Fatalf("GetActiveWeek failed: %v", err)
+	}
+	if activeWk.WeekNumber != 2 {
+		t.Errorf("Expected Week 2 with scheduled game, got %d", activeWk.WeekNumber)
+	}
+
+	// 3. Game in Week 3 is in_progress -> GetActiveWeek returns Week 3
+	_, err = repo.CreateManualGame(&Game{
+		WeekID:       weeks[2].ID,
+		HomeTeamID:   t1.ID,
+		AwayTeamID:   t2.ID,
+		KickoffTime:  time.Now().Add(-1 * time.Hour),
+		Status:       "in_progress",
+		IsTiebreaker: false,
+	})
+	if err != nil {
+		t.Fatalf("CreateManualGame week 3 failed: %v", err)
+	}
+
+	activeWk, err = repo.GetActiveWeek(season.ID)
+	if err != nil {
+		t.Fatalf("GetActiveWeek failed: %v", err)
+	}
+	if activeWk.WeekNumber != 3 {
+		t.Errorf("Expected Week 3 with in_progress game, got %d", activeWk.WeekNumber)
+	}
+
+	// 4. Week 4 has explicit status = 'active' -> Overrides game statuses, returns Week 4
+	_, _ = database.Exec("UPDATE weeks SET status = 'active' WHERE id = ?", weeks[3].ID)
+	activeWk, err = repo.GetActiveWeek(season.ID)
+	if err != nil {
+		t.Fatalf("GetActiveWeek failed: %v", err)
+	}
+	if activeWk.WeekNumber != 4 {
+		t.Errorf("Expected Week 4 with explicit active status, got %d", activeWk.WeekNumber)
+	}
+
+	// 5. Reset Week 4 status to 'scheduled', mark all games final -> returns latest completed week
+	_, _ = database.Exec("UPDATE weeks SET status = 'scheduled' WHERE id = ?", weeks[3].ID)
+	_, _ = database.Exec("UPDATE games SET status = 'final'")
+	_ = g2
+
+	activeWk, err = repo.GetActiveWeek(season.ID)
+	if err != nil {
+		t.Fatalf("GetActiveWeek failed: %v", err)
+	}
+	// The game created in week 2 was kickoff time +24h (latest kickoff time)
+	if activeWk.WeekNumber != 2 {
+		t.Errorf("Expected latest completed week 2, got %d", activeWk.WeekNumber)
+	}
+}
+
+

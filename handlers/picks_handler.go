@@ -45,6 +45,9 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 
 	// Determine selected week
 	selectedWeekNum := 1
+	if activeWeek, _ := h.repo.GetActiveWeek(season.ID); activeWeek != nil {
+		selectedWeekNum = activeWeek.WeekNumber
+	}
 	if weekParam := r.URL.Query().Get("week"); weekParam != "" {
 		if wNum, err := strconv.Atoi(weekParam); err == nil && wNum >= 1 && wNum <= len(weeks) {
 			selectedWeekNum = wNum

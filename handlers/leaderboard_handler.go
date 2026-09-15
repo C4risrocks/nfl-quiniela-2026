@@ -31,12 +31,20 @@ func (h *LeaderboardHandler) ShowLeaderboard(w http.ResponseWriter, r *http.Requ
 	}
 
 	weeks, _ := h.repo.ListWeeks(season.ID)
+	activeWeek, _ := h.repo.GetActiveWeek(season.ID)
+	if activeWeek == nil && len(weeks) > 0 {
+		activeWeek = weeks[0]
+	}
+
 	viewMode := r.URL.Query().Get("mode")
-	if viewMode != "weekly" {
-		viewMode = "season"
+	if viewMode != "season" {
+		viewMode = "weekly"
 	}
 
 	selectedWeekNum := 1
+	if activeWeek != nil {
+		selectedWeekNum = activeWeek.WeekNumber
+	}
 	if wStr := r.URL.Query().Get("week"); wStr != "" {
 		if wn, err := strconv.Atoi(wStr); err == nil && wn >= 1 && wn <= len(weeks) {
 			selectedWeekNum = wn
@@ -50,8 +58,8 @@ func (h *LeaderboardHandler) ShowLeaderboard(w http.ResponseWriter, r *http.Requ
 			break
 		}
 	}
-	if selectedWeek == nil && len(weeks) > 0 {
-		selectedWeek = weeks[0]
+	if selectedWeek == nil {
+		selectedWeek = activeWeek
 	}
 
 	var leaderboard []*db.LeaderboardEntry
@@ -85,14 +93,19 @@ func (h *LeaderboardHandler) LeaderboardTable(w http.ResponseWriter, r *http.Req
 	}
 
 	viewMode := r.URL.Query().Get("mode")
-	if viewMode != "weekly" {
-		viewMode = "season"
+	if viewMode != "season" {
+		viewMode = "weekly"
 	}
+
+	activeWeek, _ := h.repo.GetActiveWeek(season.ID)
 
 	var selectedWeek *db.Week
 	var leaderboard []*db.LeaderboardEntry
 	if viewMode == "weekly" {
 		weekNum := 1
+		if activeWeek != nil {
+			weekNum = activeWeek.WeekNumber
+		}
 		if wStr := r.URL.Query().Get("week"); wStr != "" {
 			if wn, err := strconv.Atoi(wStr); err == nil {
 				weekNum = wn
