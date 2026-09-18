@@ -976,6 +976,9 @@ func TestLiveHandlerRendering(t *testing.T) {
 	if !strings.Contains(rr1.Body.String(), "Simulador What-If") {
 		t.Errorf("Expected ShowLive to contain 'Simulador What-If'")
 	}
+	if !strings.Contains(rr1.Body.String(), "Mejor para:") {
+		t.Errorf("Expected ShowLive to contain 'Mejor para:'")
+	}
 
 	// 2. Test LiveContent partial unauthenticated
 	req2 := httptest.NewRequest(http.MethodGet, "/live/content", nil)

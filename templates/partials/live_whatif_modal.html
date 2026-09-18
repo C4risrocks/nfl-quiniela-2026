@@ -103,7 +103,27 @@
                             <span>Pleno (Mis Picks)</span>
                             <span class="px-1 py-0.2 rounded text-[8px] font-mono bg-purple-900/60 text-purple-200 border border-purple-400/30" x-show="currentScenario === 'all_picks'">Por Defecto</span>
                         </button>
+                    {{end}}
 
+                    <!-- Preset: Mejor para Jugador -->
+                    <div class="inline-flex items-center px-2 py-1 rounded-xl border font-bold transition-all whitespace-nowrap text-[11px] space-x-1.5 shrink-0"
+                         :class="currentScenario === 'player_best' ? 'bg-purple-600 text-white border-purple-400/60 shadow-md ring-1 ring-purple-400/40' : 'bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border-purple-500/30'">
+                        <i class="fa-solid fa-user-astronaut text-[10px]"></i>
+                        <span>Mejor para:</span>
+                        <select @change="simulatePlayerBest(Number($event.target.value))"
+                                :class="currentScenario === 'player_best' ? 'bg-purple-900/90 text-white border-purple-400/50' : 'bg-zinc-900/90 text-purple-200 border-purple-500/30'"
+                                class="text-[11px] font-semibold rounded-lg border px-1.5 py-0.5 outline-none cursor-pointer focus:ring-1 focus:ring-purple-400">
+                            <option value="" disabled :selected="currentScenario !== 'player_best' && currentScenario !== 'all_picks'">Elegir jugador...</option>
+                            <template x-for="u in sortedUsers" :key="u.user_id">
+                                <option :value="u.user_id" 
+                                        :selected="(currentScenario === 'player_best' && selectedPlayerId === u.user_id) || (currentScenario === 'all_picks' && u.is_current)"
+                                        x-text="u.username + (u.is_current ? ' (Tú)' : '')">
+                                </option>
+                            </template>
+                        </select>
+                    </div>
+
+                    {{if .User}}
                         <!-- Preset 2: Peor Escenario para Ganar -->
                         <button type="button"
                                 @click="simulateWorstCaseWin()"
@@ -177,16 +197,21 @@
             <!-- Active Scenario Explanatory Sub-Banner -->
             <div class="text-[11px] font-medium px-2.5 py-1.5 rounded-xl border flex items-center justify-between"
                  :class="{
-                    'bg-purple-950/40 border-purple-500/30 text-purple-200': currentScenario === 'all_picks',
+                    'bg-purple-950/40 border-purple-500/30 text-purple-200': currentScenario === 'all_picks' || currentScenario === 'player_best',
                     'bg-amber-950/40 border-amber-500/30 text-amber-200': currentScenario === 'worst_case_win',
                     'bg-cyan-950/40 border-cyan-500/30 text-cyan-200': currentScenario === 'manual',
                     'bg-rose-950/40 border-rose-500/30 text-rose-200': currentScenario === 'underdogs',
-                    'bg-zinc-900 border-zinc-800 text-zinc-400': currentScenario !== 'all_picks' && currentScenario !== 'worst_case_win' && currentScenario !== 'manual' && currentScenario !== 'underdogs'
+                    'bg-zinc-900 border-zinc-800 text-zinc-400': currentScenario !== 'all_picks' && currentScenario !== 'player_best' && currentScenario !== 'worst_case_win' && currentScenario !== 'manual' && currentScenario !== 'underdogs'
                  }">
                 <div class="flex items-center space-x-1.5 min-w-0">
                     <template x-if="currentScenario === 'all_picks'">
                         <span class="truncate">
                             <strong class="text-purple-300">🎯 Escenario Pleno:</strong> Proyectando el resultado si aciertas todos tus pronósticos restantes.
+                        </span>
+                    </template>
+                    <template x-if="currentScenario === 'player_best'">
+                        <span class="truncate">
+                            <strong class="text-purple-300">🎯 Mejor Escenario (<span x-text="selectedUserName"></span>):</strong> Proyectando el resultado si <strong class="text-white" x-text="selectedUserName"></strong> acierta todos sus pronósticos restantes.
                         </span>
                     </template>
                     <template x-if="currentScenario === 'worst_case_win'">
@@ -219,35 +244,47 @@
             </div>
         </div>
 
-        <!-- Spotlight Card: User's Projected Standing -->
-        <template x-if="currentUserSim">
+        <!-- Spotlight Card: Projected Standing -->
+        <template x-if="spotlightUserSim">
             <div class="m-3 sm:m-4 p-4 rounded-2xl bg-gradient-to-br from-purple-950/40 via-zinc-900 to-zinc-950 border border-purple-500/30 shadow-md">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div class="flex items-center space-x-3">
                         <div class="w-12 h-12 rounded-2xl bg-purple-600/20 border border-purple-500/40 flex flex-col items-center justify-center font-mono font-black text-white shrink-0">
                             <span class="text-[9px] text-purple-300 uppercase leading-none">Posición</span>
-                            <span class="text-xl text-purple-200 leading-none mt-0.5" x-text="'#' + currentUserSim.sim_rank"></span>
+                            <span class="text-xl text-purple-200 leading-none mt-0.5" x-text="'#' + spotlightUserSim.sim_rank"></span>
                         </div>
                         <div>
                             <div class="text-xs font-bold text-white flex items-center space-x-1.5">
-                                <span x-text="currentUserSim.username"></span>
-                                <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-white text-black font-extrabold">TÚ</span>
+                                <span x-text="spotlightUserSim.username"></span>
+                                <template x-if="spotlightUserSim.is_current">
+                                    <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-white text-black font-extrabold">TÚ</span>
+                                </template>
+                                <template x-if="!spotlightUserSim.is_current">
+                                    <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-purple-500/30 text-purple-200 border border-purple-400/40 font-bold">SIMULADO</span>
+                                </template>
                             </div>
-                            <div class="flex items-center space-x-2 mt-1">
+                            <div class="flex items-center space-x-2 mt-1 flex-wrap gap-y-1">
                                 <!-- Rank Delta Pill -->
-                                <template x-if="currentUserSim.rank_delta > 0">
+                                <template x-if="spotlightUserSim.rank_delta > 0">
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                        <i class="fa-solid fa-arrow-up text-[8px] mr-1"></i> Subes <span x-text="currentUserSim.rank_delta" class="ml-0.5"></span> pos.
+                                        <i class="fa-solid fa-arrow-up text-[8px] mr-1"></i> Sube <span x-text="spotlightUserSim.rank_delta" class="ml-0.5"></span> pos.
                                     </span>
                                 </template>
-                                <template x-if="currentUserSim.rank_delta < 0">
+                                <template x-if="spotlightUserSim.rank_delta < 0">
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                                        <i class="fa-solid fa-arrow-down text-[8px] mr-1"></i> Bajas <span x-text="Math.abs(currentUserSim.rank_delta)" class="ml-0.5"></span> pos.
+                                        <i class="fa-solid fa-arrow-down text-[8px] mr-1"></i> Baja <span x-text="Math.abs(spotlightUserSim.rank_delta)" class="ml-0.5"></span> pos.
                                     </span>
                                 </template>
-                                <template x-if="currentUserSim.rank_delta === 0">
+                                <template x-if="spotlightUserSim.rank_delta === 0">
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800">
                                         <i class="fa-solid fa-minus text-[8px] mr-1 text-zinc-500"></i> Sin cambio
+                                    </span>
+                                </template>
+
+                                <!-- Comparative user status if simulating another player -->
+                                <template x-if="!spotlightUserSim.is_current && currentUserSim">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono text-purple-200 bg-purple-950/60 border border-purple-500/30">
+                                        Tú proyectas: #<span x-text="currentUserSim.sim_rank" class="font-bold ml-0.5 mr-1"></span> (<span x-text="currentUserSim.sim_points + ' pts'"></span>)
                                     </span>
                                 </template>
                             </div>
@@ -257,19 +294,19 @@
                     <div class="flex items-center space-x-3 sm:space-x-4 self-end sm:self-auto font-mono text-right">
                         <div>
                             <div class="text-[10px] text-zinc-400 uppercase tracking-wider">Puntos Base</div>
-                            <div class="text-xs sm:text-base font-bold text-zinc-300" x-text="currentUserSim.base_points + ' pts'"></div>
+                            <div class="text-xs sm:text-base font-bold text-zinc-300" x-text="spotlightUserSim.base_points + ' pts'"></div>
                         </div>
                         <div>
                             <div class="text-[10px] text-purple-400 uppercase tracking-wider font-semibold">+ Simulados</div>
-                            <div class="text-xs sm:text-base font-black text-purple-300" x-text="'+' + currentUserSim.sim_hits + ' pts'"></div>
+                            <div class="text-xs sm:text-base font-black text-purple-300" x-text="'+' + spotlightUserSim.sim_hits + ' pts'"></div>
                         </div>
                         <div class="pl-2 border-l border-zinc-800">
                             <div class="text-[10px] text-amber-400 uppercase tracking-wider font-bold">Proyectado</div>
-                            <div class="text-base sm:text-xl font-black text-amber-300" x-text="currentUserSim.sim_points + ' pts'"></div>
+                            <div class="text-base sm:text-xl font-black text-amber-300" x-text="spotlightUserSim.sim_points + ' pts'"></div>
                         </div>
                         <div class="pl-2 border-l border-zinc-800">
                             <div class="text-[10px] text-emerald-400 uppercase tracking-wider font-bold">Prob. Ganar</div>
-                            <div class="text-base sm:text-xl font-black text-emerald-300" x-text="(currentUserSim.win_prob || 0) + '%'"></div>
+                            <div class="text-base sm:text-xl font-black text-emerald-300" x-text="(spotlightUserSim.win_prob || 0) + '%'"></div>
                         </div>
                     </div>
                 </div>
@@ -333,10 +370,20 @@
                                 </div>
                             </template>
 
-                            <template x-if="g.user_picked_id > 0">
-                                <span class="text-zinc-400 flex items-center">
-                                    Tu pick: <strong class="text-white ml-1 font-bold" x-text="g.user_picked_id === g.away_id ? g.away_code : g.home_code"></strong>
-                                </span>
+                            <template x-if="currentScenario === 'player_best' && selectedPlayerId && selectedPlayerId !== currentUserId">
+                                <template x-if="getPlayerPickTeamCode(g, selectedPlayerId)">
+                                    <span class="text-purple-300 flex items-center text-[10px]">
+                                        Pick de <span class="font-bold mx-1" x-text="selectedUserName"></span>:
+                                        <strong class="text-white ml-0.5 font-bold" x-text="getPlayerPickTeamCode(g, selectedPlayerId)"></strong>
+                                    </span>
+                                </template>
+                            </template>
+                            <template x-if="currentScenario !== 'player_best' || !selectedPlayerId || selectedPlayerId === currentUserId">
+                                <template x-if="g.user_picked_id > 0">
+                                    <span class="text-zinc-400 flex items-center">
+                                        Tu pick: <strong class="text-white ml-1 font-bold" x-text="g.user_picked_id === g.away_id ? g.away_code : g.home_code"></strong>
+                                    </span>
+                                </template>
                             </template>
                         </div>
                     </div>
@@ -411,7 +458,7 @@
 
             <template x-for="u in simulatedLeaderboard" :key="u.user_id">
                 <div class="p-2.5 rounded-xl border flex items-center justify-between gap-2 transition-all"
-                     :class="u.is_current ? 'bg-purple-950/30 border-purple-500/50 ring-1 ring-purple-500/20' : 'bg-zinc-900/60 border-zinc-800/80'">
+                     :class="u.is_current ? 'bg-purple-950/30 border-purple-500/50 ring-1 ring-purple-500/20' : ((selectedPlayerId === u.user_id && currentScenario === 'player_best') ? 'bg-purple-900/20 border-purple-400/40 ring-1 ring-purple-400/20' : 'bg-zinc-900/60 border-zinc-800/80')">
                     
                     <div class="flex items-center space-x-2.5 min-w-0">
                         <!-- Rank with badge -->
@@ -439,6 +486,9 @@
                             <template x-if="u.is_current">
                                 <span class="ml-1 text-[9px] font-mono px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 font-bold">TÚ</span>
                             </template>
+                            <template x-if="selectedPlayerId === u.user_id && currentScenario === 'player_best'">
+                                <span class="ml-1 text-[9px] font-mono px-1 py-0.2 rounded bg-purple-600 text-white font-bold">EN SIMULACIÓN</span>
+                            </template>
                         </div>
                     </div>
 
@@ -458,6 +508,16 @@
                         </div>
                         <div class="text-sm font-black text-white pl-2 border-l border-zinc-800" x-text="u.sim_points + ' pts'">
                         </div>
+
+                        <!-- Quick Simulate Button for this player -->
+                        <button type="button"
+                                @click="simulatePlayerBest(u.user_id)"
+                                :title="'Simular mejor escenario para ' + u.username"
+                                class="px-2 py-1 rounded-lg border text-[10px] font-bold cursor-pointer transition-all flex items-center space-x-1 shrink-0"
+                                :class="(selectedPlayerId === u.user_id && currentScenario === 'player_best') || (u.is_current && currentScenario === 'all_picks') ? 'bg-purple-600 text-white border-purple-400 shadow-sm' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-700 hover:text-white'">
+                            <i class="fa-solid fa-bullseye text-[9px]"></i>
+                            <span class="hidden md:inline">Simular</span>
+                        </button>
                     </div>
 
                 </div>
@@ -494,7 +554,8 @@ function whatIfSimulator() {
     return {
         isOpen: false,
         activeTab: 'games',
-        currentScenario: 'all_picks', // 'all_picks' | 'worst_case_win' | 'manual' | 'live' | 'consensus'
+        currentScenario: 'all_picks', // 'all_picks' | 'player_best' | 'worst_case_win' | 'manual' | 'live' | 'consensus' | 'underdogs'
+        selectedPlayerId: null,
         worstCaseKeyGameIds: [],
         worstCaseInsight: null,
         simWinners: {},
@@ -539,6 +600,9 @@ function whatIfSimulator() {
                         this.games = data.games || [];
                         this.users = data.users || [];
                         this.currentUserId = data.current_user_id || 0;
+                        if (this.currentUserId > 0) {
+                            this.selectedPlayerId = this.currentUserId;
+                        }
 
                         // Default to Pleno ("Si acertaras todas") if user has picks, otherwise live scores
                         const hasUserPicks = this.games.some(g => g.status !== 'final' && g.user_picked_id > 0);
@@ -554,16 +618,47 @@ function whatIfSimulator() {
             }
         },
         simulateMyPicks() {
-            this.currentScenario = 'all_picks';
+            if (this.currentUserId > 0) {
+                this.simulatePlayerBest(this.currentUserId);
+            } else {
+                this.currentScenario = 'all_picks';
+                this.selectedPlayerId = null;
+                this.worstCaseKeyGameIds = [];
+                this.worstCaseInsight = null;
+                this.simWinners = {};
+                this.games.forEach(g => {
+                    if (g.status !== 'final') {
+                        if (g.user_picked_id > 0) {
+                            this.simWinners[g.id] = g.user_picked_id;
+                        } else if (g.current_winner_id > 0) {
+                            this.simWinners[g.id] = g.current_winner_id;
+                        }
+                    }
+                });
+                this.simWinners = Object.assign({}, this.simWinners);
+            }
+        },
+        simulatePlayerBest(userId) {
+            this.selectedPlayerId = userId;
+            const targetUser = this.users.find(u => u.user_id === userId);
+            this.currentScenario = (targetUser && targetUser.is_current) ? 'all_picks' : 'player_best';
             this.worstCaseKeyGameIds = [];
             this.worstCaseInsight = null;
             this.simWinners = {};
+
             this.games.forEach(g => {
                 if (g.status !== 'final') {
-                    if (g.user_picked_id > 0) {
+                    const pick = targetUser && targetUser.picks ? targetUser.picks[g.id] : null;
+                    if (pick && pick > 0) {
+                        this.simWinners[g.id] = pick;
+                    } else if (targetUser && targetUser.is_current && g.user_picked_id > 0) {
                         this.simWinners[g.id] = g.user_picked_id;
                     } else if (g.current_winner_id > 0) {
                         this.simWinners[g.id] = g.current_winner_id;
+                    } else if (g.consensus_id > 0) {
+                        this.simWinners[g.id] = g.consensus_id;
+                    } else {
+                        this.simWinners[g.id] = g.away_id;
                     }
                 }
             });
@@ -571,6 +666,7 @@ function whatIfSimulator() {
         },
         simulateWorstCaseWin() {
             this.currentScenario = 'worst_case_win';
+            this.selectedPlayerId = null;
             const pendingGames = this.games.filter(g => g.status !== 'final');
             if (pendingGames.length === 0 || !this.users || this.users.length === 0) {
                 this.worstCaseInsight = null;
@@ -755,6 +851,7 @@ function whatIfSimulator() {
         },
         simulateLiveScores() {
             this.currentScenario = 'live';
+            this.selectedPlayerId = null;
             this.worstCaseKeyGameIds = [];
             this.worstCaseInsight = null;
             this.simWinners = {};
@@ -767,6 +864,7 @@ function whatIfSimulator() {
         },
         simulateConsensus() {
             this.currentScenario = 'consensus';
+            this.selectedPlayerId = null;
             this.worstCaseKeyGameIds = [];
             this.worstCaseInsight = null;
             this.games.forEach(g => {
@@ -778,6 +876,7 @@ function whatIfSimulator() {
         },
         simulateUnderdogs() {
             this.currentScenario = 'underdogs';
+            this.selectedPlayerId = null;
             this.worstCaseKeyGameIds = [];
             this.worstCaseInsight = null;
             this.simWinners = {};
@@ -895,12 +994,38 @@ function whatIfSimulator() {
         },
         resetAll() {
             this.currentScenario = 'manual';
+            this.selectedPlayerId = null;
             this.worstCaseKeyGameIds = [];
             this.worstCaseInsight = null;
             this.simWinners = {};
         },
         isWinner(gameId, teamId) {
             return this.simWinners[gameId] === teamId;
+        },
+        getPlayerPickTeamCode(game, userId) {
+            const u = this.users.find(x => x.user_id === userId);
+            if (!u || !u.picks) return null;
+            const pickedTeamId = u.picks[game.id];
+            if (!pickedTeamId) return null;
+            if (pickedTeamId === game.away_id) return game.away_code;
+            if (pickedTeamId === game.home_id) return game.home_code;
+            return null;
+        },
+        get sortedUsers() {
+            if (!this.users) return [];
+            return [...this.users].sort((a, b) => a.username.localeCompare(b.username));
+        },
+        get selectedUserName() {
+            if (!this.selectedPlayerId) return '';
+            const u = this.users.find(x => x.user_id === this.selectedPlayerId);
+            return u ? u.username : '';
+        },
+        get spotlightUserSim() {
+            if (this.currentScenario === 'player_best' && this.selectedPlayerId) {
+                const target = this.simulatedLeaderboard.find(u => u.user_id === this.selectedPlayerId);
+                if (target) return target;
+            }
+            return this.currentUserSim;
         },
         get simulatedLeaderboard() {
             if (!this.users || this.users.length === 0) return [];
@@ -967,10 +1092,17 @@ function whatIfSimulator() {
         },
         shareScenarioWhatsApp() {
             const cur = this.currentUserSim;
+            const spot = this.spotlightUserSim;
             let text = '🔮 *Simulador NFL Quiniela 2026*\n';
             if (this.currentScenario === 'all_picks') {
                 text += '🎯 *Escenario Pleno (Mis Picks)*\n';
                 if (cur) text += `¡Si acierto todas mis selecciones restantes proyecto alcanzar la posición #${cur.sim_rank} con ${cur.sim_points} pts! 🏆\n`;
+            } else if (this.currentScenario === 'player_best' && spot) {
+                text += `🎯 *Mejor Escenario para ${spot.username}*\n`;
+                text += `¡Si ${spot.username} acierta todas sus selecciones restantes proyecta alcanzar la posición #${spot.sim_rank} con ${spot.sim_points} pts! 🏈\n`;
+                if (cur && !spot.is_current) {
+                    text += `(Mi proyección en este escenario: #${cur.sim_rank} con ${cur.sim_points} pts)\n`;
+                }
             } else if (this.currentScenario === 'worst_case_win' && this.worstCaseInsight) {
                 text += '🛡️ *Peor Escenario para Ganar*\n';
                 text += `¡Aún en el peor escenario aseguro la posición #${this.worstCaseInsight.targetRank} ganando solo ${this.worstCaseInsight.neededWins} de ${this.worstCaseInsight.totalPending} partidos clave! 🏈\n`;
