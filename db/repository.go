@@ -580,14 +580,15 @@ func (r *Repository) GetWeekByNumber(seasonID int64, weekNumber int) (*Week, err
 // 1. Week with status = 'active'
 // 2. Week with games currently in progress
 // 3. Week with upcoming scheduled games (earliest kickoff)
-// 4. Most recently completed week (latest final kickoff)
-// 5. Fallback: First week of the season
+// 4. First week with status = 'scheduled' immediately following completed weeks
+// 5. Fallback: Most recently completed week (latest final kickoff)
+// 6. Fallback: First week of the season
 func (r *Repository) GetActiveWeek(seasonID int64) (*Week, error) {
 	var w Week
 
 	// 1. Explicitly marked active week
 	queryActive := `SELECT id, season_id, week_number, name, status, lock_type, created_at 
-	                FROM weeks WHERE season_id = ? AND status = 'active' LIMIT 1`
+	                FROM weeks WHERE season_id = ? AND status = 'active' ORDER BY week_number ASC LIMIT 1`
 	if err := r.db.QueryRow(queryActive, seasonID).Scan(&w.ID, &w.SeasonID, &w.WeekNumber, &w.Name, &w.Status, &w.LockType, &w.CreatedAt); err == nil {
 		return &w, nil
 	}
@@ -612,7 +613,20 @@ func (r *Repository) GetActiveWeek(seasonID int64) (*Week, error) {
 		return &w, nil
 	}
 
-	// 4. Most recently completed week
+	// 4. First scheduled week if any completed weeks exist
+	queryNextScheduled := `SELECT id, season_id, week_number, name, status, lock_type, created_at 
+	                       FROM weeks 
+	                       WHERE season_id = ? AND status = 'scheduled' 
+	                       ORDER BY week_number ASC LIMIT 1`
+	var countCompleted int
+	_ = r.db.QueryRow(`SELECT COUNT(*) FROM weeks WHERE season_id = ? AND status = 'completed'`, seasonID).Scan(&countCompleted)
+	if countCompleted > 0 {
+		if err := r.db.QueryRow(queryNextScheduled, seasonID).Scan(&w.ID, &w.SeasonID, &w.WeekNumber, &w.Name, &w.Status, &w.LockType, &w.CreatedAt); err == nil {
+			return &w, nil
+		}
+	}
+
+	// 5. Most recently completed week
 	queryFinal := `SELECT w.id, w.season_id, w.week_number, w.name, w.status, w.lock_type, w.created_at 
 	               FROM weeks w 
 	               JOIN games g ON g.week_id = w.id 
@@ -622,7 +636,7 @@ func (r *Repository) GetActiveWeek(seasonID int64) (*Week, error) {
 		return &w, nil
 	}
 
-	// 5. Fallback: First week of the season
+	// 6. Fallback: First week of the season
 	queryFirst := `SELECT id, season_id, week_number, name, status, lock_type, created_at 
 	               FROM weeks WHERE season_id = ? ORDER BY week_number ASC LIMIT 1`
 	if err := r.db.QueryRow(queryFirst, seasonID).Scan(&w.ID, &w.SeasonID, &w.WeekNumber, &w.Name, &w.Status, &w.LockType, &w.CreatedAt); err == nil {
@@ -630,6 +644,12 @@ func (r *Repository) GetActiveWeek(seasonID int64) (*Week, error) {
 	}
 
 	return nil, fmt.Errorf("no weeks found for season %d", seasonID)
+}
+
+func (r *Repository) UpdateWeekStatus(weekID int64, status string) error {
+	query := `UPDATE weeks SET status = ? WHERE id = ?`
+	_, err := r.db.Exec(query, status, weekID)
+	return err
 }
 
 func (r *Repository) CreateWeek(seasonID int64, weekNum int, name string) (*Week, error) {
@@ -855,6 +875,12 @@ func (r *Repository) UpdateGameStatsJSON(gameID int64, statsJSON string) error {
 func (r *Repository) UpdateGameLiveStats(gameID int64, statsJSON string, homeScore, awayScore *int, statusDetail, linescores string) error {
 	query := `UPDATE games SET stats_json = ?, home_score = COALESCE(?, home_score), away_score = COALESCE(?, away_score), status_detail = CASE WHEN ? != '' THEN ? ELSE status_detail END, linescores = CASE WHEN ? != '' THEN ? ELSE linescores END WHERE id = ?`
 	_, err := r.db.Exec(query, statsJSON, homeScore, awayScore, statusDetail, statusDetail, linescores, linescores, gameID)
+	return err
+}
+
+func (r *Repository) UpdateGameLiveStatsWithStatus(gameID int64, statsJSON string, homeScore, awayScore *int, statusDetail, linescores, gameStatus string) error {
+	query := `UPDATE games SET stats_json = ?, home_score = COALESCE(?, home_score), away_score = COALESCE(?, away_score), status_detail = CASE WHEN ? != '' THEN ? ELSE status_detail END, linescores = CASE WHEN ? != '' THEN ? ELSE linescores END, status = CASE WHEN ? != '' THEN ? ELSE status END WHERE id = ?`
+	_, err := r.db.Exec(query, statsJSON, homeScore, awayScore, statusDetail, statusDetail, linescores, linescores, gameStatus, gameStatus, gameID)
 	return err
 }
 

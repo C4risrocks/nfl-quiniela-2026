@@ -85,13 +85,19 @@ func main() {
 		reminderWorker.Start(ctx, 15*time.Minute)
 	}
 
-	// Trigger initial sync for Week 1
+	// Trigger initial sync for weeks up to the current active week
 	go func() {
-		log.Println("[Syncer] Performing initial startup sync for Week 1...")
-		if count, err := syncer.SyncWeek(1); err != nil {
-			log.Printf("[Syncer] Initial sync note: %v", err)
-		} else {
-			log.Printf("[Syncer] Initial sync completed: %d games ready for Week 1.", count)
+		currentWeek := syncer.FetchCurrentWeekNumber()
+		if currentWeek < 1 {
+			currentWeek = 1
+		}
+		log.Printf("[Syncer] Performing initial startup sync up to Week %d...", currentWeek)
+		for w := 1; w <= currentWeek; w++ {
+			if count, err := syncer.SyncWeek(w); err != nil {
+				log.Printf("[Syncer] Initial sync note for Week %d: %v", w, err)
+			} else {
+				log.Printf("[Syncer] Initial sync completed: %d games ready for Week %d.", count, w)
+			}
 		}
 	}()
 
@@ -109,7 +115,7 @@ func main() {
 	leaderboardHandler := handlers.NewLeaderboardHandler(repo, renderer, cfg.CurrentSeasonYear)
 	rulesHandler := handlers.NewRulesHandler(repo, renderer)
 	adminHandler := handlers.NewAdminHandler(repo, renderer, syncer, calculator, broker, reminderWorker, cfg.CurrentSeasonYear)
-	liveHandler := handlers.NewLiveHandler(repo, renderer, cfg.CurrentSeasonYear)
+	liveHandler := handlers.NewLiveHandler(repo, renderer, syncer, cfg.CurrentSeasonYear)
 	eventsHandler := handlers.NewEventsHandler(broker)
 
 	// 8. Router Setup

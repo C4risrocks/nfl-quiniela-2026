@@ -961,7 +961,7 @@ func TestLiveHandlerRendering(t *testing.T) {
 	repo, _, renderer, _, cleanup := setupTestApp(t)
 	defer cleanup()
 
-	liveHandler := NewLiveHandler(repo, renderer, 2026)
+	liveHandler := NewLiveHandler(repo, renderer, nil, 2026)
 
 	// 1. Test ShowLive unauthenticated
 	req1 := httptest.NewRequest(http.MethodGet, "/live", nil)
@@ -1252,7 +1252,7 @@ func TestGameStatsModalLivePolling(t *testing.T) {
 	repo, _, renderer, _, cleanup := setupTestApp(t)
 	defer cleanup()
 
-	liveHandler := NewLiveHandler(repo, renderer, 2026)
+	liveHandler := NewLiveHandler(repo, renderer, nil, 2026)
 	user, _ := repo.CreateUser("stats_user", "stats@test.com", "pass", "player")
 
 	games, err := repo.ListGamesByWeek(1)
@@ -1318,5 +1318,74 @@ func TestGameStatsModalLivePolling(t *testing.T) {
 		t.Errorf("Expected modal to contain player name 'L. Jackson'")
 	}
 }
+
+func TestWeek2LiveHandling(t *testing.T) {
+	repo, _, renderer, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	liveHandler := NewLiveHandler(repo, renderer, nil, 2026)
+
+	// Mark week 1 as completed
+	_ = repo.UpdateWeekStatus(1, "completed")
+	_ = repo.UpdateWeekStatus(2, "active")
+
+	activeW, err := repo.GetActiveWeek(1)
+	if err != nil || activeW == nil {
+		t.Fatalf("Failed to get active week: %v", err)
+	}
+	if activeW.WeekNumber != 2 {
+		t.Fatalf("Expected active week to be 2, got %d", activeW.WeekNumber)
+	}
+
+	// Create a live game in week 2
+	homeScore := 27
+	awayScore := 7
+	game := &db.Game{
+		WeekID:       2,
+		ESPNGameID:   "401872932",
+		HomeTeamID:   6,
+		AwayTeamID:   5,
+		KickoffTime:  time.Now(),
+		HomeScore:    &homeScore,
+		AwayScore:    &awayScore,
+		Status:       "in_progress",
+		StatusDetail: "1:27 - 2nd Quarter",
+		StatsJSON:    `{"has_stats":true,"away_stats":{"team_code":"DET","first_downs":"10","total_yards":"150"},"home_stats":{"team_code":"BUF","first_downs":"15","total_yards":"240"}}`,
+	}
+	_ = repo.UpsertGameByESPNID(game)
+
+	// Test ShowLive defaults to Week 2
+	req := httptest.NewRequest(http.MethodGet, "/live", nil)
+	rr := httptest.NewRecorder()
+	liveHandler.ShowLive(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from ShowLive for Week 2, got %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "Semana 2") {
+		t.Errorf("Expected ShowLive body to contain 'Semana 2'")
+	}
+	if !strings.Contains(body, "EN JUEGO") {
+		t.Errorf("Expected ShowLive body to indicate live game")
+	}
+
+	// Test GameStatsModal for Week 2 live game
+	reqModal := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/games/%d/stats", game.ID), nil)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("gameId", fmt.Sprintf("%d", game.ID))
+	reqModal = reqModal.WithContext(context.WithValue(reqModal.Context(), chi.RouteCtxKey, rctx))
+	rrModal := httptest.NewRecorder()
+	liveHandler.GameStatsModal(rrModal, reqModal)
+
+	if rrModal.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from GameStatsModal for Week 2 game, got %d", rrModal.Code)
+	}
+	modalBody := rrModal.Body.String()
+	if !strings.Contains(modalBody, "EN VIVO") {
+		t.Errorf("Expected modal body to contain 'EN VIVO'")
+	}
+}
+
 
 

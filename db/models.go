@@ -358,6 +358,7 @@ type GameDetailedSummary struct {
 	ScoringPlays    []ScoringPlayItem  `json:"scoring_plays,omitempty"`
 	Drives          []DriveItem        `json:"drives,omitempty"`
 	StatusDetail    string             `json:"status_detail,omitempty"`
+	GameStatus      string             `json:"game_status,omitempty"`
 	AwayScore       *int               `json:"away_score,omitempty"`
 	HomeScore       *int               `json:"home_score,omitempty"`
 	Linescores      string             `json:"linescores,omitempty"`

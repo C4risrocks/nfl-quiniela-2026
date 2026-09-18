@@ -57,6 +57,32 @@ func (c *Client) FetchWeekScoreboard(year, weekNum, seasonType int) (*ESPNScoreb
 	return &sb, nil
 }
 
+// FetchCurrentScoreboard fetches the currently active NFL scoreboard from ESPN without query parameters
+func (c *Client) FetchCurrentScoreboard() (*ESPNScoreboardResponse, error) {
+	req, err := http.NewRequest(http.MethodGet, c.baseURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating espn current request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetching espn current scoreboard: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("espn api returned status: %d", resp.StatusCode)
+	}
+
+	var sb ESPNScoreboardResponse
+	if err := json.NewDecoder(resp.Body).Decode(&sb); err != nil {
+		return nil, fmt.Errorf("decoding espn current response: %w", err)
+	}
+
+	return &sb, nil
+}
+
 // NormalizeTeamCode handles team abbreviation differences between ESPN and standard codes
 func NormalizeTeamCode(code string) string {
 	code = strings.ToUpper(strings.TrimSpace(code))
@@ -476,6 +502,13 @@ func (c *Client) FetchGameSummary(espnGameID string) (*db.GameDetailedSummary, e
 	result.Drives = allDrives
 	result.HasDrives = len(allDrives) > 0
 	result.StatusDetail = statusDetail
+	if isFinal {
+		result.GameStatus = "final"
+	} else if isLive {
+		result.GameStatus = "in_progress"
+	} else {
+		result.GameStatus = "scheduled"
+	}
 	result.AwayScore = awayScore
 	result.HomeScore = homeScore
 	result.Linescores = linescoresJSON

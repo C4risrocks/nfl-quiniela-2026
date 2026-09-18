@@ -18,14 +18,16 @@ import (
 type LiveHandler struct {
 	repo       *db.Repository
 	renderer   *Renderer
+	syncer     *espn.Syncer
 	seasonYear int
 	espnClient *espn.Client
 }
 
-func NewLiveHandler(repo *db.Repository, renderer *Renderer, seasonYear int) *LiveHandler {
+func NewLiveHandler(repo *db.Repository, renderer *Renderer, syncer *espn.Syncer, seasonYear int) *LiveHandler {
 	return &LiveHandler{
 		repo:       repo,
 		renderer:   renderer,
+		syncer:     syncer,
 		seasonYear: seasonYear,
 		espnClient: espn.NewClient(),
 	}
@@ -134,6 +136,13 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 	var games []*db.Game
 	if selectedWeek != nil {
 		games, _ = h.repo.ListGamesByWeek(selectedWeek.ID)
+	}
+
+	// If no games found for this week, attempt auto-sync from ESPN on demand
+	if len(games) == 0 && h.syncer != nil && selectedWeek != nil {
+		if count, _ := h.syncer.SyncWeek(selectedWeek.WeekNumber); count > 0 {
+			games, _ = h.repo.ListGamesByWeek(selectedWeek.ID)
+		}
 	}
 
 	// Load user picks if logged in
@@ -245,11 +254,11 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 		})
 
 		// Fetch full boxscore, player stats and scoring plays if ESPNGameID exists
-		if featuredGame.Status == "in_progress" && featuredGame.ESPNGameID != "" {
+		if (featuredGame.Status == "in_progress" || featuredGame.Status == "scheduled") && featuredGame.ESPNGameID != "" {
 			if summary, err := h.espnClient.FetchGameSummary(featuredGame.ESPNGameID); err == nil && summary != nil && (summary.HasStats || summary.HasPlayerStats || len(summary.ScoringPlays) > 0 || summary.HasDrives || summary.StatusDetail != "" || summary.AwayScore != nil) {
 				featuredSummary = summary
 				if b, err := json.Marshal(summary); err == nil {
-					_ = h.repo.UpdateGameLiveStats(featuredGame.ID, string(b), summary.HomeScore, summary.AwayScore, summary.StatusDetail, summary.Linescores)
+					_ = h.repo.UpdateGameLiveStatsWithStatus(featuredGame.ID, string(b), summary.HomeScore, summary.AwayScore, summary.StatusDetail, summary.Linescores, summary.GameStatus)
 					featuredGame.StatsJSON = string(b)
 				}
 				if summary.AwayScore != nil {
@@ -263,6 +272,9 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 				}
 				if summary.Linescores != "" {
 					featuredGame.Linescores = summary.Linescores
+				}
+				if summary.GameStatus != "" {
+					featuredGame.Status = summary.GameStatus
 				}
 			}
 		}
@@ -547,11 +559,7 @@ func (h *LiveHandler) GameStatsModal(w http.ResponseWriter, r *http.Request) {
 			if freshSummary, err := h.espnClient.FetchGameSummary(game.ESPNGameID); err == nil && freshSummary != nil && (freshSummary.HasStats || freshSummary.HasPlayerStats || len(freshSummary.ScoringPlays) > 0 || freshSummary.HasDrives || freshSummary.StatusDetail != "" || freshSummary.AwayScore != nil) {
 				summary = freshSummary
 				if b, err := json.Marshal(summary); err == nil {
-					if game.Status == "in_progress" {
-						_ = h.repo.UpdateGameLiveStats(game.ID, string(b), summary.HomeScore, summary.AwayScore, summary.StatusDetail, summary.Linescores)
-					} else {
-						_ = h.repo.UpdateGameStatsJSON(game.ID, string(b))
-					}
+					_ = h.repo.UpdateGameLiveStatsWithStatus(game.ID, string(b), summary.HomeScore, summary.AwayScore, summary.StatusDetail, summary.Linescores, summary.GameStatus)
 					game.StatsJSON = string(b)
 				}
 				if summary.AwayScore != nil {
@@ -565,6 +573,9 @@ func (h *LiveHandler) GameStatsModal(w http.ResponseWriter, r *http.Request) {
 				}
 				if summary.Linescores != "" {
 					game.Linescores = summary.Linescores
+				}
+				if summary.GameStatus != "" {
+					game.Status = summary.GameStatus
 				}
 			}
 		}

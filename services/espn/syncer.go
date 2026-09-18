@@ -321,6 +321,47 @@ func (s *Syncer) SyncWeek(weekNum int) (count int, err error) {
 		}
 	}
 
+	// Update week status based on synced games
+	if len(syncedGames) > 0 {
+		allFinal := true
+		hasLive := false
+		for _, g := range syncedGames {
+			if g.Status == "in_progress" {
+				hasLive = true
+			}
+			if g.Status != "final" {
+				allFinal = false
+			}
+		}
+
+		newStatus := "scheduled"
+		if allFinal {
+			newStatus = "completed"
+		} else if hasLive {
+			newStatus = "active"
+		} else {
+			now := time.Now()
+			firstKickoff := syncedGames[0].KickoffTime
+			lastKickoff := syncedGames[len(syncedGames)-1].KickoffTime
+			for _, g := range syncedGames {
+				if g.KickoffTime.Before(firstKickoff) {
+					firstKickoff = g.KickoffTime
+				}
+				if g.KickoffTime.After(lastKickoff) {
+					lastKickoff = g.KickoffTime
+				}
+			}
+			if now.After(firstKickoff.Add(-48*time.Hour)) && now.Before(lastKickoff.Add(12*time.Hour)) {
+				newStatus = "active"
+			}
+		}
+
+		if week.Status != newStatus {
+			_ = s.repo.UpdateWeekStatus(week.ID, newStatus)
+			week.Status = newStatus
+		}
+	}
+
 	// Trigger score recalculation
 	if s.calculator != nil {
 		if err := s.calculator.CalculateWeekScores(week.ID); err != nil {
@@ -337,8 +378,22 @@ func (s *Syncer) SyncWeek(weekNum int) (count int, err error) {
 		s.broker.BroadcastLeaderboardUpdate()
 	}
 
-	log.Printf("[Syncer] Successfully synced %d games for Week %d.", len(syncedGames), weekNum)
+	log.Printf("[Syncer] Successfully synced %d games for Week %d (status: %s).", len(syncedGames), weekNum, week.Status)
 	return len(syncedGames), nil
+}
+
+// FetchCurrentWeekNumber retrieves the current active week number from ESPN, falling back to DB active week
+func (s *Syncer) FetchCurrentWeekNumber() int {
+	if sb, err := s.client.FetchCurrentScoreboard(); err == nil && sb != nil && sb.Week.Number > 0 {
+		return sb.Week.Number
+	}
+	season, err := s.repo.GetActiveSeason(s.seasonYear)
+	if err == nil && season != nil {
+		if activeW, err := s.repo.GetActiveWeek(season.ID); err == nil && activeW != nil {
+			return activeW.WeekNumber
+		}
+	}
+	return 1
 }
 
 // StartBackgroundSync periodically syncs the current active week with adaptive frequency (60s during live games)
@@ -363,26 +418,53 @@ func (s *Syncer) StartBackgroundSync(ctx context.Context, defaultInterval time.D
 					continue
 				}
 
-				hasActiveGames := false
+				// 1. Determine active week number from ESPN or DB
+				currentWeekNum := s.FetchCurrentWeekNumber()
+
+				// 2. Identify which weeks to sync:
+				// - The current active week
+				// - Any week with in_progress games in DB
+				// - Any prior week that is not yet marked 'completed'
+				weeksToSync := make(map[int]bool)
+				weeksToSync[currentWeekNum] = true
+
 				for _, w := range weeks {
-					if w.Status == "active" || w.Status == "scheduled" {
-						games, err := s.repo.ListGamesByWeek(w.ID)
-						if err == nil {
-							now := time.Now()
-							for _, g := range games {
-								if g.Status == "in_progress" {
-									hasActiveGames = true
-									break
-								}
-								// Also treat games kicking off within 15 mins or past kickoff within 4 hours as potentially live
-								if now.After(g.KickoffTime.Add(-15*time.Minute)) && now.Before(g.KickoffTime.Add(4*time.Hour)) && g.Status != "final" {
-									hasActiveGames = true
-									break
-								}
+					if w.WeekNumber < currentWeekNum && w.Status != "completed" {
+						weeksToSync[w.WeekNumber] = true
+					}
+					games, err := s.repo.ListGamesByWeek(w.ID)
+					if err == nil {
+						for _, g := range games {
+							if g.Status == "in_progress" {
+								weeksToSync[w.WeekNumber] = true
+								break
 							}
 						}
+					}
+				}
 
-						_, _ = s.SyncWeek(w.WeekNumber)
+				for wNum := range weeksToSync {
+					_, _ = s.SyncWeek(wNum)
+				}
+
+				// 3. Check if any games are currently live or imminent to adjust polling interval
+				hasActiveGames := false
+				now := time.Now()
+				for _, w := range weeks {
+					games, err := s.repo.ListGamesByWeek(w.ID)
+					if err == nil {
+						for _, g := range games {
+							if g.Status == "in_progress" {
+								hasActiveGames = true
+								break
+							}
+							if now.After(g.KickoffTime.Add(-15*time.Minute)) && now.Before(g.KickoffTime.Add(4*time.Hour)) && g.Status != "final" {
+								hasActiveGames = true
+								break
+							}
+						}
+					}
+					if hasActiveGames {
 						break
 					}
 				}
