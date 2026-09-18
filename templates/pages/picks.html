@@ -495,7 +495,7 @@
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0">
         
-        <div class="relative w-full max-w-md bg-[#121212] border border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain"
+        <div class="relative w-full max-w-md bg-[#121212] border border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-2xl space-y-4 max-h-[90dvh] my-auto overflow-y-auto overscroll-contain"
              @click.stop
              @click.away="confirmOpen = false"
              @keydown.escape.window="confirmOpen = false"
@@ -511,7 +511,7 @@
                     @click="confirmOpen = false"
                     data-close-modal="true"
                     title="Cerrar ventana (Esc)"
-                    class="absolute top-4 right-4 p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center">
+                    class="absolute top-4 right-4 p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center">
                 <i class="fa-solid fa-xmark text-base"></i>
             </button>
             
@@ -548,13 +548,13 @@
             <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-2">
                 <button type="button"
                         @click="forceSubmit()"
-                        class="px-4 py-2.5 rounded-xl border border-zinc-700/80 text-zinc-300 hover:text-white hover:bg-zinc-800 text-xs font-semibold transition-colors text-center cursor-pointer">
+                        class="px-4 py-2.5 rounded-xl border border-zinc-700/80 text-zinc-300 hover:text-white hover:bg-zinc-800 text-xs font-semibold transition-colors text-center cursor-pointer min-h-[44px]">
                     Enviar como están
                 </button>
                 <button type="button"
                         @click="reviewAndComplete()"
                         data-close-modal="true"
-                        class="px-5 py-2.5 rounded-xl bg-white text-black hover:bg-zinc-200 font-extrabold text-xs shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer">
+                        class="px-5 py-2.5 rounded-xl bg-white text-black hover:bg-zinc-200 font-extrabold text-xs shadow-md transition-all flex items-center justify-center space-x-1.5 cursor-pointer min-h-[44px]">
                     <i class="fa-solid fa-arrow-left"></i>
                     <span>Revisar y Completar</span>
                 </button>

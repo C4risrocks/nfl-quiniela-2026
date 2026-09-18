@@ -603,9 +603,9 @@
 
             function isModalVisible(el) {
                 if (!el || !el.isConnected) return false;
-                if (el.classList.contains('hidden')) return false;
+                if (el.classList.contains('hidden') || el.hasAttribute('x-cloak')) return false;
                 const style = window.getComputedStyle(el);
-                if (style.display === 'none' || style.visibility === 'hidden') return false;
+                if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
                 return (el.offsetWidth > 0 || el.offsetHeight > 0);
             }
 
@@ -617,9 +617,15 @@
                     if (!document.body.classList.contains('overflow-hidden')) {
                         document.body.classList.add('overflow-hidden');
                     }
+                    if (!document.documentElement.classList.contains('overflow-hidden')) {
+                        document.documentElement.classList.add('overflow-hidden');
+                    }
                 } else {
                     if (document.body.classList.contains('overflow-hidden')) {
                         document.body.classList.remove('overflow-hidden');
+                    }
+                    if (document.documentElement.classList.contains('overflow-hidden')) {
+                        document.documentElement.classList.remove('overflow-hidden');
                     }
                 }
                 return isOpen;
@@ -629,6 +635,7 @@
                 const hasOpen = checkAnyModalOpen();
                 if (!hasOpen) {
                     document.body.classList.remove('overflow-hidden');
+                    document.documentElement.classList.remove('overflow-hidden');
                     window.__modalOpen = false;
                     window.__rivalsOpen = false;
                 }
@@ -763,14 +770,14 @@
             window.addEventListener('open-rivals', function() { setTimeout(checkAnyModalOpen, 10); });
             window.addEventListener('open-whatif', function() { setTimeout(checkAnyModalOpen, 10); });
 
-            // MutationObserver to keep window.__modalOpen in sync with DOM changes
+            // MutationObserver to keep window.__modalOpen and scroll lock in sync with DOM changes
             if (window.MutationObserver) {
                 const observer = new MutationObserver(function(mutations) {
-                    const onlyBodyClass = mutations.every(m => m.target === document.body && m.attributeName === 'class');
-                    if (onlyBodyClass) return;
+                    const onlyBodyHtmlClass = mutations.every(m => (m.target === document.body || m.target === document.documentElement) && m.attributeName === 'class');
+                    if (onlyBodyHtmlClass) return;
                     checkAnyModalOpen();
                 });
-                observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+                observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'x-cloak'] });
             }
 
             // Robust Card Image Generator Helper (pre-inlines images to prevent canvas tainting)
@@ -813,11 +820,12 @@
                 clone.querySelectorAll('*').forEach(stripAlpine);
 
                 // Normalization pass to prevent html2canvas clipping/misalignment bugs:
-                // 1. Text elements with truncate or overflow-hidden clip font descenders (p, y, g, j, q).
+                // 1. Text elements with truncate: keep overflow hidden with ellipsis and clean line-height
                 clone.querySelectorAll('.truncate, [class*="truncate"]').forEach(el => {
-                    el.style.overflow = 'visible';
-                    el.style.textOverflow = 'clip';
-                    el.style.lineHeight = '1.4';
+                    el.style.overflow = 'hidden';
+                    el.style.textOverflow = 'ellipsis';
+                    el.style.whiteSpace = 'nowrap';
+                    el.style.lineHeight = '1.35';
                     el.style.paddingBottom = '3px';
                 });
                 // 2. Elements with leading-none cause baseline drop/sunk text inside flex in html2canvas.
@@ -829,8 +837,10 @@
                 clone.style.maxWidth = width + 'px';
                 clone.style.minWidth = width + 'px';
                 if (options.isStory) {
+                    clone.style.aspectRatio = 'auto';
                     clone.style.height = height + 'px';
                     clone.style.minHeight = height + 'px';
+                    clone.style.maxHeight = height + 'px';
                     const storyList = clone.querySelector('.overflow-y-auto');
                     if (storyList) {
                         storyList.style.overflow = 'visible';
@@ -894,7 +904,9 @@
                                     img.src = dUrl;
                                 }
                             } catch(e2) {
-                                // Keep original img
+                                const altText = (img.getAttribute('alt') || 'NFL').trim().slice(0, 2).toUpperCase();
+                                const svgFallback = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#27272a"/><text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" fill="#a1a1aa" font-family="sans-serif" font-weight="bold" font-size="22">${altText}</text></svg>`;
+                                img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgFallback);
                             }
                         }
                     }));
@@ -919,7 +931,7 @@
 
                     // 5. Render canvas with html2canvas (CRITICAL: allowTaint MUST be false)
                     const canvas = await html2canvas(clone, {
-                        scale: options.scale || 2.5,
+                        scale: options.scale || 3.0,
                         useCORS: true,
                         allowTaint: false,
                         backgroundColor: options.backgroundColor || '#09090b',

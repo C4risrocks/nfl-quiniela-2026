@@ -72,7 +72,7 @@
         }
     }">
     
-    <div class="vercel-card rounded-2xl w-full max-w-2xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[90vh] bg-zinc-950" @click.stop>
+    <div class="vercel-card rounded-2xl w-full max-w-2xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[90dvh] my-auto bg-zinc-950" @click.stop>
         
         <!-- Modal Header -->
         <div class="p-4 sm:p-5 border-b border-zinc-800 bg-zinc-900/80 flex items-center justify-between shrink-0">
@@ -86,7 +86,7 @@
                     @click="shareProfileModalOpen = false"
                     data-close-modal="true"
                     title="Cerrar (Esc)"
-                    class="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center">
+                    class="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center">
                 <i class="fa-solid fa-xmark text-base"></i>
             </button>
         </div>
@@ -100,14 +100,14 @@
                 <button type="button"
                         @click="format = 'square'"
                         :class="format === 'square' ? 'bg-amber-400 text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
-                        class="flex-1 sm:flex-initial px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer flex items-center justify-center space-x-1">
+                        class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer flex items-center justify-center space-x-1 min-h-[36px]">
                     <i class="fa-regular fa-square text-[10px]"></i>
                     <span>1:1 Cuadrado</span>
                 </button>
                 <button type="button"
                         @click="format = 'story'"
                         :class="format === 'story' ? 'bg-amber-400 text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
-                        class="flex-1 sm:flex-initial px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer flex items-center justify-center space-x-1">
+                        class="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer flex items-center justify-center space-x-1 min-h-[36px]">
                     <i class="fa-solid fa-mobile-screen text-[10px]"></i>
                     <span>9:16 Historia</span>
                 </button>
@@ -122,7 +122,7 @@
             <!-- ========================================== -->
             <div id="shareable-profile-card" 
                  x-show="format === 'square'"
-                 class="w-full max-w-lg bg-[#09090b] border border-zinc-800 rounded-3xl p-6 shadow-2xl text-white font-sans relative overflow-hidden flex flex-col justify-between select-none shrink-0">
+                 class="w-full max-w-lg bg-[#09090b] border border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-2xl text-white font-sans relative overflow-hidden flex flex-col justify-between select-none shrink-0">
                 
                 <!-- Ambient Glow Background -->
                 <div class="absolute -top-24 -right-24 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -151,9 +151,13 @@
                 <!-- User Hero Box -->
                 <div class="p-4 rounded-2xl bg-zinc-950/80 border border-zinc-800/90 relative z-10 flex items-center justify-between mb-3">
                     <div class="flex items-center space-x-3.5 min-w-0">
-                        <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-700 text-black font-black text-xl flex items-center justify-center shadow-lg shrink-0">
-                            {{slice .User.Username 0 1}}
-                        </div>
+                        {{if .User.AvatarURL}}
+                            <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-12 h-12 rounded-2xl object-cover border border-amber-500/40 shadow-lg shrink-0" crossorigin="anonymous">
+                        {{else}}
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-700 text-black font-black text-xl flex items-center justify-center shadow-lg shrink-0">
+                                {{slice .User.Username 0 1}}
+                            </div>
+                        {{end}}
                         <div class="min-w-0">
                             <div class="text-base font-black text-white truncate tracking-tight">{{.User.Username}}</div>
                             <div class="text-[11px] font-mono text-zinc-400 flex items-center space-x-1.5 mt-0.5">
@@ -234,7 +238,7 @@
             <!-- ========================================== -->
             <div id="shareable-profile-story" 
                  x-show="format === 'story'"
-                 class="w-[340px] sm:w-[400px] bg-[#09090b] border border-zinc-800 rounded-3xl p-6 shadow-2xl text-white font-sans relative overflow-hidden flex flex-col justify-between select-none shrink-0"
+                 class="w-full max-w-[340px] sm:max-w-[400px] bg-[#09090b] border border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-2xl text-white font-sans relative overflow-hidden flex flex-col justify-between select-none shrink-0"
                  style="aspect-ratio: 9 / 16;">
                 
                 <!-- Ambient Glow Background -->
@@ -258,9 +262,13 @@
 
                 <!-- Hero Story Avatar Box -->
                 <div class="my-3 p-4 rounded-2xl bg-gradient-to-b from-amber-500/15 via-zinc-950 to-zinc-950 border border-amber-500/30 relative z-10 text-center flex flex-col items-center">
-                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-400 to-amber-600 text-black font-black text-3xl flex items-center justify-center shadow-xl mb-2">
-                        {{slice .User.Username 0 1}}
-                    </div>
+                    {{if .User.AvatarURL}}
+                        <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-16 h-16 rounded-2xl object-cover border border-amber-400/40 shadow-xl mb-2" crossorigin="anonymous">
+                    {{else}}
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-400 to-amber-600 text-black font-black text-3xl flex items-center justify-center shadow-xl mb-2">
+                            {{slice .User.Username 0 1}}
+                        </div>
+                    {{end}}
                     <div class="text-lg font-black text-white">{{.User.Username}}</div>
                     <div class="text-xs font-mono font-bold text-amber-400 mt-0.5">
                         Posición General: #{{if .Rank}}{{.Rank}}{{else}}-{{end}} de {{.TotalPlayers}}
@@ -331,21 +339,21 @@
         <div class="p-4 sm:p-5 border-t border-zinc-800 bg-zinc-900/90 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
             <div class="text-xs text-zinc-400 flex items-center space-x-2">
                 <i class="fa-solid fa-circle-info text-amber-400"></i>
-                <span>Genera PNG en ultra resolución (2.5x retina).</span>
+                <span>Genera PNG en ultra resolución (3x retina).</span>
             </div>
 
             <div class="flex items-center space-x-2.5 w-full sm:w-auto">
                 <button type="button" 
                         @click="shareProfileModalOpen = false"
                         data-close-modal="true"
-                        class="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-xs font-semibold transition-colors cursor-pointer">
+                        class="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-xs font-semibold transition-colors cursor-pointer min-h-[44px]">
                     Cerrar
                 </button>
 
                 <button type="button" 
                         @click="downloadImage()"
                         :disabled="generating"
-                        class="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-600 text-xs font-bold transition-all shadow-sm flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50">
+                        class="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-600 text-xs font-bold transition-all shadow-sm flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 min-h-[44px]">
                     <i class="fa-solid fa-download text-xs" :class="generating ? 'animate-bounce' : ''"></i>
                     <span x-text="generating ? 'Generando...' : 'Descargar PNG'"></span>
                 </button>
@@ -353,7 +361,7 @@
                 <button type="button" 
                         @click="shareImage()"
                         :disabled="generating"
-                        class="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-black transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50">
+                        class="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-black transition-all shadow-md hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50 min-h-[44px]">
                     <i class="fa-solid fa-share-nodes text-xs" :class="generating ? 'animate-spin' : ''"></i>
                     <span x-text="generating ? 'Procesando...' : 'Compartir'"></span>
                 </button>

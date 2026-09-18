@@ -1,4 +1,4 @@
-<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
+<div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200 overflow-y-auto overscroll-contain"
      id="game-stats-modal-wrapper"
      data-close-modal="backdrop"
      data-tab="{{if .ActiveTab}}{{.ActiveTab}}{{else}}boxscore{{end}}"
@@ -35,9 +35,9 @@
             window.__statsModalExpandedDrive = this.expandedDrive;
         }
      }"
-     x-init="try { document.body.classList.add('overflow-hidden'); } catch(e) {}">
+     x-init="try { document.body.classList.add('overflow-hidden'); document.documentElement.classList.add('overflow-hidden'); } catch(e) {}">
 
-    <div class="vercel-card w-full max-w-4xl max-h-[92vh] sm:max-h-[90vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl border border-zinc-800 bg-zinc-950"
+    <div class="vercel-card w-full max-w-4xl max-h-[90dvh] my-auto rounded-2xl flex flex-col overflow-hidden shadow-2xl border border-zinc-800 bg-zinc-950"
          @click.stop>
 
         <!-- 1. Header (Fixed, shrink-0) -->
@@ -75,7 +75,7 @@
                                 hx-target="#game-stats-modal-container"
                                 hx-swap="innerHTML"
                                 hx-vals='js:{ tab: window.__statsModalTab || document.getElementById("game-stats-modal-wrapper")?.dataset?.tab || "boxscore", team: window.__statsModalTeam || document.getElementById("game-stats-modal-wrapper")?.dataset?.team || "away", cat: document.getElementById("game-stats-modal-wrapper")?.dataset?.cat || "passing" }'
-                                class="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-cyan-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                                class="w-10 h-10 sm:w-8 sm:h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-cyan-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer min-w-[40px] min-h-[40px] sm:min-w-[32px] sm:min-h-[32px]"
                                 title="Actualizar estadísticas en vivo ahora">
                             <i class="fa-solid fa-arrows-rotate text-xs"></i>
                         </button>
@@ -83,7 +83,7 @@
                     <button type="button"
                             onclick="window.closeGameStatsModal()"
                             data-close-modal="true"
-                            class="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                            class="w-10 h-10 sm:w-8 sm:h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer min-w-[40px] min-h-[40px] sm:min-w-[32px] sm:min-h-[32px]"
                             title="Cerrar modal">
                         <i class="fa-solid fa-xmark text-sm"></i>
                     </button>
@@ -172,7 +172,7 @@
                 <button type="button"
                         @click="setActiveTab('boxscore')"
                         :class="activeTab === 'boxscore' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
-                        class="flex-1 min-w-[70px] sm:min-w-0 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink">
+                        class="flex-1 min-w-[70px] sm:min-w-0 py-2 px-2.5 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink min-h-[40px]">
                     <i class="fa-solid fa-chart-column text-xs"></i>
                     <span class="hidden sm:inline">Estadísticas</span>
                     <span class="sm:hidden">Stats</span>
@@ -181,7 +181,7 @@
                 <button type="button"
                         @click="setActiveTab('players')"
                         :class="activeTab === 'players' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
-                        class="flex-1 min-w-[85px] sm:min-w-0 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink">
+                        class="flex-1 min-w-[85px] sm:min-w-0 py-2 px-2.5 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink min-h-[40px]">
                     <i class="fa-solid fa-user-group text-xs"></i>
                     <span>Jugadores</span>
                     {{if .Summary}}{{if .Summary.HasPlayerStats}}<span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0"></span>{{end}}{{end}}
@@ -190,7 +190,7 @@
                 <button type="button"
                         @click="setActiveTab('scoring')"
                         :class="activeTab === 'scoring' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
-                        class="flex-1 min-w-[85px] sm:min-w-0 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink">
+                        class="flex-1 min-w-[85px] sm:min-w-0 py-2 px-2.5 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink min-h-[40px]">
                     <i class="fa-solid fa-football text-xs"></i>
                     <span class="hidden sm:inline">Anotaciones</span>
                     <span class="sm:hidden">Goles</span>
@@ -200,7 +200,7 @@
                 <button type="button"
                         @click="setActiveTab('drives')"
                         :class="activeTab === 'drives' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
-                        class="flex-1 min-w-[70px] sm:min-w-0 py-1.5 px-2 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink">
+                        class="flex-1 min-w-[70px] sm:min-w-0 py-2 px-2.5 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink min-h-[40px]">
                     <i class="fa-solid fa-route text-xs"></i>
                     <span>Series</span>
                     {{if .Summary}}{{if .Summary.HasDrives}}<span class="text-[10px] font-mono text-zinc-400">({{len .Summary.Drives}})</span>{{end}}{{end}}
