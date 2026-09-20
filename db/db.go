@@ -176,6 +176,24 @@ func (d *DB) migrate() error {
 		_, _ = d.Exec(colStmt) // Safe ignore if column already exists
 	}
 
+	// Clean up duplicate user achievements and enforce partial unique indexes
+	cleanupAchievements := `
+	DELETE FROM user_achievements 
+	WHERE id NOT IN (
+		SELECT MIN(id) 
+		FROM user_achievements 
+		GROUP BY user_id, badge_code, COALESCE(week_number, -1)
+	)`
+	_, _ = d.Exec(cleanupAchievements)
+
+	achievementIndexes := []string{
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_achievements_unique_week ON user_achievements(user_id, badge_code, week_number) WHERE week_number IS NOT NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_achievements_unique_season ON user_achievements(user_id, badge_code) WHERE week_number IS NULL`,
+	}
+	for _, idxStmt := range achievementIndexes {
+		_, _ = d.Exec(idxStmt)
+	}
+
 	return nil
 }
 

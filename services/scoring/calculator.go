@@ -112,10 +112,12 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 	}
 
 	hasLiveGames := false
+	hasFinalGamesInWeek := false
 	for _, g := range games {
 		if g.Status == "in_progress" {
 			hasLiveGames = true
-			break
+		} else if g.Status == "final" {
+			hasFinalGamesInWeek = true
 		}
 	}
 
@@ -128,10 +130,11 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 		picksList := userPicks[u.ID]
 		totalPts := 0
 		correctCount := 0
-		totalCount := len(picksList)
+		totalCount := 0
 		tbError := 999 // default high error
 		tbWinnerCorrect := false
 		liveProjectedPts := 0
+		finalPicksCount := 0
 
 		for _, p := range picksList {
 			g, exists := gameMap[p.GameID]
@@ -141,8 +144,11 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 
 			// Final game points
 			totalPts += p.PointsEarned + p.BonusPoints
-			if p.IsCorrect != nil && *p.IsCorrect {
-				correctCount++
+			if g.Status == "final" {
+				finalPicksCount++
+				if p.IsCorrect != nil && *p.IsCorrect {
+					correctCount++
+				}
 			}
 
 			// Provisional live points for in_progress games
@@ -173,6 +179,12 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 					tbWinnerCorrect = true
 				}
 			}
+		}
+
+		if hasFinalGamesInWeek {
+			totalCount = finalPicksCount
+		} else {
+			totalCount = 0
 		}
 
 		entry := &db.LeaderboardEntry{

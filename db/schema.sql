@@ -140,3 +140,5 @@ CREATE TABLE IF NOT EXISTS user_achievements (
 
 CREATE INDEX IF NOT EXISTS idx_achievements_user ON user_achievements(user_id);
 CREATE INDEX IF NOT EXISTS idx_achievements_badge ON user_achievements(badge_code);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_achievements_unique_week ON user_achievements(user_id, badge_code, week_number) WHERE week_number IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_achievements_unique_season ON user_achievements(user_id, badge_code) WHERE week_number IS NULL;

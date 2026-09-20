@@ -35,13 +35,19 @@
                                             <span class="ml-1.5 text-[9px] font-mono uppercase font-black bg-white text-black px-1.5 py-0.2 rounded-full shrink-0">Tú</span>
                                         {{end}}
                                         {{if .Achievements}}
-                                            <div class="flex items-center space-x-0.5 ml-1.5 shrink-0" title="{{len .Achievements}} insignias">
-                                                {{range .TopAchievements 3}}
-                                                    <span class="text-[11px] leading-none select-none" title="{{.BadgeName}}">{{.Icon}}</span>
-                                                {{end}}
-                                                {{if gt (.ExtraAchievementsCount 3) 0}}
-                                                    <span class="text-[9px] text-zinc-500 font-mono font-bold">+{{.ExtraAchievementsCount 3}}</span>
-                                                {{end}}
+                                            <div class="flex items-center space-x-1 ml-1.5 shrink-0" title="{{.UnlockedAchievementsCount}} insignias desbloqueadas">
+                                                <span class="inline-flex items-center space-x-0.5 px-1.5 py-0.2 rounded-md bg-amber-400/10 border border-amber-400/30 text-[9px] font-mono font-bold text-amber-300">
+                                                    <i class="fa-solid fa-trophy text-[7px] text-amber-400"></i>
+                                                    <span>{{.UnlockedAchievementsCount}}</span>
+                                                </span>
+                                                <div class="flex items-center space-x-0.5">
+                                                    {{range .TopAchievements 3}}
+                                                        <span class="text-[11px] leading-none select-none" title="{{.BadgeName}}">{{.Icon}}</span>
+                                                    {{end}}
+                                                    {{if gt (.ExtraAchievementsCount 3) 0}}
+                                                        <span class="text-[9px] text-zinc-500 font-mono font-bold">+{{.ExtraAchievementsCount 3}}</span>
+                                                    {{end}}
+                                                </div>
                                             </div>
                                         {{end}}
                                     </div>
@@ -119,11 +125,11 @@
                 <tr class="border-b border-[#1f1f1f] bg-black/40 text-zinc-500 font-mono text-[11px] uppercase tracking-wider sticky top-0 backdrop-blur-md">
                     <th class="py-3 px-4 text-center w-16">Pos</th>
                     <th class="py-3 px-4">Jugador</th>
-                    <th class="py-3 px-4 text-center">Puntos Totales</th>
-                    <th class="py-3 px-4 text-center">Aciertos</th>
-                    <th class="py-3 px-4 text-center">Efectividad</th>
+                    <th class="py-3 px-4 text-center" title="Criterio 1 (Principal): Puntos totales acumulados de todas las jornadas">Puntos Totales</th>
+                    <th class="py-3 px-4 text-center" title="Criterio 2 (Desempate): Mayor cantidad de aciertos directos en partidos">Aciertos</th>
+                    <th class="py-3 px-4 text-center" title="Criterio 3 (Desempate): Mayor porcentaje de efectividad de pronósticos evaluados">Efectividad</th>
                     {{if eq $.ViewMode "weekly"}}
-                        <th class="py-3 px-4 text-center" title="Criterio de desempate en la jornada">Desempate MNF</th>
+                        <th class="py-3 px-4 text-center" title="Criterio de desempate exclusivo de la jornada (MNF)">Desempate MNF</th>
                     {{end}}
                     <th class="py-3 px-4 text-center">Duelo</th>
                 </tr>
@@ -164,13 +170,19 @@
                                             <span class="ml-2 text-[9px] font-mono uppercase font-bold bg-white text-black px-1.5 py-0.2 rounded-full">Tú</span>
                                         {{end}}
                                         {{if .Achievements}}
-                                            <div class="flex items-center space-x-1 ml-2 shrink-0" title="{{len .Achievements}} logros desbloqueados">
-                                                {{range .TopAchievements 3}}
-                                                    <span class="text-xs leading-none select-none hover:scale-125 transition-transform" title="{{.BadgeName}}: {{.BadgeDesc}}">{{.Icon}}</span>
-                                                {{end}}
-                                                {{if gt (.ExtraAchievementsCount 3) 0}}
-                                                    <span class="text-[9px] text-zinc-500 font-mono font-semibold">+{{.ExtraAchievementsCount 3}}</span>
-                                                {{end}}
+                                            <div class="flex items-center space-x-1.5 ml-2.5 shrink-0" title="{{.UnlockedAchievementsCount}} logros desbloqueados">
+                                                <span class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded-md bg-amber-400/10 border border-amber-400/30 text-[10px] font-mono font-bold text-amber-300">
+                                                    <i class="fa-solid fa-trophy text-[8px] text-amber-400"></i>
+                                                    <span>{{.UnlockedAchievementsCount}}</span>
+                                                </span>
+                                                <div class="flex items-center space-x-0.5">
+                                                    {{range .TopAchievements 3}}
+                                                        <span class="text-xs leading-none select-none hover:scale-125 transition-transform" title="{{.BadgeName}}: {{.BadgeDesc}}">{{.Icon}}</span>
+                                                    {{end}}
+                                                    {{if gt (.ExtraAchievementsCount 3) 0}}
+                                                        <span class="text-[9px] text-zinc-500 font-mono font-semibold">+{{.ExtraAchievementsCount 3}}</span>
+                                                    {{end}}
+                                                </div>
                                             </div>
                                         {{end}}
                                     </div>

@@ -928,18 +928,37 @@ type LeaderboardEntry struct {
 	Achievements            []*UserAchievement `json:"achievements,omitempty"`
 }
 
-func (e *LeaderboardEntry) TopAchievements(limit int) []*UserAchievement {
-	if len(e.Achievements) <= limit {
-		return e.Achievements
+// DistinctAchievements returns achievements deduplicated by BadgeCode
+func (e *LeaderboardEntry) DistinctAchievements() []*UserAchievement {
+	seen := make(map[string]bool)
+	var list []*UserAchievement
+	for _, a := range e.Achievements {
+		if !seen[a.BadgeCode] {
+			seen[a.BadgeCode] = true
+			list = append(list, a)
+		}
 	}
-	return e.Achievements[:limit]
+	return list
+}
+
+func (e *LeaderboardEntry) TopAchievements(limit int) []*UserAchievement {
+	distinct := e.DistinctAchievements()
+	if len(distinct) <= limit {
+		return distinct
+	}
+	return distinct[:limit]
 }
 
 func (e *LeaderboardEntry) ExtraAchievementsCount(limit int) int {
-	if len(e.Achievements) > limit {
-		return len(e.Achievements) - limit
+	distinct := e.DistinctAchievements()
+	if len(distinct) > limit {
+		return len(distinct) - limit
 	}
 	return 0
+}
+
+func (e *LeaderboardEntry) UnlockedAchievementsCount() int {
+	return len(e.DistinctAchievements())
 }
 
 // ScoringConfig holds active pool scoring settings and lock timing
@@ -999,8 +1018,9 @@ type HeadToHeadMatchup struct {
 	IsDivergent     bool  `json:"is_divergent"`
 	UserAPoints     int   `json:"user_a_points"`
 	UserBPoints     int   `json:"user_b_points"`
-	IsLive          bool  `json:"is_live"`
-	IsFinal         bool  `json:"is_final"`
+	IsLive               bool  `json:"is_live"`
+	IsFinal              bool  `json:"is_final"`
+	IsMaskedForFairPlay  bool  `json:"is_masked_for_fair_play"`
 }
 
 // HeadToHeadComparison aggregates a direct rivalry matchup between two users for a week

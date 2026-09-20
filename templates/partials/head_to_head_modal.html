@@ -286,7 +286,11 @@
                         </div>
 
                         <div>
-                            {{if .IsDivergent}}
+                            {{if .IsMaskedForFairPlay}}
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-900 text-zinc-500 border border-zinc-800 flex items-center">
+                                    <i class="fa-solid fa-lock text-[8px] mr-1 text-zinc-500"></i> Por Iniciar
+                                </span>
+                            {{else if .IsDivergent}}
                                 <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/15 text-rose-300 border border-rose-500/30 flex items-center">
                                     <i class="fa-solid fa-bolt text-[9px] mr-1 text-rose-400"></i> Duelo Directo
                                 </span>
@@ -321,19 +325,26 @@
 
                         <!-- User B Pick -->
                         <div class="flex items-center space-x-2 p-2 rounded-lg bg-zinc-950/60 border border-zinc-800/80 justify-end text-right min-w-0">
-                            {{if .IsFinal}}
-                                <span class="font-mono text-xs font-bold {{if gt .UserBPoints 0}}text-emerald-400{{else}}text-zinc-500{{end}}">
-                                    +{{.UserBPoints}}
+                            {{if .IsMaskedForFairPlay}}
+                                <span class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-zinc-900/90 border border-zinc-800 text-zinc-500 text-[10px] font-mono select-none" title="El pronóstico del rival se revela al iniciar el partido">
+                                    <i class="fa-solid fa-lock text-[9px] text-zinc-400"></i>
+                                    <span>Oculto hasta kickoff</span>
                                 </span>
-                            {{end}}
-                            {{if .UserBPickedTeam}}
-                                <div class="min-w-0 flex-1">
-                                    <div class="font-bold text-white text-xs truncate leading-tight">{{.UserBPickedTeam.Name}}</div>
-                                    <div class="text-[10px] font-mono text-zinc-400 leading-none mt-0.5">{{.UserBPickedTeam.Code}}</div>
-                                </div>
-                                <img src="{{.UserBPickedTeam.LogoURL}}" alt="{{.UserBPickedTeam.Code}}" class="w-5 h-5 object-contain shrink-0" crossorigin="anonymous">
                             {{else}}
-                                <span class="text-zinc-500 text-xs italic">Sin pick</span>
+                                {{if .IsFinal}}
+                                    <span class="font-mono text-xs font-bold {{if gt .UserBPoints 0}}text-emerald-400{{else}}text-zinc-500{{end}}">
+                                        +{{.UserBPoints}}
+                                    </span>
+                                {{end}}
+                                {{if .UserBPickedTeam}}
+                                    <div class="min-w-0 flex-1">
+                                        <div class="font-bold text-white text-xs truncate leading-tight">{{.UserBPickedTeam.Name}}</div>
+                                        <div class="text-[10px] font-mono text-zinc-400 leading-none mt-0.5">{{.UserBPickedTeam.Code}}</div>
+                                    </div>
+                                    <img src="{{.UserBPickedTeam.LogoURL}}" alt="{{.UserBPickedTeam.Code}}" class="w-5 h-5 object-contain shrink-0" crossorigin="anonymous">
+                                {{else}}
+                                    <span class="text-zinc-500 text-xs italic">Sin pick</span>
+                                {{end}}
                             {{end}}
                         </div>
 

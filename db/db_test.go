@@ -915,13 +915,31 @@ func TestUserAchievementsCRUD(t *testing.T) {
 		t.Fatalf("Expected duplicate achievement award to return false")
 	}
 
+	// Award seasonal badge (weekNumber = nil)
+	awardedSeasonal, err := repo.AwardAchievement(user.ID, "century_club", "Club de los 100", "100 puntos", "💯", nil)
+	if err != nil {
+		t.Fatalf("AwardAchievement seasonal failed: %v", err)
+	}
+	if !awardedSeasonal {
+		t.Fatalf("Expected seasonal achievement to be awarded first time")
+	}
+
+	// Awarding same seasonal badge again should be strictly idempotent
+	awardedSeasonalAgain, err := repo.AwardAchievement(user.ID, "century_club", "Club de los 100", "100 puntos", "💯", nil)
+	if err != nil {
+		t.Fatalf("AwardAchievement seasonal duplicate failed: %v", err)
+	}
+	if awardedSeasonalAgain {
+		t.Fatalf("Expected duplicate seasonal achievement award to return false")
+	}
+
 	// Fetch user achievements
 	achs, err := repo.GetUserAchievements(user.ID)
 	if err != nil {
 		t.Fatalf("GetUserAchievements failed: %v", err)
 	}
-	if len(achs) != 1 || achs[0].BadgeCode != "perfect_week" {
-		t.Fatalf("Expected 1 achievement with code 'perfect_week', got %+v", achs)
+	if len(achs) != 2 {
+		t.Fatalf("Expected 2 achievements, got %d", len(achs))
 	}
 
 	// Fetch all user achievements map
@@ -929,8 +947,27 @@ func TestUserAchievementsCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAllUserAchievements failed: %v", err)
 	}
-	if len(allMap[user.ID]) != 1 {
-		t.Fatalf("Expected 1 achievement in map for user %d", user.ID)
+	if len(allMap[user.ID]) != 2 {
+		t.Fatalf("Expected 2 achievements in map for user %d, got %d", user.ID, len(allMap[user.ID]))
+	}
+
+	// Verify LeaderboardEntry achievements helper methods
+	lbEntry := &LeaderboardEntry{
+		UserID:       user.ID,
+		Username:     user.Username,
+		Achievements: achs,
+	}
+	if lbEntry.UnlockedAchievementsCount() != 2 {
+		t.Fatalf("Expected UnlockedAchievementsCount=2, got %d", lbEntry.UnlockedAchievementsCount())
+	}
+	if len(lbEntry.TopAchievements(3)) != 2 {
+		t.Fatalf("Expected TopAchievements(3) to return 2, got %d", len(lbEntry.TopAchievements(3)))
+	}
+	if lbEntry.ExtraAchievementsCount(3) != 0 {
+		t.Fatalf("Expected ExtraAchievementsCount(3)=0, got %d", lbEntry.ExtraAchievementsCount(3))
+	}
+	if lbEntry.ExtraAchievementsCount(1) != 1 {
+		t.Fatalf("Expected ExtraAchievementsCount(1)=1, got %d", lbEntry.ExtraAchievementsCount(1))
 	}
 }
 

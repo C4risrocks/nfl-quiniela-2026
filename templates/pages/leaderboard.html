@@ -73,6 +73,20 @@
         </div>
     </div>
 
+    {{if eq .ViewMode "season"}}
+        <!-- Official Rules Criteria Banner for Season Leaderboard -->
+        <div class="px-3.5 py-2 rounded-xl bg-zinc-900/60 border border-zinc-800/80 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-scale-balanced text-cyan-400 text-xs"></i>
+                <span>Criterios oficiales de clasificación: <strong class="text-zinc-200">1º Puntos Totales</strong> → <strong class="text-zinc-200">2º Aciertos Directos</strong> → <strong class="text-zinc-200">3º Efectividad</strong></span>
+            </div>
+            <a href="/rules" class="text-cyan-400 hover:text-cyan-300 font-medium inline-flex items-center space-x-1 text-[11px] transition-colors">
+                <span>Ver Reglamento</span>
+                <i class="fa-solid fa-arrow-right text-[9px]"></i>
+            </a>
+        </div>
+    {{end}}
+
     <!-- Dynamic Leaderboard Table with Real-time SSE Live Refresh -->
     <div id="leaderboard-container" 
          hx-ext="sse"

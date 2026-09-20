@@ -1214,9 +1214,27 @@ func (r *Repository) GetHeadToHeadComparison(weekID, userAID, userBID int64) (*H
 
 	scoringCfg, _ := r.GetScoringConfig()
 	winnerPts := 10
-	if scoringCfg != nil && scoringCfg.WinnerPoints > 0 {
-		winnerPts = scoringCfg.WinnerPoints
+	lockMode := "per_game"
+	if scoringCfg != nil {
+		if scoringCfg.WinnerPoints > 0 {
+			winnerPts = scoringCfg.WinnerPoints
+		}
+		if scoringCfg.LockMode != "" {
+			lockMode = scoringCfg.LockMode
+		}
 	}
+
+	var firstKickoff *time.Time
+	if len(games) > 0 {
+		earliest := games[0].KickoffTime
+		for _, g := range games[1:] {
+			if g.KickoffTime.Before(earliest) {
+				earliest = g.KickoffTime
+			}
+		}
+		firstKickoff = &earliest
+	}
+	now := time.Now()
 
 	var matchups []*HeadToHeadMatchup
 	agreements := 0
@@ -1229,11 +1247,14 @@ func (r *Repository) GetHeadToHeadComparison(weekID, userAID, userBID int64) (*H
 		pA := picksA[g.ID]
 		pB := picksB[g.ID]
 
+		isLocked := g.IsGameOrWeekLocked(now, lockMode, firstKickoff)
+		isMaskedForFairPlay := !isLocked
+
 		var teamA, teamB *Team
 		if pA != nil && pA.PickedTeamID != nil {
 			teamA = teamMap[*pA.PickedTeamID]
 		}
-		if pB != nil && pB.PickedTeamID != nil {
+		if pB != nil && pB.PickedTeamID != nil && !isMaskedForFairPlay {
 			teamB = teamMap[*pB.PickedTeamID]
 		}
 
@@ -1249,34 +1270,45 @@ func (r *Repository) GetHeadToHeadComparison(weekID, userAID, userBID int64) (*H
 		}
 
 		isDivergent := false
-		if (pA != nil && pA.PickedTeamID != nil) || (pB != nil && pB.PickedTeamID != nil) {
-			if pA == nil || pA.PickedTeamID == nil || pB == nil || pB.PickedTeamID == nil {
-				isDivergent = true
-			} else if *pA.PickedTeamID != *pB.PickedTeamID {
-				isDivergent = true
+		if isLocked {
+			if (pA != nil && pA.PickedTeamID != nil) || (pB != nil && pB.PickedTeamID != nil) {
+				if pA == nil || pA.PickedTeamID == nil || pB == nil || pB.PickedTeamID == nil {
+					isDivergent = true
+				} else if *pA.PickedTeamID != *pB.PickedTeamID {
+					isDivergent = true
+				}
+			}
+
+			if isDivergent {
+				divergences++
+				if g.Status != "final" {
+					pointsAtStake += winnerPts
+				}
+			} else if (pA != nil && pA.PickedTeamID != nil) && (pB != nil && pB.PickedTeamID != nil) {
+				agreements++
 			}
 		}
 
-		if isDivergent {
-			divergences++
-			if g.Status != "final" {
-				pointsAtStake += winnerPts
-			}
-		} else if (pA != nil && pA.PickedTeamID != nil) && (pB != nil && pB.PickedTeamID != nil) {
-			agreements++
+		matchupPB := pB
+		matchupTeamB := teamB
+		if isMaskedForFairPlay {
+			matchupPB = nil
+			matchupTeamB = nil
+			ptsB = 0
 		}
 
 		m := &HeadToHeadMatchup{
-			Game:            g,
-			UserAPick:       pA,
-			UserBPick:       pB,
-			UserAPickedTeam: teamA,
-			UserBPickedTeam: teamB,
-			IsDivergent:     isDivergent,
-			UserAPoints:     ptsA,
-			UserBPoints:     ptsB,
-			IsLive:          g.Status == "in_progress",
-			IsFinal:         g.Status == "final",
+			Game:                g,
+			UserAPick:           pA,
+			UserBPick:           matchupPB,
+			UserAPickedTeam:     teamA,
+			UserBPickedTeam:     matchupTeamB,
+			IsDivergent:         isDivergent,
+			UserAPoints:         ptsA,
+			UserBPoints:         ptsB,
+			IsLive:              g.Status == "in_progress",
+			IsFinal:             g.Status == "final",
+			IsMaskedForFairPlay: isMaskedForFairPlay,
 		}
 		matchups = append(matchups, m)
 	}
@@ -1417,7 +1449,7 @@ func (r *Repository) GetSeasonLeaderboard(seasonID int64) ([]*LeaderboardEntry, 
 	GROUP BY u.id, u.username, u.avatar_url
 	ORDER BY grand_total_points DESC, 
 	         grand_correct_picks DESC, 
-	         (CAST(COALESCE(SUM(wl.correct_picks), 0) AS FLOAT) / NULLIF(COALESCE(SUM(wl.total_picks), 0), 0)) DESC, 
+	         COALESCE((CAST(COALESCE(SUM(wl.correct_picks), 0) AS FLOAT) / NULLIF(COALESCE(SUM(wl.total_picks), 0), 0)), 0.0) DESC, 
 	         u.username ASC`
 
 	rows, err := r.db.Query(query, seasonID)
@@ -1931,14 +1963,32 @@ func (r *Repository) GetPicksMatrixForWeek(weekID int64, currentUserID int64) (*
 
 // AwardAchievement grants an achievement to a user if not already earned
 func (r *Repository) AwardAchievement(userID int64, badgeCode, badgeName, badgeDesc, icon string, weekNumber *int) (bool, error) {
+	// Guard against duplicate awards for both weekly and seasonal badges
+	var exists int
+	var checkErr error
+	if weekNumber == nil {
+		checkErr = r.db.QueryRow(`
+			SELECT 1 FROM user_achievements 
+			WHERE user_id = ? AND badge_code = ? AND week_number IS NULL 
+			LIMIT 1`, userID, badgeCode).Scan(&exists)
+	} else {
+		checkErr = r.db.QueryRow(`
+			SELECT 1 FROM user_achievements 
+			WHERE user_id = ? AND badge_code = ? AND week_number = ? 
+			LIMIT 1`, userID, badgeCode, *weekNumber).Scan(&exists)
+	}
+	if checkErr == nil && exists == 1 {
+		return false, nil // Already awarded
+	}
+
 	query := `
 	INSERT INTO user_achievements (user_id, badge_code, badge_name, badge_desc, icon, week_number, unlocked_at)
-	VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-	ON CONFLICT(user_id, badge_code, week_number) DO NOTHING`
+	VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
 
 	res, err := r.db.Exec(query, userID, badgeCode, badgeName, badgeDesc, icon, weekNumber)
 	if err != nil {
-		return false, err
+		// Handle concurrent unique index conflicts gracefully
+		return false, nil
 	}
 	affected, _ := res.RowsAffected()
 	return affected > 0, nil
