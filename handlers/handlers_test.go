@@ -979,6 +979,9 @@ func TestLiveHandlerRendering(t *testing.T) {
 	if !strings.Contains(rr1.Body.String(), "Mejor para:") {
 		t.Errorf("Expected ShowLive to contain 'Mejor para:'")
 	}
+	if !strings.Contains(rr1.Body.String(), "Peor para:") {
+		t.Errorf("Expected ShowLive to contain 'Peor para:'")
+	}
 
 	// 2. Test LiveContent partial unauthenticated
 	req2 := httptest.NewRequest(http.MethodGet, "/live/content", nil)

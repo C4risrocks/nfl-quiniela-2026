@@ -123,18 +123,24 @@
                         </select>
                     </div>
 
-                    {{if .User}}
-                        <!-- Preset 2: Peor Escenario para Ganar -->
-                        <button type="button"
-                                @click="simulateWorstCaseWin()"
-                                title="Calcular los mínimos aciertos necesarios para asegurar el #1 o campeonato"
-                                :class="currentScenario === 'worst_case_win' ? 'bg-gradient-to-r from-amber-600 to-yellow-600 text-white border-amber-300 shadow-md ring-1 ring-amber-400/40' : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/30'"
-                                class="px-2.5 py-1.5 rounded-xl border font-bold transition-all cursor-pointer whitespace-nowrap text-[11px] flex items-center space-x-1.5">
-                            <i class="fa-solid fa-shield-halved text-[10px]"></i>
-                            <span>Peor Escenario para Ganar</span>
-                            <i class="fa-solid fa-crown text-[9px] text-amber-300" x-show="currentScenario === 'worst_case_win'"></i>
-                        </button>
-                    {{end}}
+                    <!-- Preset: Peor para Jugador -->
+                    <div class="inline-flex items-center px-2 py-1 rounded-xl border font-bold transition-all whitespace-nowrap text-[11px] space-x-1.5 shrink-0"
+                         :class="currentScenario === 'worst_case_win' ? 'bg-gradient-to-r from-amber-600 to-yellow-600 text-white border-amber-300 shadow-md ring-1 ring-amber-400/40' : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/30'">
+                        <i class="fa-solid fa-shield-halved text-[10px]"></i>
+                        <span>Peor para:</span>
+                        <select @change="simulateWorstCaseWin(Number($event.target.value))"
+                                :class="currentScenario === 'worst_case_win' ? 'bg-amber-900/90 text-white border-amber-400/50' : 'bg-zinc-900/90 text-amber-200 border-amber-500/30'"
+                                class="text-[11px] font-semibold rounded-lg border px-1.5 py-0.5 outline-none cursor-pointer focus:ring-1 focus:ring-amber-400">
+                            <option value="" disabled :selected="currentScenario !== 'worst_case_win'">Elegir jugador...</option>
+                            <template x-for="u in sortedUsers" :key="u.user_id">
+                                <option :value="u.user_id" 
+                                        :selected="currentScenario === 'worst_case_win' && selectedPlayerId === u.user_id"
+                                        x-text="u.username + (u.is_current ? ' (Tú)' : '')">
+                                </option>
+                            </template>
+                        </select>
+                        <i class="fa-solid fa-crown text-[9px] text-amber-300" x-show="currentScenario === 'worst_case_win'"></i>
+                    </div>
 
                     <!-- Mode 3: Manual Indicator / Trigger -->
                     <button type="button"
@@ -216,12 +222,18 @@
                     </template>
                     <template x-if="currentScenario === 'worst_case_win'">
                         <span class="truncate">
-                            <strong class="text-amber-300">🛡️ Peor Escenario Ganador:</strong>
+                            <strong class="text-amber-300">🛡️ Peor Escenario (<span x-text="selectedUserName"></span>):</strong>
                             <template x-if="worstCaseInsight">
-                                <span>Aseguras la posición <strong class="text-white" x-text="'#' + worstCaseInsight.targetRank"></strong> ganando únicamente <strong class="text-amber-300" x-text="worstCaseInsight.neededWins + ' de ' + worstCaseInsight.totalPending"></strong> partidos clave (en dorado).</span>
+                                <span>
+                                    <span x-text="worstCaseInsight.isCurrent ? 'Aseguras la posición ' : 'Asegura la posición '"></span>
+                                    <strong class="text-white" x-text="'#' + worstCaseInsight.targetRank"></strong>
+                                    ganando únicamente
+                                    <strong class="text-amber-300" x-text="worstCaseInsight.neededWins + ' de ' + worstCaseInsight.totalPending"></strong>
+                                    partidos clave (en dorado).
+                                </span>
                             </template>
                             <template x-if="!worstCaseInsight">
-                                <span>Calculando la combinación más hostil en la que aún te coronas campeón...</span>
+                                <span>Calculando la combinación más hostil en la que aún alcanza el mejor resultado...</span>
                             </template>
                         </span>
                     </template>
@@ -370,15 +382,15 @@
                                 </div>
                             </template>
 
-                            <template x-if="currentScenario === 'player_best' && selectedPlayerId && selectedPlayerId !== currentUserId">
+                            <template x-if="(currentScenario === 'player_best' || currentScenario === 'worst_case_win') && selectedPlayerId && selectedPlayerId !== currentUserId">
                                 <template x-if="getPlayerPickTeamCode(g, selectedPlayerId)">
-                                    <span class="text-purple-300 flex items-center text-[10px]">
+                                    <span class="flex items-center text-[10px]" :class="currentScenario === 'worst_case_win' ? 'text-amber-300' : 'text-purple-300'">
                                         Pick de <span class="font-bold mx-1" x-text="selectedUserName"></span>:
                                         <strong class="text-white ml-0.5 font-bold" x-text="getPlayerPickTeamCode(g, selectedPlayerId)"></strong>
                                     </span>
                                 </template>
                             </template>
-                            <template x-if="currentScenario !== 'player_best' || !selectedPlayerId || selectedPlayerId === currentUserId">
+                            <template x-if="((currentScenario !== 'player_best' && currentScenario !== 'worst_case_win') || !selectedPlayerId || selectedPlayerId === currentUserId)">
                                 <template x-if="g.user_picked_id > 0">
                                     <span class="text-zinc-400 flex items-center">
                                         Tu pick: <strong class="text-white ml-1 font-bold" x-text="g.user_picked_id === g.away_id ? g.away_code : g.home_code"></strong>
@@ -664,9 +676,8 @@ function whatIfSimulator() {
             });
             this.simWinners = Object.assign({}, this.simWinners);
         },
-        simulateWorstCaseWin() {
+        simulateWorstCaseWin(userId) {
             this.currentScenario = 'worst_case_win';
-            this.selectedPlayerId = null;
             const pendingGames = this.games.filter(g => g.status !== 'final');
             if (pendingGames.length === 0 || !this.users || this.users.length === 0) {
                 this.worstCaseInsight = null;
@@ -674,14 +685,27 @@ function whatIfSimulator() {
                 return;
             }
 
-            const me = this.users.find(u => u.is_current);
-            if (!me) {
+            const targetId = userId || this.selectedPlayerId || this.currentUserId || (this.sortedUsers && this.sortedUsers[0] ? this.sortedUsers[0].user_id : (this.users[0] ? this.users[0].user_id : null));
+            this.selectedPlayerId = targetId;
+
+            const targetUser = this.users.find(u => u.user_id === targetId);
+            if (!targetUser) {
                 this.worstCaseInsight = null;
                 this.worstCaseKeyGameIds = [];
                 return;
             }
 
-            // Helper function to evaluate current user's rank under a specific winner assignment
+            const getTargetPick = (g) => {
+                if (targetUser.picks && targetUser.picks[g.id]) {
+                    return targetUser.picks[g.id];
+                }
+                if (targetUser.is_current && g.user_picked_id > 0) {
+                    return g.user_picked_id;
+                }
+                return null;
+            };
+
+            // Helper function to evaluate target user's rank under a specific winner assignment
             const evalRank = (winners) => {
                 const scores = this.users.map(u => {
                     let pts = u.base_points;
@@ -694,15 +718,20 @@ function whatIfSimulator() {
                     return { user_id: u.user_id, points: pts, is_current: u.is_current, username: u.username };
                 });
                 scores.sort((a, b) => b.points - a.points || a.username.localeCompare(b.username));
-                const myIdx = scores.findIndex(s => s.is_current);
-                return { rank: myIdx + 1, scores: scores };
+                const targetIdx = scores.findIndex(s => s.user_id === targetId);
+                return { rank: (targetIdx >= 0 ? targetIdx + 1 : 99), scores: scores };
             };
 
-            // 1. Determine best possible rank the user can reach (targetRank)
+            // 1. Determine best possible rank the target user can reach (targetRank)
             const allPicksWinners = {};
             pendingGames.forEach(g => {
-                if (g.user_picked_id > 0) {
-                    allPicksWinners[g.id] = g.user_picked_id;
+                const pick = getTargetPick(g);
+                if (pick && pick > 0) {
+                    allPicksWinners[g.id] = pick;
+                } else if (g.current_winner_id > 0) {
+                    allPicksWinners[g.id] = g.current_winner_id;
+                } else if (g.consensus_id > 0) {
+                    allPicksWinners[g.id] = g.consensus_id;
                 } else {
                     allPicksWinners[g.id] = g.away_id;
                 }
@@ -711,23 +740,29 @@ function whatIfSimulator() {
             const targetRank = Math.max(1, bestOutcome.rank);
 
             // 2. Base Hostile Scenario:
-            // For each game, assign the outcome that is worst for the user:
-            // If user picked team A, hostile winner is team B (user gets 0, rivals picking B get +1).
+            // For each game, assign the outcome that is worst for target user:
+            // If target picked team A, hostile winner is team B (target gets 0, rivals picking B get +1).
             const hostileWinners = {};
             pendingGames.forEach(g => {
-                if (g.user_picked_id > 0) {
-                    hostileWinners[g.id] = (g.user_picked_id === g.away_id) ? g.home_id : g.away_id;
+                const pick = getTargetPick(g);
+                if (pick && pick > 0) {
+                    hostileWinners[g.id] = (pick === g.away_id) ? g.home_id : g.away_id;
+                } else if (g.consensus_id > 0) {
+                    hostileWinners[g.id] = g.consensus_id;
                 } else {
-                    hostileWinners[g.id] = g.consensus_id || g.away_id;
+                    hostileWinners[g.id] = g.away_id;
                 }
             });
 
-            // If user already reaches targetRank under complete hostile scenario (huge lead):
+            // If target already reaches targetRank under complete hostile scenario (huge lead):
             const baseHostileEval = evalRank(hostileWinners);
             if (baseHostileEval.rank <= targetRank) {
                 this.simWinners = Object.assign({}, hostileWinners);
                 this.worstCaseKeyGameIds = [];
                 this.worstCaseInsight = {
+                    userId: targetUser.user_id,
+                    username: targetUser.username,
+                    isCurrent: !!targetUser.is_current,
                     neededWins: 0,
                     totalPending: pendingGames.length,
                     targetRank: targetRank
@@ -735,13 +770,16 @@ function whatIfSimulator() {
                 return;
             }
 
-            // 3. Find minimal subset of games the user must win to secure targetRank
+            // 3. Find minimal subset of games target user must win to secure targetRank
             let chosenWins = [];
+            const gamesWithPicks = pendingGames.filter(g => {
+                const p = getTargetPick(g);
+                return p && p > 0;
+            });
 
             if (pendingGames.length <= 11) {
                 // Exact search over combinations of size k = 1, 2, ...
                 let found = false;
-                const gamesWithPicks = pendingGames.filter(g => g.user_picked_id > 0);
 
                 function getCombinations(arr, k) {
                     if (k === 0) return [[]];
@@ -758,7 +796,7 @@ function whatIfSimulator() {
                     for (let combo of combos) {
                         const testWinners = Object.assign({}, hostileWinners);
                         combo.forEach(g => {
-                            testWinners[g.id] = g.user_picked_id;
+                            testWinners[g.id] = getTargetPick(g);
                         });
                         const res = evalRank(testWinners);
                         if (res.rank <= targetRank) {
@@ -774,7 +812,7 @@ function whatIfSimulator() {
             // If exact search didn't find or pendingGames > 11, use greedy selection + reverse pruning
             if (chosenWins.length === 0) {
                 let currentWinners = Object.assign({}, hostileWinners);
-                const candidates = pendingGames.filter(g => g.user_picked_id > 0);
+                const candidates = [...gamesWithPicks];
                 const selected = [];
 
                 while (candidates.length > 0) {
@@ -787,10 +825,11 @@ function whatIfSimulator() {
 
                     candidates.forEach((cand, idx) => {
                         const testW = Object.assign({}, currentWinners);
-                        testW[cand.id] = cand.user_picked_id;
+                        testW[cand.id] = getTargetPick(cand);
                         const testRes = evalRank(testW);
                         const rankGain = curEval.rank - testRes.rank;
-                        const myPts = testRes.scores.find(s => s.is_current).points;
+                        const targetScoreObj = testRes.scores.find(s => s.user_id === targetId);
+                        const myPts = targetScoreObj ? targetScoreObj.points : 0;
                         const leadPts = testRes.scores[0].points;
                         const gap = myPts - leadPts;
                         const score = (rankGain * 100) + gap;
@@ -803,7 +842,7 @@ function whatIfSimulator() {
                     });
 
                     if (bestCand) {
-                        currentWinners[bestCand.id] = bestCand.user_picked_id;
+                        currentWinners[bestCand.id] = getTargetPick(bestCand);
                         selected.push(bestCand);
                         candidates.splice(bestIdx, 1);
                     } else {
@@ -827,12 +866,15 @@ function whatIfSimulator() {
             // Finalize scenario
             const finalWinners = Object.assign({}, hostileWinners);
             chosenWins.forEach(g => {
-                finalWinners[g.id] = g.user_picked_id;
+                finalWinners[g.id] = getTargetPick(g);
             });
 
             this.simWinners = finalWinners;
             this.worstCaseKeyGameIds = chosenWins.map(g => g.id);
             this.worstCaseInsight = {
+                userId: targetUser.user_id,
+                username: targetUser.username,
+                isCurrent: !!targetUser.is_current,
                 neededWins: chosenWins.length,
                 totalPending: pendingGames.length,
                 targetRank: targetRank
@@ -1021,7 +1063,7 @@ function whatIfSimulator() {
             return u ? u.username : '';
         },
         get spotlightUserSim() {
-            if (this.currentScenario === 'player_best' && this.selectedPlayerId) {
+            if ((this.currentScenario === 'player_best' || this.currentScenario === 'worst_case_win') && this.selectedPlayerId) {
                 const target = this.simulatedLeaderboard.find(u => u.user_id === this.selectedPlayerId);
                 if (target) return target;
             }
@@ -1104,8 +1146,16 @@ function whatIfSimulator() {
                     text += `(Mi proyección en este escenario: #${cur.sim_rank} con ${cur.sim_points} pts)\n`;
                 }
             } else if (this.currentScenario === 'worst_case_win' && this.worstCaseInsight) {
-                text += '🛡️ *Peor Escenario para Ganar*\n';
-                text += `¡Aún en el peor escenario aseguro la posición #${this.worstCaseInsight.targetRank} ganando solo ${this.worstCaseInsight.neededWins} de ${this.worstCaseInsight.totalPending} partidos clave! 🏈\n`;
+                const targetName = this.worstCaseInsight.isCurrent ? 'Mí' : this.worstCaseInsight.username;
+                text += `🛡️ *Peor Escenario para ${targetName}*\n`;
+                if (this.worstCaseInsight.isCurrent) {
+                    text += `¡Aún en el peor escenario aseguro la posición #${this.worstCaseInsight.targetRank} ganando solo ${this.worstCaseInsight.neededWins} de ${this.worstCaseInsight.totalPending} partidos clave! 🏈\n`;
+                } else {
+                    text += `¡Aún en el peor escenario ${this.worstCaseInsight.username} asegura la posición #${this.worstCaseInsight.targetRank} ganando solo ${this.worstCaseInsight.neededWins} de ${this.worstCaseInsight.totalPending} partidos clave! 🏈\n`;
+                    if (cur) {
+                        text += `(Mi proyección en este escenario: #${cur.sim_rank} con ${cur.sim_points} pts)\n`;
+                    }
+                }
             } else {
                 if (cur) {
                     text += `¡Con esta simulación de partidos proyecto alcanzar la posición #${cur.sim_rank} con ${cur.sim_points} puntos! 📈\n`;
