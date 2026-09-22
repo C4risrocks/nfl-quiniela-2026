@@ -78,14 +78,18 @@
                         <div>
                             {{if eq $.ViewMode "weekly"}}
                                 {{if .HasTiebreaker}}
-                                    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">
+                                    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300" title="Desempate MNF: 1º Ganador, 2º Menor margen de error (más cercano a 0 gana)">
                                         Desempate MNF: 
                                         {{if .TiebreakerWinnerCorrect}}
                                             <strong class="text-emerald-400 font-bold">✓ Ganador</strong> · 
                                         {{else}}
                                             <span class="text-zinc-500 font-medium">✗ Ganador · </span>
                                         {{end}}
-                                        <strong class="text-amber-400 font-bold">±{{.TiebreakerError}} pts</strong>
+                                        {{if eq .TiebreakerError 0}}
+                                            <strong class="text-emerald-400 font-bold">±0 dif. exacto</strong>
+                                        {{else}}
+                                            <strong class="text-zinc-300 font-bold">±{{.TiebreakerError}} dif.</strong>
+                                        {{end}}
                                     </span>
                                 {{else}}
                                     <span class="text-[10px] text-zinc-600 font-mono">Sin desempate MNF</span>
@@ -129,7 +133,15 @@
                     <th class="py-3 px-4 text-center" title="Criterio 2 (Desempate): Mayor cantidad de aciertos directos en partidos">Aciertos</th>
                     <th class="py-3 px-4 text-center" title="Criterio 3 (Desempate): Mayor porcentaje de efectividad de pronósticos evaluados">Efectividad</th>
                     {{if eq $.ViewMode "weekly"}}
-                        <th class="py-3 px-4 text-center" title="Criterio de desempate exclusivo de la jornada (MNF)">Desempate MNF</th>
+                        <th class="py-3 px-4 text-center" title="Desempate MNF: 1º Ganador, 2º Menor margen de error contra marcador real (más cercano a 0 gana)">
+                            <div class="inline-flex flex-col items-center">
+                                <span class="inline-flex items-center space-x-1">
+                                    <span>Desempate MNF</span>
+                                    <i class="fa-solid fa-circle-info text-[9px] text-zinc-500" title="1º Acierto al ganador, 2º Menor diferencia de puntos (menor error gana)"></i>
+                                </span>
+                                <span class="text-[9px] font-normal text-zinc-500 tracking-tight lowercase">menor error desempata</span>
+                            </div>
+                        </th>
                     {{end}}
                     <th class="py-3 px-4 text-center">Duelo</th>
                 </tr>
@@ -216,13 +228,18 @@
                             {{if eq $.ViewMode "weekly"}}
                                 <td class="py-3 px-4 text-center font-mono">
                                     {{if .HasTiebreaker}}
-                                        <span class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[11px]" title="Desempate MNF: 1º Ganador, 2º Marcador total">
+                                        <span class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-[11px]" 
+                                              title="Desempate MNF: {{if .TiebreakerWinnerCorrect}}Acertó ganador (+1 prioridad){{else}}Falló ganador{{end}} | Margen de error: {{if eq .TiebreakerError 0}}Exacto (0 pts de diferencia){{else}}±{{.TiebreakerError}} pts de diferencia con el marcador real{{end}} (menor diferencia desempata)">
                                             {{if .TiebreakerWinnerCorrect}}
                                                 <span class="text-emerald-400 font-bold" title="Acertó al ganador del MNF">✓</span>
                                             {{else}}
                                                 <span class="text-zinc-500 font-bold" title="No acertó al ganador del MNF">✗</span>
                                             {{end}}
-                                            <span class="text-zinc-300">±{{.TiebreakerError}} pts</span>
+                                            {{if eq .TiebreakerError 0}}
+                                                <span class="text-emerald-400 font-bold" title="¡Pronóstico exacto! Margen de error 0">±0 dif.</span>
+                                            {{else}}
+                                                <span class="text-zinc-300">±{{.TiebreakerError}} dif.</span>
+                                            {{end}}
                                         </span>
                                     {{else}}
                                         <span class="text-zinc-600 text-[11px]" title="Sin evaluación de desempate aún">--</span>
