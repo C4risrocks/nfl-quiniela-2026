@@ -180,6 +180,33 @@ func (g *Game) LinescoreData() *LinescoreMatrix {
 	return &matrix
 }
 
+func (g *Game) HomePickPct() int {
+	if g == nil || g.TotalPicks == 0 {
+		return 50
+	}
+	return int(math.Round(float64(g.HomePickCount) / float64(g.TotalPicks) * 100))
+}
+
+func (g *Game) AwayPickPct() int {
+	if g == nil || g.TotalPicks == 0 {
+		return 50
+	}
+	return 100 - g.HomePickPct()
+}
+
+func (g *Game) CommunityFavoriteTeamID() int64 {
+	if g == nil {
+		return 0
+	}
+	if g.HomePickCount > g.AwayPickCount {
+		return g.HomeTeamID
+	}
+	if g.AwayPickCount > g.HomePickCount {
+		return g.AwayTeamID
+	}
+	return 0
+}
+
 // GameSituation represents live on-field drive status and situation
 type GameSituation struct {
 	DownDistanceText string `json:"down_distance"`

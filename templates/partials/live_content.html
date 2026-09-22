@@ -998,6 +998,59 @@
                             </div>
                         {{end}}
 
+                        <!-- Matchcast: Quiniela Impact Widget -->
+                        <div class="p-3 sm:p-4 rounded-xl bg-gradient-to-r from-purple-950/40 via-zinc-900 to-zinc-950 border border-purple-500/30 space-y-2.5">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fa-solid fa-wand-magic-sparkles text-purple-400 text-xs animate-pulse"></i>
+                                    <span class="text-xs font-bold text-white uppercase tracking-wider font-mono">Impacto en la Quiniela</span>
+                                </div>
+                                <button type="button"
+                                        @click="$dispatch('toggle-whatif'); document.getElementById('whatif-banner')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });"
+                                        class="text-[11px] text-purple-300 hover:text-white underline font-semibold cursor-pointer">
+                                    Abrir Simulador Completo &rarr;
+                                </button>
+                            </div>
+                            <p class="text-xs text-zinc-300 leading-relaxed">
+                                Proyecta en vivo cómo impacta el desenlace de este partido en la tabla y en las probabilidades de coronarte en la jornada:
+                            </p>
+                            <div class="grid grid-cols-2 gap-2 pt-1">
+                                <button type="button"
+                                        @click="$dispatch('open-whatif'); setTimeout(() => { const banner = document.getElementById('whatif-banner'); if (banner && window.Alpine) { const w = Alpine.$data(banner); if (w) { w.toggleWinner({{$fg.ID}}, {{$fg.AwayTeamID}}); w.activeTab = 'leaderboard'; } } }, 120); document.getElementById('whatif-banner')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });"
+                                        class="p-2.5 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-cyan-500/40 text-left transition-all cursor-pointer group shadow-sm">
+                                    <div class="text-[10px] text-zinc-400 font-mono flex items-center justify-between">
+                                        <span>Si gana Visitante</span>
+                                        <i class="fa-solid fa-arrow-right text-[8px] text-cyan-400 group-hover:translate-x-0.5 transition-transform"></i>
+                                    </div>
+                                    <div class="text-xs font-black text-white mt-1 flex items-center space-x-1.5">
+                                        <img src="{{$fg.AwayTeam.LogoURL}}" class="w-4 h-4 object-contain">
+                                        <span>{{$fg.AwayTeam.Code}}</span>
+                                    </div>
+                                    <div class="text-[10px] text-cyan-400 mt-1 font-mono font-bold flex items-center space-x-1">
+                                        <i class="fa-solid fa-sliders text-[9px]"></i>
+                                        <span>Simular en Tabla</span>
+                                    </div>
+                                </button>
+
+                                <button type="button"
+                                        @click="$dispatch('open-whatif'); setTimeout(() => { const banner = document.getElementById('whatif-banner'); if (banner && window.Alpine) { const w = Alpine.$data(banner); if (w) { w.toggleWinner({{$fg.ID}}, {{$fg.HomeTeamID}}); w.activeTab = 'leaderboard'; } } }, 120); document.getElementById('whatif-banner')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });"
+                                        class="p-2.5 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/40 text-left transition-all cursor-pointer group shadow-sm">
+                                    <div class="text-[10px] text-zinc-400 font-mono flex items-center justify-between">
+                                        <span>Si gana Local</span>
+                                        <i class="fa-solid fa-arrow-right text-[8px] text-amber-400 group-hover:translate-x-0.5 transition-transform"></i>
+                                    </div>
+                                    <div class="text-xs font-black text-white mt-1 flex items-center space-x-1.5">
+                                        <img src="{{$fg.HomeTeam.LogoURL}}" class="w-4 h-4 object-contain">
+                                        <span>{{$fg.HomeTeam.Code}}</span>
+                                    </div>
+                                    <div class="text-[10px] text-amber-400 mt-1 font-mono font-bold flex items-center space-x-1">
+                                        <i class="fa-solid fa-sliders text-[9px]"></i>
+                                        <span>Simular en Tabla</span>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+
                         <!-- Embedded Community / Rivals Picks Grid directly in Matchcast Tab -->
                         {{if .FeaturedPicks}}
                             <div x-data="{ 

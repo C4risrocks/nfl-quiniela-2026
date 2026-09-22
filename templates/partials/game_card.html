@@ -14,7 +14,7 @@
      data-locked="{{$locked}}"
      data-scoring-mode="{{$scoringMode}}"
      data-broadcasts="{{range .Game.MexicoBroadcastOptions}}{{.Name}},{{end}}"
-     x-show="typeof activePlatform === 'undefined' || activePlatform === 'all' || '{{range .Game.MexicoBroadcastOptions}}{{.Name}},{{end}}'.toLowerCase().includes(activePlatform)"
+     x-show="(typeof activePlatform === 'undefined' || activePlatform === 'all' || '{{range .Game.MexicoBroadcastOptions}}{{.Name}},{{end}}'.toLowerCase().includes(activePlatform)) && (typeof viewMode === 'undefined' || viewMode !== 'focus' || (typeof focusIndex !== 'undefined' && focusIndex === {{if ne .GameIndex nil}}{{printf "%d" .GameIndex}}{{else}}0{{end}}))"
      x-data="{ 
          pickedTeam: '{{if $pick}}{{if $pick.PickedTeamID}}{{$pick.PickedTeamID}}{{end}}{{end}}',
          awayTeamID: '{{.Game.AwayTeamID}}',
@@ -49,6 +49,9 @@
              const inp = document.getElementById('pick-input-{{.Game.ID}}');
              if (inp) inp.value = this.pickedTeam;
              if (typeof updatePicksCounter === 'function') updatePicksCounter();
+             if (this.pickedTeam && typeof window.__onGamePickedFocusAdvancer === 'function') {
+                 window.__onGamePickedFocusAdvancer({{.Game.ID}});
+             }
          },
          stepScore(team, delta) {
              if (this.isLocked) return;
@@ -173,6 +176,7 @@
             <button type="button"
                     @click="selectTeam('{{.Game.AwayTeamID}}')"
                     {{if $locked}}disabled{{end}}
+                    data-is-community-fav="{{if eq .Game.CommunityFavoriteTeamID .Game.AwayTeamID}}true{{else}}false{{end}}"
                     :class="(pickedTeam == '{{.Game.AwayTeamID}}' ? 'bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60') + (typeof viewMode !== 'undefined' && viewMode === 'compact' ? ' !p-2 min-h-[46px]' : ' min-h-[54px]')"
                     class="w-full p-2.5 sm:p-3 rounded-xl border transition-all relative group {{if $awayPicked}}bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md{{else}}bg-zinc-950/60 border-[#222222]{{end}} {{if $locked}}cursor-default opacity-80{{else}}cursor-pointer hover:scale-[1.01]{{end}}">
                 
@@ -214,6 +218,7 @@
             <button type="button"
                     @click="selectTeam('{{.Game.HomeTeamID}}')"
                     {{if $locked}}disabled{{end}}
+                    data-is-community-fav="{{if eq .Game.CommunityFavoriteTeamID .Game.HomeTeamID}}true{{else}}false{{end}}"
                     :class="(pickedTeam == '{{.Game.HomeTeamID}}' ? 'bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60') + (typeof viewMode !== 'undefined' && viewMode === 'compact' ? ' !p-2 min-h-[46px]' : ' min-h-[54px]')"
                     class="w-full p-2.5 sm:p-3 rounded-xl border transition-all relative group {{if $homePicked}}bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md{{else}}bg-zinc-950/60 border-[#222222]{{end}} {{if $locked}}cursor-default opacity-80{{else}}cursor-pointer hover:scale-[1.01]{{end}}">
                 
@@ -245,6 +250,27 @@
             </button>
         </div>
     </div>
+
+    <!-- Community Consensus Breakdown Bar -->
+    {{if gt .Game.TotalPicks 0}}
+        <div class="my-2 px-1 text-[10px] font-mono text-zinc-400">
+            <div class="flex items-center justify-between mb-1">
+                <span class="flex items-center space-x-1 {{if eq .Game.CommunityFavoriteTeamID .Game.AwayTeamID}}text-cyan-400 font-bold{{end}}">
+                    {{if eq .Game.CommunityFavoriteTeamID .Game.AwayTeamID}}<i class="fa-solid fa-crown text-[8px] text-amber-400"></i>{{end}}
+                    <span>{{.Game.AwayTeam.Code}} {{.Game.AwayPickPct}}%</span>
+                </span>
+                <span class="text-zinc-500 text-[9px]">{{.Game.TotalPicks}} votos comunidad</span>
+                <span class="flex items-center space-x-1 {{if eq .Game.CommunityFavoriteTeamID .Game.HomeTeamID}}text-amber-400 font-bold{{end}}">
+                    <span>{{.Game.HomePickPct}}% {{.Game.HomeTeam.Code}}</span>
+                    {{if eq .Game.CommunityFavoriteTeamID .Game.HomeTeamID}}<i class="fa-solid fa-crown text-[8px] text-amber-400"></i>{{end}}
+                </span>
+            </div>
+            <div class="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden flex border border-zinc-800/80">
+                <div class="bg-cyan-500/80 h-full transition-all" style="width: {{.Game.AwayPickPct}}%;"></div>
+                <div class="bg-amber-500/80 h-full transition-all" style="width: {{.Game.HomePickPct}}%;"></div>
+            </div>
+        </div>
+    {{end}}
 
     {{if $showScoreInputs}}
     <!-- Score Prediction Inputs (Extra Points & Tiebreaker) -->

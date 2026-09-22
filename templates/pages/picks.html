@@ -16,6 +16,86 @@
         confirmOpen: false,
         missingCount: 0,
         missingTiebreaker: false,
+        focusIndex: 0,
+        totalGames: {{len .Games}},
+        nextFocusGame() {
+            if (this.focusIndex < this.totalGames - 1) {
+                this.focusIndex++;
+            }
+        },
+        prevFocusGame() {
+            if (this.focusIndex > 0) {
+                this.focusIndex--;
+            }
+        },
+        autoFillFavorites() {
+            let filled = 0;
+            const cards = document.querySelectorAll('[id^=\'game-card-\']');
+            cards.forEach(card => {
+                const locked = card.getAttribute('data-locked') === 'true';
+                if (!locked) {
+                    const pickInput = card.querySelector('input[name^=\'picked_team_\']');
+                    if (!pickInput || !pickInput.value || pickInput.value.trim() === '') {
+                        const favBtn = card.querySelector('button[data-is-community-fav=\'true\']');
+                        if (favBtn) {
+                            favBtn.click();
+                            filled++;
+                        }
+                    }
+                }
+            });
+            if (typeof updatePicksCounter === 'function') setTimeout(updatePicksCounter, 100);
+            window.dispatchEvent(new CustomEvent('show-toast', {
+                detail: { 
+                    message: filled > 0 
+                        ? `Se seleccionaron ${filled} favoritos de la comunidad en partidos pendientes.` 
+                        : 'Todos tus partidos disponibles ya tienen seleccionado un ganador.', 
+                    type: 'info' 
+                }
+            }));
+        },
+        jumpToMissing() {
+            const cards = document.querySelectorAll('[id^=\'game-card-\']');
+            for (let i = 0; i < cards.length; i++) {
+                const card = cards[i];
+                const locked = card.getAttribute('data-locked') === 'true';
+                if (!locked) {
+                    const pickInput = card.querySelector('input[name^=\'picked_team_\']');
+                    const awayInput = card.querySelector('input[name^=\'away_score_\']');
+                    const homeInput = card.querySelector('input[name^=\'home_score_\']');
+                    const isTiebreaker = card.getAttribute('data-is-tiebreaker') === 'true';
+                    const scoringMode = card.getAttribute('data-scoring-mode') || 'pure_tiebreaker';
+
+                    const hasPick = pickInput && pickInput.value && pickInput.value.trim() !== '';
+                    const hasScores = awayInput && homeInput && awayInput.value.trim() !== '' && homeInput.value.trim() !== '';
+
+                    let isMissing = false;
+                    if (isTiebreaker) {
+                        isMissing = !hasPick || !hasScores;
+                    } else {
+                        if (scoringMode === 'pure_tiebreaker') {
+                            isMissing = !hasPick;
+                        } else {
+                            isMissing = !hasPick && !hasScores;
+                        }
+                    }
+
+                    if (isMissing) {
+                        if (this.viewMode === 'focus') {
+                            this.focusIndex = i;
+                        } else {
+                            card.classList.add('ring-2', 'ring-amber-500', 'animate-pulse');
+                            setTimeout(() => card.classList.remove('ring-2', 'ring-amber-500', 'animate-pulse'), 2500);
+                            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                        return;
+                    }
+                }
+            }
+            window.dispatchEvent(new CustomEvent('show-toast', {
+                detail: { message: '¡No hay partidos pendientes! Tu quiniela está completa.', type: 'success' }
+            }));
+        },
         validateAndSubmit() {
             const cards = document.querySelectorAll('[id^=\'game-card-\']');
             let picked = 0;
@@ -70,44 +150,22 @@
         },
         reviewAndComplete() {
             this.confirmOpen = false;
-            let firstMissing = null;
-            const cards = document.querySelectorAll('[id^=\'game-card-\']');
-            cards.forEach(card => {
-                const locked = card.getAttribute('data-locked') === 'true';
-                if (!locked) {
-                    const pickInput = card.querySelector('input[name^=\'picked_team_\']');
-                    const awayInput = card.querySelector('input[name^=\'away_score_\']');
-                    const homeInput = card.querySelector('input[name^=\'home_score_\']');
-                    const isTiebreaker = card.getAttribute('data-is-tiebreaker') === 'true';
-                    const scoringMode = card.getAttribute('data-scoring-mode') || 'pure_tiebreaker';
-
-                    const hasPick = pickInput && pickInput.value && pickInput.value.trim() !== '';
-                    const hasScores = awayInput && homeInput && awayInput.value.trim() !== '' && homeInput.value.trim() !== '';
-
-                    let isMissing = false;
-                    if (isTiebreaker) {
-                        isMissing = !hasPick || !hasScores;
-                    } else {
-                        if (scoringMode === 'pure_tiebreaker') {
-                            isMissing = !hasPick;
-                        } else {
-                            isMissing = !hasPick && !hasScores;
-                        }
-                    }
-
-                    if (isMissing) {
-                        card.classList.add('ring-2', 'ring-amber-500', 'animate-pulse');
-                        setTimeout(() => card.classList.remove('ring-2', 'ring-amber-500', 'animate-pulse'), 3000);
-                        if (!firstMissing) firstMissing = card;
-                    }
-                }
-            });
-
-            if (firstMissing) {
-                firstMissing.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
+            this.jumpToMissing();
         }
-     }">
+     }"
+     x-init="
+        window.__onGamePickedFocusAdvancer = (gameId) => {
+            if (viewMode === 'focus') {
+                setTimeout(() => {
+                    if (focusIndex < totalGames - 1) {
+                        focusIndex++;
+                    }
+                }, 320);
+            }
+        };
+     "
+     @keydown.window.arrow-right="if (viewMode === 'focus' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) nextFocusGame()"
+     @keydown.window.arrow-left="if (viewMode === 'focus' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) prevFocusGame()">
 
     <!-- Header Slot with Week Switcher -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 vercel-card p-4 sm:p-6 rounded-2xl shadow-sm min-w-0 max-w-full overflow-hidden">
@@ -338,32 +396,87 @@
                     </button>
                 </div>
 
-                <!-- View Mode Switcher (Grid vs Compact) -->
-                <div class="inline-flex items-center p-1 bg-zinc-950/80 rounded-xl border border-zinc-800 text-xs shrink-0 self-start sm:self-auto shadow-sm">
-                    <button type="button" 
-                            @click="setViewMode('grid')" 
-                            :class="viewMode === 'grid' ? 'bg-zinc-800 text-white font-bold shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
-                            class="px-2.5 py-1 rounded-lg flex items-center space-x-1.5 transition-colors cursor-pointer"
-                            title="Vista Cuadrícula Completa">
-                        <i class="fa-solid fa-table-cells-large text-[11px]"></i>
-                        <span class="text-[11px]">Cuadrícula</span>
+                <!-- Controls: Auto-fill Favorites & View Mode Switcher (Grid vs Compact vs Focus) -->
+                <div class="flex items-center gap-2 shrink-0 self-start sm:self-auto flex-wrap">
+                    {{if and .Games (not .IsFullWeekLocked)}}
+                        <button type="button" 
+                                @click="autoFillFavorites()"
+                                title="Completar automáticamente partidos pendientes con el favorito de la quiniela"
+                                class="inline-flex items-center px-2.5 py-1.5 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-amber-500/50 hover:bg-zinc-800 text-zinc-300 hover:text-amber-300 text-xs font-semibold transition-all shadow-sm cursor-pointer shrink-0">
+                            <i class="fa-solid fa-wand-magic-sparkles text-amber-400 mr-1.5 text-[11px]"></i>
+                            <span class="hidden sm:inline">Llenar con </span>Favoritos
+                        </button>
+                    {{end}}
+
+                    <div class="inline-flex items-center p-1 bg-zinc-950/80 rounded-xl border border-zinc-800 text-xs shadow-sm">
+                        <button type="button" 
+                                @click="setViewMode('grid')" 
+                                :class="viewMode === 'grid' ? 'bg-zinc-800 text-white font-bold shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+                                class="px-2.5 py-1 rounded-lg flex items-center space-x-1.5 transition-colors cursor-pointer"
+                                title="Vista Cuadrícula Completa">
+                            <i class="fa-solid fa-table-cells-large text-[11px]"></i>
+                            <span class="text-[11px] hidden md:inline">Cuadrícula</span>
+                        </button>
+                        <button type="button" 
+                                @click="setViewMode('compact')" 
+                                :class="viewMode === 'compact' ? 'bg-zinc-800 text-white font-bold shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+                                class="px-2.5 py-1 rounded-lg flex items-center space-x-1.5 transition-colors cursor-pointer"
+                                title="Vista Lista Compacta">
+                            <i class="fa-solid fa-list text-[11px]"></i>
+                            <span class="text-[11px] hidden md:inline">Compacta</span>
+                        </button>
+                        <button type="button" 
+                                @click="setViewMode('focus')" 
+                                :class="viewMode === 'focus' ? 'bg-gradient-to-r from-amber-500/25 to-yellow-500/25 text-amber-300 font-bold border border-amber-500/40 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+                                class="px-2.5 py-1 rounded-lg flex items-center space-x-1.5 transition-colors cursor-pointer"
+                                title="Modo Enfoque Rápido 1 a 1">
+                            <i class="fa-solid fa-bolt text-[11px] text-amber-400"></i>
+                            <span class="text-[11px]">Enfoque ⚡</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Focus Mode Stepper Bar (Visible only when viewMode === 'focus') -->
+            <div x-show="viewMode === 'focus'" x-cloak class="vercel-card p-3 sm:p-4 rounded-2xl max-w-2xl mx-auto flex items-center justify-between gap-3 border border-amber-500/30 bg-gradient-to-r from-zinc-950 via-zinc-900 to-black shadow-lg">
+                <div class="flex items-center space-x-3 min-w-0">
+                    <button type="button"
+                            @click="prevFocusGame()"
+                            :disabled="focusIndex === 0"
+                            title="Partido anterior (Flecha Izquierda)"
+                            class="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-600 disabled:opacity-30 disabled:cursor-not-allowed text-white flex items-center justify-center transition-all cursor-pointer shrink-0">
+                        <i class="fa-solid fa-chevron-left text-xs"></i>
                     </button>
-                    <button type="button" 
-                            @click="setViewMode('compact')" 
-                            :class="viewMode === 'compact' ? 'bg-zinc-800 text-white font-bold shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
-                            class="px-2.5 py-1 rounded-lg flex items-center space-x-1.5 transition-colors cursor-pointer"
-                            title="Vista Lista Compacta">
-                        <i class="fa-solid fa-list text-[11px]"></i>
-                        <span class="text-[11px]">Compacta</span>
+                    <div class="min-w-0">
+                        <div class="text-xs sm:text-sm font-mono font-black text-amber-400 flex items-center gap-1.5 truncate">
+                            <i class="fa-solid fa-bolt text-[11px]"></i>
+                            <span>Partido <span x-text="focusIndex + 1"></span> de <span x-text="totalGames"></span></span>
+                        </div>
+                        <div class="text-[10px] sm:text-[11px] text-zinc-400 truncate">Elige ganador para auto-avanzar al siguiente</div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 shrink-0">
+                    <button type="button"
+                            @click="jumpToMissing()"
+                            class="px-2.5 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-amber-500/50 hover:bg-zinc-800 text-zinc-300 hover:text-amber-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer">
+                        <i class="fa-solid fa-forward-step text-[10px] text-amber-400"></i>
+                        <span class="hidden sm:inline">Próximo </span>Faltante
+                    </button>
+                    <button type="button"
+                            @click="nextFocusGame()"
+                            :disabled="focusIndex >= totalGames - 1"
+                            title="Siguiente partido (Flecha Derecha)"
+                            class="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-600 disabled:opacity-30 disabled:cursor-not-allowed text-white flex items-center justify-center transition-all cursor-pointer shrink-0">
+                        <i class="fa-solid fa-chevron-right text-xs"></i>
                     </button>
                 </div>
             </div>
 
             <div id="games-grid" 
                  class="grid gap-3.5 transition-all pb-24 sm:pb-0"
-                 :class="viewMode === 'compact' ? 'grid-cols-1 !gap-2 max-w-3xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'">
-                {{range .Games}}
-                    {{template "game_card.html" (dict "Game" . "CurrentTime" $.CurrentTime "FormattedKickoff" (formatDate .KickoffTime) "LockMode" $.LockMode "FirstKickoff" $.FirstKickoff "ScoringMode" $.ScoringConfig.ScoringMode "ScoringConfig" $.ScoringConfig)}}
+                 :class="viewMode === 'compact' ? 'grid-cols-1 !gap-2 max-w-3xl mx-auto' : (viewMode === 'focus' ? 'grid-cols-1 max-w-2xl mx-auto' : 'grid-cols-1 lg:grid-cols-2')">
+                {{range $idx, $game := .Games}}
+                    {{template "game_card.html" (dict "Game" $game "GameIndex" $idx "CurrentTime" $.CurrentTime "FormattedKickoff" (formatDate $game.KickoffTime) "LockMode" $.LockMode "FirstKickoff" $.FirstKickoff "ScoringMode" $.ScoringConfig.ScoringMode "ScoringConfig" $.ScoringConfig)}}
                 {{end}}
             </div>
 
@@ -379,9 +492,13 @@
                         <div class="flex items-center space-x-1.5 font-mono text-xs truncate">
                             <span class="font-bold text-white"><span id="mobile-bottom-picked-count" class="text-emerald-400 font-black font-mono">{{.PicksCount}}</span>/{{len .Games}}</span>
                             {{if not .IsFullWeekLocked}}
-                                <span id="mobile-bottom-missing-badge" class="hidden text-[10px] font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.2 rounded-full animate-pulse whitespace-nowrap">
-                                    faltan <span id="mobile-bottom-missing-num">0</span>
-                                </span>
+                                <button type="button"
+                                        id="mobile-bottom-missing-badge" 
+                                        @click="jumpToMissing()"
+                                        title="Ir al siguiente partido sin pronóstico"
+                                        class="hidden text-[10px] font-mono font-bold text-amber-300 bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 rounded-full animate-pulse whitespace-nowrap cursor-pointer active:scale-95 transition-transform">
+                                    <i class="fa-solid fa-angles-down text-[8px] mr-1 text-amber-400"></i>faltan <span id="mobile-bottom-missing-num">0</span>
+                                </button>
                             {{else}}
                                 <span class="text-[10px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800 px-1.5 py-0.2 rounded-full whitespace-nowrap">
                                     <i class="fa-solid fa-lock text-[8px] mr-0.5"></i> Bloqueada
@@ -427,9 +544,16 @@
                         <div class="text-[11px] text-zinc-400 flex items-center gap-2">
                             <span><span id="picked-games-count" class="font-mono font-bold text-emerald-400">{{.PicksCount}}</span> de {{len .Games}} partidos</span>
                             {{if not .IsFullWeekLocked}}
-                                <span id="missing-games-badge" class="hidden inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
-                                    <i class="fa-solid fa-triangle-exclamation text-[9px] mr-1"></i> Faltan <span id="missing-games-num" class="ml-1">0</span>
-                                </span>
+                                <button type="button"
+                                        id="missing-games-badge" 
+                                        @click="jumpToMissing()"
+                                        title="Ir al siguiente partido sin pronóstico"
+                                        class="hidden items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 animate-pulse cursor-pointer transition-all">
+                                    <i class="fa-solid fa-angles-down text-[9px] mr-1.5 text-amber-400"></i>
+                                    <span>Faltan <span id="missing-games-num">0</span></span>
+                                    <span class="mx-1.5 opacity-50">•</span>
+                                    <span class="underline">Ir al faltante ⚡</span>
+                                </button>
                             {{else}}
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800">
                                     <i class="fa-solid fa-lock text-[9px] mr-1"></i> Bloqueada

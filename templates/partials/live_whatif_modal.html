@@ -325,12 +325,12 @@
             </div>
         </template>
 
-        <!-- Navigation Tabs: Games to Simulate vs Leaderboard Projection -->
-        <div class="px-4 border-b border-zinc-800 flex items-center space-x-3 text-xs font-semibold">
+        <!-- Navigation Tabs: Games to Simulate vs Leaderboard Projection vs Win Probabilities -->
+        <div class="px-4 border-b border-zinc-800 flex items-center space-x-3 text-xs font-semibold overflow-x-auto no-scrollbar">
             <button type="button"
                     @click="activeTab = 'games'"
                     :class="activeTab === 'games' ? 'border-purple-500 text-white font-bold' : 'border-transparent text-zinc-400 hover:text-zinc-200'"
-                    class="py-2.5 border-b-2 transition-all cursor-pointer flex items-center space-x-1.5">
+                    class="py-2.5 border-b-2 transition-all cursor-pointer flex items-center space-x-1.5 whitespace-nowrap">
                 <i class="fa-solid fa-football text-purple-400 text-[11px]"></i>
                 <span>Partidos a Simular</span>
                 <span class="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-zinc-800 text-zinc-300" x-text="simulatedGamesCount + '/' + games.length"></span>
@@ -338,9 +338,17 @@
             <button type="button"
                     @click="activeTab = 'leaderboard'"
                     :class="activeTab === 'leaderboard' ? 'border-purple-500 text-white font-bold' : 'border-transparent text-zinc-400 hover:text-zinc-200'"
-                    class="py-2.5 border-b-2 transition-all cursor-pointer flex items-center space-x-1.5">
+                    class="py-2.5 border-b-2 transition-all cursor-pointer flex items-center space-x-1.5 whitespace-nowrap">
                 <i class="fa-solid fa-ranking-star text-amber-400 text-[11px]"></i>
                 <span>Tabla Proyectada</span>
+            </button>
+            <button type="button"
+                    @click="activeTab = 'odds'"
+                    :class="activeTab === 'odds' ? 'border-purple-500 text-white font-bold' : 'border-transparent text-zinc-400 hover:text-zinc-200'"
+                    class="py-2.5 border-b-2 transition-all cursor-pointer flex items-center space-x-1.5 whitespace-nowrap">
+                <i class="fa-solid fa-chart-pie text-cyan-400 text-[11px]"></i>
+                <span>Probabilidades & Swing Games</span>
+                <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">PRO</span>
             </button>
         </div>
 
@@ -536,6 +544,196 @@
             </template>
         </div>
 
+        <!-- Tab 3: Probabilities, Mathematical Ceiling & Swing Games -->
+        <div x-show="activeTab === 'odds'" class="p-3 sm:p-4 overflow-y-auto flex-1 space-y-4">
+            
+            <!-- Explanatory Header -->
+            <div class="p-3 sm:p-3.5 rounded-xl bg-cyan-950/30 border border-cyan-500/30 flex items-start justify-between gap-3 text-xs">
+                <div class="flex items-start space-x-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <i class="fa-solid fa-chart-pie text-xs"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-white">Análisis de Probabilidades y Eliminación Matemática</div>
+                        <p class="text-[11px] text-zinc-300 mt-0.5">
+                            Simulación probabilística instantánea de todos los desenlaces posibles en los partidos restantes.
+                        </p>
+                    </div>
+                </div>
+                <span class="text-[10px] font-mono text-cyan-400 px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 font-bold shrink-0">
+                    Tiempo Real
+                </span>
+            </div>
+
+            <!-- Key Swing Game (Partido Decisivo / Máxima Palanca) Card -->
+            <template x-if="keySwingGame">
+                <div class="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-950/40 via-zinc-900 to-zinc-950 border border-amber-500/40 shadow-lg space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                            <span class="text-xs font-mono font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-bolt"></i>
+                                <span>Partido Clave de la Semana (Mayor Palanca)</span>
+                            </span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-black bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                              x-text="'+' + keySwingGame.leverage + '% de impacto'">
+                        </span>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-zinc-950/80 border border-zinc-800">
+                        <div class="flex items-center space-x-3">
+                            <div class="text-sm sm:text-base font-black text-white font-mono flex items-center space-x-2">
+                                <span x-text="keySwingGame.game.away_code"></span>
+                                <span class="text-zinc-600 text-xs">@</span>
+                                <span x-text="keySwingGame.game.home_code"></span>
+                            </div>
+                            <div class="text-xs text-zinc-400">
+                                Te favorece: <strong class="text-emerald-400 font-mono" x-text="keySwingGame.favored_team_code"></strong>
+                            </div>
+                        </div>
+
+                        <!-- Quick simulate buttons for the swing game -->
+                        <div class="flex items-center space-x-2 shrink-0">
+                            <button type="button"
+                                    @click="toggleWinner(keySwingGame.game.id, keySwingGame.game.away_id); activeTab = 'leaderboard'"
+                                    class="px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer flex items-center space-x-1"
+                                    :class="simWinners[keySwingGame.game.id] === keySwingGame.game.away_id ? 'bg-cyan-600 text-white border-cyan-400' : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-700'">
+                                <span>Gana</span>
+                                <span x-text="keySwingGame.game.away_code"></span>
+                            </button>
+                            <button type="button"
+                                    @click="toggleWinner(keySwingGame.game.id, keySwingGame.game.home_id); activeTab = 'leaderboard'"
+                                    class="px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer flex items-center space-x-1"
+                                    :class="simWinners[keySwingGame.game.id] === keySwingGame.game.home_id ? 'bg-cyan-600 text-white border-cyan-400' : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-700'">
+                                <span>Gana</span>
+                                <span x-text="keySwingGame.game.home_code"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="text-[11px] text-zinc-300 leading-relaxed">
+                        Si gana <strong class="text-emerald-300" x-text="keySwingGame.favored_team_code"></strong>, tu probabilidad de ganar la semana es del <strong class="text-white font-mono" x-text="keySwingGame.win_prob_if_favored + '%'"></strong>. Pero si gana <strong class="text-rose-300" x-text="keySwingGame.rival_team_code"></strong>, desciende a <strong class="text-white font-mono" x-text="keySwingGame.win_prob_if_rival + '%'"></strong>.
+                    </div>
+                </div>
+            </template>
+
+            <!-- Active User Odds Summary Card -->
+            <template x-if="targetUserOdds">
+                <div class="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs font-mono uppercase tracking-wider text-zinc-400 font-semibold">Tus Opciones Semanales</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border"
+                                  :class="targetUserOdds.badge.cls"
+                                  x-text="targetUserOdds.badge.text">
+                            </span>
+                        </div>
+                        <div class="text-[11px] text-zinc-400 font-mono">
+                            Rango: #<span class="font-bold text-white" x-text="targetUserOdds.best_rank"></span> al #<span class="font-bold text-white" x-text="targetUserOdds.worst_rank"></span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800">
+                            <div class="text-[10px] uppercase font-mono text-zinc-400 font-semibold">Prob. Victoria (#1)</div>
+                            <div class="text-xl font-black font-mono text-emerald-400 mt-0.5" x-text="targetUserOdds.win_prob + '%'"></div>
+                        </div>
+                        <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800">
+                            <div class="text-[10px] uppercase font-mono text-zinc-400 font-semibold">Prob. Podio (Top 3)</div>
+                            <div class="text-xl font-black font-mono text-purple-400 mt-0.5" x-text="targetUserOdds.podium_prob + '%'"></div>
+                        </div>
+                        <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800">
+                            <div class="text-[10px] uppercase font-mono text-zinc-400 font-semibold">Mejor Escenario</div>
+                            <div class="text-xl font-black font-mono text-white mt-0.5" x-text="'#' + targetUserOdds.best_rank"></div>
+                        </div>
+                        <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800">
+                            <div class="text-[10px] uppercase font-mono text-zinc-400 font-semibold">Peor Escenario</div>
+                            <div class="text-xl font-black font-mono text-zinc-300 mt-0.5" x-text="'#' + targetUserOdds.worst_rank"></div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- All Players Win & Podium Probability Table -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between px-1">
+                    <span class="text-xs font-mono uppercase tracking-wider text-zinc-400 font-bold">
+                        Probabilidades de la Quiniela
+                    </span>
+                    <span class="text-[11px] text-zinc-500 font-mono" x-text="probabilitiesList.length + ' participantes'"></span>
+                </div>
+
+                <div class="divide-y divide-zinc-900 border border-zinc-800/80 rounded-2xl overflow-hidden bg-zinc-950/60">
+                    <template x-for="(u, idx) in probabilitiesList" :key="u.user_id">
+                        <div class="p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-zinc-900/40 transition-colors"
+                             :class="u.is_current ? 'bg-purple-950/15 border-l-2 border-purple-500' : ''">
+                            
+                            <!-- Left: User Info & Badge -->
+                            <div class="flex items-center space-x-3 min-w-0">
+                                <div class="w-6 h-6 rounded-lg bg-zinc-800 text-zinc-400 font-mono text-xs font-bold flex items-center justify-center shrink-0"
+                                     x-text="idx + 1">
+                                </div>
+                                <div class="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-xs text-white shrink-0 overflow-hidden">
+                                    <template x-if="u.avatar_url">
+                                        <img :src="u.avatar_url" class="w-full h-full object-cover">
+                                    </template>
+                                    <template x-if="!u.avatar_url">
+                                        <span x-text="u.username.slice(0, 2).toUpperCase()"></span>
+                                    </template>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="text-xs font-bold text-white flex items-center space-x-1.5 truncate">
+                                        <span x-text="u.username"></span>
+                                        <template x-if="u.is_current">
+                                            <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-white text-black font-extrabold">TÚ</span>
+                                        </template>
+                                    </div>
+                                    <div class="flex items-center space-x-2 mt-0.5 text-[10px] text-zinc-400 font-mono">
+                                        <span>Rango: #<span x-text="u.best_rank"></span>-#<span x-text="u.worst_rank"></span></span>
+                                        <span>•</span>
+                                        <span x-text="u.base_points + ' pts base'"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Middle & Right: Probabilities & Action -->
+                            <div class="flex items-center justify-between sm:justify-end space-x-4 shrink-0">
+                                <!-- Status Badge -->
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border shrink-0"
+                                      :class="u.badge.cls"
+                                      x-text="u.badge.text">
+                                </span>
+
+                                <!-- Progress Bars -->
+                                <div class="w-28 sm:w-36 space-y-1">
+                                    <div class="flex justify-between text-[10px] font-mono">
+                                        <span class="text-zinc-400">#1: <strong class="text-emerald-400" x-text="u.win_prob + '%'"></strong></span>
+                                        <span class="text-zinc-500">Top 3: <strong class="text-purple-300" x-text="u.podium_prob + '%'"></strong></span>
+                                    </div>
+                                    <div class="w-full bg-zinc-900 h-1.5 rounded-full overflow-hidden flex border border-zinc-800">
+                                        <div class="bg-gradient-to-r from-emerald-400 to-cyan-400 h-full rounded-full transition-all"
+                                             :style="'width: ' + u.win_prob + '%'"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Quick simulate button for this player -->
+                                <button type="button"
+                                        @click="simulatePlayerBest(u.user_id); activeTab = 'leaderboard'"
+                                        title="Simular su mejor escenario"
+                                        class="px-2 py-1 rounded-lg border text-[10px] font-bold bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border-zinc-700 cursor-pointer transition-all">
+                                    <i class="fa-solid fa-bullseye text-[9px] mr-1"></i>
+                                    <span class="hidden sm:inline">Simular</span>
+                                </button>
+                            </div>
+
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+        </div>
+
         <!-- Banner Actions Footer -->
         <div class="p-3 sm:p-4 border-t border-zinc-800/80 bg-zinc-900/80 flex items-center justify-between gap-2">
             <button type="button"
@@ -615,6 +813,7 @@ function whatIfSimulator() {
                         if (this.currentUserId > 0) {
                             this.selectedPlayerId = this.currentUserId;
                         }
+                        this.updateOddsAndLeverage();
 
                         // Default to Pleno ("Si acertaras todas") if user has picks, otherwise live scores
                         const hasUserPicks = this.games.some(g => g.status !== 'final' && g.user_picked_id > 0);
@@ -980,33 +1179,92 @@ function whatIfSimulator() {
                 osc2.stop(now + 0.6);
             } catch(e) {}
         },
-        computeMonteCarloOdds() {
+        oddsData: null,
+        updateOddsAndLeverage() {
+            this.oddsData = this.computeProbabilitiesAndLeverage();
+        },
+        computeProbabilitiesAndLeverage() {
             if (!this.users || this.users.length === 0 || !this.games || this.games.length === 0) {
-                return {};
+                return { odds: {}, keySwingGame: null, userStats: {} };
             }
             const pending = this.games.filter(g => g.status !== 'final');
             if (pending.length === 0) {
-                let maxPts = -1;
-                this.users.forEach(u => { if (u.base_points > maxPts) maxPts = u.base_points; });
-                const winners = this.users.filter(u => u.base_points === maxPts);
-                const res = {};
-                winners.forEach(w => { res[w.user_id] = Math.round(100 / winners.length); });
-                return res;
+                const scores = this.users.map(u => ({ user_id: u.user_id, pts: u.base_points, username: u.username }));
+                scores.sort((a, b) => b.pts - a.pts || a.username.localeCompare(b.username));
+                const maxPts = scores.length > 0 ? scores[0].pts : 0;
+                const topUsers = scores.filter(s => s.pts === maxPts);
+                const share = topUsers.length > 0 ? 100 / topUsers.length : 100;
+                const odds = {};
+                const userStats = {};
+                scores.forEach((s, idx) => {
+                    const isWinner = s.pts === maxPts;
+                    const wProb = isWinner ? Math.round(share) : 0;
+                    odds[s.user_id] = wProb;
+                    userStats[s.user_id] = {
+                        win_prob: wProb,
+                        podium_prob: (idx < 3) ? 100 : 0,
+                        best_rank: idx + 1,
+                        worst_rank: idx + 1,
+                        is_eliminated: !isWinner,
+                        badge: isWinner 
+                            ? { text: '🏆 Ganador', cls: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' }
+                            : { text: 'Finalizado', cls: 'bg-zinc-800 text-zinc-400 border-zinc-700' }
+                    };
+                });
+                return { odds, keySwingGame: null, userStats };
             }
 
-            const N = 400;
-            const winCounts = {};
-            this.users.forEach(u => { winCounts[u.user_id] = 0; });
-
-            for (let i = 0; i < N; i++) {
-                const iterWinners = {};
+            // 1. Initial user stats and max possible ceiling
+            const userStats = {};
+            this.users.forEach(u => {
+                let maxPts = u.base_points;
                 pending.forEach(g => {
-                    let pAway = 0.5;
-                    if (g.away_pick_pct !== undefined && g.home_pick_pct !== undefined && (g.away_pick_pct + g.home_pick_pct) > 0) {
-                        pAway = g.away_pick_pct / (g.away_pick_pct + g.home_pick_pct);
-                    }
-                    iterWinners[g.id] = Math.random() < pAway ? g.away_id : g.home_id;
+                    if (u.picks && u.picks[g.id]) maxPts += 1;
                 });
+                userStats[u.user_id] = {
+                    win_prob: 0,
+                    podium_prob: 0,
+                    best_rank: 999,
+                    worst_rank: 1,
+                    is_eliminated: false,
+                    max_pts: maxPts,
+                    min_pts: u.base_points
+                };
+            });
+
+            // 2. Simulation engine: exact exhaustive if <= 11 unfinalized games, otherwise Monte Carlo (N=1000)
+            const useExhaustive = pending.length <= 11;
+            const totalIterations = useExhaustive ? Math.pow(2, pending.length) : 1000;
+            const winCounts = {};
+            const podiumCounts = {};
+            this.users.forEach(u => {
+                winCounts[u.user_id] = 0;
+                podiumCounts[u.user_id] = 0;
+            });
+
+            const targetUserId = this.selectedPlayerId || this.currentUserId || (this.users[0] ? this.users[0].user_id : null);
+            const swingStats = {};
+            pending.forEach(g => {
+                swingStats[g.id] = { away_target_wins: 0, away_total: 0, home_target_wins: 0, home_total: 0 };
+            });
+
+            for (let i = 0; i < totalIterations; i++) {
+                const iterWinners = {};
+                if (useExhaustive) {
+                    for (let b = 0; b < pending.length; b++) {
+                        const g = pending[b];
+                        const bit = (i >> b) & 1;
+                        iterWinners[g.id] = (bit === 1) ? g.home_id : g.away_id;
+                    }
+                } else {
+                    pending.forEach(g => {
+                        let pAway = 0.5;
+                        if (g.away_pick_pct !== undefined && g.home_pick_pct !== undefined && (g.away_pick_pct + g.home_pick_pct) > 0) {
+                            pAway = g.away_pick_pct / (g.away_pick_pct + g.home_pick_pct);
+                        }
+                        iterWinners[g.id] = Math.random() < pAway ? g.away_id : g.home_id;
+                    });
+                }
 
                 let topPts = -9999;
                 const scores = [];
@@ -1018,21 +1276,139 @@ function whatIfSimulator() {
                         }
                     });
                     if (pts > topPts) topPts = pts;
-                    scores.push({ user_id: u.user_id, pts: pts });
+                    scores.push({ user_id: u.user_id, pts: pts, username: u.username });
                 });
 
+                scores.sort((a, b) => b.pts - a.pts || a.username.localeCompare(b.username));
+
                 const topUsers = scores.filter(s => s.pts === topPts);
-                const share = 1 / topUsers.length;
+                const winShare = 1 / topUsers.length;
                 topUsers.forEach(tu => {
-                    winCounts[tu.user_id] += share;
+                    winCounts[tu.user_id] += winShare;
+                });
+
+                const targetWon = topUsers.some(tu => tu.user_id === targetUserId);
+
+                pending.forEach(g => {
+                    const isAway = iterWinners[g.id] === g.away_id;
+                    if (isAway) {
+                        swingStats[g.id].away_total += 1;
+                        if (targetWon) swingStats[g.id].away_target_wins += 1;
+                    } else {
+                        swingStats[g.id].home_total += 1;
+                        if (targetWon) swingStats[g.id].home_target_wins += 1;
+                    }
+                });
+
+                scores.forEach((s, idx) => {
+                    const rank = idx + 1;
+                    const st = userStats[s.user_id];
+                    if (st) {
+                        if (rank < st.best_rank) st.best_rank = rank;
+                        if (rank > st.worst_rank) st.worst_rank = rank;
+                        if (rank <= 3) podiumCounts[s.user_id] += 1;
+                    }
                 });
             }
 
             const odds = {};
+            const highestCurrentMinPts = Math.max(...Object.values(userStats).map(x => x.min_pts));
+
             this.users.forEach(u => {
-                odds[u.user_id] = Math.round((winCounts[u.user_id] / N) * 100);
+                const wProb = Math.round((winCounts[u.user_id] / totalIterations) * 100);
+                const pProb = Math.round((podiumCounts[u.user_id] / totalIterations) * 100);
+                odds[u.user_id] = wProb;
+                const st = userStats[u.user_id];
+                st.win_prob = wProb;
+                st.podium_prob = pProb;
+                st.is_eliminated = st.best_rank > 1 || (wProb === 0 && st.max_pts < highestCurrentMinPts);
+
+                if (st.is_eliminated || (wProb === 0 && st.best_rank > 1)) {
+                    st.badge = { text: '❌ Sin Opción al #1', cls: 'bg-zinc-800 text-zinc-400 border-zinc-700' };
+                } else if (wProb >= 50) {
+                    st.badge = { text: '🏆 Favorito', cls: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' };
+                } else if (wProb >= 15) {
+                    st.badge = { text: '⚡ Contendiente', cls: 'bg-amber-500/20 text-amber-300 border-amber-500/40' };
+                } else {
+                    st.badge = { text: '🎯 Con Opciones', cls: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' };
+                }
             });
-            return odds;
+
+            // 3. Find key swing game
+            let maxLeverage = -1;
+            let keySwingGame = null;
+            pending.forEach(g => {
+                const ss = swingStats[g.id];
+                const pAway = ss.away_total > 0 ? (ss.away_target_wins / ss.away_total) * 100 : 0;
+                const pHome = ss.home_total > 0 ? (ss.home_target_wins / ss.home_total) * 100 : 0;
+                const lev = Math.abs(pHome - pAway);
+                if (lev > maxLeverage && lev >= 2) {
+                    maxLeverage = lev;
+                    const favorsHome = pHome >= pAway;
+                    keySwingGame = {
+                        game: g,
+                        leverage: Math.round(lev),
+                        favored_team_id: favorsHome ? g.home_id : g.away_id,
+                        favored_team_code: favorsHome ? g.home_code : g.away_code,
+                        rival_team_code: favorsHome ? g.away_code : g.home_code,
+                        win_prob_if_favored: Math.round(favorsHome ? pHome : pAway),
+                        win_prob_if_rival: Math.round(favorsHome ? pAway : pHome)
+                    };
+                }
+            });
+
+            return { odds, keySwingGame, userStats };
+        },
+        getWinOddsMap() {
+            if (!this.oddsData) {
+                this.updateOddsAndLeverage();
+            }
+            return (this.oddsData && this.oddsData.odds) ? this.oddsData.odds : {};
+        },
+        get probabilitiesList() {
+            if (!this.oddsData) {
+                this.updateOddsAndLeverage();
+            }
+            const statsMap = (this.oddsData && this.oddsData.userStats) ? this.oddsData.userStats : {};
+            const list = this.users.map(u => {
+                const st = statsMap[u.user_id] || {
+                    win_prob: 0,
+                    podium_prob: 0,
+                    best_rank: 99,
+                    worst_rank: 99,
+                    is_eliminated: false,
+                    badge: { text: 'Pendiente', cls: 'bg-zinc-800 text-zinc-400 border-zinc-700' }
+                };
+                return {
+                    user_id: u.user_id,
+                    username: u.username,
+                    avatar_url: u.avatar_url,
+                    is_current: u.is_current,
+                    base_points: u.base_points,
+                    win_prob: st.win_prob,
+                    podium_prob: st.podium_prob,
+                    best_rank: st.best_rank,
+                    worst_rank: st.worst_rank,
+                    is_eliminated: st.is_eliminated,
+                    badge: st.badge
+                };
+            });
+            list.sort((a, b) => b.win_prob - a.win_prob || b.podium_prob - a.podium_prob || a.username.localeCompare(b.username));
+            return list;
+        },
+        get keySwingGame() {
+            if (!this.oddsData) {
+                this.updateOddsAndLeverage();
+            }
+            return (this.oddsData && this.oddsData.keySwingGame) ? this.oddsData.keySwingGame : null;
+        },
+        get targetUserOdds() {
+            if (!this.oddsData) {
+                this.updateOddsAndLeverage();
+            }
+            const targetId = this.selectedPlayerId || this.currentUserId || (this.users[0] ? this.users[0].user_id : null);
+            if (!targetId || !this.oddsData || !this.oddsData.userStats) return null;
+            return this.oddsData.userStats[targetId] || null;
         },
         resetAll() {
             this.currentScenario = 'manual';
@@ -1072,7 +1448,7 @@ function whatIfSimulator() {
         get simulatedLeaderboard() {
             if (!this.users || this.users.length === 0) return [];
 
-            const winOddsMap = this.computeMonteCarloOdds();
+            const winOddsMap = this.getWinOddsMap();
 
             // Baseline ranking (final games + live current leader)
             const baseRankings = this.users.map(u => {
