@@ -971,6 +971,57 @@ func TestUserAchievementsCRUD(t *testing.T) {
 	}
 }
 
+func TestMigrationWithDuplicateAchievements(t *testing.T) {
+	testDBPath := "test_migration_duplicates.db"
+	defer os.Remove(testDBPath)
+
+	database, err := InitDB("sqlite", testDBPath)
+	if err != nil {
+		t.Fatalf("Failed to init db: %v", err)
+	}
+	defer database.Close()
+
+	repo := NewRepository(database)
+	_ = SeedDatabase(repo, "admin", "admin@test.com", "pass123", 2026)
+	user, err := repo.CreateUser("dupe_user", "dupe@test.com", "hash", "player")
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	// Drop the unique indexes to simulate pre-migration state with duplicates
+	_, _ = database.Exec("DROP INDEX IF EXISTS idx_achievements_unique_season")
+	_, _ = database.Exec("DROP INDEX IF EXISTS idx_achievements_unique_week")
+
+	// Directly insert duplicate seasonal achievements
+	for i := 0; i < 3; i++ {
+		_, err := database.Exec(`
+			INSERT INTO user_achievements (user_id, badge_code, badge_name, badge_desc, icon, week_number)
+			VALUES (?, 'century_club', 'Club 100', '100 pts', '💯', NULL)
+		`, user.ID)
+		if err != nil {
+			t.Fatalf("Failed to insert pre-migration duplicate %d: %v", i, err)
+		}
+	}
+
+	// Verify we now have 3 duplicate rows
+	var count int
+	_ = database.QueryRow("SELECT COUNT(*) FROM user_achievements WHERE user_id = ? AND badge_code = 'century_club'", user.ID).Scan(&count)
+	if count != 3 {
+		t.Fatalf("Expected 3 duplicate rows before migration, got %d", count)
+	}
+
+	// Run migrate() - this MUST succeed without "UNIQUE constraint failed"
+	if err := database.migrate(); err != nil {
+		t.Fatalf("database.migrate() failed on existing DB with duplicates: %v", err)
+	}
+
+	// Verify duplicates were purged to exactly 1 row
+	_ = database.QueryRow("SELECT COUNT(*) FROM user_achievements WHERE user_id = ? AND badge_code = 'century_club'", user.ID).Scan(&count)
+	if count != 1 {
+		t.Fatalf("Expected 1 row after migration deduplication, got %d", count)
+	}
+}
+
 func TestHeadToHeadSeasonHistoryCalculation(t *testing.T) {
 	testDBPath := "test_h2h_history.db"
 	defer os.Remove(testDBPath)

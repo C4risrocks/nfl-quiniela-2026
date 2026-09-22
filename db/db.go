@@ -184,14 +184,20 @@ func (d *DB) migrate() error {
 		FROM user_achievements 
 		GROUP BY user_id, badge_code, COALESCE(week_number, -1)
 	)`
-	_, _ = d.Exec(cleanupAchievements)
+	if res, err := d.Exec(cleanupAchievements); err == nil {
+		if affected, _ := res.RowsAffected(); affected > 0 {
+			log.Printf("[DB] Cleaned up %d duplicate user achievement records", affected)
+		}
+	}
 
 	achievementIndexes := []string{
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_achievements_unique_week ON user_achievements(user_id, badge_code, week_number) WHERE week_number IS NOT NULL`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_achievements_unique_season ON user_achievements(user_id, badge_code) WHERE week_number IS NULL`,
 	}
 	for _, idxStmt := range achievementIndexes {
-		_, _ = d.Exec(idxStmt)
+		if _, err := d.Exec(idxStmt); err != nil {
+			log.Printf("[DB] Warning: could not create achievement index (%s): %v", idxStmt, err)
+		}
 	}
 
 	return nil
