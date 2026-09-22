@@ -39,6 +39,44 @@
              if (this.currentTeam) {
                  this.avatarUrl = this.currentTeam.logo;
              }
+         },
+         isUploading: false,
+         uploadError: '',
+         async uploadAvatar(event) {
+             const file = event.target.files ? event.target.files[0] : null;
+             if (!file) return;
+             if (file.size > 3 * 1024 * 1024) {
+                 this.uploadError = 'La imagen excede el límite máximo de 3 MB.';
+                 alert(this.uploadError);
+                 event.target.value = '';
+                 return;
+             }
+             this.isUploading = true;
+             this.uploadError = '';
+             try {
+                 const formData = new FormData();
+                 formData.append('avatar', file);
+                 const res = await fetch('/profile/avatar/upload', {
+                     method: 'POST',
+                     body: formData
+                 });
+                 const data = await res.json();
+                 if (res.ok && data.success && data.avatar_url) {
+                     this.avatarUrl = data.avatar_url;
+                     this.customizeModalOpen = true;
+                     this.customTab = 'avatar';
+                     $dispatch('show-toast', { message: '¡Imagen cargada exitosamente! Guarda los cambios para confirmar.', type: 'success' });
+                 } else {
+                     this.uploadError = data.error || 'Error al subir la imagen.';
+                     alert(this.uploadError);
+                 }
+             } catch (err) {
+                 this.uploadError = 'Error de conexión al subir la imagen.';
+                 alert(this.uploadError);
+             } finally {
+                 this.isUploading = false;
+                 event.target.value = '';
+             }
          }
      }">
 
@@ -540,7 +578,7 @@
                 </button>
             </div>
 
-            <form action="/profile/preferences" method="POST" class="space-y-4">
+            <form action="/profile/preferences" method="POST" enctype="multipart/form-data" class="space-y-4">
                 <input type="hidden" name="avatar_url" :value="avatarUrl">
                 <input type="hidden" name="featured_badge_code" :value="featuredBadgeCode">
 
@@ -557,14 +595,26 @@
                         </div>
                         <div>
                             <span class="text-xs font-bold text-white block">Foto / Avatar de Perfil</span>
-                            <span class="text-[11px] text-zinc-400">32 equipos NFL, avatares temáticos o URL.</span>
+                            <span class="text-[11px] text-zinc-400">32 equipos NFL, subir imagen propia o URL.</span>
                         </div>
                     </div>
-                    <button type="button"
-                            @click="customizeModalOpen = true; customTab = 'avatar'"
-                            class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium border border-zinc-700 transition-colors cursor-pointer">
-                        Cambiar
-                    </button>
+                    <div class="flex items-center space-x-2">
+                        <label class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium border border-zinc-700 transition-colors cursor-pointer relative flex items-center space-x-1.5"
+                               :class="isUploading ? 'opacity-70 pointer-events-none' : ''">
+                            <input type="file" 
+                                   accept="image/png, image/jpeg, image/gif, image/webp" 
+                                   @change="uploadAvatar($event)" 
+                                   class="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                   :disabled="isUploading">
+                            <i class="fa-solid fa-cloud-arrow-up text-xs text-amber-400" :class="isUploading ? 'animate-spin' : ''"></i>
+                            <span x-text="isUploading ? 'Subiendo...' : 'Subir Foto'"></span>
+                        </label>
+                        <button type="button"
+                                @click="customizeModalOpen = true; customTab = 'avatar'"
+                                class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium border border-zinc-700 transition-colors cursor-pointer">
+                            Cambiar
+                        </button>
+                    </div>
                 </div>
 
                 <div>
@@ -685,7 +735,7 @@
             </div>
 
             <!-- Scrollable Content with Live Preview and Form -->
-            <form action="/profile/preferences" method="POST" class="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col">
+            <form action="/profile/preferences" method="POST" enctype="multipart/form-data" class="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col">
                 <div class="p-4 sm:p-6 space-y-5">
                     
                     <!-- Live Preview Box -->
@@ -863,6 +913,41 @@
                                     </div>
                                     <span class="text-[9px] font-mono text-zinc-300 mt-1">Inicial</span>
                                 </button>
+                            </div>
+                        </div>
+
+                        <!-- Direct File Upload Option -->
+                        <div class="p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-700/80 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <label class="text-[11px] font-mono uppercase tracking-wider text-amber-400 font-bold flex items-center">
+                                    <i class="fa-solid fa-cloud-arrow-up mr-1.5"></i> Subir Imagen desde tu dispositivo
+                                </label>
+                                <span class="text-[10px] text-zinc-400">PNG, JPG, WebP o GIF (máx 3 MB)</span>
+                            </div>
+
+                            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                                <label class="flex-1 border-2 border-dashed border-zinc-700 hover:border-amber-400/80 rounded-xl p-3 text-center transition-all bg-zinc-950/60 hover:bg-zinc-900 cursor-pointer relative group"
+                                       :class="isUploading ? 'opacity-70 pointer-events-none' : ''">
+                                    <input type="file" 
+                                           name="avatar_file"
+                                           accept="image/png, image/jpeg, image/gif, image/webp" 
+                                           @change="uploadAvatar($event)" 
+                                           class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                                           :disabled="isUploading">
+                                    <div class="flex items-center justify-center space-x-2.5">
+                                        <template x-if="!isUploading">
+                                            <i class="fa-solid fa-upload text-sm text-zinc-400 group-hover:text-amber-400 transition-colors"></i>
+                                        </template>
+                                        <template x-if="isUploading">
+                                            <i class="fa-solid fa-circle-notch animate-spin text-sm text-amber-400"></i>
+                                        </template>
+                                        <span class="text-xs font-semibold text-zinc-200 group-hover:text-white" 
+                                              x-text="isUploading ? 'Subiendo imagen...' : 'Seleccionar archivo de imagen'"></span>
+                                    </div>
+                                </label>
+                                <span class="text-[11px] text-zinc-400 text-center sm:text-left shrink-0 sm:max-w-[200px]">
+                                    Se guardará como tu avatar oficial en el servidor.
+                                </span>
                             </div>
                         </div>
 

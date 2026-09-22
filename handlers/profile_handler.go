@@ -1,10 +1,16 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"nfl-quiniela-2026/db"
 	"nfl-quiniela-2026/services/auth"
@@ -14,13 +20,18 @@ type ProfileHandler struct {
 	repo        *db.Repository
 	authService *auth.AuthService
 	renderer    *Renderer
+	uploadDir   string
 }
 
-func NewProfileHandler(repo *db.Repository, authService *auth.AuthService, renderer *Renderer) *ProfileHandler {
+func NewProfileHandler(repo *db.Repository, authService *auth.AuthService, renderer *Renderer, uploadDir string) *ProfileHandler {
+	if uploadDir == "" {
+		uploadDir = "uploads"
+	}
 	return &ProfileHandler{
 		repo:        repo,
 		authService: authService,
 		renderer:    renderer,
+		uploadDir:   uploadDir,
 	}
 }
 
@@ -157,6 +168,92 @@ func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *ProfileHandler) saveUploadedAvatar(userID int64, file multipart.File) (string, error) {
+	headerBuf := make([]byte, 512)
+	n, err := file.Read(headerBuf)
+	if err != nil && err != io.EOF {
+		return "", fmt.Errorf("error al leer archivo: %w", err)
+	}
+
+	mimeType := http.DetectContentType(headerBuf[:n])
+	var ext string
+	switch {
+	case strings.HasPrefix(mimeType, "image/jpeg"):
+		ext = ".jpg"
+	case strings.HasPrefix(mimeType, "image/png"):
+		ext = ".png"
+	case strings.HasPrefix(mimeType, "image/gif"):
+		ext = ".gif"
+	case strings.HasPrefix(mimeType, "image/webp"):
+		ext = ".webp"
+	default:
+		return "", fmt.Errorf("formato no permitido: solo JPG, PNG, GIF o WebP")
+	}
+
+	avatarsDir := filepath.Join(h.uploadDir, "avatars")
+	if err := os.MkdirAll(avatarsDir, 0755); err != nil {
+		return "", fmt.Errorf("error al crear directorio de almacenamiento: %w", err)
+	}
+
+	filename := fmt.Sprintf("avatar_%d_%d%s", userID, time.Now().UnixNano(), ext)
+	dstPath := filepath.Join(avatarsDir, filename)
+
+	dst, err := os.Create(dstPath)
+	if err != nil {
+		return "", fmt.Errorf("error al guardar archivo en el servidor: %w", err)
+	}
+	defer dst.Close()
+
+	if _, err := dst.Write(headerBuf[:n]); err != nil {
+		return "", fmt.Errorf("error al escribir encabezado de imagen: %w", err)
+	}
+
+	if _, err := io.Copy(dst, file); err != nil {
+		return "", fmt.Errorf("error al transferir contenido de imagen: %w", err)
+	}
+
+	return "/uploads/avatars/" + filename, nil
+}
+
+func (h *ProfileHandler) HandleUploadAvatar(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	user := auth.GetUserFromContext(r.Context())
+	if user == nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": "No autorizado"})
+		return
+	}
+
+	const maxUploadSize = 3 << 20 // 3MB
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": "El archivo excede el tamaño máximo permitido de 3 MB."})
+		return
+	}
+
+	file, _, err := r.FormFile("avatar")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": "No se recibió ningún archivo de imagen."})
+		return
+	}
+	defer file.Close()
+
+	avatarURL, err := h.saveUploadedAvatar(user.ID, file)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": err.Error()})
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":    true,
+		"avatar_url": avatarURL,
+		"message":    "¡Avatar cargado exitosamente!",
+	})
+}
+
 func (h *ProfileHandler) HandleUpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUserFromContext(r.Context())
 	if user == nil {
@@ -164,12 +261,33 @@ func (h *ProfileHandler) HandleUpdatePreferences(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Error parsing form", http.StatusBadRequest)
-		return
+	// Support both multipart form and standard urlencoded form
+	const maxUploadSize = 3 << 20 // 3MB
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+		r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+		if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+			http.Redirect(w, r, fmt.Sprintf("/profile?err=%s", "El archivo excede el tamaño máximo de 3 MB"), http.StatusSeeOther)
+			return
+		}
+	} else {
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "Error parsing form", http.StatusBadRequest)
+			return
+		}
 	}
 
 	avatarURL := strings.TrimSpace(r.FormValue("avatar_url"))
+
+	// If a new avatar file was directly submitted in the form
+	if r.MultipartForm != nil {
+		if file, _, err := r.FormFile("avatar_file"); err == nil && file != nil {
+			defer file.Close()
+			if uploadedURL, err := h.saveUploadedAvatar(user.ID, file); err == nil && uploadedURL != "" {
+				avatarURL = uploadedURL
+			}
+		}
+	}
+
 	bio := strings.TrimSpace(r.FormValue("bio"))
 	bioRunes := []rune(bio)
 	if len(bioRunes) > 60 {

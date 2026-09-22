@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -110,7 +111,7 @@ func main() {
 
 	// 7. HTTP Handlers
 	authHandler := handlers.NewAuthHandler(authService, repo, emailSender, renderer)
-	profileHandler := handlers.NewProfileHandler(repo, authService, renderer)
+	profileHandler := handlers.NewProfileHandler(repo, authService, renderer, cfg.UploadDir)
 	picksHandler := handlers.NewPicksHandler(repo, renderer, syncer, cfg.CurrentSeasonYear)
 	leaderboardHandler := handlers.NewLeaderboardHandler(repo, renderer, cfg.CurrentSeasonYear)
 	rulesHandler := handlers.NewRulesHandler(repo, renderer)
@@ -135,6 +136,13 @@ func main() {
 		log.Fatalf("Fatal: Failed to load static filesystem: %v", err)
 	}
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(subStaticFS))))
+
+	// Uploaded User Media (/uploads/*)
+	avatarsDir := filepath.Join(cfg.UploadDir, "avatars")
+	if err := os.MkdirAll(avatarsDir, 0755); err != nil {
+		log.Printf("Warning: Failed to create avatars directory %s: %v", avatarsDir, err)
+	}
+	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir(cfg.UploadDir))))
 
 	// Public Routes
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -205,6 +213,7 @@ func main() {
 		// Profile & Preferences
 		player.Get("/profile", profileHandler.ShowProfile)
 		player.Post("/profile/preferences", profileHandler.HandleUpdatePreferences)
+		player.Post("/profile/avatar/upload", profileHandler.HandleUploadAvatar)
 		player.Post("/profile/password", profileHandler.HandleChangePassword)
 	})
 

@@ -26,6 +26,7 @@ type Config struct {
 	SMTPFrom             string
 	AppBaseURL           string
 	EnableReminders      bool
+	UploadDir            string
 }
 
 func LoadConfig() *Config {
@@ -43,6 +44,12 @@ func LoadConfig() *Config {
 	if (dbPath == "quiniela.db" || dbPath == "./quiniela.db") && defaultDBPath == "/app/data/quiniela.db" {
 		dbPath = "/app/data/quiniela.db"
 	}
+
+	defaultUploadDir := "uploads"
+	if fi, err := os.Stat("/app/data"); err == nil && fi.IsDir() {
+		defaultUploadDir = "/app/data/uploads"
+	}
+	uploadDir := getEnv("UPLOAD_DIR", defaultUploadDir)
 
 	databaseURL := getEnv("DATABASE_URL", "")
 	sessionSecret := getEnv("SESSION_SECRET", "super-secret-session-key-change-in-prod-2026")
@@ -81,6 +88,7 @@ func LoadConfig() *Config {
 		SMTPFrom:             smtpFrom,
 		AppBaseURL:           appBaseURL,
 		EnableReminders:      enableReminders,
+		UploadDir:            uploadDir,
 	}
 }
 

@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -633,7 +636,8 @@ func TestProfileHandler(t *testing.T) {
 	repo, authService, renderer, _, cleanup := setupTestApp(t)
 	defer cleanup()
 
-	profileHandler := NewProfileHandler(repo, authService, renderer)
+	testUploads := t.TempDir()
+	profileHandler := NewProfileHandler(repo, authService, renderer, testUploads)
 	u, err := repo.CreateUser("profiletest", "profile@test.com", "hash", "player")
 	if err != nil {
 		t.Fatalf("Failed to create user: %v", err)
@@ -710,6 +714,108 @@ func TestProfileHandler(t *testing.T) {
 	body := rr.Body.String()
 	if strings.Contains(body, "error calling eq") {
 		t.Errorf("Template rendering error detected in profile: %s", body)
+	}
+}
+
+func TestHandleUploadAvatar(t *testing.T) {
+	repo, authService, renderer, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	testUploads := t.TempDir()
+	profileHandler := NewProfileHandler(repo, authService, renderer, testUploads)
+	u, err := repo.CreateUser("uploader", "uploader@test.com", "hash", "player")
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	// 1. Unauthorized request
+	req := httptest.NewRequest(http.MethodPost, "/profile/avatar/upload", nil)
+	rr := httptest.NewRecorder()
+	profileHandler.HandleUploadAvatar(rr, req)
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("Expected 401 Unauthorized, got %d", rr.Code)
+	}
+
+	// 2. Upload invalid text file
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	part, _ := mw.CreateFormFile("avatar", "test.txt")
+	_, _ = part.Write([]byte("this is plain text not an image"))
+	_ = mw.Close()
+
+	req = httptest.NewRequest(http.MethodPost, "/profile/avatar/upload", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req = req.WithContext(injectUser(req.Context(), u))
+	rr = httptest.NewRecorder()
+	profileHandler.HandleUploadAvatar(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request for non-image, got %d", rr.Code)
+	}
+
+	// 3. Upload valid PNG image
+	// Valid minimal 1x1 transparent PNG
+	pngData := []byte{
+		0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+		0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+		0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+		0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+		0x89, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41,
+		0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
+		0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00,
+		0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
+		0x42, 0x60, 0x82,
+	}
+
+	buf.Reset()
+	mw = multipart.NewWriter(&buf)
+	part, _ = mw.CreateFormFile("avatar", "avatar.png")
+	_, _ = part.Write(pngData)
+	_ = mw.Close()
+
+	req = httptest.NewRequest(http.MethodPost, "/profile/avatar/upload", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req = req.WithContext(injectUser(req.Context(), u))
+	rr = httptest.NewRecorder()
+	profileHandler.HandleUploadAvatar(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for valid PNG upload, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var res map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&res); err != nil {
+		t.Fatalf("Failed to parse upload JSON response: %v", err)
+	}
+	avatarURL, ok := res["avatar_url"].(string)
+	if !ok || !strings.HasPrefix(avatarURL, "/uploads/avatars/avatar_") {
+		t.Errorf("Unexpected avatar_url in response: %v", res["avatar_url"])
+	}
+
+	// 4. Test HandleUpdatePreferences with direct multipart avatar_file upload
+	buf.Reset()
+	mw = multipart.NewWriter(&buf)
+	_ = mw.WriteField("favorite_team_id", "1")
+	_ = mw.WriteField("bio", "Upload test bio")
+	part, _ = mw.CreateFormFile("avatar_file", "direct.png")
+	_, _ = part.Write(pngData)
+	_ = mw.Close()
+
+	req = httptest.NewRequest(http.MethodPost, "/profile/preferences", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req = req.WithContext(injectUser(req.Context(), u))
+	rr = httptest.NewRecorder()
+	profileHandler.HandleUpdatePreferences(rr, req)
+
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("Expected 303 SeeOther, got %d", rr.Code)
+	}
+
+	updatedUser, _ := repo.GetUserByID(u.ID)
+	if !strings.HasPrefix(updatedUser.AvatarURL, "/uploads/avatars/avatar_") {
+		t.Errorf("Expected user AvatarURL updated via multipart form, got %s", updatedUser.AvatarURL)
+	}
+	if updatedUser.Bio != "Upload test bio" {
+		t.Errorf("Expected Bio updated, got %s", updatedUser.Bio)
 	}
 }
 
