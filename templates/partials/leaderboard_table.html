@@ -4,14 +4,18 @@
     <div class="md:hidden space-y-2.5">
         {{if .Leaderboard}}
             {{range .Leaderboard}}
-                <div class="p-3.5 rounded-2xl border transition-all {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}bg-zinc-900/90 border-white/40 ring-1 ring-white/20 shadow-md{{else}}bg-zinc-950/80 border-zinc-800/80 hover:border-zinc-700{{end}}">
+                <div class="p-3.5 rounded-2xl border transition-all {{if .IsAI}}bg-indigo-950/20 border-indigo-500/30 hover:border-indigo-500/50 shadow-sm{{else if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}bg-zinc-900/90 border-white/40 ring-1 ring-white/20 shadow-md{{else}}bg-zinc-950/80 border-zinc-800/80 hover:border-zinc-700{{end}}">
                     <div class="flex items-center justify-between">
                         
                         <!-- Left: Rank Badge + Avatar + Player Info -->
                         <div class="flex items-center space-x-2.5 min-w-0">
                             <!-- Rank Badge / Medal -->
                             <div class="flex-shrink-0 w-7 text-center">
-                                {{if eq .Rank 1}}
+                                {{if or .IsAI (eq .Rank 0)}}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/40" title="Bot Oficial de IA (Posición de referencia sin consumir ranking humano)">
+                                        <i class="fa-solid fa-robot mr-1 text-[8px]"></i>IA
+                                    </span>
+                                {{else if eq .Rank 1}}
                                     <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-400/20 text-amber-300 font-black text-sm border border-amber-400/40">🥇</span>
                                 {{else if eq .Rank 2}}
                                     <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-600/20 text-zinc-200 font-black text-sm border border-zinc-500/40">🥈</span>
@@ -24,13 +28,20 @@
 
                             <!-- Avatar & Username clickable link to Profile -->
                             <a href="/profile?user_id={{.UserID}}" class="flex items-center space-x-2.5 min-w-0 group hover:opacity-90 transition-all cursor-pointer">
-                                <div class="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 group-hover:border-cyan-500/80 flex items-center justify-center text-xs font-bold text-white uppercase shrink-0 transition-colors">
-                                    {{slice .Username 0 1}}
+                                <div class="w-8 h-8 rounded-full {{if .IsAI}}bg-indigo-950 border border-indigo-500/50 text-indigo-300{{else}}bg-zinc-800 border border-zinc-700 group-hover:border-cyan-500/80 text-white{{end}} flex items-center justify-center text-xs font-bold uppercase shrink-0 transition-colors">
+                                    {{if .IsAI}}
+                                        <i class="fa-solid fa-robot text-xs text-indigo-300"></i>
+                                    {{else}}
+                                        {{slice .Username 0 1}}
+                                    {{end}}
                                 </div>
 
                                 <div class="min-w-0">
                                     <div class="font-bold text-white text-sm truncate flex items-center group-hover:text-cyan-400 transition-colors">
                                         <span class="truncate">{{.Username}}</span>
+                                        {{if .IsAI}}
+                                            <span class="ml-1.5 text-[9px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-1.5 py-0.2 rounded-full shrink-0">🤖 BOT IA</span>
+                                        {{end}}
                                         {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}
                                             <span class="ml-1.5 text-[9px] font-mono uppercase font-black bg-white text-black px-1.5 py-0.2 rounded-full shrink-0">Tú</span>
                                         {{end}}
@@ -149,11 +160,15 @@
             <tbody class="divide-y divide-[#1a1a1a] text-zinc-200">
                 {{if .Leaderboard}}
                     {{range .Leaderboard}}
-                        <tr class="transition-colors hover:bg-zinc-900/50 {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}bg-zinc-900/80 border-l-2 border-l-white font-medium{{end}}">
+                        <tr class="transition-colors hover:bg-zinc-900/50 {{if .IsAI}}bg-indigo-950/20 border-l-2 border-l-indigo-500 font-medium{{else if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}bg-zinc-900/80 border-l-2 border-l-white font-medium{{end}}">
                             
                             <!-- Rank Column -->
                             <td class="py-3 px-4 text-center">
-                                {{if eq .Rank 1}}
+                                {{if or .IsAI (eq .Rank 0)}}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/40" title="Bot Oficial de IA (Posición de referencia sin consumir ranking humano)">
+                                        <i class="fa-solid fa-robot mr-1 text-[8px]"></i>IA
+                                    </span>
+                                {{else if eq .Rank 1}}
                                     <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-400/10 text-amber-300 font-mono font-bold text-xs border border-amber-400/30">
                                         🥇
                                     </span>
@@ -173,11 +188,18 @@
                             <!-- Player Info -->
                             <td class="py-3 px-4">
                                 <a href="/profile?user_id={{.UserID}}" class="flex items-center space-x-2.5 group hover:opacity-90 transition-all cursor-pointer">
-                                    <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 group-hover:border-cyan-500/80 flex items-center justify-center text-[10px] font-bold text-zinc-200 uppercase transition-colors">
-                                        {{slice .Username 0 1}}
+                                    <div class="w-6 h-6 rounded-full {{if .IsAI}}bg-indigo-950 border border-indigo-500/50 text-indigo-300{{else}}bg-zinc-800 border border-zinc-700 group-hover:border-cyan-500/80 text-zinc-200{{end}} flex items-center justify-center text-[10px] font-bold uppercase transition-colors">
+                                        {{if .IsAI}}
+                                            <i class="fa-solid fa-robot text-[9px] text-indigo-300"></i>
+                                        {{else}}
+                                            {{slice .Username 0 1}}
+                                        {{end}}
                                     </div>
                                     <div class="font-medium text-white flex items-center group-hover:text-cyan-400 transition-colors">
                                         <span>{{.Username}}</span>
+                                        {{if .IsAI}}
+                                            <span class="ml-2 text-[9px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-1.5 py-0.2 rounded-full">🤖 BOT IA</span>
+                                        {{end}}
                                         {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}
                                             <span class="ml-2 text-[9px] font-mono uppercase font-bold bg-white text-black px-1.5 py-0.2 rounded-full">Tú</span>
                                         {{end}}

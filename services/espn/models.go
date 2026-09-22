@@ -44,6 +44,7 @@ type ESPNCompetition struct {
 	Date          string           `json:"date"`
 	Competitors   []ESPNCompetitor `json:"competitors"`
 	Broadcast     string           `json:"broadcast"`
+	Odds          []ESPNOdds       `json:"odds"`
 	GeoBroadcasts []struct {
 		Media struct {
 			ShortName string `json:"shortName"`
@@ -58,6 +59,16 @@ type ESPNCompetition struct {
 			Text string `json:"text"`
 		} `json:"lastPlay"`
 	} `json:"situation"`
+}
+
+type ESPNOdds struct {
+	Details   string  `json:"details"`
+	OverUnder float64 `json:"overUnder"`
+	Spread    float64 `json:"spread"`
+	Provider  struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"provider"`
 }
 
 type ESPNLinescore struct {

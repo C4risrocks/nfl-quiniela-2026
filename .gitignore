@@ -27,3 +27,7 @@
 Thumbs.db
 .idea/
 .vscode/
+
+# Benchmarks & Sandbox experiments
+benchmarks/
+*.pdf

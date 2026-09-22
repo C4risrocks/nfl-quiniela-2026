@@ -37,6 +37,9 @@ func (c *Calculator) evaluateAchievements(week *db.Week, games []*db.Game, leade
 	}
 
 	for _, entry := range leaderboardEntries {
+		if entry.IsAI() {
+			continue // AI bot does not collect human gamification achievements
+		}
 		picks := userPicks[entry.UserID]
 		if len(picks) == 0 {
 			continue

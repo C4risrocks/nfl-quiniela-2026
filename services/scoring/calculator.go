@@ -127,6 +127,9 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 		if u.IsAdmin() {
 			continue
 		}
+		if u.IsBot() && len(userPicks[u.ID]) == 0 {
+			continue
+		}
 		picksList := userPicks[u.ID]
 		totalPts := 0
 		correctCount := 0
@@ -198,6 +201,7 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 			TiebreakerError:         tbError,
 			TiebreakerWinnerCorrect: tbWinnerCorrect,
 			HasLiveGames:            hasLiveGames,
+			IsBot:                   u.IsBot(),
 		}
 		leaderboardEntries = append(leaderboardEntries, entry)
 	}
@@ -232,20 +236,25 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 		return a.Username < b.Username
 	})
 
-	// Assign rank (handling shared ties: 1, 1, 3, 4) and upsert
-	for idx, entry := range leaderboardEntries {
-		if idx > 0 {
-			prev := leaderboardEntries[idx-1]
-			if entry.TotalPoints == prev.TotalPoints &&
-				entry.CorrectPicks == prev.CorrectPicks &&
-				entry.TiebreakerWinnerCorrect == prev.TiebreakerWinnerCorrect &&
-				entry.TiebreakerError == prev.TiebreakerError {
-				entry.Rank = prev.Rank
-			} else {
-				entry.Rank = idx + 1
-			}
+	// Assign rank with Ghost Ranking for bot (handling shared ties: 1, 1, 3, 4) and upsert:
+	// The AI Bot (@ia_quiniela) participates as a ghost/reference benchmark:
+	// it appears in its score position, but does NOT consume human rank or displace human competitors from the podium.
+	humanRankCounter := 0
+	var prevHuman *db.LeaderboardEntry
+	for _, entry := range leaderboardEntries {
+		if entry.IsBot {
+			entry.Rank = 0
 		} else {
-			entry.Rank = 1
+			humanRankCounter++
+			if prevHuman != nil && entry.TotalPoints == prevHuman.TotalPoints &&
+				entry.CorrectPicks == prevHuman.CorrectPicks &&
+				entry.TiebreakerWinnerCorrect == prevHuman.TiebreakerWinnerCorrect &&
+				entry.TiebreakerError == prevHuman.TiebreakerError {
+				entry.Rank = prevHuman.Rank
+			} else {
+				entry.Rank = humanRankCounter
+			}
+			prevHuman = entry
 		}
 		if err := c.repo.UpsertWeeklyLeaderboard(entry, weekID); err != nil {
 			log.Printf("[Scoring] Error saving weekly leaderboard for user %d: %v", entry.UserID, err)

@@ -13,6 +13,11 @@
      data-is-tiebreaker="{{.Game.IsTiebreaker}}"
      data-locked="{{$locked}}"
      data-scoring-mode="{{$scoringMode}}"
+     {{if .Game.Forecast}}
+     data-ai-winner-id="{{.Game.Forecast.PredictedWinnerID}}"
+     data-ai-home-score="{{.Game.Forecast.ProjHomeScore}}"
+     data-ai-away-score="{{.Game.Forecast.ProjAwayScore}}"
+     {{end}}
      data-broadcasts="{{range .Game.MexicoBroadcastOptions}}{{.Name}},{{end}}"
      x-show="(typeof activePlatform === 'undefined' || activePlatform === 'all' || '{{range .Game.MexicoBroadcastOptions}}{{.Name}},{{end}}'.toLowerCase().includes(activePlatform)) && (typeof viewMode === 'undefined' || viewMode !== 'focus' || (typeof focusIndex !== 'undefined' && focusIndex === {{if ne .GameIndex nil}}{{printf "%d" .GameIndex}}{{else}}0{{end}}))"
      x-data="{ 
@@ -176,6 +181,7 @@
             <button type="button"
                     @click="selectTeam('{{.Game.AwayTeamID}}')"
                     {{if $locked}}disabled{{end}}
+                    data-team-id="{{.Game.AwayTeamID}}"
                     data-is-community-fav="{{if eq .Game.CommunityFavoriteTeamID .Game.AwayTeamID}}true{{else}}false{{end}}"
                     :class="(pickedTeam == '{{.Game.AwayTeamID}}' ? 'bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60') + (typeof viewMode !== 'undefined' && viewMode === 'compact' ? ' !p-2 min-h-[46px]' : ' min-h-[54px]')"
                     class="w-full p-2.5 sm:p-3 rounded-xl border transition-all relative group {{if $awayPicked}}bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md{{else}}bg-zinc-950/60 border-[#222222]{{end}} {{if $locked}}cursor-default opacity-80{{else}}cursor-pointer hover:scale-[1.01]{{end}}">
@@ -218,6 +224,7 @@
             <button type="button"
                     @click="selectTeam('{{.Game.HomeTeamID}}')"
                     {{if $locked}}disabled{{end}}
+                    data-team-id="{{.Game.HomeTeamID}}"
                     data-is-community-fav="{{if eq .Game.CommunityFavoriteTeamID .Game.HomeTeamID}}true{{else}}false{{end}}"
                     :class="(pickedTeam == '{{.Game.HomeTeamID}}' ? 'bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md scale-[1.01]' : 'bg-zinc-950/60 border-[#222222] hover:border-zinc-700 hover:bg-zinc-900/60') + (typeof viewMode !== 'undefined' && viewMode === 'compact' ? ' !p-2 min-h-[46px]' : ' min-h-[54px]')"
                     class="w-full p-2.5 sm:p-3 rounded-xl border transition-all relative group {{if $homePicked}}bg-zinc-900 border-white/60 ring-1 ring-white/30 shadow-md{{else}}bg-zinc-950/60 border-[#222222]{{end}} {{if $locked}}cursor-default opacity-80{{else}}cursor-pointer hover:scale-[1.01]{{end}}">
@@ -250,6 +257,93 @@
             </button>
         </div>
     </div>
+
+    <!-- AI Forecast & Audit Strip -->
+    {{if .Game.Forecast}}
+        <div class="my-2 p-2 rounded-xl bg-zinc-950/80 border border-zinc-800/80 text-xs shadow-inner"
+             x-data="{ showAudit: false }"
+             @click.away="showAudit = false">
+            <div class="flex items-center justify-between gap-1.5 flex-wrap">
+                <!-- Left: Forecast Winner, Probability & Projected Score -->
+                <div class="flex items-center space-x-1.5 min-w-0">
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                        <i class="fa-solid fa-robot mr-1 text-[9px]"></i>IA
+                    </span>
+                    <span class="text-white font-black text-xs">
+                        {{if .Game.Forecast.PredictedWinner}}{{.Game.Forecast.PredictedWinner.Code}}{{else}}--{{end}}
+                    </span>
+                    <span class="text-[11px] font-mono text-zinc-400 font-semibold">
+                        {{.Game.Forecast.WinProbabilityPct}}%
+                    </span>
+                    <span class="text-zinc-600 text-[10px]">•</span>
+                    <span class="text-[11px] font-mono text-zinc-300" title="Marcador Proyectado (Visitante - Local)">
+                        {{.Game.AwayTeam.Code}} {{.Game.Forecast.ProjAwayScore}} - {{.Game.Forecast.ProjHomeScore}} {{.Game.HomeTeam.Code}}
+                    </span>
+                </div>
+
+                <!-- Right: Consensus Badge & Info Popover Trigger -->
+                <div class="flex items-center space-x-1 shrink-0 relative">
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border {{.Game.Forecast.BadgeClass}}">
+                        {{if eq .Game.Forecast.ConsensusLevel "high"}}
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1"></span>
+                        {{else if eq .Game.Forecast.ConsensusLevel "upset_alert"}}
+                            <i class="fa-solid fa-bolt text-amber-400 mr-1 text-[8px]"></i>
+                        {{else}}
+                            <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 mr-1"></span>
+                        {{end}}
+                        {{.Game.Forecast.ConsensusLabel}}
+                    </span>
+
+                    <!-- Audit Popover Button -->
+                    <button type="button"
+                            @click="showAudit = !showAudit"
+                            class="w-5 h-5 rounded-full bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center text-[10px] transition-colors cursor-pointer"
+                            title="Ver fuentes y auditoría de esta corrida de pronóstico">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </button>
+
+                    <!-- Interactive Audit Traceability Popover -->
+                    <div x-show="showAudit"
+                         x-cloak
+                         class="absolute bottom-full right-0 mb-2 w-72 sm:w-80 p-3 bg-zinc-950 border border-zinc-700 rounded-xl shadow-2xl z-50 text-left text-xs space-y-2 backdrop-blur-md">
+                        <div class="flex items-center justify-between border-b border-zinc-800 pb-1.5">
+                            <span class="font-bold text-white flex items-center text-[11px]">
+                                <i class="fa-solid fa-microchip text-indigo-400 mr-1.5"></i> Auditoría de Corrida IA
+                            </span>
+                            <button type="button" @click="showAudit = false" class="text-zinc-500 hover:text-white text-xs cursor-pointer">&times;</button>
+                        </div>
+                        <div class="text-[11px] space-y-1.5 text-zinc-300">
+                            <div>
+                                <strong class="text-zinc-400 block text-[10px] uppercase font-mono">Fuentes Utilizadas:</strong>
+                                <span>{{.Game.Forecast.SourcesSummary}}</span>
+                            </div>
+                            <div>
+                                <strong class="text-zinc-400 block text-[10px] uppercase font-mono">Estado de Cuotas ESPN:</strong>
+                                {{if .Game.Forecast.ESPNAvailable}}
+                                    <span class="text-emerald-400 flex items-center">
+                                        <i class="fa-solid fa-check-circle mr-1 text-[10px]"></i> Cuotas y líneas de apuestas disponibles
+                                    </span>
+                                {{else}}
+                                    <span class="text-amber-400 flex items-center">
+                                        <i class="fa-solid fa-triangle-exclamation mr-1 text-[10px]"></i> Cuotas de ESPN no disponibles al momento de la corrida
+                                    </span>
+                                {{end}}
+                            </div>
+                            {{if .Game.Forecast.AuditNotes}}
+                                <div class="p-2 rounded bg-zinc-900/90 border border-zinc-800 text-[10px] leading-relaxed text-zinc-300">
+                                    {{.Game.Forecast.AuditNotes}}
+                                </div>
+                            {{end}}
+                            <div class="pt-1 border-t border-zinc-900 text-[9px] font-mono text-zinc-500 flex justify-between">
+                                <span>Corrida: {{.Game.Forecast.CalculatedAt.Format "02 Jan 15:04"}}</span>
+                                <span>FiveThirtyEight Elo</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {{end}}
 
     <!-- Community Consensus Breakdown Bar -->
     {{if gt .Game.TotalPicks 0}}

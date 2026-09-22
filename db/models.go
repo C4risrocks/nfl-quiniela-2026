@@ -43,6 +43,10 @@ func (u *User) IsAdmin() bool {
 	return u.Role == "admin"
 }
 
+func (u *User) IsBot() bool {
+	return u != nil && (u.Username == "ia_quiniela" || u.Role == "bot")
+}
+
 // UserStats represents aggregated user performance metrics
 type UserStats struct {
 	TotalPicks   int     `json:"total_picks"`
@@ -161,6 +165,9 @@ type Game struct {
 	HomePickCount int `json:"home_pick_count,omitempty"`
 	AwayPickCount int `json:"away_pick_count,omitempty"`
 	TotalPicks    int `json:"total_picks,omitempty"`
+
+	// AI forecast and odds consensus
+	Forecast *GameForecast `json:"forecast,omitempty"`
 }
 
 // LinescoreMatrix represents quarters breakdown for matchcast
@@ -965,7 +972,12 @@ type LeaderboardEntry struct {
 	WinPercentage           float64            `json:"win_percentage"`
 	HasTiebreaker           bool               `json:"has_tiebreaker"`
 	HasLiveGames            bool               `json:"has_live_games"`
+	IsBot                   bool               `json:"is_bot"`
 	Achievements            []*UserAchievement `json:"achievements,omitempty"`
+}
+
+func (e *LeaderboardEntry) IsAI() bool {
+	return e != nil && (e.IsBot || e.Username == "ia_quiniela")
 }
 
 // DistinctAchievements returns achievements deduplicated by BadgeCode
@@ -1286,4 +1298,83 @@ type UserAchievementDisplay struct {
 	IsUnlocked bool
 	UnlockedAt *time.Time
 	WeekNumber *int
+}
+
+// GameForecast represents the AI model projection and odds consensus for a game
+type GameForecast struct {
+	GameID            int64      `json:"game_id"`
+	EloHomeProb       float64    `json:"elo_home_prob"`
+	EloAwayProb       float64    `json:"elo_away_prob"`
+	EloSpread         float64    `json:"elo_spread"`
+	ProjHomeScore     int        `json:"proj_home_score"`
+	ProjAwayScore     int        `json:"proj_away_score"`
+	PredictedWinnerID int64      `json:"predicted_winner_id"`
+	VegasFavoriteID   *int64     `json:"vegas_favorite_id,omitempty"`
+	VegasSpread       *float64   `json:"vegas_spread,omitempty"`
+	ConsensusLevel    string     `json:"consensus_level"` // "high", "moderate", "upset_alert"
+	ESPNAvailable     bool       `json:"espn_available"`
+	SourcesSummary    string     `json:"sources_summary"`
+	AuditNotes        string     `json:"audit_notes"`
+	CalculatedAt      time.Time  `json:"calculated_at"`
+
+	// Relational helpers
+	PredictedWinner   *Team      `json:"predicted_winner,omitempty"`
+}
+
+func (f *GameForecast) WinProbabilityPct() int {
+	if f == nil {
+		return 50
+	}
+	maxProb := f.EloHomeProb
+	if f.EloAwayProb > maxProb {
+		maxProb = f.EloAwayProb
+	}
+	return int(math.Round(maxProb * 100))
+}
+
+func (f *GameForecast) HomeProbPct() int {
+	if f == nil {
+		return 50
+	}
+	return int(math.Round(f.EloHomeProb * 100))
+}
+
+func (f *GameForecast) AwayProbPct() int {
+	if f == nil {
+		return 50
+	}
+	return int(math.Round(f.EloAwayProb * 100))
+}
+
+func (f *GameForecast) BadgeClass() string {
+	if f == nil {
+		return "bg-zinc-800 text-zinc-300 border-zinc-700"
+	}
+	switch f.ConsensusLevel {
+	case "high":
+		return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+	case "upset_alert":
+		return "bg-amber-500/15 text-amber-300 border-amber-500/30"
+	default:
+		return "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
+	}
+}
+
+func (f *GameForecast) ConsensusLabel() string {
+	if f == nil {
+		return "Sin pronóstico"
+	}
+	switch f.ConsensusLevel {
+	case "high":
+		return "Consenso Fuerte"
+	case "upset_alert":
+		return "Alerta Sorpresa"
+	case "moderate":
+		return "Consenso Moderado"
+	default:
+		if !f.ESPNAvailable {
+			return "Modelo Elo Puro"
+		}
+		return "Consenso IA"
+	}
 }

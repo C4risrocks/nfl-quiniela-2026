@@ -158,13 +158,19 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 	var confirmedPoints, provisionalPoints int
 
 	var weekCommunityStats map[int64]*db.GameCommunityStats
+	var weekForecasts map[int64]*db.GameForecast
 	if selectedWeek != nil {
 		weekCommunityStats, _ = h.repo.GetWeekCommunityStats(selectedWeek.ID)
+		weekForecasts, _ = h.repo.GetWeekForecasts(selectedWeek.ID)
 	}
 
 	for _, g := range games {
 		if p, ok := userPicksMap[g.ID]; ok {
 			g.UserPick = p
+		}
+
+		if weekForecasts != nil {
+			g.Forecast = weekForecasts[g.ID]
 		}
 
 		// Community pick counts

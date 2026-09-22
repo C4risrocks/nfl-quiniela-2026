@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"nfl-quiniela-2026/db"
 	"nfl-quiniela-2026/services/events"
+	"nfl-quiniela-2026/services/forecasting"
 )
 
 type ScoreCalculator interface {
@@ -141,6 +143,35 @@ func (s *Syncer) SyncWeek(weekNum int) (count int, err error) {
 		if err := s.repo.UpsertGameByESPNID(game); err != nil {
 			log.Printf("[Syncer] Error upserting game %s: %v", ev.ID, err)
 			continue
+		}
+
+		// Calculate and store AI forecast & odds consensus
+		if game.HomeTeam != nil && game.AwayTeam != nil && game.ID > 0 {
+			var oddsInput *forecasting.OddsInput
+			if len(event.Competitions) > 0 && len(event.Competitions[0].Odds) > 0 {
+				o := event.Competitions[0].Odds[0]
+				prov := o.Provider.Name
+				if prov == "" {
+					prov = "DraftKings"
+				}
+				favCode := ""
+				parts := strings.Fields(o.Details)
+				if len(parts) >= 1 && parts[0] != "EVEN" {
+					favCode = parts[0]
+				}
+				oddsInput = &forecasting.OddsInput{
+					Details:          o.Details,
+					OverUnder:        o.OverUnder,
+					Spread:           o.Spread,
+					Provider:         prov,
+					FavoriteTeamCode: favCode,
+				}
+			}
+			predictor := forecasting.NewPredictor()
+			forecast := predictor.PredictGame(game, game.HomeTeam, game.AwayTeam, oddsInput)
+			if err := s.repo.SaveGameForecast(forecast); err != nil {
+				log.Printf("[Syncer] Warning saving forecast for game %d: %v", game.ID, err)
+			}
 		}
 
 		// Detect state changes for real-time live alerts
@@ -361,6 +392,10 @@ func (s *Syncer) SyncWeek(weekNum int) (count int, err error) {
 			week.Status = newStatus
 		}
 	}
+
+	// Ensure official AI bot picks for this week are up-to-date
+	botWorker := forecasting.NewBotWorker(s.repo)
+	_ = botWorker.EnsureBotPicksForWeek(week.ID)
 
 	// Trigger score recalculation
 	if s.calculator != nil {

@@ -204,6 +204,46 @@ func (d *DB) migrate() error {
 		}
 	}
 
+	// Create game_forecasts table if not exists
+	createForecastsTable := `
+	CREATE TABLE IF NOT EXISTS game_forecasts (
+		game_id INTEGER PRIMARY KEY REFERENCES games(id) ON DELETE CASCADE,
+		elo_home_prob REAL NOT NULL DEFAULT 0.5,
+		elo_away_prob REAL NOT NULL DEFAULT 0.5,
+		elo_spread REAL NOT NULL DEFAULT 0.0,
+		proj_home_score INTEGER NOT NULL DEFAULT 21,
+		proj_away_score INTEGER NOT NULL DEFAULT 20,
+		predicted_winner_id INTEGER NOT NULL REFERENCES teams(id),
+		vegas_favorite_id INTEGER DEFAULT NULL REFERENCES teams(id),
+		vegas_spread REAL DEFAULT NULL,
+		consensus_level TEXT NOT NULL DEFAULT 'neutral',
+		espn_available BOOLEAN NOT NULL DEFAULT 1,
+		sources_summary TEXT NOT NULL DEFAULT '',
+		audit_notes TEXT NOT NULL DEFAULT '',
+		calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	)`
+	if d.DriverName == "pgx" {
+		createForecastsTable = strings.ReplaceAll(createForecastsTable, "BOOLEAN NOT NULL DEFAULT 1", "BOOLEAN NOT NULL DEFAULT TRUE")
+	}
+	if _, err := d.Exec(createForecastsTable); err != nil {
+		log.Printf("[DB] Warning creating game_forecasts table: %v", err)
+	}
+	_, _ = d.Exec(`CREATE INDEX IF NOT EXISTS idx_forecasts_game_id ON game_forecasts(game_id)`)
+
+	// Seed official AI bot user (@ia_quiniela) if not exists
+	seedBotUser := `
+	INSERT INTO users (username, email, password_hash, role, email_verified, bio, avatar_url, notify_email)
+	SELECT 'ia_quiniela', 'ia@quiniela.internal', 'NOPASSWORD_BOT_ACCOUNT', 'player', 1, '🤖 Bot Oficial de Inteligencia Artificial de la Quiniela. Pronósticos generados con FiveThirtyEight Elo y consenso de Las Vegas.', '/static/icons/bot_avatar.svg', 0
+	WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'ia_quiniela');
+	`
+	if d.DriverName == "pgx" {
+		seedBotUser = strings.ReplaceAll(seedBotUser, "1, '🤖", "TRUE, '🤖")
+		seedBotUser = strings.ReplaceAll(seedBotUser, ", 0\n", ", FALSE\n")
+	}
+	if _, err := d.Exec(seedBotUser); err != nil {
+		log.Printf("[DB] Warning seeding bot user: %v", err)
+	}
+
 	return nil
 }
 

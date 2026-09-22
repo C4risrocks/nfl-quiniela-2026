@@ -1425,19 +1425,26 @@ func (r *Repository) GetWeeklyLeaderboard(weekID int64) ([]*LeaderboardEntry, er
 	}
 
 	// Standard competition ranking (1224 ranking) for weekly standings:
-	// If two entries have the same points, same correct picks, same tiebreaker winner pick, and same tiebreaker error, they share the rank.
-	for i, entry := range entries {
-		if i > 0 {
-			prev := entries[i-1]
-			if entry.TotalPoints == prev.TotalPoints &&
-				entry.CorrectPicks == prev.CorrectPicks &&
-				entry.TiebreakerWinnerCorrect == prev.TiebreakerWinnerCorrect &&
-				entry.TiebreakerError == prev.TiebreakerError {
-				entry.Rank = prev.Rank
-				continue
-			}
+	// The AI Bot (@ia_quiniela) participates as a ghost/reference benchmark:
+	// it appears in its score position, but does NOT consume human rank or displace human competitors from the podium.
+	humanRankCounter := 0
+	var prevHuman *LeaderboardEntry
+	for _, entry := range entries {
+		entry.IsBot = (entry.Username == "ia_quiniela")
+		if entry.IsBot {
+			entry.Rank = 0
+			continue
 		}
-		entry.Rank = i + 1
+		humanRankCounter++
+		if prevHuman != nil && entry.TotalPoints == prevHuman.TotalPoints &&
+			entry.CorrectPicks == prevHuman.CorrectPicks &&
+			entry.TiebreakerWinnerCorrect == prevHuman.TiebreakerWinnerCorrect &&
+			entry.TiebreakerError == prevHuman.TiebreakerError {
+			entry.Rank = prevHuman.Rank
+		} else {
+			entry.Rank = humanRankCounter
+		}
+		prevHuman = entry
 	}
 
 	return entries, nil
@@ -1454,7 +1461,7 @@ func (r *Repository) GetSeasonLeaderboard(seasonID int64) ([]*LeaderboardEntry, 
 	    weekly_leaderboard wl
 	    JOIN weeks w ON wl.week_id = w.id AND w.season_id = ?
 	) ON u.id = wl.user_id
-	WHERE COALESCE(u.role, 'player') != 'admin'
+	WHERE COALESCE(u.role, 'player') != 'admin' AND (u.username != 'ia_quiniela' OR wl.user_id IS NOT NULL)
 	GROUP BY u.id, u.username, u.avatar_url
 	ORDER BY grand_total_points DESC, 
 	         grand_correct_picks DESC, 
@@ -1481,19 +1488,24 @@ func (r *Repository) GetSeasonLeaderboard(seasonID int64) ([]*LeaderboardEntry, 
 		entries = append(entries, &e)
 	}
 
-	// Standard competition ranking (1224 ranking) for season standings:
-	// Points > Correct Picks > Win Percentage. If all are equal, players share the rank.
-	for i, entry := range entries {
-		if i > 0 {
-			prev := entries[i-1]
-			if entry.TotalPoints == prev.TotalPoints &&
-				entry.CorrectPicks == prev.CorrectPicks &&
-				math.Abs(entry.WinPercentage-prev.WinPercentage) < 0.001 {
-				entry.Rank = prev.Rank
-				continue
-			}
+	// Standard competition ranking (1224 ranking) for season standings with Ghost Ranking for bot:
+	humanRankCounter := 0
+	var prevHuman *LeaderboardEntry
+	for _, entry := range entries {
+		entry.IsBot = (entry.Username == "ia_quiniela")
+		if entry.IsBot {
+			entry.Rank = 0
+			continue
 		}
-		entry.Rank = i + 1
+		humanRankCounter++
+		if prevHuman != nil && entry.TotalPoints == prevHuman.TotalPoints &&
+			entry.CorrectPicks == prevHuman.CorrectPicks &&
+			math.Abs(entry.WinPercentage-prevHuman.WinPercentage) < 0.001 {
+			entry.Rank = prevHuman.Rank
+		} else {
+			entry.Rank = humanRankCounter
+		}
+		prevHuman = entry
 	}
 
 	return entries, nil
@@ -1842,6 +1854,9 @@ func (r *Repository) GetPicksMatrixForWeek(weekID int64, currentUserID int64) (*
 
 	var rows []*PicksMatrixRow
 	for _, player := range players {
+		if player.Username == "ia_quiniela" && len(picksMap[player.ID]) == 0 {
+			continue
+		}
 		row := &PicksMatrixRow{
 			User:      player,
 			IsCurrent: currentUserID > 0 && currentUserID == player.ID,
@@ -2167,5 +2182,109 @@ func (r *Repository) GetHeadToHeadSeasonHistory(userAID, userBID, seasonID int64
 	history.MaxMarginWinner = maxMarginWinner
 
 	return history, nil
+}
+
+// ----------------------------------------------------
+// AI Game Forecasts & Odds Consensus
+// ----------------------------------------------------
+
+func (r *Repository) SaveGameForecast(f *GameForecast) error {
+	query := `
+	INSERT INTO game_forecasts (
+		game_id, elo_home_prob, elo_away_prob, elo_spread,
+		proj_home_score, proj_away_score, predicted_winner_id,
+		vegas_favorite_id, vegas_spread, consensus_level,
+		espn_available, sources_summary, audit_notes, calculated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	ON CONFLICT(game_id) DO UPDATE SET
+		elo_home_prob = excluded.elo_home_prob,
+		elo_away_prob = excluded.elo_away_prob,
+		elo_spread = excluded.elo_spread,
+		proj_home_score = excluded.proj_home_score,
+		proj_away_score = excluded.proj_away_score,
+		predicted_winner_id = excluded.predicted_winner_id,
+		vegas_favorite_id = excluded.vegas_favorite_id,
+		vegas_spread = excluded.vegas_spread,
+		consensus_level = excluded.consensus_level,
+		espn_available = excluded.espn_available,
+		sources_summary = excluded.sources_summary,
+		audit_notes = excluded.audit_notes,
+		calculated_at = CURRENT_TIMESTAMP;`
+
+	_, err := r.db.Exec(query,
+		f.GameID, f.EloHomeProb, f.EloAwayProb, f.EloSpread,
+		f.ProjHomeScore, f.ProjAwayScore, f.PredictedWinnerID,
+		f.VegasFavoriteID, f.VegasSpread, f.ConsensusLevel,
+		f.ESPNAvailable, f.SourcesSummary, f.AuditNotes,
+	)
+	return err
+}
+
+func (r *Repository) GetGameForecast(gameID int64) (*GameForecast, error) {
+	query := `
+	SELECT f.game_id, f.elo_home_prob, f.elo_away_prob, f.elo_spread,
+	       f.proj_home_score, f.proj_away_score, f.predicted_winner_id,
+	       f.vegas_favorite_id, f.vegas_spread, f.consensus_level,
+	       f.espn_available, f.sources_summary, f.audit_notes, f.calculated_at,
+	       t.id, t.name, t.city, t.code, t.primary_color, t.secondary_color, t.logo_url
+	FROM game_forecasts f
+	JOIN teams t ON f.predicted_winner_id = t.id
+	WHERE f.game_id = ?`
+
+	var f GameForecast
+	var calcAtStr string
+	var team Team
+	err := r.db.QueryRow(query, gameID).Scan(
+		&f.GameID, &f.EloHomeProb, &f.EloAwayProb, &f.EloSpread,
+		&f.ProjHomeScore, &f.ProjAwayScore, &f.PredictedWinnerID,
+		&f.VegasFavoriteID, &f.VegasSpread, &f.ConsensusLevel,
+		&f.ESPNAvailable, &f.SourcesSummary, &f.AuditNotes, &calcAtStr,
+		&team.ID, &team.Name, &team.City, &team.Code, &team.PrimaryColor, &team.SecondaryColor, &team.LogoURL,
+	)
+	if err != nil {
+		return nil, err
+	}
+	f.CalculatedAt = parseTimeSafe(calcAtStr)
+	f.PredictedWinner = &team
+	return &f, nil
+}
+
+func (r *Repository) GetWeekForecasts(weekID int64) (map[int64]*GameForecast, error) {
+	query := `
+	SELECT f.game_id, f.elo_home_prob, f.elo_away_prob, f.elo_spread,
+	       f.proj_home_score, f.proj_away_score, f.predicted_winner_id,
+	       f.vegas_favorite_id, f.vegas_spread, f.consensus_level,
+	       f.espn_available, f.sources_summary, f.audit_notes, f.calculated_at,
+	       t.id, t.name, t.city, t.code, t.primary_color, t.secondary_color, t.logo_url
+	FROM game_forecasts f
+	JOIN games g ON f.game_id = g.id
+	JOIN teams t ON f.predicted_winner_id = t.id
+	WHERE g.week_id = ?`
+
+	rows, err := r.db.Query(query, weekID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	forecasts := make(map[int64]*GameForecast)
+	for rows.Next() {
+		var f GameForecast
+		var calcAtStr string
+		var team Team
+		if err := rows.Scan(
+			&f.GameID, &f.EloHomeProb, &f.EloAwayProb, &f.EloSpread,
+			&f.ProjHomeScore, &f.ProjAwayScore, &f.PredictedWinnerID,
+			&f.VegasFavoriteID, &f.VegasSpread, &f.ConsensusLevel,
+			&f.ESPNAvailable, &f.SourcesSummary, &f.AuditNotes, &calcAtStr,
+			&team.ID, &team.Name, &team.City, &team.Code, &team.PrimaryColor, &team.SecondaryColor, &team.LogoURL,
+		); err != nil {
+			return nil, err
+		}
+		f.CalculatedAt = parseTimeSafe(calcAtStr)
+		f.PredictedWinner = &team
+		forecasts[f.GameID] = &f
+	}
+	return forecasts, nil
 }
 

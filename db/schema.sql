@@ -142,3 +142,22 @@ CREATE TABLE IF NOT EXISTS user_achievements (
 
 CREATE INDEX IF NOT EXISTS idx_achievements_user ON user_achievements(user_id);
 CREATE INDEX IF NOT EXISTS idx_achievements_badge ON user_achievements(badge_code);
+
+CREATE TABLE IF NOT EXISTS game_forecasts (
+    game_id INTEGER PRIMARY KEY REFERENCES games(id) ON DELETE CASCADE,
+    elo_home_prob REAL NOT NULL DEFAULT 0.5,
+    elo_away_prob REAL NOT NULL DEFAULT 0.5,
+    elo_spread REAL NOT NULL DEFAULT 0.0,
+    proj_home_score INTEGER NOT NULL DEFAULT 21,
+    proj_away_score INTEGER NOT NULL DEFAULT 20,
+    predicted_winner_id INTEGER NOT NULL REFERENCES teams(id),
+    vegas_favorite_id INTEGER DEFAULT NULL REFERENCES teams(id),
+    vegas_spread REAL DEFAULT NULL,
+    consensus_level TEXT NOT NULL DEFAULT 'neutral', -- 'high', 'moderate', 'upset_alert'
+    espn_available BOOLEAN NOT NULL DEFAULT 1,
+    sources_summary TEXT NOT NULL DEFAULT '',
+    audit_notes TEXT NOT NULL DEFAULT '',
+    calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_forecasts_game_id ON game_forecasts(game_id);

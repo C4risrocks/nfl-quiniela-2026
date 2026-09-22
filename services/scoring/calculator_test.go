@@ -400,4 +400,111 @@ func TestTiebreakerWinnerPriorityAndPointsSupremacy(t *testing.T) {
 	}
 }
 
+func TestGhostRankingBotDoesNotDisplaceHumanPodium(t *testing.T) {
+	testDB := "test_ghost_ranking.db"
+	defer os.Remove(testDB)
+
+	database, err := db.InitDB("sqlite", testDB)
+	if err != nil {
+		t.Fatalf("InitDB error: %v", err)
+	}
+	defer database.Close()
+
+	repo := db.NewRepository(database)
+	_ = db.SeedDatabase(repo, "admin", "admin@test.com", "pass", 2026)
+
+	season, err := repo.GetActiveSeason(2026)
+	if err != nil || season == nil {
+		t.Fatalf("Season not found: %v", err)
+	}
+
+	week, err := repo.GetWeekByNumber(season.ID, 1)
+	if err != nil || week == nil {
+		t.Fatalf("Week 1 not found: %v", err)
+	}
+
+	// Create 4 human players and 1 bot
+	humanA, _ := repo.CreateUser("Carlos_1st", "carlos@test.com", "pass", "player")
+	botUser, _ := repo.GetUserByUsername("ia_quiniela") // Seeded automatically in migrate()
+	if botUser == nil {
+		botUser, _ = repo.CreateUser("ia_quiniela", "ia@internal.com", "pass", "player")
+	}
+	humanB, _ := repo.CreateUser("Maria_2nd", "maria@test.com", "pass", "player")
+	humanC, _ := repo.CreateUser("Juan_3rd", "juan@test.com", "pass", "player")
+	humanD, _ := repo.CreateUser("Pedro_4th", "pedro@test.com", "pass", "player")
+
+	// We insert weekly leaderboard rows to test ranking:
+	// Carlos_1st: 25 pts -> Must be Rank 1 (Gold 🥇)
+	// ia_quiniela: 22 pts -> Must be Rank 0 (Ghost / Reference 🤖)
+	// Maria_2nd: 20 pts  -> Must be Rank 2 (Silver 🥈, NOT displaced to 3!)
+	// Juan_3rd:  18 pts  -> Must be Rank 3 (Bronze 🥉, NOT displaced off podium to 4!)
+	// Pedro_4th: 15 pts  -> Must be Rank 4
+
+	_ = repo.UpsertWeeklyLeaderboard(&db.LeaderboardEntry{
+		UserID: humanA.ID, Username: humanA.Username, TotalPoints: 25, CorrectPicks: 12, TotalPicks: 16,
+	}, week.ID)
+	_ = repo.UpsertWeeklyLeaderboard(&db.LeaderboardEntry{
+		UserID: botUser.ID, Username: botUser.Username, TotalPoints: 22, CorrectPicks: 11, TotalPicks: 16,
+	}, week.ID)
+	_ = repo.UpsertWeeklyLeaderboard(&db.LeaderboardEntry{
+		UserID: humanB.ID, Username: humanB.Username, TotalPoints: 20, CorrectPicks: 10, TotalPicks: 16,
+	}, week.ID)
+	_ = repo.UpsertWeeklyLeaderboard(&db.LeaderboardEntry{
+		UserID: humanC.ID, Username: humanC.Username, TotalPoints: 18, CorrectPicks: 9, TotalPicks: 16,
+	}, week.ID)
+	_ = repo.UpsertWeeklyLeaderboard(&db.LeaderboardEntry{
+		UserID: humanD.ID, Username: humanD.Username, TotalPoints: 15, CorrectPicks: 8, TotalPicks: 16,
+	}, week.ID)
+
+	// Fetch weekly leaderboard and verify ranks
+	weeklyLB, err := repo.GetWeeklyLeaderboard(week.ID)
+	if err != nil {
+		t.Fatalf("GetWeeklyLeaderboard failed: %v", err)
+	}
+
+	lbMap := make(map[string]*db.LeaderboardEntry)
+	for _, e := range weeklyLB {
+		lbMap[e.Username] = e
+	}
+
+	if lbMap["Carlos_1st"].Rank != 1 {
+		t.Errorf("Expected Carlos_1st to be Rank 1, got %d", lbMap["Carlos_1st"].Rank)
+	}
+	if lbMap["ia_quiniela"].Rank != 0 {
+		t.Errorf("Expected ia_quiniela to have Ghost Rank 0, got %d", lbMap["ia_quiniela"].Rank)
+	}
+	if lbMap["Maria_2nd"].Rank != 2 {
+		t.Errorf("Expected Maria_2nd to be Rank 2 (Silver), got %d (bot displaced human!)", lbMap["Maria_2nd"].Rank)
+	}
+	if lbMap["Juan_3rd"].Rank != 3 {
+		t.Errorf("Expected Juan_3rd to be Rank 3 (Bronze Podium), got %d (bot displaced human off podium!)", lbMap["Juan_3rd"].Rank)
+	}
+	if lbMap["Pedro_4th"].Rank != 4 {
+		t.Errorf("Expected Pedro_4th to be Rank 4, got %d", lbMap["Pedro_4th"].Rank)
+	}
+
+	// Also verify Season Leaderboard preserves same Ghost Ranking
+	seasonLB, err := repo.GetSeasonLeaderboard(season.ID)
+	if err != nil {
+		t.Fatalf("GetSeasonLeaderboard failed: %v", err)
+	}
+	sMap := make(map[string]*db.LeaderboardEntry)
+	for _, e := range seasonLB {
+		sMap[e.Username] = e
+	}
+
+	if sMap["Carlos_1st"].Rank != 1 {
+		t.Errorf("Season: Expected Carlos_1st to be Rank 1, got %d", sMap["Carlos_1st"].Rank)
+	}
+	if sMap["ia_quiniela"].Rank != 0 {
+		t.Errorf("Season: Expected ia_quiniela to have Ghost Rank 0, got %d", sMap["ia_quiniela"].Rank)
+	}
+	if sMap["Maria_2nd"].Rank != 2 {
+		t.Errorf("Season: Expected Maria_2nd to be Rank 2, got %d", sMap["Maria_2nd"].Rank)
+	}
+	if sMap["Juan_3rd"].Rank != 3 {
+		t.Errorf("Season: Expected Juan_3rd to be Rank 3, got %d", sMap["Juan_3rd"].Rank)
+	}
+}
+
 

@@ -54,6 +54,49 @@
                 }
             }));
         },
+        autoFillWithAI() {
+            let filled = 0;
+            const cards = document.querySelectorAll('[id^=\'game-card-\']');
+            cards.forEach(card => {
+                const locked = card.getAttribute('data-locked') === 'true';
+                if (!locked) {
+                    const winnerId = card.getAttribute('data-ai-winner-id');
+                    const homeScore = card.getAttribute('data-ai-home-score');
+                    const awayScore = card.getAttribute('data-ai-away-score');
+
+                    if (winnerId) {
+                        const winnerBtn = card.querySelector(`button[data-team-id='${winnerId}']`);
+                        if (winnerBtn) {
+                            winnerBtn.click();
+                            filled++;
+                        }
+                    }
+                    const isTiebreaker = card.getAttribute('data-is-tiebreaker') === 'true';
+                    const scoringMode = card.getAttribute('data-scoring-mode') || 'pure_tiebreaker';
+                    if (isTiebreaker || scoringMode === 'weighted') {
+                        const hInp = card.querySelector('input[name^=\'home_score_\']');
+                        const aInp = card.querySelector('input[name^=\'away_score_\']');
+                        if (hInp && homeScore) {
+                            hInp.value = homeScore;
+                            hInp.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                        if (aInp && awayScore) {
+                            aInp.value = awayScore;
+                            aInp.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                    }
+                }
+            });
+            if (typeof updatePicksCounter === 'function') setTimeout(updatePicksCounter, 100);
+            window.dispatchEvent(new CustomEvent('show-toast', {
+                detail: { 
+                    message: filled > 0 
+                        ? `⚡ Modo Admin: Se aplicaron pronósticos y marcadores de IA a ${filled} partidos.` 
+                        : 'No se encontraron partidos desbloqueados para autocompletar.', 
+                    type: 'success' 
+                }
+            }));
+        },
         jumpToMissing() {
             const cards = document.querySelectorAll('[id^=\'game-card-\']');
             for (let i = 0; i < cards.length; i++) {
@@ -405,6 +448,16 @@
                                 class="inline-flex items-center px-2.5 py-1.5 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-amber-500/50 hover:bg-zinc-800 text-zinc-300 hover:text-amber-300 text-xs font-semibold transition-all shadow-sm cursor-pointer shrink-0">
                             <i class="fa-solid fa-wand-magic-sparkles text-amber-400 mr-1.5 text-[11px]"></i>
                             <span class="hidden sm:inline">Llenar con </span>Favoritos
+                        </button>
+                    {{end}}
+
+                    {{if and .User .User.IsAdmin (not .IsFullWeekLocked)}}
+                        <button type="button" 
+                                @click="autoFillWithAI()"
+                                title="Herramienta de Administración: Completar partidos y marcadores con pronóstico oficial de IA"
+                                class="inline-flex items-center px-2.5 py-1.5 rounded-xl bg-indigo-950/60 border border-indigo-500/40 hover:bg-indigo-900/60 text-indigo-300 hover:text-white text-xs font-semibold transition-all shadow-sm cursor-pointer shrink-0">
+                            <i class="fa-solid fa-robot text-indigo-400 mr-1.5 text-[11px]"></i>
+                            <span class="hidden sm:inline">Llenar con </span>IA Admin 🤖
                         </button>
                     {{end}}
 

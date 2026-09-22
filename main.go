@@ -22,6 +22,7 @@ import (
 	"nfl-quiniela-2026/services/auth"
 	"nfl-quiniela-2026/services/espn"
 	"nfl-quiniela-2026/services/events"
+	"nfl-quiniela-2026/services/forecasting"
 	"nfl-quiniela-2026/services/notifications"
 	"nfl-quiniela-2026/services/scoring"
 )
@@ -59,6 +60,12 @@ func main() {
 	// 3. Database Seeds
 	if err := db.SeedDatabase(repo, cfg.AdminUsername, cfg.AdminEmail, cfg.AdminPassword, cfg.CurrentSeasonYear); err != nil {
 		log.Printf("Warning: Seed database error: %v", err)
+	}
+
+	// Ensure official AI bot picks for past weeks
+	if season, err := repo.GetActiveSeason(cfg.CurrentSeasonYear); err == nil && season != nil {
+		botWorker := forecasting.NewBotWorker(repo)
+		botWorker.SeedHistoricalWeeks(season.ID)
 	}
 
 	// 4. Core Services & Real-time Event Broker

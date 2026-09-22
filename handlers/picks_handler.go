@@ -102,11 +102,16 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 	userCorrectPicks := 0
 
 	var weekCommunityStats map[int64]*db.GameCommunityStats
+	var weekForecasts map[int64]*db.GameForecast
 	if selectedWeek != nil {
 		weekCommunityStats, _ = h.repo.GetWeekCommunityStats(selectedWeek.ID)
+		weekForecasts, _ = h.repo.GetWeekForecasts(selectedWeek.ID)
 	}
 
 	for _, g := range games {
+		if weekForecasts != nil {
+			g.Forecast = weekForecasts[g.ID]
+		}
 		if weekCommunityStats != nil {
 			if cs, exists := weekCommunityStats[g.ID]; exists && cs != nil {
 				g.TotalPicks = cs.TotalPicks
