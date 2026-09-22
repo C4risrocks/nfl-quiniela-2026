@@ -12,7 +12,7 @@
          customTab: 'avatar',
          avatarUrl: '{{.ProfileUser.AvatarURL}}',
          bio: '{{.ProfileUser.Bio}}',
-         favTeamId: '{{if .ProfileUser.FavoriteTeamID}}{{.ProfileUser.FavoriteTeamID}}{{else}}0{{end}}',
+         favTeamId: '{{.ProfileUser.GetFavoriteTeamID}}',
          featuredBadgeCode: '{{.ProfileUser.FeaturedBadgeCode}}',
          notifyEmail: {{if .ProfileUser.NotifyEmail}}true{{else}}false{{end}},
          customUrlInput: '',
@@ -574,7 +574,7 @@
                             class="w-full bg-zinc-900 border border-zinc-700/80 text-white text-xs font-medium rounded-xl px-3.5 py-2.5 focus:ring-1 focus:ring-white focus:border-white transition-all cursor-pointer">
                         <option value="0">-- Ninguno seleccionado --</option>
                         {{range .Teams}}
-                            <option value="{{.ID}}" {{if and $.ProfileUser.FavoriteTeamID (eq $.ProfileUser.FavoriteTeamID .ID)}}selected{{end}}>
+                            <option value="{{.ID}}" {{if eq $.ProfileUser.GetFavoriteTeamID .ID}}selected{{end}}>
                                 {{.City}} {{.Name}} ({{.Code}})
                             </option>
                         {{end}}

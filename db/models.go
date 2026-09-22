@@ -32,6 +32,13 @@ func (u *User) HasCustomAvatar() bool {
 	return u.AvatarURL != ""
 }
 
+func (u *User) GetFavoriteTeamID() int64 {
+	if u != nil && u.FavoriteTeamID != nil {
+		return *u.FavoriteTeamID
+	}
+	return 0
+}
+
 func (u *User) IsAdmin() bool {
 	return u.Role == "admin"
 }

@@ -697,6 +697,20 @@ func TestProfileHandler(t *testing.T) {
 	if freshUser.FeaturedBadgeCode != "first_blood" {
 		t.Errorf("Expected FeaturedBadgeCode = first_blood, got %s", freshUser.FeaturedBadgeCode)
 	}
+
+	// 3. Show profile again with full customizations (favorite team, bio, badge) to ensure template renders cleanly
+	req = httptest.NewRequest(http.MethodGet, "/profile", nil)
+	req = req.WithContext(injectUser(req.Context(), freshUser))
+	rr = httptest.NewRecorder()
+	profileHandler.ShowProfile(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK rendering customized profile, got %d", rr.Code)
+	}
+	body := rr.Body.String()
+	if strings.Contains(body, "error calling eq") {
+		t.Errorf("Template rendering error detected in profile: %s", body)
+	}
 }
 
 // Helpers
