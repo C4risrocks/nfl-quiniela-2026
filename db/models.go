@@ -23,7 +23,13 @@ type User struct {
 	ResetToken          *string    `json:"-"`
 	ResetTokenExpiresAt *time.Time `json:"-"`
 	NotifyEmail         bool       `json:"notify_email"`
+	Bio                 string     `json:"bio"`
+	FeaturedBadgeCode   string     `json:"featured_badge_code"`
 	CreatedAt           time.Time  `json:"created_at"`
+}
+
+func (u *User) HasCustomAvatar() bool {
+	return u.AvatarURL != ""
 }
 
 func (u *User) IsAdmin() bool {

@@ -1261,4 +1261,86 @@ func TestGetActiveWeek(t *testing.T) {
 	}
 }
 
+func TestUpdateUserPreferences(t *testing.T) {
+	testDB := "test_prefs.db"
+	defer os.Remove(testDB)
+	defer os.Remove(testDB + "-wal")
+	defer os.Remove(testDB + "-shm")
+
+	database, err := InitDB("sqlite", testDB)
+	if err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	defer database.Close()
+
+	repo := NewRepository(database)
+	user, err := repo.CreateUser("prefuser", "pref@test.com", "hash", "player")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	favTeam := int64(12)
+	avatarURL := "https://a.espncdn.com/i/teamlogos/nfl/500/kc.png"
+	bio := "Chiefs Kingdom forever! 🏈"
+	featuredBadge := "underdog_king"
+
+	err = repo.UpdateUserPreferences(user.ID, avatarURL, &favTeam, false, bio, featuredBadge)
+	if err != nil {
+		t.Fatalf("UpdateUserPreferences failed: %v", err)
+	}
+
+	fetched, err := repo.GetUserByID(user.ID)
+	if err != nil {
+		t.Fatalf("GetUserByID failed: %v", err)
+	}
+
+	if fetched.AvatarURL != avatarURL {
+		t.Errorf("Expected avatarURL %s, got %s", avatarURL, fetched.AvatarURL)
+	}
+	if !fetched.HasCustomAvatar() {
+		t.Errorf("Expected HasCustomAvatar to be true")
+	}
+	if fetched.FavoriteTeamID == nil || *fetched.FavoriteTeamID != favTeam {
+		t.Errorf("Expected FavoriteTeamID %d, got %v", favTeam, fetched.FavoriteTeamID)
+	}
+	if fetched.NotifyEmail {
+		t.Errorf("Expected NotifyEmail false, got true")
+	}
+	if fetched.Bio != bio {
+		t.Errorf("Expected Bio %s, got %s", bio, fetched.Bio)
+	}
+	if fetched.FeaturedBadgeCode != featuredBadge {
+		t.Errorf("Expected FeaturedBadgeCode %s, got %s", featuredBadge, fetched.FeaturedBadgeCode)
+	}
+
+	// Clear back to empty/nil
+	err = repo.UpdateUserPreferences(user.ID, "", nil, true, "", "")
+	if err != nil {
+		t.Fatalf("UpdateUserPreferences (reset) failed: %v", err)
+	}
+
+	fetchedReset, err := repo.GetUserByID(user.ID)
+	if err != nil {
+		t.Fatalf("GetUserByID failed: %v", err)
+	}
+	if fetchedReset.AvatarURL != "" {
+		t.Errorf("Expected empty AvatarURL, got %s", fetchedReset.AvatarURL)
+	}
+	if fetchedReset.HasCustomAvatar() {
+		t.Errorf("Expected HasCustomAvatar to be false")
+	}
+	if fetchedReset.FavoriteTeamID != nil {
+		t.Errorf("Expected nil FavoriteTeamID, got %v", fetchedReset.FavoriteTeamID)
+	}
+	if !fetchedReset.NotifyEmail {
+		t.Errorf("Expected NotifyEmail true, got false")
+	}
+	if fetchedReset.Bio != "" {
+		t.Errorf("Expected empty Bio, got %s", fetchedReset.Bio)
+	}
+	if fetchedReset.FeaturedBadgeCode != "" {
+		t.Errorf("Expected empty FeaturedBadgeCode, got %s", fetchedReset.FeaturedBadgeCode)
+	}
+}
+
 

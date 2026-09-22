@@ -649,10 +649,14 @@ func TestProfileHandler(t *testing.T) {
 		t.Errorf("Expected 200 OK, got %d", rr.Code)
 	}
 
-	// 2. Update preferences
+	// 2. Update preferences including customizations
 	form := url.Values{}
 	form.Set("favorite_team_id", "1")
 	form.Set("notify_email", "1")
+	form.Set("avatar_url", "https://a.espncdn.com/i/teamlogos/nfl/500/dal.png")
+	form.Set("bio", "¡Esta temporada es de los Cowboys! Vamos con todo por el campeonato.")
+	form.Set("featured_badge_code", "season_champion") // Not yet earned! Should be cleared
+
 	req = httptest.NewRequest(http.MethodPost, "/profile/preferences", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req = req.WithContext(injectUser(req.Context(), u))
@@ -669,6 +673,29 @@ func TestProfileHandler(t *testing.T) {
 	}
 	if !freshUser.NotifyEmail {
 		t.Errorf("Expected NotifyEmail = true")
+	}
+	if freshUser.AvatarURL != "https://a.espncdn.com/i/teamlogos/nfl/500/dal.png" {
+		t.Errorf("Expected AvatarURL updated, got %s", freshUser.AvatarURL)
+	}
+	if len([]rune(freshUser.Bio)) > 60 {
+		t.Errorf("Expected bio length <= 60, got %d", len([]rune(freshUser.Bio)))
+	}
+	if freshUser.FeaturedBadgeCode != "" {
+		t.Errorf("Expected unearned featured badge to be rejected, got %s", freshUser.FeaturedBadgeCode)
+	}
+
+	// Now unlock an achievement and equip it
+	_, _ = repo.AwardAchievement(u.ID, "first_blood", "Primer Acierto", "Tu primer pick correcto", "🎯", nil)
+	form.Set("featured_badge_code", "first_blood")
+	req = httptest.NewRequest(http.MethodPost, "/profile/preferences", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(injectUser(req.Context(), u))
+	rr = httptest.NewRecorder()
+	profileHandler.HandleUpdatePreferences(rr, req)
+
+	freshUser, _ = repo.GetUserByID(u.ID)
+	if freshUser.FeaturedBadgeCode != "first_blood" {
+		t.Errorf("Expected FeaturedBadgeCode = first_blood, got %s", freshUser.FeaturedBadgeCode)
 	}
 }
 

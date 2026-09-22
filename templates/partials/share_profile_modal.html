@@ -127,6 +127,10 @@
                 <!-- Ambient Glow Background -->
                 <div class="absolute -top-24 -right-24 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
                 <div class="absolute -bottom-24 -left-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                {{if .FavoriteTeam}}
+                <div class="absolute -top-24 -left-24 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-25" style="background-color: {{.FavoriteTeam.PrimaryColor}};"></div>
+                <img src="{{.FavoriteTeam.LogoURL}}" class="absolute -right-8 -bottom-8 w-44 h-44 opacity-[0.06] object-contain pointer-events-none select-none" crossorigin="anonymous">
+                {{end}}
 
                 <!-- Brand Header -->
                 <div class="flex items-center justify-between border-b border-zinc-800/80 pb-4 mb-4 relative z-10">
@@ -149,7 +153,8 @@
                 </div>
 
                 <!-- User Hero Box -->
-                <div class="p-4 rounded-2xl bg-zinc-950/80 border border-zinc-800/90 relative z-10 flex items-center justify-between mb-3">
+                <div class="p-4 rounded-2xl bg-zinc-950/80 border border-zinc-800/90 relative z-10 flex items-center justify-between mb-3"
+                     {{if .FavoriteTeam}}style="border-left: 3px solid {{.FavoriteTeam.PrimaryColor}};"{{end}}>
                     <div class="flex items-center space-x-3.5 min-w-0">
                         {{if .User.AvatarURL}}
                             <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-12 h-12 rounded-2xl object-cover border border-amber-500/40 shadow-lg shrink-0" crossorigin="anonymous">
@@ -159,7 +164,23 @@
                             </div>
                         {{end}}
                         <div class="min-w-0">
-                            <div class="text-base font-black text-white truncate tracking-tight">{{.User.Username}}</div>
+                            <div class="flex items-center flex-wrap gap-1.5">
+                                <span class="text-base font-black text-white truncate tracking-tight">{{.User.Username}}</span>
+                                {{if .FavoriteTeam}}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold border" style="background-color: {{.FavoriteTeam.PrimaryColor}}20; border-color: {{.FavoriteTeam.PrimaryColor}}50; color: {{.FavoriteTeam.PrimaryColor}};">
+                                        <img src="{{.FavoriteTeam.LogoURL}}" class="w-3 h-3 mr-1 object-contain inline" crossorigin="anonymous"> {{.FavoriteTeam.City}}
+                                    </span>
+                                {{end}}
+                            </div>
+                            {{if .FeaturedBadge}}
+                                <div class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-[10px] font-bold text-amber-300 mt-0.5">
+                                    <span>{{.FeaturedBadge.Icon}}</span>
+                                    <span>{{.FeaturedBadge.Name}}</span>
+                                </div>
+                            {{end}}
+                            {{if .User.Bio}}
+                                <div class="text-[11px] text-zinc-300 italic truncate mt-0.5">“{{.User.Bio}}”</div>
+                            {{end}}
                             <div class="text-[11px] font-mono text-zinc-400 flex items-center space-x-1.5 mt-0.5">
                                 <span class="text-amber-400 font-bold">Posición #{{if .Rank}}{{.Rank}}{{else}}-{{end}}</span>
                                 <span>•</span>
@@ -244,6 +265,10 @@
                 <!-- Ambient Glow Background -->
                 <div class="absolute -top-32 -right-32 w-80 h-80 bg-amber-500/15 rounded-full blur-3xl pointer-events-none"></div>
                 <div class="absolute -bottom-32 -left-32 w-80 h-80 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none"></div>
+                {{if .FavoriteTeam}}
+                <div class="absolute -top-32 -left-32 w-80 h-80 rounded-full blur-3xl pointer-events-none opacity-25" style="background-color: {{.FavoriteTeam.PrimaryColor}};"></div>
+                <img src="{{.FavoriteTeam.LogoURL}}" class="absolute -right-10 -bottom-10 w-56 h-56 opacity-[0.06] object-contain pointer-events-none select-none" crossorigin="anonymous">
+                {{end}}
 
                 <!-- Story Top Header -->
                 <div class="relative z-10 border-b border-zinc-800/80 pb-4">
@@ -261,7 +286,8 @@
                 </div>
 
                 <!-- Hero Story Avatar Box -->
-                <div class="my-3 p-4 rounded-2xl bg-gradient-to-b from-amber-500/15 via-zinc-950 to-zinc-950 border border-amber-500/30 relative z-10 text-center flex flex-col items-center">
+                <div class="my-3 p-4 rounded-2xl bg-gradient-to-b from-amber-500/15 via-zinc-950 to-zinc-950 border border-amber-500/30 relative z-10 text-center flex flex-col items-center"
+                     {{if .FavoriteTeam}}style="border-color: {{.FavoriteTeam.PrimaryColor}}50;"{{end}}>
                     {{if .User.AvatarURL}}
                         <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-16 h-16 rounded-2xl object-cover border border-amber-400/40 shadow-xl mb-2" crossorigin="anonymous">
                     {{else}}
@@ -270,7 +296,21 @@
                         </div>
                     {{end}}
                     <div class="text-lg font-black text-white">{{.User.Username}}</div>
-                    <div class="text-xs font-mono font-bold text-amber-400 mt-0.5">
+                    {{if .FavoriteTeam}}
+                        <div class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border mt-1" style="background-color: {{.FavoriteTeam.PrimaryColor}}20; border-color: {{.FavoriteTeam.PrimaryColor}}50; color: {{.FavoriteTeam.PrimaryColor}};">
+                            <img src="{{.FavoriteTeam.LogoURL}}" class="w-3.5 h-3.5 mr-1 object-contain inline" crossorigin="anonymous"> Fan de {{.FavoriteTeam.City}} {{.FavoriteTeam.Name}}
+                        </div>
+                    {{end}}
+                    {{if .FeaturedBadge}}
+                        <div class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-[11px] font-bold text-amber-300 mt-1">
+                            <span>{{.FeaturedBadge.Icon}}</span>
+                            <span>{{.FeaturedBadge.Name}}</span>
+                        </div>
+                    {{end}}
+                    {{if .User.Bio}}
+                        <div class="text-xs text-zinc-300 italic text-center mt-1 px-4 line-clamp-2">“{{.User.Bio}}”</div>
+                    {{end}}
+                    <div class="text-xs font-mono font-bold text-amber-400 mt-1">
                         Posición General: #{{if .Rank}}{{.Rank}}{{else}}-{{end}} de {{.TotalPlayers}}
                     </div>
                 </div>

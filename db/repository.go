@@ -106,18 +106,21 @@ func (r *Repository) SetScoringConfig(cfg *ScoringConfig) error {
 // Users
 // ----------------------------------------------------
 
-const userColumns = `id, username, email, password_hash, role, avatar_url, favorite_team_id, email_verified, verification_token, verification_sent_at, reset_token, reset_token_expires_at, notify_email, created_at`
+const userColumns = `id, username, email, password_hash, role, avatar_url, favorite_team_id, email_verified, verification_token, verification_sent_at, reset_token, reset_token_expires_at, notify_email, created_at, bio, featured_badge_code`
 
 func scanUserRow(scanner interface{ Scan(dest ...any) error }) (*User, error) {
 	var u User
 	var createdAtStr string
 	var verifSentAtStr sql.NullString
 	var resetExpStr sql.NullString
+	var bioStr sql.NullString
+	var featBadgeStr sql.NullString
 
 	err := scanner.Scan(
 		&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarURL, &u.FavoriteTeamID,
 		&u.EmailVerified, &u.VerificationToken, &verifSentAtStr,
 		&u.ResetToken, &resetExpStr, &u.NotifyEmail, &createdAtStr,
+		&bioStr, &featBadgeStr,
 	)
 	if err != nil {
 		return nil, err
@@ -130,6 +133,12 @@ func scanUserRow(scanner interface{ Scan(dest ...any) error }) (*User, error) {
 	if resetExpStr.Valid {
 		t := parseTimeSafe(resetExpStr.String)
 		u.ResetTokenExpiresAt = &t
+	}
+	if bioStr.Valid {
+		u.Bio = bioStr.String
+	}
+	if featBadgeStr.Valid {
+		u.FeaturedBadgeCode = featBadgeStr.String
 	}
 	return &u, nil
 }
@@ -255,9 +264,9 @@ func (r *Repository) UpdateUserPassword(userID int64, newPasswordHash string) er
 	return err
 }
 
-func (r *Repository) UpdateUserPreferences(userID int64, favoriteTeamID *int64, notifyEmail bool) error {
-	query := `UPDATE users SET favorite_team_id = ?, notify_email = ? WHERE id = ?`
-	_, err := r.db.Exec(query, favoriteTeamID, notifyEmail, userID)
+func (r *Repository) UpdateUserPreferences(userID int64, avatarURL string, favoriteTeamID *int64, notifyEmail bool, bio, featuredBadgeCode string) error {
+	query := `UPDATE users SET avatar_url = ?, favorite_team_id = ?, notify_email = ?, bio = ?, featured_badge_code = ? WHERE id = ?`
+	_, err := r.db.Exec(query, avatarURL, favoriteTeamID, notifyEmail, bio, featuredBadgeCode, userID)
 	return err
 }
 

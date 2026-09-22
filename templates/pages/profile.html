@@ -3,21 +3,87 @@
 {{define "title"}}{{if .IsOwnProfile}}Mi Perfil{{else}}Perfil de {{.ProfileUser.Username}}{{end}} - NFL Quiniela 2026{{end}}
 
 {{define "content"}}
-<div class="max-w-4xl mx-auto space-y-6" x-data="{ shareProfileModalOpen: false, badgeModalOpen: false, selectedBadge: null }">
+<div class="max-w-4xl mx-auto space-y-6" 
+     x-data="{ 
+         shareProfileModalOpen: false, 
+         badgeModalOpen: false, 
+         selectedBadge: null,
+         customizeModalOpen: false,
+         customTab: 'avatar',
+         avatarUrl: '{{.ProfileUser.AvatarURL}}',
+         bio: '{{.ProfileUser.Bio}}',
+         favTeamId: '{{if .ProfileUser.FavoriteTeamID}}{{.ProfileUser.FavoriteTeamID}}{{else}}0{{end}}',
+         featuredBadgeCode: '{{.ProfileUser.FeaturedBadgeCode}}',
+         notifyEmail: {{if .ProfileUser.NotifyEmail}}true{{else}}false{{end}},
+         customUrlInput: '',
+         
+         teams: [
+             {{range .Teams}}
+             { id: '{{.ID}}', code: '{{.Code}}', name: '{{.Name}}', city: '{{.City}}', logo: '{{.LogoURL}}', color: '{{.PrimaryColor}}', secondaryColor: '{{.SecondaryColor}}', conference: '{{.Conference}}', division: '{{.Division}}' },
+             {{end}}
+         ],
 
-    <!-- Profile Header Card -->
-    <div class="vercel-card p-6 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div class="flex items-center space-x-4">
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-zinc-800 to-zinc-700 border border-zinc-600/50 flex items-center justify-center text-white text-2xl font-black shadow-lg overflow-hidden shrink-0">
+         unlockedBadges: [
+             {{range .UnlockedBadges}}
+             { code: '{{.Code}}', name: '{{.Name}}', icon: '{{.Icon}}', desc: '{{.Description}}', rarity: '{{.Rarity}}' },
+             {{end}}
+         ],
+         
+         get currentTeam() {
+             return this.teams.find(t => String(t.id) === String(this.favTeamId));
+         },
+         get currentBadge() {
+             return this.unlockedBadges.find(b => b.code === this.featuredBadgeCode);
+         },
+         setAvatarFromFavTeam() {
+             if (this.currentTeam) {
+                 this.avatarUrl = this.currentTeam.logo;
+             }
+         }
+     }">
+
+    <!-- Profile Header Card with Team Ambient Glow & Watermark -->
+    <div class="vercel-card p-6 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden transition-all shadow-md"
+         {{if .FavoriteTeam}}
+         style="background: linear-gradient(135deg, {{.FavoriteTeam.PrimaryColor}}18 0%, rgba(18, 18, 20, 0.95) 75%); border-color: {{.FavoriteTeam.PrimaryColor}}40;"
+         {{end}}>
+
+        <!-- Team Watermark Background if selected -->
+        {{if .FavoriteTeam}}
+            <div class="absolute -right-8 -bottom-8 w-44 h-44 opacity-10 pointer-events-none select-none z-0">
+                <img src="{{.FavoriteTeam.LogoURL}}" alt="{{.FavoriteTeam.Name}}" class="w-full h-full object-contain filter drop-shadow">
+            </div>
+        {{end}}
+
+        <div class="flex items-center space-x-4 relative z-10 min-w-0">
+            <!-- Avatar with optional Team Border Glow -->
+            <div class="w-16 h-16 rounded-2xl bg-zinc-900 border flex items-center justify-center text-white text-2xl font-black shadow-lg overflow-hidden shrink-0 relative group"
+                 {{if .FavoriteTeam}}style="border-color: {{.FavoriteTeam.PrimaryColor}}80;"{{else}}class="border-zinc-700"{{end}}>
                 {{if .ProfileUser.AvatarURL}}
                     <img src="{{.ProfileUser.AvatarURL}}" alt="{{.ProfileUser.Username}}" class="w-full h-full object-cover">
                 {{else}}
                     {{slice .ProfileUser.Username 0 1}}
                 {{end}}
+                {{if .FavoriteTeam}}
+                    <!-- Small team badge overlapping bottom right of avatar -->
+                    <div class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-zinc-950 p-0.5 border border-zinc-700 shadow flex items-center justify-center" title="{{.FavoriteTeam.City}} {{.FavoriteTeam.Name}}">
+                        <img src="{{.FavoriteTeam.LogoURL}}" alt="{{.FavoriteTeam.Code}}" class="w-full h-full object-contain">
+                    </div>
+                {{end}}
             </div>
-            <div>
-                <div class="flex items-center space-x-2 mb-1">
-                    <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white">{{.ProfileUser.Username}}</h1>
+
+            <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2 mb-1">
+                    <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white truncate">{{.ProfileUser.Username}}</h1>
+                    
+                    {{if .FavoriteTeam}}
+                        <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border shadow-xs"
+                              style="background-color: {{.FavoriteTeam.PrimaryColor}}25; color: #fff; border-color: {{.FavoriteTeam.PrimaryColor}}60;">
+                            <img src="{{.FavoriteTeam.LogoURL}}" alt="{{.FavoriteTeam.Code}}" class="w-3.5 h-3.5 object-contain inline">
+                            <span>{{.FavoriteTeam.City}} {{.FavoriteTeam.Name}}</span>
+                        </span>
+                    {{end}}
+
                     {{if .ProfileUser.IsAdmin}}
                         <span class="text-[9px] uppercase font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded">Admin</span>
                     {{end}}
@@ -25,6 +91,24 @@
                         <span class="text-[9px] uppercase font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded">Rival</span>
                     {{end}}
                 </div>
+
+                <!-- Bio / Lema of user -->
+                {{if .ProfileUser.Bio}}
+                    <p class="text-xs text-zinc-300 italic mb-1.5 line-clamp-2 flex items-center space-x-1">
+                        <i class="fa-solid fa-quote-left text-[9px] text-zinc-500 mr-1"></i>
+                        <span>{{.ProfileUser.Bio}}</span>
+                    </p>
+                {{end}}
+
+                <!-- Featured Badge if set -->
+                {{if .FeaturedBadge}}
+                    <div class="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-lg bg-zinc-900/90 border border-amber-500/40 text-amber-300 text-[11px] font-medium mb-1.5 shadow-sm">
+                        <span class="text-sm leading-none">{{.FeaturedBadge.Icon}}</span>
+                        <span class="font-bold text-white">{{.FeaturedBadge.Name}}</span>
+                        <span class="text-[9px] font-mono uppercase text-amber-400/80 px-1 rounded bg-amber-500/10">Título</span>
+                    </div>
+                {{end}}
+
                 {{if .IsOwnProfile}}
                     <div class="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
                         <span class="flex items-center">
@@ -49,8 +133,16 @@
             </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
+        <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0 relative z-10">
             {{if .IsOwnProfile}}
+                <!-- Botón Personalizar Perfil -->
+                <button type="button"
+                        @click="customizeModalOpen = true"
+                        class="py-2 px-3.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs flex items-center space-x-1.5 transition-all shadow-sm cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
+                    <i class="fa-solid fa-palette text-xs"></i>
+                    <span>Personalizar Perfil</span>
+                </button>
+
                 <button type="button"
                         @click="shareProfileModalOpen = true"
                         class="py-2 px-3.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 border border-amber-500/40 text-amber-300 font-bold text-xs flex items-center space-x-1.5 transition-all shadow-sm cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
@@ -433,17 +525,53 @@
     {{if .IsOwnProfile}}
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        <!-- Card 1: Preferences -->
-        <div class="vercel-card p-6 rounded-2xl shadow-sm">
-            <div class="flex items-center space-x-2 pb-4 mb-4 border-b border-zinc-800">
-                <i class="fa-solid fa-sliders text-sm text-zinc-400"></i>
-                <h2 class="text-sm font-bold text-white uppercase tracking-wider">Preferencias de Juego</h2>
+        <!-- Card 1: Preferences & Customization Overview -->
+        <div class="vercel-card p-6 rounded-2xl shadow-sm space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-palette text-sm text-zinc-400"></i>
+                    <h2 class="text-sm font-bold text-white uppercase tracking-wider">Identidad y Preferencias</h2>
+                </div>
+                <button type="button"
+                        @click="customizeModalOpen = true"
+                        class="px-3 py-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer flex items-center space-x-1.5">
+                    <i class="fa-solid fa-sliders text-[11px] text-amber-400"></i>
+                    <span>Abrir Editor Completo</span>
+                </button>
             </div>
 
             <form action="/profile/preferences" method="POST" class="space-y-4">
+                <input type="hidden" name="avatar_url" :value="avatarUrl">
+                <input type="hidden" name="featured_badge_code" :value="featuredBadgeCode">
+
+                <!-- Avatar Quick Summary with Edit Trigger -->
+                <div class="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white font-black text-sm overflow-hidden shrink-0">
+                            <template x-if="avatarUrl">
+                                <img :src="avatarUrl" alt="Avatar" class="w-full h-full object-cover">
+                            </template>
+                            <template x-if="!avatarUrl">
+                                <span>{{slice .ProfileUser.Username 0 1}}</span>
+                            </template>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-white block">Foto / Avatar de Perfil</span>
+                            <span class="text-[11px] text-zinc-400">32 equipos NFL, avatares temáticos o URL.</span>
+                        </div>
+                    </div>
+                    <button type="button"
+                            @click="customizeModalOpen = true; customTab = 'avatar'"
+                            class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium border border-zinc-700 transition-colors cursor-pointer">
+                        Cambiar
+                    </button>
+                </div>
+
                 <div>
                     <label class="block text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-1.5 font-medium">Equipo Favorito NFL</label>
-                    <select name="favorite_team_id" class="w-full bg-zinc-900 border border-zinc-700/80 text-white text-xs font-medium rounded-xl px-3.5 py-2.5 focus:ring-1 focus:ring-white focus:border-white transition-all">
+                    <select name="favorite_team_id" 
+                            x-model="favTeamId"
+                            class="w-full bg-zinc-900 border border-zinc-700/80 text-white text-xs font-medium rounded-xl px-3.5 py-2.5 focus:ring-1 focus:ring-white focus:border-white transition-all cursor-pointer">
                         <option value="0">-- Ninguno seleccionado --</option>
                         {{range .Teams}}
                             <option value="{{.ID}}" {{if and $.ProfileUser.FavoriteTeamID (eq $.ProfileUser.FavoriteTeamID .ID)}}selected{{end}}>
@@ -453,7 +581,20 @@
                     </select>
                 </div>
 
-                <div class="pt-2">
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="block text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-medium">Lema o Frase del Jugador</label>
+                        <span class="text-[10px] font-mono text-zinc-500" x-text="bio.length + ' / 60'"></span>
+                    </div>
+                    <input type="text" 
+                           name="bio" 
+                           x-model="bio" 
+                           maxlength="60"
+                           placeholder="Ej: Este año el Super Bowl es nuestro 🏆"
+                           class="w-full bg-zinc-900 border border-zinc-700/80 text-white text-xs rounded-xl px-3.5 py-2.5 focus:ring-1 focus:ring-white outline-none">
+                </div>
+
+                <div class="pt-1">
                     <label class="flex items-start space-x-3 cursor-pointer select-none">
                         <input type="checkbox" name="notify_email" value="1" {{if .ProfileUser.NotifyEmail}}checked{{end}}
                                 class="w-4 h-4 mt-0.5 rounded bg-zinc-900 border-zinc-700 text-white focus:ring-0 focus:ring-offset-0">
@@ -464,9 +605,14 @@
                     </label>
                 </div>
 
-                <div class="pt-3">
+                <div class="pt-2 flex items-center space-x-3">
                     <button type="submit" class="w-full sm:w-auto py-2.5 px-5 rounded-xl bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition-colors shadow-sm cursor-pointer">
                         Guardar Preferencias
+                    </button>
+                    <button type="button" 
+                            @click="customizeModalOpen = true"
+                            class="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white font-semibold text-xs border border-zinc-700 transition-colors cursor-pointer">
+                        Abrir Editor Visual
                     </button>
                 </div>
             </form>
@@ -508,6 +654,358 @@
 
     </div>
     {{end}}
+
+    <!-- Interactive Profile Customization Modal -->
+    <div x-show="customizeModalOpen"
+         x-cloak
+         data-close-modal="backdrop"
+         class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200 overflow-y-auto overscroll-contain"
+         @click.self="customizeModalOpen = false"
+         @keydown.escape.window="customizeModalOpen = false">
+        <div class="vercel-card w-full max-w-2xl max-h-[92dvh] my-auto rounded-2xl flex flex-col overflow-hidden border border-zinc-700 bg-zinc-950 shadow-2xl relative"
+             @click.stop>
+            
+            <!-- Modal Header -->
+            <div class="shrink-0 p-4 sm:p-5 border-b border-zinc-800/80 bg-zinc-900/80 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <span class="w-8 h-8 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white text-sm">
+                        <i class="fa-solid fa-palette text-amber-400"></i>
+                    </span>
+                    <div>
+                        <h2 class="text-sm sm:text-base font-bold text-white leading-tight">Personalizar Perfil</h2>
+                        <p class="text-[11px] text-zinc-400">Modifica tu avatar, equipo preferido, lema e insignia destacada.</p>
+                    </div>
+                </div>
+                <button type="button"
+                        @click="customizeModalOpen = false"
+                        data-close-modal="true"
+                        class="w-9 h-9 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer min-w-[40px] min-h-[40px]">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+
+            <!-- Scrollable Content with Live Preview and Form -->
+            <form action="/profile/preferences" method="POST" class="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col">
+                <div class="p-4 sm:p-6 space-y-5">
+                    
+                    <!-- Live Preview Box -->
+                    <div class="p-4 rounded-2xl border transition-all relative overflow-hidden flex items-center justify-between gap-4"
+                         :style="currentTeam ? 'background: linear-gradient(135deg, ' + currentTeam.color + '25 0%, rgba(24, 24, 27, 0.95) 75%); border-color: ' + currentTeam.color + '60;' : 'background: #18181b; border-color: #27272a;'">
+                        
+                        <div class="flex items-center space-x-3.5 min-w-0 relative z-10">
+                            <!-- Avatar Preview -->
+                            <div class="w-14 h-14 rounded-2xl bg-zinc-900 border flex items-center justify-center text-white text-xl font-black shadow-lg overflow-hidden shrink-0 relative"
+                                 :style="currentTeam ? 'border-color: ' + currentTeam.color + '80;' : 'border-color: #3f3f46;'">
+                                <template x-if="avatarUrl">
+                                    <img :src="avatarUrl" alt="Avatar" class="w-full h-full object-cover">
+                                </template>
+                                <template x-if="!avatarUrl">
+                                    <span>{{slice .ProfileUser.Username 0 1}}</span>
+                                </template>
+                                <template x-if="currentTeam">
+                                    <div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-zinc-950 p-0.5 border border-zinc-700 shadow flex items-center justify-center">
+                                        <img :src="currentTeam.logo" :alt="currentTeam.code" class="w-full h-full object-contain">
+                                    </div>
+                                </template>
+                            </div>
+
+                            <div class="min-w-0">
+                                <div class="flex items-center space-x-2 mb-0.5">
+                                    <span class="font-black text-white text-base truncate">{{.ProfileUser.Username}}</span>
+                                    <template x-if="currentTeam">
+                                        <span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold border"
+                                              :style="'background-color: ' + currentTeam.color + '25; color: #fff; border-color: ' + currentTeam.color + '60;'">
+                                            <img :src="currentTeam.logo" :alt="currentTeam.code" class="w-3 h-3 object-contain inline">
+                                            <span x-text="currentTeam.city + ' ' + currentTeam.name"></span>
+                                        </span>
+                                    </template>
+                                </div>
+                                
+                                <template x-if="bio">
+                                    <p class="text-[11px] text-zinc-300 italic truncate max-w-[280px] mb-0.5" x-text="'«' + bio + '»'"></p>
+                                </template>
+                                
+                                <template x-if="currentBadge">
+                                    <div class="inline-flex items-center space-x-1 text-[10px] text-amber-300 font-medium">
+                                        <span x-text="currentBadge.icon"></span>
+                                        <span class="font-bold text-white" x-text="currentBadge.name"></span>
+                                        <span class="text-[8px] font-mono uppercase text-amber-400 px-1 rounded bg-amber-500/10">Título</span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <span class="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-400 px-2 py-1 rounded bg-black/40 border border-white/10 shrink-0 relative z-10">
+                            Vista Previa
+                        </span>
+                    </div>
+
+                    <!-- Hidden Inputs for Form Submission -->
+                    <input type="hidden" name="avatar_url" :value="avatarUrl">
+                    <input type="hidden" name="featured_badge_code" :value="featuredBadgeCode">
+
+                    <!-- Tab Buttons -->
+                    <div class="flex border-b border-zinc-800 space-x-1 overflow-x-auto no-scrollbar">
+                        <button type="button"
+                                @click="customTab = 'avatar'"
+                                :class="customTab === 'avatar' ? 'text-white border-b-2 border-white font-bold' : 'text-zinc-400 hover:text-zinc-200'"
+                                class="px-3 py-2 text-xs transition-colors cursor-pointer flex items-center space-x-1.5 shrink-0">
+                            <i class="fa-solid fa-user-circle"></i>
+                            <span>1. Avatar</span>
+                        </button>
+                        <button type="button"
+                                @click="customTab = 'team_bio'"
+                                :class="customTab === 'team_bio' ? 'text-white border-b-2 border-white font-bold' : 'text-zinc-400 hover:text-zinc-200'"
+                                class="px-3 py-2 text-xs transition-colors cursor-pointer flex items-center space-x-1.5 shrink-0">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            <span>2. Equipo & Lema</span>
+                        </button>
+                        <button type="button"
+                                @click="customTab = 'badge'"
+                                :class="customTab === 'badge' ? 'text-white border-b-2 border-white font-bold' : 'text-zinc-400 hover:text-zinc-200'"
+                                class="px-3 py-2 text-xs transition-colors cursor-pointer flex items-center space-x-1.5 shrink-0">
+                            <i class="fa-solid fa-medal"></i>
+                            <span>3. Insignia Destacada</span>
+                        </button>
+                        <button type="button"
+                                @click="customTab = 'notify'"
+                                :class="customTab === 'notify' ? 'text-white border-b-2 border-white font-bold' : 'text-zinc-400 hover:text-zinc-200'"
+                                class="px-3 py-2 text-xs transition-colors cursor-pointer flex items-center space-x-1.5 shrink-0">
+                            <i class="fa-solid fa-bell"></i>
+                            <span>4. Alertas</span>
+                        </button>
+                    </div>
+
+                    <!-- TAB 1: AVATAR -->
+                    <div x-show="customTab === 'avatar'" class="space-y-4">
+                        <!-- Quick Action: Favorite Team Logo as Avatar -->
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                            <div class="text-xs">
+                                <span class="font-bold text-white block">Logo de tu Equipo Favorito</span>
+                                <span class="text-[11px] text-zinc-400">Usa el escudo de tu equipo como foto de perfil con un solo clic.</span>
+                            </div>
+                            <button type="button"
+                                    @click="setAvatarFromFavTeam()"
+                                    :disabled="!currentTeam"
+                                    :class="currentTeam ? 'bg-amber-500 hover:bg-amber-400 text-black cursor-pointer' : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'"
+                                    class="px-3 py-1.5 rounded-lg font-bold text-xs transition-all shrink-0">
+                                Usar mi Equipo
+                            </button>
+                        </div>
+
+                        <!-- 32 NFL Teams Logos Gallery -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-medium">Logos Oficiales NFL (32 Equipos)</label>
+                                <span class="text-[10px] text-zinc-500">Clic en cualquier escudo</span>
+                            </div>
+                            <div class="grid grid-cols-4 sm:grid-cols-8 gap-2 p-2.5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 max-h-48 overflow-y-auto">
+                                <template x-for="t in teams" :key="t.id">
+                                    <button type="button"
+                                            @click="avatarUrl = t.logo"
+                                            :title="t.city + ' ' + t.name"
+                                            :class="avatarUrl === t.logo ? 'ring-2 ring-emerald-400 bg-emerald-500/10 border-emerald-500/50' : 'hover:bg-zinc-800 border-zinc-800'"
+                                            class="p-2 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer aspect-square">
+                                        <img :src="t.logo" :alt="t.code" class="w-7 h-7 object-contain">
+                                        <span class="text-[9px] font-mono font-bold text-zinc-400 mt-1 truncate" x-text="t.code"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Special / Curated Avatars -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-medium">Avatares Especiales de Quiniela</label>
+                            </div>
+                            <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                                <button type="button"
+                                        @click="avatarUrl = 'https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png'"
+                                        :class="avatarUrl === 'https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png' ? 'ring-2 ring-emerald-400 bg-emerald-500/10 border-emerald-500/50' : 'hover:bg-zinc-800 border-zinc-800'"
+                                        class="p-2 rounded-xl border bg-zinc-900/60 flex flex-col items-center justify-center transition-all cursor-pointer">
+                                    <img src="https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png" alt="NFL Shield" class="w-8 h-8 object-contain">
+                                    <span class="text-[9px] font-mono text-zinc-300 mt-1">Escudo NFL</span>
+                                </button>
+                                <button type="button"
+                                        @click="avatarUrl = 'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=120&auto=format&fit=crop&q=80'"
+                                        :class="avatarUrl.includes('1566577739112') ? 'ring-2 ring-emerald-400 bg-emerald-500/10 border-emerald-500/50' : 'hover:bg-zinc-800 border-zinc-800'"
+                                        class="p-2 rounded-xl border bg-zinc-900/60 flex flex-col items-center justify-center transition-all cursor-pointer">
+                                    <img src="https://images.unsplash.com/photo-1566577739112-5180d4bf9390?w=120&auto=format&fit=crop&q=80" alt="Casco Pro" class="w-8 h-8 rounded-lg object-cover">
+                                    <span class="text-[9px] font-mono text-zinc-300 mt-1">Casco Pro</span>
+                                </button>
+                                <button type="button"
+                                        @click="avatarUrl = 'https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?w=120&auto=format&fit=crop&q=80'"
+                                        :class="avatarUrl.includes('1587280501635') ? 'ring-2 ring-emerald-400 bg-emerald-500/10 border-emerald-500/50' : 'hover:bg-zinc-800 border-zinc-800'"
+                                        class="p-2 rounded-xl border bg-zinc-900/60 flex flex-col items-center justify-center transition-all cursor-pointer">
+                                    <img src="https://images.unsplash.com/photo-1587280501635-68a0e82cd5ff?w=120&auto=format&fit=crop&q=80" alt="Trofeo" class="w-8 h-8 rounded-lg object-cover">
+                                    <span class="text-[9px] font-mono text-zinc-300 mt-1">Lombardi</span>
+                                </button>
+                                <button type="button"
+                                        @click="avatarUrl = 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=120&auto=format&fit=crop&q=80'"
+                                        :class="avatarUrl.includes('1508098682722') ? 'ring-2 ring-emerald-400 bg-emerald-500/10 border-emerald-500/50' : 'hover:bg-zinc-800 border-zinc-800'"
+                                        class="p-2 rounded-xl border bg-zinc-900/60 flex flex-col items-center justify-center transition-all cursor-pointer">
+                                    <img src="https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=120&auto=format&fit=crop&q=80" alt="Estadio" class="w-8 h-8 rounded-lg object-cover">
+                                    <span class="text-[9px] font-mono text-zinc-300 mt-1">Estadio</span>
+                                </button>
+                                <button type="button"
+                                        @click="avatarUrl = 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=120&auto=format&fit=crop&q=80'"
+                                        :class="avatarUrl.includes('1541534741688') ? 'ring-2 ring-emerald-400 bg-emerald-500/10 border-emerald-500/50' : 'hover:bg-zinc-800 border-zinc-800'"
+                                        class="p-2 rounded-xl border bg-zinc-900/60 flex flex-col items-center justify-center transition-all cursor-pointer">
+                                    <img src="https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=120&auto=format&fit=crop&q=80" alt="En Juego" class="w-8 h-8 rounded-lg object-cover">
+                                    <span class="text-[9px] font-mono text-zinc-300 mt-1">Kickoff</span>
+                                </button>
+                                <button type="button"
+                                        @click="avatarUrl = ''"
+                                        :class="!avatarUrl ? 'ring-2 ring-emerald-400 bg-emerald-500/10 border-emerald-500/50' : 'hover:bg-zinc-800 border-zinc-800'"
+                                        class="p-2 rounded-xl border bg-zinc-900/60 flex flex-col items-center justify-center transition-all cursor-pointer">
+                                    <div class="w-8 h-8 rounded-lg bg-zinc-800 text-zinc-300 flex items-center justify-center font-black text-sm">
+                                        {{slice .ProfileUser.Username 0 1}}
+                                    </div>
+                                    <span class="text-[9px] font-mono text-zinc-300 mt-1">Inicial</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Custom URL Option -->
+                        <div class="p-3.5 rounded-xl bg-zinc-900/40 border border-zinc-800 space-y-2">
+                            <label class="block text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-medium">O ingresa una URL de imagen externa</label>
+                            <div class="flex items-center space-x-2">
+                                <input type="url" 
+                                       x-model="customUrlInput" 
+                                       placeholder="https://ejemplo.com/mi-avatar.jpg"
+                                       class="flex-1 bg-zinc-950 border border-zinc-700/80 text-white text-xs rounded-xl px-3 py-2 focus:ring-1 focus:ring-white outline-none">
+                                <button type="button"
+                                        @click="if (customUrlInput.trim()) { avatarUrl = customUrlInput.trim(); }"
+                                        class="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold cursor-pointer transition-colors shrink-0">
+                                    Aplicar URL
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: EQUIPO FAVORITO & LEMA -->
+                    <div x-show="customTab === 'team_bio'" class="space-y-4">
+                        <div>
+                            <label class="block text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-1.5 font-medium">Equipo Favorito NFL</label>
+                            <select name="favorite_team_id" 
+                                    x-model="favTeamId"
+                                    class="w-full bg-zinc-900 border border-zinc-700/80 text-white text-xs font-medium rounded-xl px-3.5 py-2.5 focus:ring-1 focus:ring-white focus:border-white transition-all cursor-pointer">
+                                <option value="0">-- Ninguno seleccionado --</option>
+                                <template x-for="t in teams" :key="t.id">
+                                    <option :value="t.id" :selected="String(t.id) === String(favTeamId)" x-text="t.city + ' ' + t.name + ' (' + t.code + ')'"></option>
+                                </template>
+                            </select>
+                            <p class="text-[11px] text-zinc-500 mt-1">El banner de tu perfil y tarjetas sociales adoptarán los colores y logo oficial de tu equipo.</p>
+                        </div>
+
+                        <div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="block text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-medium">Lema o Frase del Jugador</label>
+                                <span class="text-[10px] font-mono text-zinc-500" x-text="bio.length + ' / 60'"></span>
+                            </div>
+                            <input type="text" 
+                                   name="bio" 
+                                   x-model="bio" 
+                                   maxlength="60"
+                                   placeholder="Ej: Este año el Super Bowl es nuestro 🏆"
+                                   class="w-full bg-zinc-900 border border-zinc-700/80 text-white text-xs rounded-xl px-3.5 py-2.5 focus:ring-1 focus:ring-white outline-none">
+                            <p class="text-[11px] text-zinc-500 mt-1">Frase visible para tus rivales en tu perfil y al compartir tus estadísticas.</p>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: INSIGNIA DESTACADA -->
+                    <div x-show="customTab === 'badge'" class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label class="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-medium">Elige tu Título / Insignia Principal</label>
+                            <span class="text-[10px] text-zinc-500">Se mostrará debajo de tu nombre</span>
+                        </div>
+
+                        <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                            <!-- Option None -->
+                            <label class="flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer"
+                                   :class="!featuredBadgeCode ? 'bg-zinc-800/80 border-white/50 text-white' : 'bg-zinc-900/40 border-zinc-800 text-zinc-400 hover:bg-zinc-900'">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-sm text-zinc-500">
+                                        <i class="fa-solid fa-ban"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-bold">Ninguna (Sin título)</div>
+                                        <div class="text-[10px] text-zinc-500">No mostrar título bajo tu nombre</div>
+                                    </div>
+                                </div>
+                                <input type="radio" name="featured_badge_code_radio" value="" 
+                                       :checked="!featuredBadgeCode" 
+                                       @change="featuredBadgeCode = ''" 
+                                       class="text-white focus:ring-0">
+                            </label>
+
+                            <!-- Unlocked Badges List -->
+                            <template x-for="b in unlockedBadges" :key="b.code">
+                                <label class="flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer"
+                                       :class="featuredBadgeCode === b.code ? 'bg-amber-500/10 border-amber-500/60 text-white shadow-sm' : 'bg-zinc-900/40 border-zinc-800 text-zinc-300 hover:bg-zinc-900'">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-base shrink-0">
+                                            <span x-text="b.icon"></span>
+                                        </div>
+                                        <div>
+                                            <div class="text-xs font-bold flex items-center space-x-1.5">
+                                                <span x-text="b.name"></span>
+                                                <span class="text-[8px] font-mono uppercase px-1 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30" x-text="b.rarity"></span>
+                                            </div>
+                                            <div class="text-[10px] text-zinc-400 truncate max-w-[280px]" x-text="b.desc"></div>
+                                        </div>
+                                    </div>
+                                    <input type="radio" name="featured_badge_code_radio" :value="b.code" 
+                                           :checked="featuredBadgeCode === b.code" 
+                                           @change="featuredBadgeCode = b.code" 
+                                           class="text-amber-400 focus:ring-0">
+                                </label>
+                            </template>
+
+                            <template x-if="unlockedBadges.length === 0">
+                                <div class="p-4 rounded-xl bg-zinc-900/60 border border-dashed border-zinc-800 text-center text-xs text-zinc-400 space-y-1">
+                                    <i class="fa-solid fa-lock text-zinc-500 text-base"></i>
+                                    <p class="font-bold text-white">Aún no tienes insignias desbloqueadas</p>
+                                    <p class="text-[11px] text-zinc-500">Participa en las jornadas y acierta pronósticos para ganar condecoraciones y poder lucirlas como título.</p>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- TAB 4: ALERTAS Y NOTIFICACIONES -->
+                    <div x-show="customTab === 'notify'" class="space-y-4">
+                        <div class="p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                            <label class="flex items-start space-x-3 cursor-pointer select-none">
+                                <input type="checkbox" name="notify_email" value="1" 
+                                       x-model="notifyEmail"
+                                       class="w-4 h-4 mt-0.5 rounded bg-zinc-900 border-zinc-700 text-white focus:ring-0 focus:ring-offset-0">
+                                <div>
+                                    <span class="text-xs font-bold text-white block">Recordatorios por Correo Electrónico</span>
+                                    <span class="text-[11px] text-zinc-400 block mt-0.5 leading-relaxed">Recibir alertas automáticas antes del kickoff de los partidos si tienes pronósticos sin completar esa semana.</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="shrink-0 p-4 sm:p-5 border-t border-zinc-800/80 bg-zinc-900/80 flex items-center justify-end space-x-2.5">
+                    <button type="button"
+                            @click="customizeModalOpen = false"
+                            class="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-xs font-semibold transition-colors cursor-pointer min-h-[42px]">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-all shadow-sm cursor-pointer min-h-[42px] flex items-center space-x-1.5 hover:scale-[1.02] active:scale-[0.98]">
+                        <i class="fa-solid fa-check text-xs"></i>
+                        <span>Guardar Cambios</span>
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
 
     <!-- Interactive Badge Inspection Modal -->
     <div x-show="badgeModalOpen"

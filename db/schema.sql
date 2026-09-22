@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS users (
     reset_token TEXT DEFAULT NULL,
     reset_token_expires_at TIMESTAMP DEFAULT NULL,
     notify_email BOOLEAN NOT NULL DEFAULT 1,
+    bio TEXT DEFAULT '',
+    featured_badge_code TEXT DEFAULT '',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

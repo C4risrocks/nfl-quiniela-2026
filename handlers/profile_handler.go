@@ -93,10 +93,38 @@ func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 		achievementDisplays = append(achievementDisplays, disp)
 	}
 
+	var favoriteTeam *db.Team
+	if profileUser.FavoriteTeamID != nil {
+		for _, t := range teams {
+			if t.ID == *profileUser.FavoriteTeamID {
+				favoriteTeam = t
+				break
+			}
+		}
+	}
+
+	var featuredBadge *db.BadgeDefinition
+	if profileUser.FeaturedBadgeCode != "" {
+		for _, b := range allBadges {
+			if b.Code == profileUser.FeaturedBadgeCode {
+				badgeCopy := b
+				featuredBadge = &badgeCopy
+				break
+			}
+		}
+	}
+
+	var unlockedBadges []db.BadgeDefinition
+	for _, disp := range achievementDisplays {
+		if disp.IsUnlocked {
+			unlockedBadges = append(unlockedBadges, disp.Definition)
+		}
+	}
+
 	var successMsg, errorMsg string
 	if isOwnProfile {
 		if r.URL.Query().Get("updated") == "1" {
-			successMsg = "Tus preferencias han sido guardadas exitosamente."
+			successMsg = "Tus preferencias y personalización han sido guardadas exitosamente."
 		}
 		if r.URL.Query().Get("pwd_updated") == "1" {
 			successMsg = "Tu contraseña ha sido actualizada exitosamente."
@@ -114,6 +142,9 @@ func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 		"Stats":                     stats,
 		"AdvancedStats":             advStats,
 		"Teams":                     teams,
+		"FavoriteTeam":              favoriteTeam,
+		"FeaturedBadge":             featuredBadge,
+		"UnlockedBadges":            unlockedBadges,
 		"Rank":                      rank,
 		"TotalPlayers":              totalPlayers,
 		"WeeklyHistory":             weeklyHistory,
@@ -138,6 +169,13 @@ func (h *ProfileHandler) HandleUpdatePreferences(w http.ResponseWriter, r *http.
 		return
 	}
 
+	avatarURL := strings.TrimSpace(r.FormValue("avatar_url"))
+	bio := strings.TrimSpace(r.FormValue("bio"))
+	bioRunes := []rune(bio)
+	if len(bioRunes) > 60 {
+		bio = string(bioRunes[:60])
+	}
+
 	favTeamStr := r.FormValue("favorite_team_id")
 	var favTeamID *int64
 	if favTeamStr != "" && favTeamStr != "0" {
@@ -146,9 +184,24 @@ func (h *ProfileHandler) HandleUpdatePreferences(w http.ResponseWriter, r *http.
 		}
 	}
 
+	featuredBadgeCode := strings.TrimSpace(r.FormValue("featured_badge_code"))
+	if featuredBadgeCode != "" {
+		userAchievements, _ := h.repo.GetUserAchievements(user.ID)
+		hasBadge := false
+		for _, ach := range userAchievements {
+			if ach.BadgeCode == featuredBadgeCode {
+				hasBadge = true
+				break
+			}
+		}
+		if !hasBadge {
+			featuredBadgeCode = "" // Cannot feature unearned badges
+		}
+	}
+
 	notifyEmail := r.FormValue("notify_email") == "on" || r.FormValue("notify_email") == "true" || r.FormValue("notify_email") == "1"
 
-	if err := h.repo.UpdateUserPreferences(user.ID, favTeamID, notifyEmail); err != nil {
+	if err := h.repo.UpdateUserPreferences(user.ID, avatarURL, favTeamID, notifyEmail, bio, featuredBadgeCode); err != nil {
 		http.Redirect(w, r, fmt.Sprintf("/profile?err=%s", "Error al guardar preferencias"), http.StatusSeeOther)
 		return
 	}

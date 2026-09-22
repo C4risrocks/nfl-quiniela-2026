@@ -131,6 +131,8 @@ func (d *DB) migrate() error {
 		"ALTER TABLE users ADD COLUMN reset_token TEXT DEFAULT NULL",
 		"ALTER TABLE users ADD COLUMN reset_token_expires_at TIMESTAMP DEFAULT NULL",
 		"ALTER TABLE users ADD COLUMN notify_email BOOLEAN NOT NULL DEFAULT 1",
+		"ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''",
+		"ALTER TABLE users ADD COLUMN featured_badge_code TEXT DEFAULT ''",
 	}
 	if d.DriverName == "pgx" {
 		userCols = []string{
@@ -140,6 +142,8 @@ func (d *DB) migrate() error {
 			"ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT DEFAULT NULL",
 			"ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires_at TIMESTAMP DEFAULT NULL",
 			"ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email BOOLEAN NOT NULL DEFAULT TRUE",
+			"ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT ''",
+			"ALTER TABLE users ADD COLUMN IF NOT EXISTS featured_badge_code TEXT DEFAULT ''",
 		}
 	}
 	for _, colStmt := range userCols {
