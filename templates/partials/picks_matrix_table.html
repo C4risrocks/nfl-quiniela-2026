@@ -93,32 +93,53 @@
                     class="transition-colors hover:bg-zinc-900/40 {{if $row.IsCurrent}}bg-white/[0.04] font-medium{{end}}">
                     
                     <!-- Sticky Left Column: Player Info -->
-                    <td class="sticky left-0 z-20 bg-zinc-950 px-3 py-2.5 min-w-[160px] sm:min-w-[200px] border-r border-zinc-800 shadow-[2px_0_10px_rgba(0,0,0,0.5)]">
-                        <div class="flex items-center space-x-2.5">
-                            <!-- Rank Number -->
-                            <span class="w-5 text-center font-mono font-bold text-xs {{if eq $row.Rank 1}}text-amber-400{{else if eq $row.Rank 2}}text-zinc-300{{else if eq $row.Rank 3}}text-amber-600{{else}}text-zinc-500{{end}}">
-                                #{{$row.Rank}}
-                            </span>
+                    <td class="sticky left-0 z-20 bg-zinc-950 px-3 py-2.5 min-w-[170px] sm:min-w-[210px] border-r border-zinc-800 shadow-[2px_0_10px_rgba(0,0,0,0.5)]" {{if $row.User.FavoriteTeam}}style="box-shadow: inset 3px 0 0 {{$row.User.FavoriteTeam.PrimaryColor}};"{{end}}>
+                        <div class="flex items-center justify-between space-x-2">
+                            <div class="flex items-center space-x-2 min-w-0">
+                                <!-- Rank Number -->
+                                <span class="w-5 text-center font-mono font-bold text-xs shrink-0 {{if eq $row.Rank 1}}text-amber-400{{else if eq $row.Rank 2}}text-zinc-300{{else if eq $row.Rank 3}}text-amber-600{{else}}text-zinc-500{{end}}">
+                                    #{{$row.Rank}}
+                                </span>
 
-                            <!-- Avatar & Username clickable link to Profile -->
-                            <a href="/profile?user_id={{$row.User.ID}}" class="flex items-center space-x-2 min-w-0 group hover:opacity-90 transition-all cursor-pointer">
-                                {{if $row.User.AvatarURL}}
-                                    <img src="{{$row.User.AvatarURL}}" alt="{{$row.User.Username}}" class="w-6 h-6 rounded-full object-cover border border-zinc-700 group-hover:border-cyan-500/80 shrink-0 transition-colors">
-                                {{else}}
-                                    <div class="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 group-hover:border-cyan-500/80 flex items-center justify-center text-white font-bold text-[10px] uppercase shrink-0 leading-none transition-colors">
-                                        {{slice $row.User.Username 0 1}}
+                                <!-- Avatar & Username clickable link to Profile -->
+                                <a href="/profile?user_id={{$row.User.ID}}" class="flex items-center space-x-2 min-w-0 group hover:opacity-90 transition-all cursor-pointer">
+                                    <div class="relative shrink-0">
+                                        {{if $row.User.AvatarURL}}
+                                            <img src="{{$row.User.AvatarURL}}" alt="{{$row.User.Username}}" class="w-7 h-7 rounded-full object-cover border border-zinc-700 group-hover:border-cyan-500/80 shrink-0 transition-colors">
+                                        {{else}}
+                                            <div class="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 group-hover:border-cyan-500/80 flex items-center justify-center text-white font-bold text-[10px] uppercase shrink-0 leading-none transition-colors">
+                                                {{slice $row.User.Username 0 1}}
+                                            </div>
+                                        {{end}}
+                                        {{if $row.User.FavoriteTeam}}
+                                            <img src="{{$row.User.FavoriteTeam.LogoURL}}" alt="{{$row.User.FavoriteTeam.Code}}" class="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-zinc-900 border border-zinc-700 p-0.5 object-contain" title="{{$row.User.FavoriteTeam.City}} {{$row.User.FavoriteTeam.Name}}">
+                                        {{else if eq $row.User.Username "ia_quiniela"}}
+                                            <span class="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-purple-900/90 border border-purple-500/50 flex items-center justify-center text-[7px]" title="Bot Oficial">🤖</span>
+                                        {{end}}
                                     </div>
-                                {{end}}
 
-                                <div class="flex items-center space-x-1 min-w-0">
-                                    <span class="font-bold text-xs truncate max-w-[85px] sm:max-w-[110px] group-hover:text-cyan-400 transition-colors {{if $row.IsCurrent}}text-white font-black{{else}}text-zinc-300{{end}}">
-                                        {{$row.User.Username}}
-                                    </span>
-                                    {{if $row.IsCurrent}}
-                                        <span class="px-1 py-0.2 rounded bg-white text-black text-[8px] font-black leading-none uppercase shrink-0">TÚ</span>
-                                    {{end}}
-                                </div>
-                            </a>
+                                    <div class="flex flex-col min-w-0">
+                                        <div class="flex items-center space-x-1 min-w-0">
+                                            <span class="font-bold text-xs truncate max-w-[80px] sm:max-w-[100px] group-hover:text-cyan-400 transition-colors {{if $row.IsCurrent}}text-white font-black{{else}}text-zinc-300{{end}}">
+                                                {{$row.User.Username}}
+                                            </span>
+                                            {{if $row.IsCurrent}}
+                                                <span class="px-1 py-0.2 rounded bg-white text-black text-[8px] font-black leading-none uppercase shrink-0">TÚ</span>
+                                            {{else if eq $row.User.Username "ia_quiniela"}}
+                                                <span class="px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[7.5px] font-black leading-none uppercase shrink-0">BOT</span>
+                                            {{end}}
+                                            {{if $row.User.FeaturedBadgeTitle}}
+                                                <span class="text-[10px] leading-none shrink-0" title="{{$row.User.FeaturedBadgeTitle}}">{{$row.User.FeaturedBadgeIcon}}</span>
+                                            {{end}}
+                                        </div>
+                                        {{if $row.User.FavoriteTeam}}
+                                            <div class="flex items-center space-x-1 mt-0.5">
+                                                <span class="text-[9px] font-mono text-zinc-400 leading-none truncate">{{$row.User.FavoriteTeam.Code}}</span>
+                                            </div>
+                                        {{end}}
+                                    </div>
+                                </a>
+                            </div>
 
                             <!-- H2H duel button -->
                             <div class="min-w-0 shrink-0 flex items-center justify-end">

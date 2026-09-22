@@ -23,9 +23,13 @@ type User struct {
 	ResetToken          *string    `json:"-"`
 	ResetTokenExpiresAt *time.Time `json:"-"`
 	NotifyEmail         bool       `json:"notify_email"`
-	Bio                 string     `json:"bio"`
-	FeaturedBadgeCode   string     `json:"featured_badge_code"`
-	CreatedAt           time.Time  `json:"created_at"`
+	Bio                 string           `json:"bio"`
+	FeaturedBadgeCode   string           `json:"featured_badge_code"`
+	FavoriteTeam        *Team            `json:"favorite_team,omitempty"`
+	FeaturedBadgeTitle  string           `json:"featured_badge_title,omitempty"`
+	FeaturedBadgeIcon   string           `json:"featured_badge_icon,omitempty"`
+	FeaturedBadge       *BadgeDefinition `json:"featured_badge,omitempty"`
+	CreatedAt           time.Time        `json:"created_at"`
 }
 
 func (u *User) HasCustomAvatar() bool {
@@ -959,14 +963,21 @@ func (g *Game) HasPickCompleted() bool {
 
 // LeaderboardEntry represents a user's standings in a week or season
 type LeaderboardEntry struct {
-	Rank                int                `json:"rank"`
-	UserID              int64              `json:"user_id"`
-	Username            string             `json:"username"`
-	AvatarURL           string             `json:"avatar_url"`
-	TotalPoints         int                `json:"total_points"`
-	LiveProjectedPoints int                `json:"live_projected_points"`
-	CorrectPicks        int                `json:"correct_picks"`
-	TotalPicks          int                `json:"total_picks"`
+	Rank                    int                `json:"rank"`
+	UserID                  int64              `json:"user_id"`
+	Username                string             `json:"username"`
+	AvatarURL               string             `json:"avatar_url"`
+	FavoriteTeamID          *int64             `json:"favorite_team_id,omitempty"`
+	FavoriteTeam            *Team              `json:"favorite_team,omitempty"`
+	Bio                     string             `json:"bio,omitempty"`
+	FeaturedBadgeCode       string             `json:"featured_badge_code,omitempty"`
+	FeaturedBadgeTitle      string             `json:"featured_badge_title,omitempty"`
+	FeaturedBadgeIcon       string             `json:"featured_badge_icon,omitempty"`
+	FeaturedBadge           *BadgeDefinition   `json:"featured_badge,omitempty"`
+	TotalPoints             int                `json:"total_points"`
+	LiveProjectedPoints     int                `json:"live_projected_points"`
+	CorrectPicks            int                `json:"correct_picks"`
+	TotalPicks              int                `json:"total_picks"`
 	TiebreakerError         int                `json:"tiebreaker_error"`
 	TiebreakerWinnerCorrect bool               `json:"tiebreaker_winner_correct"`
 	WinPercentage           float64            `json:"win_percentage"`
@@ -978,6 +989,18 @@ type LeaderboardEntry struct {
 
 func (e *LeaderboardEntry) IsAI() bool {
 	return e != nil && (e.IsBot || e.Username == "ia_quiniela")
+}
+
+func (e *LeaderboardEntry) HasCustomAvatar() bool {
+	return e != nil && e.AvatarURL != ""
+}
+
+func (e *LeaderboardEntry) HasBio() bool {
+	return e != nil && strings.TrimSpace(e.Bio) != ""
+}
+
+func (e *LeaderboardEntry) HasFeaturedBadge() bool {
+	return e != nil && (e.FeaturedBadge != nil || e.FeaturedBadgeCode != "")
 }
 
 // DistinctAchievements returns achievements deduplicated by BadgeCode
@@ -1290,6 +1313,19 @@ func GetAllBadgeDefinitions() []BadgeDefinition {
 			Rarity:      "common",
 		},
 	}
+}
+
+// GetBadgeDefinitionByCode returns the catalog badge definition for a given code, or nil if not found
+func GetBadgeDefinitionByCode(code string) *BadgeDefinition {
+	if code == "" {
+		return nil
+	}
+	for _, b := range GetAllBadgeDefinitions() {
+		if b.Code == code {
+			return &b
+		}
+	}
+	return nil
 }
 
 // UserAchievementDisplay models a badge slot for the profile showcase

@@ -4,7 +4,8 @@
     <div class="md:hidden space-y-2.5">
         {{if .Leaderboard}}
             {{range .Leaderboard}}
-                <div class="p-3.5 rounded-2xl border transition-all {{if .IsAI}}bg-indigo-950/20 border-indigo-500/30 hover:border-indigo-500/50 shadow-sm{{else if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}bg-zinc-900/90 border-white/40 ring-1 ring-white/20 shadow-md{{else}}bg-zinc-950/80 border-zinc-800/80 hover:border-zinc-700{{end}}">
+                <div class="p-3.5 rounded-2xl border transition-all {{if .IsAI}}bg-indigo-950/20 border-indigo-500/30 hover:border-indigo-500/50 shadow-sm{{else if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}bg-zinc-900/90 border-white/40 ring-1 ring-white/20 shadow-md{{else}}bg-zinc-950/80 border-zinc-800/80 hover:border-zinc-700{{end}}"
+                     {{if and .FavoriteTeam (not .IsAI) (or (not $.CurrentUser) (ne .UserID $.CurrentUser.ID))}}style="border-left: 3px solid {{.FavoriteTeam.PrimaryColor}};"{{end}}>
                     <div class="flex items-center justify-between">
                         
                         <!-- Left: Rank Badge + Avatar + Player Info -->
@@ -28,25 +29,45 @@
 
                             <!-- Avatar & Username clickable link to Profile -->
                             <a href="/profile?user_id={{.UserID}}" class="flex items-center space-x-2.5 min-w-0 group hover:opacity-90 transition-all cursor-pointer">
-                                <div class="w-8 h-8 rounded-full {{if .IsAI}}bg-indigo-950 border border-indigo-500/50 text-indigo-300{{else}}bg-zinc-800 border border-zinc-700 group-hover:border-cyan-500/80 text-white{{end}} flex items-center justify-center text-xs font-bold uppercase shrink-0 transition-colors">
-                                    {{if .IsAI}}
-                                        <i class="fa-solid fa-robot text-xs text-indigo-300"></i>
-                                    {{else}}
-                                        {{slice .Username 0 1}}
+                                <div class="relative shrink-0">
+                                    <div class="w-8 h-8 rounded-full {{if .IsAI}}bg-indigo-950 border border-indigo-500/50 text-indigo-300{{else}}bg-zinc-800 border border-zinc-700 group-hover:border-cyan-500/80 text-white{{end}} flex items-center justify-center text-xs font-bold uppercase shrink-0 transition-colors overflow-hidden">
+                                        {{if .AvatarURL}}
+                                            <img src="{{.AvatarURL}}" alt="{{.Username}}" class="w-full h-full object-cover">
+                                        {{else if .IsAI}}
+                                            <i class="fa-solid fa-robot text-xs text-indigo-300"></i>
+                                        {{else}}
+                                            {{slice .Username 0 1}}
+                                        {{end}}
+                                    </div>
+                                    {{if .FavoriteTeam}}
+                                        <div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-zinc-950 p-0.5 border border-zinc-700 shadow flex items-center justify-center shrink-0" title="{{.FavoriteTeam.City}} {{.FavoriteTeam.Name}}">
+                                            <img src="{{.FavoriteTeam.LogoURL}}" alt="{{.FavoriteTeam.Code}}" class="w-full h-full object-contain">
+                                        </div>
                                     {{end}}
                                 </div>
 
                                 <div class="min-w-0">
-                                    <div class="font-bold text-white text-sm truncate flex items-center group-hover:text-cyan-400 transition-colors">
+                                    <div class="font-bold text-white text-sm truncate flex items-center flex-wrap gap-1 group-hover:text-cyan-400 transition-colors">
                                         <span class="truncate">{{.Username}}</span>
                                         {{if .IsAI}}
-                                            <span class="ml-1.5 text-[9px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-1.5 py-0.2 rounded-full shrink-0">🤖 BOT IA</span>
+                                            <span class="text-[9px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-1.5 py-0.2 rounded-full shrink-0">🤖 BOT IA</span>
                                         {{end}}
                                         {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}
-                                            <span class="ml-1.5 text-[9px] font-mono uppercase font-black bg-white text-black px-1.5 py-0.2 rounded-full shrink-0">Tú</span>
+                                            <span class="text-[9px] font-mono uppercase font-black bg-white text-black px-1.5 py-0.2 rounded-full shrink-0">Tú</span>
+                                        {{end}}
+                                        {{if .FavoriteTeam}}
+                                            <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-mono font-bold border shrink-0" style="background-color: {{.FavoriteTeam.PrimaryColor}}20; border-color: {{.FavoriteTeam.PrimaryColor}}50; color: {{.FavoriteTeam.PrimaryColor}};" title="Fan de {{.FavoriteTeam.City}} {{.FavoriteTeam.Name}}">
+                                                <img src="{{.FavoriteTeam.LogoURL}}" class="w-3 h-3 mr-1 object-contain inline"> {{.FavoriteTeam.Code}}
+                                            </span>
+                                        {{end}}
+                                        {{if .FeaturedBadge}}
+                                            <span class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded text-[9px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/25 shrink-0" title="{{.FeaturedBadge.Description}}">
+                                                <span>{{.FeaturedBadge.Icon}}</span>
+                                                <span class="truncate max-w-[100px]">{{.FeaturedBadge.Name}}</span>
+                                            </span>
                                         {{end}}
                                         {{if .Achievements}}
-                                            <div class="flex items-center space-x-1 ml-1.5 shrink-0" title="{{.UnlockedAchievementsCount}} insignias desbloqueadas">
+                                            <div class="flex items-center space-x-1 ml-1 shrink-0" title="{{.UnlockedAchievementsCount}} insignias desbloqueadas">
                                                 <span class="inline-flex items-center space-x-0.5 px-1.5 py-0.2 rounded-md bg-amber-400/10 border border-amber-400/30 text-[9px] font-mono font-bold text-amber-300">
                                                     <i class="fa-solid fa-trophy text-[7px] text-amber-400"></i>
                                                     <span>{{.UnlockedAchievementsCount}}</span>
@@ -62,6 +83,9 @@
                                             </div>
                                         {{end}}
                                     </div>
+                                    {{if .Bio}}
+                                        <div class="text-[10px] text-zinc-400 italic truncate max-w-[220px] mt-0.5" title="{{.Bio}}">“{{.Bio}}”</div>
+                                    {{end}}
                                     <div class="text-[11px] font-mono text-zinc-400 flex items-center space-x-1.5 mt-0.5">
                                         <span>{{.CorrectPicks}}/{{.TotalPicks}} aciertos</span>
                                         <span class="text-zinc-600">•</span>
@@ -160,7 +184,8 @@
             <tbody class="divide-y divide-[#1a1a1a] text-zinc-200">
                 {{if .Leaderboard}}
                     {{range .Leaderboard}}
-                        <tr class="transition-colors hover:bg-zinc-900/50 {{if .IsAI}}bg-indigo-950/20 border-l-2 border-l-indigo-500 font-medium{{else if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}bg-zinc-900/80 border-l-2 border-l-white font-medium{{end}}">
+                        <tr class="transition-colors hover:bg-zinc-900/50 {{if .IsAI}}bg-indigo-950/20 border-l-2 border-l-indigo-500 font-medium{{else if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}bg-zinc-900/80 border-l-2 border-l-white font-medium{{end}}"
+                            {{if and .FavoriteTeam (not .IsAI) (or (not $.CurrentUser) (ne .UserID $.CurrentUser.ID))}}style="border-left: 2px solid {{.FavoriteTeam.PrimaryColor}}60;"{{end}}>
                             
                             <!-- Rank Column -->
                             <td class="py-3 px-4 text-center">
@@ -188,36 +213,62 @@
                             <!-- Player Info -->
                             <td class="py-3 px-4">
                                 <a href="/profile?user_id={{.UserID}}" class="flex items-center space-x-2.5 group hover:opacity-90 transition-all cursor-pointer">
-                                    <div class="w-6 h-6 rounded-full {{if .IsAI}}bg-indigo-950 border border-indigo-500/50 text-indigo-300{{else}}bg-zinc-800 border border-zinc-700 group-hover:border-cyan-500/80 text-zinc-200{{end}} flex items-center justify-center text-[10px] font-bold uppercase transition-colors">
-                                        {{if .IsAI}}
-                                            <i class="fa-solid fa-robot text-[9px] text-indigo-300"></i>
-                                        {{else}}
-                                            {{slice .Username 0 1}}
+                                    <div class="relative shrink-0">
+                                        <div class="w-7 h-7 rounded-full {{if .IsAI}}bg-indigo-950 border border-indigo-500/50 text-indigo-300{{else}}bg-zinc-800 border border-zinc-700 group-hover:border-cyan-500/80 text-zinc-200{{end}} flex items-center justify-center text-[10px] font-bold uppercase transition-colors overflow-hidden">
+                                            {{if .AvatarURL}}
+                                                <img src="{{.AvatarURL}}" alt="{{.Username}}" class="w-full h-full object-cover">
+                                            {{else if .IsAI}}
+                                                <i class="fa-solid fa-robot text-[9px] text-indigo-300"></i>
+                                            {{else}}
+                                                {{slice .Username 0 1}}
+                                            {{end}}
+                                        </div>
+                                        {{if .FavoriteTeam}}
+                                            <div class="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-zinc-950 p-0.5 border border-zinc-700 shadow flex items-center justify-center shrink-0" title="Fan de {{.FavoriteTeam.City}} {{.FavoriteTeam.Name}}">
+                                                <img src="{{.FavoriteTeam.LogoURL}}" alt="{{.FavoriteTeam.Code}}" class="w-full h-full object-contain">
+                                            </div>
                                         {{end}}
                                     </div>
-                                    <div class="font-medium text-white flex items-center group-hover:text-cyan-400 transition-colors">
-                                        <span>{{.Username}}</span>
-                                        {{if .IsAI}}
-                                            <span class="ml-2 text-[9px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-1.5 py-0.2 rounded-full">🤖 BOT IA</span>
-                                        {{end}}
-                                        {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}
-                                            <span class="ml-2 text-[9px] font-mono uppercase font-bold bg-white text-black px-1.5 py-0.2 rounded-full">Tú</span>
-                                        {{end}}
-                                        {{if .Achievements}}
-                                            <div class="flex items-center space-x-1.5 ml-2.5 shrink-0" title="{{.UnlockedAchievementsCount}} logros desbloqueados">
-                                                <span class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded-md bg-amber-400/10 border border-amber-400/30 text-[10px] font-mono font-bold text-amber-300">
-                                                    <i class="fa-solid fa-trophy text-[8px] text-amber-400"></i>
-                                                    <span>{{.UnlockedAchievementsCount}}</span>
+
+                                    <div class="min-w-0">
+                                        <div class="font-medium text-white flex items-center flex-wrap gap-1.5 group-hover:text-cyan-400 transition-colors">
+                                            <span>{{.Username}}</span>
+                                            {{if .IsAI}}
+                                                <span class="text-[9px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-1.5 py-0.2 rounded-full shrink-0">🤖 BOT IA</span>
+                                            {{end}}
+                                            {{if and $.CurrentUser (eq .UserID $.CurrentUser.ID)}}
+                                                <span class="text-[9px] font-mono uppercase font-bold bg-white text-black px-1.5 py-0.2 rounded-full shrink-0">Tú</span>
+                                            {{end}}
+                                            {{if .FavoriteTeam}}
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border shrink-0" style="background-color: {{.FavoriteTeam.PrimaryColor}}20; border-color: {{.FavoriteTeam.PrimaryColor}}50; color: {{.FavoriteTeam.PrimaryColor}};" title="Fan de {{.FavoriteTeam.City}} {{.FavoriteTeam.Name}}">
+                                                    <img src="{{.FavoriteTeam.LogoURL}}" class="w-3.5 h-3.5 mr-1 object-contain inline"> {{.FavoriteTeam.Code}}
                                                 </span>
-                                                <div class="flex items-center space-x-0.5">
-                                                    {{range .TopAchievements 3}}
-                                                        <span class="text-xs leading-none select-none hover:scale-125 transition-transform" title="{{.BadgeName}}: {{.BadgeDesc}}">{{.Icon}}</span>
-                                                    {{end}}
-                                                    {{if gt (.ExtraAchievementsCount 3) 0}}
-                                                        <span class="text-[9px] text-zinc-500 font-mono font-semibold">+{{.ExtraAchievementsCount 3}}</span>
-                                                    {{end}}
+                                            {{end}}
+                                            {{if .FeaturedBadge}}
+                                                <span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/25 shrink-0" title="{{.FeaturedBadge.Description}}">
+                                                    <span>{{.FeaturedBadge.Icon}}</span>
+                                                    <span>{{.FeaturedBadge.Name}}</span>
+                                                </span>
+                                            {{end}}
+                                            {{if .Achievements}}
+                                                <div class="flex items-center space-x-1.5 ml-1 shrink-0" title="{{.UnlockedAchievementsCount}} logros desbloqueados">
+                                                    <span class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded-md bg-amber-400/10 border border-amber-400/30 text-[10px] font-mono font-bold text-amber-300">
+                                                        <i class="fa-solid fa-trophy text-[8px] text-amber-400"></i>
+                                                        <span>{{.UnlockedAchievementsCount}}</span>
+                                                    </span>
+                                                    <div class="flex items-center space-x-0.5">
+                                                        {{range .TopAchievements 3}}
+                                                            <span class="text-xs leading-none select-none hover:scale-125 transition-transform" title="{{.BadgeName}}: {{.BadgeDesc}}">{{.Icon}}</span>
+                                                        {{end}}
+                                                        {{if gt (.ExtraAchievementsCount 3) 0}}
+                                                            <span class="text-[9px] text-zinc-500 font-mono font-semibold">+{{.ExtraAchievementsCount 3}}</span>
+                                                        {{end}}
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            {{end}}
+                                        </div>
+                                        {{if .Bio}}
+                                            <div class="text-[11px] text-zinc-400 italic truncate max-w-[280px] mt-0.5" title="{{.Bio}}">“{{.Bio}}”</div>
                                         {{end}}
                                     </div>
                                 </a>

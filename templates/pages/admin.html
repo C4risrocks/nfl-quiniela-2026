@@ -382,17 +382,39 @@
             <div class="md:hidden space-y-3">
                 {{if .UserSummaries}}
                     {{range .UserSummaries}}
-                        <div class="p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800 space-y-2.5">
+                        <div class="p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800 space-y-2.5" {{if .User.FavoriteTeam}}style="border-left: 3px solid {{.User.FavoriteTeam.PrimaryColor}};"{{end}}>
                             <div class="flex items-center justify-between">
-                                <div class="flex items-center space-x-2 min-w-0 flex-1">
-                                    <div class="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-xs text-white shrink-0">
-                                        {{slice .User.Username 0 1}}
+                                <div class="flex items-center space-x-2.5 min-w-0 flex-1">
+                                    <div class="relative shrink-0">
+                                        <div class="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-xs text-white overflow-hidden shadow">
+                                            {{if .User.AvatarURL}}
+                                                <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-full h-full object-cover">
+                                            {{else}}
+                                                {{slice .User.Username 0 1}}
+                                            {{end}}
+                                        </div>
+                                        {{if .User.FavoriteTeam}}
+                                            <img src="{{.User.FavoriteTeam.LogoURL}}" alt="{{.User.FavoriteTeam.Code}}" class="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-zinc-900 border border-zinc-700 p-0.5 object-contain" title="{{.User.FavoriteTeam.City}} {{.User.FavoriteTeam.Name}}">
+                                        {{else if eq .User.Username "ia_quiniela"}}
+                                            <span class="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-purple-900/90 border border-purple-500/50 flex items-center justify-center text-[7px]">🤖</span>
+                                        {{end}}
                                     </div>
                                     <div class="min-w-0 flex-1">
-                                        <div class="font-bold text-white text-xs flex items-center">
+                                        <div class="font-bold text-white text-xs flex items-center space-x-1.5 flex-wrap">
                                             <span class="truncate">{{.User.Username}}</span>
+                                            {{if eq .User.Username "ia_quiniela"}}
+                                                <span class="text-[8px] font-mono px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase font-black">BOT</span>
+                                            {{end}}
+                                            {{if .User.FavoriteTeam}}
+                                                <span class="inline-flex items-center space-x-0.5 px-1 py-0.2 rounded bg-zinc-900 text-[8.5px] font-mono text-zinc-300 border border-zinc-700/60 leading-none shrink-0">
+                                                    <span>{{.User.FavoriteTeam.Code}}</span>
+                                                </span>
+                                            {{end}}
+                                            {{if .User.FeaturedBadgeTitle}}
+                                                <span class="text-[9px] leading-none shrink-0" title="{{.User.FeaturedBadgeTitle}}">{{.User.FeaturedBadgeIcon}}</span>
+                                            {{end}}
                                             {{if .User.IsAdmin}}
-                                                <span class="ml-1 text-[8px] font-mono px-1 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 shrink-0">ADMIN</span>
+                                                <span class="text-[8px] font-mono px-1 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 shrink-0">ADMIN</span>
                                             {{end}}
                                         </div>
                                         <div class="text-[10px] text-zinc-500 font-mono truncate">{{.User.Email}}</div>
@@ -453,13 +475,42 @@
                             {{range .UserSummaries}}
                                 <tr class="hover:bg-zinc-900/30">
                                     <td class="py-2.5 px-3">
-                                        <div class="font-semibold text-white flex items-center">
-                                            <span>{{.User.Username}}</span>
-                                            {{if .User.IsAdmin}}
-                                                <span class="ml-1.5 text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">ADMIN</span>
-                                            {{end}}
+                                        <div class="flex items-center space-x-2.5">
+                                            <div class="relative shrink-0">
+                                                <div class="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-xs text-white overflow-hidden shadow-xs">
+                                                    {{if .User.AvatarURL}}
+                                                        <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-full h-full object-cover">
+                                                    {{else}}
+                                                        {{slice .User.Username 0 1}}
+                                                    {{end}}
+                                                </div>
+                                                {{if .User.FavoriteTeam}}
+                                                    <img src="{{.User.FavoriteTeam.LogoURL}}" alt="{{.User.FavoriteTeam.Code}}" class="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-zinc-900 border border-zinc-700 p-0.5 object-contain" title="{{.User.FavoriteTeam.City}} {{.User.FavoriteTeam.Name}}">
+                                                {{else if eq .User.Username "ia_quiniela"}}
+                                                    <span class="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-purple-900/90 border border-purple-500/50 flex items-center justify-center text-[6px]">🤖</span>
+                                                {{end}}
+                                            </div>
+                                            <div class="min-w-0">
+                                                <div class="font-semibold text-white flex items-center space-x-1.5 flex-wrap">
+                                                    <span>{{.User.Username}}</span>
+                                                    {{if eq .User.Username "ia_quiniela"}}
+                                                        <span class="text-[8px] font-mono px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase font-black">BOT</span>
+                                                    {{end}}
+                                                    {{if .User.FavoriteTeam}}
+                                                        <span class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded bg-zinc-900 text-[8.5px] font-mono text-zinc-300 border border-zinc-700/60 leading-none">
+                                                            <span>{{.User.FavoriteTeam.Code}}</span>
+                                                        </span>
+                                                    {{end}}
+                                                    {{if .User.FeaturedBadgeTitle}}
+                                                        <span class="text-[9px] leading-none" title="{{.User.FeaturedBadgeTitle}}">{{.User.FeaturedBadgeIcon}}</span>
+                                                    {{end}}
+                                                    {{if .User.IsAdmin}}
+                                                        <span class="ml-1 text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">ADMIN</span>
+                                                    {{end}}
+                                                </div>
+                                                <div class="text-[10px] font-mono text-zinc-500 mt-0.5">ID: #{{.User.ID}} &bull; Reg: {{formatShortDate .User.CreatedAt}}</div>
+                                            </div>
                                         </div>
-                                        <div class="text-[10px] font-mono text-zinc-500 mt-0.5">ID: #{{.User.ID}} &bull; Reg: {{formatShortDate .User.CreatedAt}}</div>
                                     </td>
                                     <td class="py-2.5 px-3">
                                         <div class="text-zinc-300 font-mono">{{.User.Email}}</div>

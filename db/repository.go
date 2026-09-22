@@ -6,11 +6,14 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 )
 
 type Repository struct {
-	db *DB
+	db        *DB
+	teamMapMu sync.RWMutex
+	teamMap   map[int64]*Team
 }
 
 func NewRepository(db *DB) *Repository {
@@ -110,6 +113,7 @@ const userColumns = `id, username, email, password_hash, role, avatar_url, favor
 
 func scanUserRow(scanner interface{ Scan(dest ...any) error }) (*User, error) {
 	var u User
+	var favTeamID sql.NullInt64
 	var createdAtStr string
 	var verifSentAtStr sql.NullString
 	var resetExpStr sql.NullString
@@ -117,13 +121,17 @@ func scanUserRow(scanner interface{ Scan(dest ...any) error }) (*User, error) {
 	var featBadgeStr sql.NullString
 
 	err := scanner.Scan(
-		&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarURL, &u.FavoriteTeamID,
+		&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarURL, &favTeamID,
 		&u.EmailVerified, &u.VerificationToken, &verifSentAtStr,
 		&u.ResetToken, &resetExpStr, &u.NotifyEmail, &createdAtStr,
 		&bioStr, &featBadgeStr,
 	)
 	if err != nil {
 		return nil, err
+	}
+	if favTeamID.Valid && favTeamID.Int64 > 0 {
+		tid := favTeamID.Int64
+		u.FavoriteTeamID = &tid
 	}
 	u.CreatedAt = parseTimeSafe(createdAtStr)
 	if verifSentAtStr.Valid {
@@ -176,19 +184,135 @@ func (r *Repository) CreateUserWithVerification(username, email, passwordHash, r
 	return r.GetUserByID(id)
 }
 
+func (r *Repository) GetTeamMap() (map[int64]*Team, error) {
+	r.teamMapMu.RLock()
+	if len(r.teamMap) > 0 {
+		m := make(map[int64]*Team, len(r.teamMap))
+		for k, v := range r.teamMap {
+			m[k] = v
+		}
+		r.teamMapMu.RUnlock()
+		return m, nil
+	}
+	r.teamMapMu.RUnlock()
+
+	r.teamMapMu.Lock()
+	defer r.teamMapMu.Unlock()
+	if len(r.teamMap) > 0 {
+		m := make(map[int64]*Team, len(r.teamMap))
+		for k, v := range r.teamMap {
+			m[k] = v
+		}
+		return m, nil
+	}
+
+	teams, err := r.ListTeams()
+	if err != nil {
+		return nil, err
+	}
+	r.teamMap = make(map[int64]*Team, len(teams))
+	m := make(map[int64]*Team, len(teams))
+	for _, t := range teams {
+		r.teamMap[t.ID] = t
+		m[t.ID] = t
+	}
+	return m, nil
+}
+
+func (r *Repository) EnrichUser(u *User, teamMap map[int64]*Team) {
+	if u == nil {
+		return
+	}
+	if u.FavoriteTeamID != nil && *u.FavoriteTeamID > 0 {
+		if teamMap == nil {
+			teamMap, _ = r.GetTeamMap()
+		}
+		if teamMap != nil {
+			u.FavoriteTeam = teamMap[*u.FavoriteTeamID]
+		}
+	}
+	if u.FeaturedBadgeCode != "" {
+		if b := GetBadgeDefinitionByCode(u.FeaturedBadgeCode); b != nil {
+			u.FeaturedBadge = b
+			u.FeaturedBadgeTitle = b.Name
+			u.FeaturedBadgeIcon = b.Icon
+		}
+	}
+	if u.Username == "ia_quiniela" {
+		if u.Bio == "" {
+			u.Bio = "🤖 Bot Oficial de IA de la Quiniela"
+		}
+		if u.AvatarURL == "" {
+			u.AvatarURL = "/static/icons/bot_avatar.svg"
+		}
+	}
+}
+
+func (r *Repository) EnrichUsers(users []*User) {
+	if len(users) == 0 {
+		return
+	}
+	teamMap, _ := r.GetTeamMap()
+	for _, u := range users {
+		r.EnrichUser(u, teamMap)
+	}
+}
+
+func (r *Repository) EnrichLeaderboardEntries(entries []*LeaderboardEntry) {
+	if len(entries) == 0 {
+		return
+	}
+	teamMap, _ := r.GetTeamMap()
+	for _, e := range entries {
+		if e.FavoriteTeamID != nil && *e.FavoriteTeamID > 0 && teamMap != nil {
+			e.FavoriteTeam = teamMap[*e.FavoriteTeamID]
+		}
+		if e.FeaturedBadgeCode != "" {
+			if b := GetBadgeDefinitionByCode(e.FeaturedBadgeCode); b != nil {
+				e.FeaturedBadge = b
+				e.FeaturedBadgeTitle = b.Name
+				e.FeaturedBadgeIcon = b.Icon
+			}
+		}
+		if e.IsAI() {
+			if e.Bio == "" {
+				e.Bio = "🤖 Bot Oficial de IA de la Quiniela"
+			}
+			if e.AvatarURL == "" {
+				e.AvatarURL = "/static/icons/bot_avatar.svg"
+			}
+		}
+	}
+}
+
 func (r *Repository) GetUserByID(id int64) (*User, error) {
 	query := fmt.Sprintf(`SELECT %s FROM users WHERE id = ?`, userColumns)
-	return scanUserRow(r.db.QueryRow(query, id))
+	u, err := scanUserRow(r.db.QueryRow(query, id))
+	if err != nil {
+		return nil, err
+	}
+	r.EnrichUser(u, nil)
+	return u, nil
 }
 
 func (r *Repository) GetUserByUsername(username string) (*User, error) {
 	query := fmt.Sprintf(`SELECT %s FROM users WHERE LOWER(username) = LOWER(?)`, userColumns)
-	return scanUserRow(r.db.QueryRow(query, username))
+	u, err := scanUserRow(r.db.QueryRow(query, username))
+	if err != nil {
+		return nil, err
+	}
+	r.EnrichUser(u, nil)
+	return u, nil
 }
 
 func (r *Repository) GetUserByEmail(email string) (*User, error) {
 	query := fmt.Sprintf(`SELECT %s FROM users WHERE LOWER(email) = LOWER(?)`, userColumns)
-	return scanUserRow(r.db.QueryRow(query, email))
+	u, err := scanUserRow(r.db.QueryRow(query, email))
+	if err != nil {
+		return nil, err
+	}
+	r.EnrichUser(u, nil)
+	return u, nil
 }
 
 func (r *Repository) SetVerificationToken(userID int64, token string) error {
@@ -519,6 +643,7 @@ func (r *Repository) ListUsers() ([]*User, error) {
 		}
 		users = append(users, u)
 	}
+	r.EnrichUsers(users)
 	return users, nil
 }
 
@@ -1002,9 +1127,11 @@ func (r *Repository) SavePick(userID, gameID int64, pickedTeamID *int64, predHom
 }
 
 func (r *Repository) ListPicksForGame(gameID int64) ([]*Pick, error) {
+	teamMap, _ := r.GetTeamMap()
+
 	query := `
 	SELECT p.id, p.user_id, p.game_id, p.picked_team_id, p.predicted_home_score, p.predicted_away_score, p.points_earned, p.bonus_points, p.is_correct, p.updated_at,
-	       u.id, u.username, u.email, u.role, u.avatar_url,
+	       u.id, u.username, u.email, u.role, u.avatar_url, u.favorite_team_id, COALESCE(u.bio, ''), COALESCE(u.featured_badge_code, ''),
 	       COALESCE(t.code, '') as team_code
 	FROM picks p
 	JOIN users u ON p.user_id = u.id
@@ -1022,19 +1149,34 @@ func (r *Repository) ListPicksForGame(gameID int64) ([]*Pick, error) {
 	for rows.Next() {
 		var p Pick
 		var u User
+		var favTeamID sql.NullInt64
+		var bioStr, featBadgeStr sql.NullString
 		if err := rows.Scan(
 			&p.ID, &p.UserID, &p.GameID, &p.PickedTeamID,
 			&p.PredictedHomeScore, &p.PredictedAwayScore,
 			&p.PointsEarned, &p.BonusPoints, &p.IsCorrect,
 			&p.UpdatedAt,
 			&u.ID, &u.Username, &u.Email, &u.Role, &u.AvatarURL,
+			&favTeamID, &bioStr, &featBadgeStr,
 			&p.TeamCode,
 		); err != nil {
 			return nil, err
 		}
+		if favTeamID.Valid && favTeamID.Int64 > 0 {
+			tid := favTeamID.Int64
+			u.FavoriteTeamID = &tid
+		}
+		if bioStr.Valid {
+			u.Bio = bioStr.String
+		}
+		if featBadgeStr.Valid {
+			u.FeaturedBadgeCode = featBadgeStr.String
+		}
+		r.EnrichUser(&u, teamMap)
 		p.User = &u
 		picks = append(picks, &p)
 	}
+	rows.Close()
 	return picks, nil
 }
 
@@ -1399,7 +1541,8 @@ func (r *Repository) UpsertWeeklyLeaderboard(entry *LeaderboardEntry, weekID int
 
 func (r *Repository) GetWeeklyLeaderboard(weekID int64) ([]*LeaderboardEntry, error) {
 	query := `
-	SELECT wl.rank, wl.user_id, u.username, u.avatar_url, wl.total_points, wl.correct_picks, wl.total_picks, wl.tiebreaker_error, COALESCE(wl.tiebreaker_winner_correct, 0)
+	SELECT wl.rank, wl.user_id, u.username, u.avatar_url, wl.total_points, wl.correct_picks, wl.total_picks, wl.tiebreaker_error, COALESCE(wl.tiebreaker_winner_correct, 0),
+	       u.favorite_team_id, COALESCE(u.bio, ''), COALESCE(u.featured_badge_code, '')
 	FROM weekly_leaderboard wl
 	JOIN users u ON wl.user_id = u.id
 	WHERE wl.week_id = ? AND COALESCE(u.role, 'player') != 'admin'
@@ -1414,8 +1557,25 @@ func (r *Repository) GetWeeklyLeaderboard(weekID int64) ([]*LeaderboardEntry, er
 	var entries []*LeaderboardEntry
 	for rows.Next() {
 		var e LeaderboardEntry
-		if err := rows.Scan(&e.Rank, &e.UserID, &e.Username, &e.AvatarURL, &e.TotalPoints, &e.CorrectPicks, &e.TotalPicks, &e.TiebreakerError, &e.TiebreakerWinnerCorrect); err != nil {
+		var favTeamID sql.NullInt64
+		var bioStr, featBadgeStr sql.NullString
+		if err := rows.Scan(
+			&e.Rank, &e.UserID, &e.Username, &e.AvatarURL,
+			&e.TotalPoints, &e.CorrectPicks, &e.TotalPicks,
+			&e.TiebreakerError, &e.TiebreakerWinnerCorrect,
+			&favTeamID, &bioStr, &featBadgeStr,
+		); err != nil {
 			return nil, err
+		}
+		if favTeamID.Valid && favTeamID.Int64 > 0 {
+			tid := favTeamID.Int64
+			e.FavoriteTeamID = &tid
+		}
+		if bioStr.Valid {
+			e.Bio = bioStr.String
+		}
+		if featBadgeStr.Valid {
+			e.FeaturedBadgeCode = featBadgeStr.String
 		}
 		if e.TotalPicks > 0 {
 			e.WinPercentage = (float64(e.CorrectPicks) / float64(e.TotalPicks)) * 100.0
@@ -1423,6 +1583,7 @@ func (r *Repository) GetWeeklyLeaderboard(weekID int64) ([]*LeaderboardEntry, er
 		e.HasTiebreaker = e.TiebreakerError >= 0 && e.TiebreakerError < 999
 		entries = append(entries, &e)
 	}
+	rows.Close()
 
 	// Standard competition ranking (1224 ranking) for weekly standings:
 	// The AI Bot (@ia_quiniela) participates as a ghost/reference benchmark:
@@ -1447,6 +1608,7 @@ func (r *Repository) GetWeeklyLeaderboard(weekID int64) ([]*LeaderboardEntry, er
 		prevHuman = entry
 	}
 
+	r.EnrichLeaderboardEntries(entries)
 	return entries, nil
 }
 
@@ -1455,14 +1617,15 @@ func (r *Repository) GetSeasonLeaderboard(seasonID int64) ([]*LeaderboardEntry, 
 	SELECT u.id, u.username, u.avatar_url,
 	       COALESCE(SUM(wl.total_points), 0) as grand_total_points,
 	       COALESCE(SUM(wl.correct_picks), 0) as grand_correct_picks,
-	       COALESCE(SUM(wl.total_picks), 0) as grand_total_picks
+	       COALESCE(SUM(wl.total_picks), 0) as grand_total_picks,
+	       u.favorite_team_id, COALESCE(u.bio, ''), COALESCE(u.featured_badge_code, '')
 	FROM users u
 	LEFT JOIN (
 	    weekly_leaderboard wl
 	    JOIN weeks w ON wl.week_id = w.id AND w.season_id = ?
 	) ON u.id = wl.user_id
 	WHERE COALESCE(u.role, 'player') != 'admin' AND (u.username != 'ia_quiniela' OR wl.user_id IS NOT NULL)
-	GROUP BY u.id, u.username, u.avatar_url
+	GROUP BY u.id, u.username, u.avatar_url, u.favorite_team_id, u.bio, u.featured_badge_code
 	ORDER BY grand_total_points DESC, 
 	         grand_correct_picks DESC, 
 	         COALESCE((CAST(COALESCE(SUM(wl.correct_picks), 0) AS FLOAT) / NULLIF(COALESCE(SUM(wl.total_picks), 0), 0)), 0.0) DESC, 
@@ -1477,8 +1640,24 @@ func (r *Repository) GetSeasonLeaderboard(seasonID int64) ([]*LeaderboardEntry, 
 	var entries []*LeaderboardEntry
 	for rows.Next() {
 		var e LeaderboardEntry
-		if err := rows.Scan(&e.UserID, &e.Username, &e.AvatarURL, &e.TotalPoints, &e.CorrectPicks, &e.TotalPicks); err != nil {
+		var favTeamID sql.NullInt64
+		var bioStr, featBadgeStr sql.NullString
+		if err := rows.Scan(
+			&e.UserID, &e.Username, &e.AvatarURL,
+			&e.TotalPoints, &e.CorrectPicks, &e.TotalPicks,
+			&favTeamID, &bioStr, &featBadgeStr,
+		); err != nil {
 			return nil, err
+		}
+		if favTeamID.Valid && favTeamID.Int64 > 0 {
+			tid := favTeamID.Int64
+			e.FavoriteTeamID = &tid
+		}
+		if bioStr.Valid {
+			e.Bio = bioStr.String
+		}
+		if featBadgeStr.Valid {
+			e.FeaturedBadgeCode = featBadgeStr.String
 		}
 		if e.TotalPicks > 0 {
 			e.WinPercentage = (float64(e.CorrectPicks) / float64(e.TotalPicks)) * 100.0
@@ -1487,6 +1666,7 @@ func (r *Repository) GetSeasonLeaderboard(seasonID int64) ([]*LeaderboardEntry, 
 		e.HasTiebreaker = false // Season standings do not use weekly MNF tiebreaker
 		entries = append(entries, &e)
 	}
+	rows.Close()
 
 	// Standard competition ranking (1224 ranking) for season standings with Ghost Ranking for bot:
 	humanRankCounter := 0
@@ -1508,6 +1688,7 @@ func (r *Repository) GetSeasonLeaderboard(seasonID int64) ([]*LeaderboardEntry, 
 		prevHuman = entry
 	}
 
+	r.EnrichLeaderboardEntries(entries)
 	return entries, nil
 }
 
@@ -1807,7 +1988,7 @@ func (r *Repository) GetPicksMatrixForWeek(weekID int64, currentUserID int64) (*
 
 	// Fetch players (excluding admin accounts)
 	usersQuery := `
-	SELECT id, username, email, COALESCE(avatar_url, ''), role
+	SELECT id, username, email, COALESCE(avatar_url, ''), role, favorite_team_id, COALESCE(bio, ''), COALESCE(featured_badge_code, '')
 	FROM users
 	WHERE COALESCE(role, 'player') != 'admin'
 	ORDER BY username ASC`
@@ -1820,11 +2001,24 @@ func (r *Repository) GetPicksMatrixForWeek(weekID int64, currentUserID int64) (*
 	var players []*User
 	for uRows.Next() {
 		var u User
-		if err := uRows.Scan(&u.ID, &u.Username, &u.Email, &u.AvatarURL, &u.Role); err != nil {
+		var favTeamID sql.NullInt64
+		var bioStr, featBadgeStr sql.NullString
+		if err := uRows.Scan(&u.ID, &u.Username, &u.Email, &u.AvatarURL, &u.Role, &favTeamID, &bioStr, &featBadgeStr); err != nil {
 			return nil, err
+		}
+		if favTeamID.Valid && favTeamID.Int64 > 0 {
+			tid := favTeamID.Int64
+			u.FavoriteTeamID = &tid
+		}
+		if bioStr.Valid {
+			u.Bio = bioStr.String
+		}
+		if featBadgeStr.Valid {
+			u.FeaturedBadgeCode = featBadgeStr.String
 		}
 		players = append(players, &u)
 	}
+	r.EnrichUsers(players)
 
 	// Fetch all picks for games in this week
 	picksQuery := `

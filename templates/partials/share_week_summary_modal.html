@@ -54,15 +54,30 @@
                     </div>
 
                     <div class="flex items-center space-x-2 text-right shrink-0 ml-2">
-                        {{if .User.AvatarURL}}
-                            <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-7 h-7 rounded-full object-cover border border-zinc-700 shrink-0" crossorigin="anonymous">
-                        {{else}}
-                            <div class="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white font-bold text-[10px] shrink-0 uppercase">
-                                {{slice .User.Username 0 1}}
-                            </div>
-                        {{end}}
+                        <div class="relative shrink-0">
+                            {{if .User.AvatarURL}}
+                                <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-8 h-8 rounded-full object-cover border-2 shadow shrink-0" {{if .User.FavoriteTeam}}style="border-color: {{.User.FavoriteTeam.PrimaryColor}};"{{else}}style="border-color: #52525b;"{{end}} crossorigin="anonymous">
+                            {{else}}
+                                <div class="w-8 h-8 rounded-full bg-zinc-800 border-2 flex items-center justify-center text-white font-bold text-[10px] shrink-0 uppercase shadow" {{if .User.FavoriteTeam}}style="border-color: {{.User.FavoriteTeam.PrimaryColor}};"{{else}}style="border-color: #52525b;"{{end}}>
+                                    {{slice .User.Username 0 1}}
+                                </div>
+                            {{end}}
+                            {{if .User.FavoriteTeam}}
+                                <img src="{{.User.FavoriteTeam.LogoURL}}" alt="{{.User.FavoriteTeam.Code}}" class="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-zinc-900 border border-zinc-700 p-0.5 object-contain" crossorigin="anonymous">
+                            {{end}}
+                        </div>
                         <div class="text-right">
-                            <div class="text-xs font-bold text-white leading-none mb-1 truncate max-w-[110px]">{{.User.Username}}</div>
+                            <div class="text-xs font-bold text-white leading-none mb-1 truncate max-w-[130px] flex items-center justify-end space-x-1">
+                                <span>{{.User.Username}}</span>
+                                {{if .User.FavoriteTeam}}
+                                    <span class="inline-flex items-center px-1 py-0.2 rounded bg-zinc-900 border border-zinc-700 text-[8px] font-mono text-zinc-300 font-bold shrink-0">
+                                        {{.User.FavoriteTeam.Code}}
+                                    </span>
+                                {{end}}
+                                {{if .User.FeaturedBadgeTitle}}
+                                    <span class="text-[9px] leading-none shrink-0" title="{{.User.FeaturedBadgeTitle}}">{{.User.FeaturedBadgeIcon}}</span>
+                                {{end}}
+                            </div>
                             <div class="text-[10px] font-mono text-amber-400 font-black leading-none">
                                 {{.UserWeeklyPoints}} pts <span class="text-zinc-500 font-normal">({{.UserCorrectPicks}}/{{len .Games}})</span>
                             </div>

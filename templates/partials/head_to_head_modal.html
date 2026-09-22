@@ -102,25 +102,53 @@
             </div>
 
             <!-- Players Matchup Header (Flexbox layout) -->
-            <div class="flex items-center justify-between gap-2 p-2 sm:p-3 rounded-2xl bg-zinc-950/60 border border-zinc-900">
+            <div class="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-2xl bg-zinc-950/70 border border-zinc-850 shadow-inner">
                 <!-- User A (You) -->
                 <div class="flex items-center space-x-2.5 sm:space-x-3 min-w-0 flex-1">
-                    <div class="w-10 h-10 rounded-full bg-zinc-800 border-2 border-white/40 flex items-center justify-center font-bold text-sm text-white shrink-0 shadow">
-                        {{if .Comparison.UserA.AvatarURL}}
-                            <img src="{{.Comparison.UserA.AvatarURL}}" alt="{{.Comparison.UserA.Username}}" class="w-full h-full rounded-full object-cover" crossorigin="anonymous">
-                        {{else}}
-                            <span class="leading-none">{{slice .Comparison.UserA.Username 0 1}}</span>
+                    <div class="relative shrink-0">
+                        <div class="w-10 sm:w-11 h-10 sm:h-11 rounded-full bg-zinc-800 border-2 {{if .Comparison.UserA.FavoriteTeam}}border-opacity-90{{else}}border-white/40{{end}} flex items-center justify-center font-bold text-sm text-white overflow-hidden shadow"
+                             {{if .Comparison.UserA.FavoriteTeam}}style="border-color: {{.Comparison.UserA.FavoriteTeam.PrimaryColor}};"{{end}}>
+                            {{if .Comparison.UserA.AvatarURL}}
+                                <img src="{{.Comparison.UserA.AvatarURL}}" alt="{{.Comparison.UserA.Username}}" class="w-full h-full object-cover" crossorigin="anonymous">
+                            {{else}}
+                                <span class="leading-none">{{slice .Comparison.UserA.Username 0 1}}</span>
+                            {{end}}
+                        </div>
+                        {{if .Comparison.UserA.FavoriteTeam}}
+                            <img src="{{.Comparison.UserA.FavoriteTeam.LogoURL}}" alt="{{.Comparison.UserA.FavoriteTeam.Code}}" class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-zinc-900 border border-zinc-700 p-0.5 object-contain shadow-xs" title="{{.Comparison.UserA.FavoriteTeam.City}} {{.Comparison.UserA.FavoriteTeam.Name}}">
+                        {{else if eq .Comparison.UserA.Username "ia_quiniela"}}
+                            <span class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-purple-900/90 border border-purple-500/50 flex items-center justify-center text-[9px] shadow-xs" title="Bot Oficial">🤖</span>
                         {{end}}
                     </div>
                     <div class="min-w-0">
-                        <div class="text-[10px] text-zinc-400 font-medium leading-none mb-1">Tú</div>
-                        <div class="text-xs sm:text-base font-bold text-white truncate leading-tight">{{.Comparison.UserA.Username}}</div>
-                        <div class="font-mono text-xs text-amber-400 font-bold leading-none mt-1">{{.Comparison.UserATotalPts}} pts</div>
+                        <div class="flex items-center space-x-1.5 mb-1">
+                            <span class="text-[10px] text-zinc-400 font-medium leading-none">Tú</span>
+                            {{if .Comparison.UserA.FeaturedBadgeTitle}}
+                                <span class="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20 leading-none truncate max-w-[120px]" title="{{.Comparison.UserA.FeaturedBadgeTitle}}">
+                                    {{.Comparison.UserA.FeaturedBadgeIcon}} <span class="hidden sm:inline ml-0.5">{{.Comparison.UserA.FeaturedBadgeTitle}}</span>
+                                </span>
+                            {{end}}
+                        </div>
+                        <div class="flex items-center space-x-1.5">
+                            <span class="text-xs sm:text-base font-bold text-white truncate leading-tight">{{.Comparison.UserA.Username}}</span>
+                            {{if .Comparison.UserA.FavoriteTeam}}
+                                <span class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded bg-zinc-800 text-[9px] font-mono text-zinc-300 border border-zinc-700/60 leading-none shrink-0" style="border-left: 2px solid {{.Comparison.UserA.FavoriteTeam.PrimaryColor}};" title="{{.Comparison.UserA.FavoriteTeam.City}} {{.Comparison.UserA.FavoriteTeam.Name}}">
+                                    <img src="{{.Comparison.UserA.FavoriteTeam.LogoURL}}" class="w-3 h-3 object-contain inline-block">
+                                    <span>{{.Comparison.UserA.FavoriteTeam.Code}}</span>
+                                </span>
+                            {{end}}
+                        </div>
+                        <div class="flex items-center space-x-2 mt-1">
+                            <span class="font-mono text-xs text-amber-400 font-bold leading-none">{{.Comparison.UserATotalPts}} pts</span>
+                            {{if .Comparison.UserA.Bio}}
+                                <span class="text-[10px] text-zinc-400 italic truncate max-w-[110px] sm:max-w-[160px] leading-none" title="{{.Comparison.UserA.Bio}}">“{{.Comparison.UserA.Bio}}”</span>
+                            {{end}}
+                        </div>
                     </div>
                 </div>
 
                 <!-- VS Badge -->
-                <div class="shrink-0 px-2">
+                <div class="shrink-0 px-1 sm:px-2">
                     <span class="w-7 h-7 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center font-mono font-black text-xs text-rose-400 shadow-inner">
                         VS
                     </span>
@@ -128,17 +156,49 @@
 
                 <!-- User B (Rival) -->
                 <div class="flex items-center justify-end space-x-2.5 sm:space-x-3 space-x-reverse text-right min-w-0 flex-1">
-                    <div class="w-10 h-10 rounded-full bg-zinc-800 border-2 border-zinc-700 flex items-center justify-center font-bold text-sm text-zinc-300 shrink-0 shadow">
-                        {{if .Comparison.UserB.AvatarURL}}
-                            <img src="{{.Comparison.UserB.AvatarURL}}" alt="{{.Comparison.UserB.Username}}" class="w-full h-full rounded-full object-cover" crossorigin="anonymous">
-                        {{else}}
-                            <span class="leading-none">{{slice .Comparison.UserB.Username 0 1}}</span>
+                    <div class="relative shrink-0">
+                        <div class="w-10 sm:w-11 h-10 sm:h-11 rounded-full bg-zinc-800 border-2 {{if .Comparison.UserB.FavoriteTeam}}border-opacity-90{{else}}border-zinc-700{{end}} flex items-center justify-center font-bold text-sm text-zinc-300 overflow-hidden shadow"
+                             {{if .Comparison.UserB.FavoriteTeam}}style="border-color: {{.Comparison.UserB.FavoriteTeam.PrimaryColor}};"{{end}}>
+                            {{if .Comparison.UserB.AvatarURL}}
+                                <img src="{{.Comparison.UserB.AvatarURL}}" alt="{{.Comparison.UserB.Username}}" class="w-full h-full object-cover" crossorigin="anonymous">
+                            {{else}}
+                                <span class="leading-none">{{slice .Comparison.UserB.Username 0 1}}</span>
+                            {{end}}
+                        </div>
+                        {{if .Comparison.UserB.FavoriteTeam}}
+                            <img src="{{.Comparison.UserB.FavoriteTeam.LogoURL}}" alt="{{.Comparison.UserB.FavoriteTeam.Code}}" class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-zinc-900 border border-zinc-700 p-0.5 object-contain shadow-xs" title="{{.Comparison.UserB.FavoriteTeam.City}} {{.Comparison.UserB.FavoriteTeam.Name}}">
+                        {{else if eq .Comparison.UserB.Username "ia_quiniela"}}
+                            <span class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-purple-900/90 border border-purple-500/50 flex items-center justify-center text-[9px] shadow-xs" title="Bot Oficial">🤖</span>
                         {{end}}
                     </div>
                     <div class="min-w-0">
-                        <div class="text-[10px] text-zinc-400 font-medium leading-none mb-1">Rival</div>
-                        <div class="text-xs sm:text-base font-bold text-white truncate leading-tight">{{.Comparison.UserB.Username}}</div>
-                        <div class="font-mono text-xs text-amber-400 font-bold leading-none mt-1">{{.Comparison.UserBTotalPts}} pts</div>
+                        <div class="flex items-center justify-end space-x-1.5 mb-1">
+                            {{if eq .Comparison.UserB.Username "ia_quiniela"}}
+                                <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-300 border border-purple-500/30 font-bold leading-none">🤖 BOT IA</span>
+                            {{else}}
+                                <span class="text-[10px] text-zinc-400 font-medium leading-none">Rival</span>
+                            {{end}}
+                            {{if .Comparison.UserB.FeaturedBadgeTitle}}
+                                <span class="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20 leading-none truncate max-w-[120px]" title="{{.Comparison.UserB.FeaturedBadgeTitle}}">
+                                    {{.Comparison.UserB.FeaturedBadgeIcon}} <span class="hidden sm:inline ml-0.5">{{.Comparison.UserB.FeaturedBadgeTitle}}</span>
+                                </span>
+                            {{end}}
+                        </div>
+                        <div class="flex items-center justify-end space-x-1.5">
+                            {{if .Comparison.UserB.FavoriteTeam}}
+                                <span class="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded bg-zinc-800 text-[9px] font-mono text-zinc-300 border border-zinc-700/60 leading-none shrink-0" style="border-right: 2px solid {{.Comparison.UserB.FavoriteTeam.PrimaryColor}};" title="{{.Comparison.UserB.FavoriteTeam.City}} {{.Comparison.UserB.FavoriteTeam.Name}}">
+                                    <span>{{.Comparison.UserB.FavoriteTeam.Code}}</span>
+                                    <img src="{{.Comparison.UserB.FavoriteTeam.LogoURL}}" class="w-3 h-3 object-contain inline-block">
+                                </span>
+                            {{end}}
+                            <span class="text-xs sm:text-base font-bold text-white truncate leading-tight">{{.Comparison.UserB.Username}}</span>
+                        </div>
+                        <div class="flex items-center justify-end space-x-2 mt-1">
+                            {{if .Comparison.UserB.Bio}}
+                                <span class="text-[10px] text-zinc-400 italic truncate max-w-[110px] sm:max-w-[160px] leading-none" title="{{.Comparison.UserB.Bio}}">“{{.Comparison.UserB.Bio}}”</span>
+                            {{end}}
+                            <span class="font-mono text-xs text-amber-400 font-bold leading-none">{{.Comparison.UserBTotalPts}} pts</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -378,16 +438,33 @@
                 <!-- 1v1 Battle Banner (Rock-solid flex layout) -->
                 <div class="flex items-center justify-between p-4 rounded-2xl bg-zinc-950 border border-zinc-800 mb-4 relative z-10">
                     <div class="flex items-center space-x-3 min-w-0 flex-1">
-                        {{if .Comparison.UserA.AvatarURL}}
-                            <img src="{{.Comparison.UserA.AvatarURL}}" alt="{{.Comparison.UserA.Username}}" class="w-9 h-9 rounded-full object-cover border border-zinc-500 shadow shrink-0" crossorigin="anonymous">
-                        {{else}}
-                            <div class="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-500 flex items-center justify-center text-white font-black text-sm uppercase shadow shrink-0 leading-none">
-                                {{slice .Comparison.UserA.Username 0 1}}
-                            </div>
-                        {{end}}
+                        <div class="relative shrink-0">
+                            {{if .Comparison.UserA.AvatarURL}}
+                                <img src="{{.Comparison.UserA.AvatarURL}}" alt="{{.Comparison.UserA.Username}}" class="w-10 h-10 rounded-full object-cover border-2 shadow shrink-0" {{if .Comparison.UserA.FavoriteTeam}}style="border-color: {{.Comparison.UserA.FavoriteTeam.PrimaryColor}};"{{else}}style="border-color: #71717a;"{{end}} crossorigin="anonymous">
+                            {{else}}
+                                <div class="w-10 h-10 rounded-full bg-zinc-800 border-2 flex items-center justify-center text-white font-black text-sm uppercase shadow shrink-0 leading-none" {{if .Comparison.UserA.FavoriteTeam}}style="border-color: {{.Comparison.UserA.FavoriteTeam.PrimaryColor}};"{{else}}style="border-color: #71717a;"{{end}}>
+                                    {{slice .Comparison.UserA.Username 0 1}}
+                                </div>
+                            {{end}}
+                            {{if .Comparison.UserA.FavoriteTeam}}
+                                <img src="{{.Comparison.UserA.FavoriteTeam.LogoURL}}" alt="{{.Comparison.UserA.FavoriteTeam.Code}}" class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-zinc-900 border border-zinc-700 p-0.5 object-contain" crossorigin="anonymous">
+                            {{end}}
+                        </div>
                         <div class="min-w-0">
-                            <div class="text-[10px] text-zinc-400 leading-none mb-1">Tú</div>
-                            <div class="text-sm font-black text-white truncate">{{.Comparison.UserA.Username}}</div>
+                            <div class="flex items-center space-x-1.5 mb-0.5">
+                                <span class="text-[10px] text-zinc-400 leading-none">Tú</span>
+                                {{if .Comparison.UserA.FeaturedBadgeTitle}}
+                                    <span class="text-[10px] leading-none" title="{{.Comparison.UserA.FeaturedBadgeTitle}}">{{.Comparison.UserA.FeaturedBadgeIcon}}</span>
+                                {{end}}
+                            </div>
+                            <div class="flex items-center space-x-1.5">
+                                <span class="text-sm font-black text-white truncate">{{.Comparison.UserA.Username}}</span>
+                                {{if .Comparison.UserA.FavoriteTeam}}
+                                    <span class="inline-flex items-center px-1.5 py-0.2 rounded bg-zinc-900 border border-zinc-700 text-[9px] font-mono text-zinc-300 font-bold shrink-0">
+                                        {{.Comparison.UserA.FavoriteTeam.Code}}
+                                    </span>
+                                {{end}}
+                            </div>
                             <div class="font-mono text-xs text-amber-400 font-black leading-none mt-1">{{.Comparison.UserATotalPts}} pts</div>
                         </div>
                     </div>
@@ -399,16 +476,39 @@
                     </div>
 
                     <div class="flex items-center justify-end space-x-3 space-x-reverse text-right min-w-0 flex-1">
-                        {{if .Comparison.UserB.AvatarURL}}
-                            <img src="{{.Comparison.UserB.AvatarURL}}" alt="{{.Comparison.UserB.Username}}" class="w-9 h-9 rounded-full object-cover border border-zinc-600 shadow shrink-0" crossorigin="anonymous">
-                        {{else}}
-                            <div class="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-600 flex items-center justify-center text-white font-black text-sm uppercase shadow shrink-0 leading-none">
-                                {{slice .Comparison.UserB.Username 0 1}}
-                            </div>
-                        {{end}}
+                        <div class="relative shrink-0">
+                            {{if .Comparison.UserB.AvatarURL}}
+                                <img src="{{.Comparison.UserB.AvatarURL}}" alt="{{.Comparison.UserB.Username}}" class="w-10 h-10 rounded-full object-cover border-2 shadow shrink-0" {{if .Comparison.UserB.FavoriteTeam}}style="border-color: {{.Comparison.UserB.FavoriteTeam.PrimaryColor}};"{{else}}style="border-color: #52525b;"{{end}} crossorigin="anonymous">
+                            {{else}}
+                                <div class="w-10 h-10 rounded-full bg-zinc-800 border-2 flex items-center justify-center text-white font-black text-sm uppercase shadow shrink-0 leading-none" {{if .Comparison.UserB.FavoriteTeam}}style="border-color: {{.Comparison.UserB.FavoriteTeam.PrimaryColor}};"{{else}}style="border-color: #52525b;"{{end}}>
+                                    {{slice .Comparison.UserB.Username 0 1}}
+                                </div>
+                            {{end}}
+                            {{if .Comparison.UserB.FavoriteTeam}}
+                                <img src="{{.Comparison.UserB.FavoriteTeam.LogoURL}}" alt="{{.Comparison.UserB.FavoriteTeam.Code}}" class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-zinc-900 border border-zinc-700 p-0.5 object-contain" crossorigin="anonymous">
+                            {{else if eq .Comparison.UserB.Username "ia_quiniela"}}
+                                <span class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-purple-900/90 border border-purple-500/50 flex items-center justify-center text-[9px]">🤖</span>
+                            {{end}}
+                        </div>
                         <div class="min-w-0">
-                            <div class="text-[10px] text-zinc-400 leading-none mb-1">Rival</div>
-                            <div class="text-sm font-black text-white truncate">{{.Comparison.UserB.Username}}</div>
+                            <div class="flex items-center justify-end space-x-1.5 mb-0.5">
+                                {{if eq .Comparison.UserB.Username "ia_quiniela"}}
+                                    <span class="text-[9px] font-mono text-purple-300 font-bold leading-none">BOT IA</span>
+                                {{else}}
+                                    <span class="text-[10px] text-zinc-400 leading-none">Rival</span>
+                                {{end}}
+                                {{if .Comparison.UserB.FeaturedBadgeTitle}}
+                                    <span class="text-[10px] leading-none" title="{{.Comparison.UserB.FeaturedBadgeTitle}}">{{.Comparison.UserB.FeaturedBadgeIcon}}</span>
+                                {{end}}
+                            </div>
+                            <div class="flex items-center justify-end space-x-1.5">
+                                {{if .Comparison.UserB.FavoriteTeam}}
+                                    <span class="inline-flex items-center px-1.5 py-0.2 rounded bg-zinc-900 border border-zinc-700 text-[9px] font-mono text-zinc-300 font-bold shrink-0">
+                                        {{.Comparison.UserB.FavoriteTeam.Code}}
+                                    </span>
+                                {{end}}
+                                <span class="text-sm font-black text-white truncate">{{.Comparison.UserB.Username}}</span>
+                            </div>
                             <div class="font-mono text-xs text-amber-400 font-black leading-none mt-1">{{.Comparison.UserBTotalPts}} pts</div>
                         </div>
                     </div>
