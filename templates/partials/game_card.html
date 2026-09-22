@@ -7,13 +7,16 @@
 {{$scoringMode := .ScoringMode}}
 {{if not $scoringMode}}{{$scoringMode = "pure_tiebreaker"}}{{end}}
 {{$showScoreInputs := or (eq $scoringMode "weighted") .Game.IsTiebreaker}}
+{{$user := .User}}
+{{$isAdmin := and $user $user.IsAdmin}}
+{{$canViewBotPick := or $locked $isAdmin}}
 
 <div id="game-card-{{.Game.ID}}" 
      data-game-id="{{.Game.ID}}"
      data-is-tiebreaker="{{.Game.IsTiebreaker}}"
      data-locked="{{$locked}}"
      data-scoring-mode="{{$scoringMode}}"
-     {{if .Game.Forecast}}
+     {{if and .Game.Forecast $canViewBotPick}}
      data-ai-winner-id="{{.Game.Forecast.PredictedWinnerID}}"
      data-ai-home-score="{{.Game.Forecast.ProjHomeScore}}"
      data-ai-away-score="{{.Game.Forecast.ProjAwayScore}}"
@@ -260,6 +263,7 @@
 
     <!-- AI Forecast & Audit Strip -->
     {{if .Game.Forecast}}
+        {{if $canViewBotPick}}
         <div class="my-2 p-2 rounded-xl bg-zinc-950/80 border border-zinc-800/80 text-xs shadow-inner"
              x-data="{ showAudit: false }"
              @click.away="showAudit = false">
@@ -343,6 +347,24 @@
                 </div>
             </div>
         </div>
+        {{else}}
+            <!-- Fair Play Shield: The bot competitor's pick is hidden until kickoff -->
+            <div class="my-2 p-2 rounded-xl bg-zinc-950/80 border border-zinc-800/80 text-xs shadow-inner flex items-center justify-between text-zinc-400">
+                <div class="flex items-center space-x-2">
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0">
+                        <i class="fa-solid fa-robot mr-1 text-[9px]"></i>IA
+                    </span>
+                    <span class="inline-flex items-center space-x-1.5 text-[11px] font-mono text-zinc-400">
+                        <i class="fa-solid fa-lock text-[9px] text-zinc-400"></i>
+                        <span>Pick de @ia_quiniela oculto hasta el kickoff</span>
+                    </span>
+                </div>
+                <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-mono text-zinc-500 bg-zinc-900/80 border border-zinc-800" title="Al igual que el resto de los competidores, los pronósticos del bot se revelan al comenzar el partido">
+                    <i class="fa-solid fa-shield-halved text-[8px] text-indigo-400"></i>
+                    <span>Fair Play</span>
+                </span>
+            </div>
+        {{end}}
     {{end}}
 
     <!-- Community Consensus Breakdown Bar -->

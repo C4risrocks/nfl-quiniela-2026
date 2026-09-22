@@ -529,7 +529,7 @@
                  class="grid gap-3.5 transition-all pb-24 sm:pb-0"
                  :class="viewMode === 'compact' ? 'grid-cols-1 !gap-2 max-w-3xl mx-auto' : (viewMode === 'focus' ? 'grid-cols-1 max-w-2xl mx-auto' : 'grid-cols-1 lg:grid-cols-2')">
                 {{range $idx, $game := .Games}}
-                    {{template "game_card.html" (dict "Game" $game "GameIndex" $idx "CurrentTime" $.CurrentTime "FormattedKickoff" (formatDate $game.KickoffTime) "LockMode" $.LockMode "FirstKickoff" $.FirstKickoff "ScoringMode" $.ScoringConfig.ScoringMode "ScoringConfig" $.ScoringConfig)}}
+                    {{template "game_card.html" (dict "Game" $game "GameIndex" $idx "CurrentTime" $.CurrentTime "FormattedKickoff" (formatDate $game.KickoffTime) "LockMode" $.LockMode "FirstKickoff" $.FirstKickoff "ScoringMode" $.ScoringConfig.ScoringMode "ScoringConfig" $.ScoringConfig "User" $.User)}}
                 {{end}}
             </div>
 
