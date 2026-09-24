@@ -79,6 +79,7 @@ type LiveViewData struct {
 	SelectedWeek        *db.Week
 	Games               []*db.Game
 	FeaturedGame        *db.Game
+	FeaturedGameLocked  bool
 	FeaturedStats       *db.GameCommunityStats
 	FeaturedPicks       []*db.Pick
 	FeaturedSummary     *db.GameDetailedSummary
@@ -246,6 +247,19 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 		featuredGame = games[0]
 	}
 
+	var firstKickoff *time.Time
+	for _, g := range games {
+		if firstKickoff == nil || g.KickoffTime.Before(*firstKickoff) {
+			t := g.KickoffTime
+			firstKickoff = &t
+		}
+	}
+
+	featuredGameLocked := false
+	if featuredGame != nil {
+		featuredGameLocked = featuredGame.IsGameOrWeekLocked(now, lockMode, firstKickoff)
+	}
+
 	var featuredStats *db.GameCommunityStats
 	var featuredPicks []*db.Pick
 	var featuredSummary *db.GameDetailedSummary
@@ -318,14 +332,6 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 	// ----------------------------------------------------
 	// Build What-If Simulation Payload
 	// ----------------------------------------------------
-	var firstKickoff *time.Time
-	for _, g := range games {
-		if firstKickoff == nil || g.KickoffTime.Before(*firstKickoff) {
-			t := g.KickoffTime
-			firstKickoff = &t
-		}
-	}
-
 	whatIfGames := make([]WhatIfGame, 0, len(games))
 	gameLockedMap := make(map[int64]bool)
 	gameFinalWinnerMap := make(map[int64]int64)
@@ -483,6 +489,7 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 		SelectedWeek:        selectedWeek,
 		Games:               games,
 		FeaturedGame:        featuredGame,
+		FeaturedGameLocked:  featuredGameLocked,
 		FeaturedStats:       featuredStats,
 		FeaturedPicks:       featuredPicks,
 		FeaturedSummary:     featuredSummary,

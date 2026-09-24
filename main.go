@@ -249,6 +249,7 @@ func main() {
 		player.Get("/picks/community/{gameId}", picksHandler.CommunityPicks)
 		player.Get("/picks/compare", picksHandler.ComparePicks)
 		player.Get("/picks/matrix", picksHandler.ShowPicksMatrix)
+		player.Get("/picks/readiness", picksHandler.PicksReadinessModal)
 
 		// Profile & Preferences
 		player.Get("/profile", profileHandler.ShowProfile)

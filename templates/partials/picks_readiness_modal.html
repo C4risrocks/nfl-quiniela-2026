@@ -1,0 +1,335 @@
+<div class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto overscroll-contain"
+     data-close-modal="backdrop"
+     @click.self="window.closeReadinessModal()"
+     @keydown.escape.window="window.closeReadinessModal()"
+     x-data="{
+         activeTab: 'all',
+         search: '',
+         copied: false,
+         get filteredCount() {
+             let c = 0;
+             document.querySelectorAll('[data-player-card]').forEach(el => {
+                 if (el.style.display !== 'none') c++;
+             });
+             return c;
+         },
+         copyWhatsApp() {
+             const lines = [];
+             lines.push('🏈 *NFL QUINIELA 2026 - {{.Week.Name}}* 🏈');
+             lines.push('¡El kickoff está cerca! Estatus de pronósticos al momento:');
+             lines.push('📊 *{{.ReadyCount}} de {{.TotalCount}} participantes listos ({{.ReadyPercent}}%)*\n');
+
+             const pending = [];
+             const inProgress = [];
+
+             document.querySelectorAll('[data-player-card]').forEach(el => {
+                 const u = el.getAttribute('data-username');
+                 const st = el.getAttribute('data-status');
+                 const p = el.getAttribute('data-picks');
+                 const tot = el.getAttribute('data-total');
+                 if (st === 'pending') {
+                     pending.push(`• @${u} (0/${tot})`);
+                 } else if (st === 'in_progress') {
+                     inProgress.push(`• @${u} (${p}/${tot})`);
+                 }
+             });
+
+             if (pending.length > 0) {
+                 lines.push('🔴 *Sin enviar:*');
+                 lines.push(pending.join('\n'));
+                 lines.push('');
+             }
+
+             if (inProgress.length > 0) {
+                 lines.push('🟡 *En progreso:*');
+                 lines.push(inProgress.join('\n'));
+                 lines.push('');
+             }
+
+             if (pending.length === 0 && inProgress.length === 0) {
+                 lines.push('🔥 *¡Todos los participantes han enviado sus pronósticos al 100%!*');
+             } else {
+                 lines.push('⚡ ¡Ingresa a completar tu quiniela antes de que empiece el partido!');
+             }
+
+             const msg = lines.join('\n');
+             if (navigator.clipboard && navigator.clipboard.writeText) {
+                 navigator.clipboard.writeText(msg).then(() => {
+                     this.copied = true;
+                     setTimeout(() => { this.copied = false; }, 3000);
+                     window.dispatchEvent(new CustomEvent('show-toast', {
+                         detail: { message: '¡Recordatorio copiado! Pégalo en tu grupo de WhatsApp.', type: 'success' }
+                     }));
+                 }).catch(() => {
+                     this.fallbackCopy(msg);
+                 });
+             } else {
+                 this.fallbackCopy(msg);
+             }
+         },
+         fallbackCopy(text) {
+             const ta = document.createElement('textarea');
+             ta.value = text;
+             ta.style.position = 'fixed';
+             ta.style.opacity = '0';
+             document.body.appendChild(ta);
+             ta.select();
+             document.execCommand('copy');
+             document.body.removeChild(ta);
+             this.copied = true;
+             setTimeout(() => { this.copied = false; }, 3000);
+             window.dispatchEvent(new CustomEvent('show-toast', {
+                 detail: { message: '¡Recordatorio copiado al portapapeles!', type: 'success' }
+             }));
+         },
+         openWhatsApp() {
+             const lines = [];
+             lines.push('🏈 *NFL QUINIELA 2026 - {{.Week.Name}}* 🏈');
+             lines.push('¡El kickoff está cerca! Estatus de pronósticos al momento:');
+             lines.push('📊 *{{.ReadyCount}} de {{.TotalCount}} participantes listos ({{.ReadyPercent}}%)*\n');
+
+             const pending = [];
+             const inProgress = [];
+
+             document.querySelectorAll('[data-player-card]').forEach(el => {
+                 const u = el.getAttribute('data-username');
+                 const st = el.getAttribute('data-status');
+                 const p = el.getAttribute('data-picks');
+                 const tot = el.getAttribute('data-total');
+                 if (st === 'pending') {
+                     pending.push(`• @${u} (0/${tot})`);
+                 } else if (st === 'in_progress') {
+                     inProgress.push(`• @${u} (${p}/${tot})`);
+                 }
+             });
+
+             if (pending.length > 0) {
+                 lines.push('🔴 *Sin enviar:*');
+                 lines.push(pending.join('\n'));
+                 lines.push('');
+             }
+
+             if (inProgress.length > 0) {
+                 lines.push('🟡 *En progreso:*');
+                 lines.push(inProgress.join('\n'));
+                 lines.push('');
+             }
+
+             if (pending.length === 0 && inProgress.length === 0) {
+                 lines.push('🔥 *¡Todos los participantes han enviado sus pronósticos al 100%!*');
+             } else {
+                 lines.push('⚡ ¡Ingresa a completar tu quiniela antes de que empiece el partido!');
+             }
+
+             const encoded = encodeURIComponent(lines.join('\n'));
+             window.open('https://api.whatsapp.com/send?text=' + encoded, '_blank');
+         }
+     }">
+
+    <div class="vercel-card rounded-t-3xl sm:rounded-2xl w-full max-w-2xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[85dvh] my-auto bg-zinc-950" @click.stop>
+        
+        <!-- Mobile Drag Handle -->
+        <div class="w-12 h-1 bg-zinc-700 rounded-full mx-auto my-2.5 sm:hidden shrink-0"></div>
+
+        <!-- Modal Header -->
+        <div class="p-4 sm:p-5 border-b border-[#222222] bg-zinc-900/90 shrink-0">
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <div class="flex items-center space-x-2 min-w-0">
+                    <span class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-users-check text-sm"></i>
+                    </span>
+                    <div class="min-w-0">
+                        <h2 class="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-1.5 truncate">
+                            <span>Estatus de Participación</span>
+                            <span class="text-[11px] font-mono font-normal text-zinc-400">• {{.Week.Name}}</span>
+                        </h2>
+                        <p class="text-[11px] text-zinc-400 truncate">
+                            {{.ReadyCount}} de {{.TotalCount}} participantes listos ({{.ReadyPercent}}%)
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-1.5 shrink-0">
+                    <!-- WhatsApp Reminder Action -->
+                    <button type="button"
+                            @click="copyWhatsApp()"
+                            title="Copiar recordatorio para grupo de WhatsApp"
+                            class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition-all cursor-pointer">
+                        <i class="fa-brands fa-whatsapp text-emerald-400" x-show="!copied"></i>
+                        <i class="fa-solid fa-check text-emerald-400" x-show="copied"></i>
+                        <span class="hidden sm:inline" x-text="copied ? '¡Copiado!' : 'Copiar para WhatsApp'">Copiar para WhatsApp</span>
+                        <span class="sm:hidden" x-text="copied ? '¡Copiado!' : 'WhatsApp'">WhatsApp</span>
+                    </button>
+
+                    <button type="button" 
+                            onclick="window.closeReadinessModal()"
+                            data-close-modal="true"
+                            title="Cerrar (Esc)"
+                            class="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer min-w-[36px] min-h-[36px] flex items-center justify-center">
+                        <i class="fa-solid fa-xmark text-base"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="w-full bg-zinc-800 h-2 rounded-full overflow-hidden flex">
+                <div class="bg-emerald-500 transition-all duration-500" style="width: {{.ReadyPercent}}%;"></div>
+                {{if gt .InProgressCount 0}}
+                    <div class="bg-amber-500/80 transition-all duration-500" style="width: {{percent .InProgressCount .TotalCount}}%;"></div>
+                {{end}}
+            </div>
+
+            <!-- Quick Pill Counters & Filter Tabs -->
+            <div class="flex flex-wrap items-center justify-between gap-2 mt-3 pt-2 border-t border-zinc-800/80">
+                <div class="flex items-center space-x-1 sm:space-x-1.5">
+                    <button type="button"
+                            @click="activeTab = 'all'"
+                            :class="activeTab === 'all' ? 'bg-zinc-800 text-white border-zinc-600' : 'bg-transparent text-zinc-400 border-transparent hover:text-zinc-200'"
+                            class="px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer">
+                        Todos <span class="text-[10px] font-mono opacity-70 ml-0.5">({{.TotalCount}})</span>
+                    </button>
+                    <button type="button"
+                            @click="activeTab = 'ready'"
+                            :class="activeTab === 'ready' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-transparent text-zinc-400 border-transparent hover:text-zinc-200'"
+                            class="px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer">
+                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1"></span>
+                        Listos <span class="text-[10px] font-mono opacity-70 ml-0.5">({{.ReadyCount}})</span>
+                    </button>
+                    <button type="button"
+                            @click="activeTab = 'pending'"
+                            :class="activeTab === 'pending' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-transparent text-zinc-400 border-transparent hover:text-zinc-200'"
+                            class="px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer">
+                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 mr-1"></span>
+                        Pendientes <span class="text-[10px] font-mono opacity-70 ml-0.5">({{add .InProgressCount .PendingCount}})</span>
+                    </button>
+                </div>
+
+                <!-- Instant Search Input -->
+                <div class="relative w-full sm:w-44">
+                    <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 text-[10px]"></i>
+                    <input type="text"
+                           x-model="search"
+                           placeholder="Buscar jugador..."
+                           class="w-full bg-zinc-950/80 border border-zinc-800 rounded-lg pl-7 pr-6 py-1 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-600 transition-colors">
+                    <button type="button"
+                            x-show="search"
+                            @click="search = ''"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-[10px]">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Participants List (Scrollable Area) -->
+        <div class="overflow-y-auto overscroll-contain flex-1 p-3.5 sm:p-5 space-y-2.5 divide-y divide-zinc-900 modal-scrollable">
+            {{range .Summaries}}
+                {{$isReady := and (eq .CompletedPicks .TotalGames) (gt .TotalGames 0)}}
+                {{$isInProgress := and (gt .CompletedPicks 0) (lt .CompletedPicks .TotalGames)}}
+                {{$isPending := eq .CompletedPicks 0}}
+                {{$status := "pending"}}
+                {{if $isReady}}
+                    {{$status = "ready"}}
+                {{else if $isInProgress}}
+                    {{$status = "in_progress"}}
+                {{end}}
+
+                <div data-player-card
+                     data-username="{{.User.Username}}"
+                     data-status="{{$status}}"
+                     data-picks="{{.CompletedPicks}}"
+                     data-total="{{.TotalGames}}"
+                     x-show="(activeTab === 'all' || (activeTab === 'ready' && '{{$status}}' === 'ready') || (activeTab === 'pending' && ('{{$status}}' === 'pending' || '{{$status}}' === 'in_progress'))) && (!search || '{{.User.Username}}'.toLowerCase().includes(search.toLowerCase()))"
+                     class="pt-2.5 first:pt-0 flex items-center justify-between gap-3 p-2.5 rounded-xl bg-zinc-900/50 hover:bg-zinc-900/80 border border-zinc-850/80 transition-colors">
+                    
+                    <!-- User Avatar & Identity -->
+                    <div class="flex items-center space-x-2.5 min-w-0">
+                        <div class="relative shrink-0">
+                            <div class="w-9 h-9 rounded-full bg-zinc-800 border-2 {{if .User.FavoriteTeam}}border-opacity-90{{else}}border-white/20{{end}} flex items-center justify-center font-bold text-xs text-white overflow-hidden shadow-xs"
+                                 {{if .User.FavoriteTeam}}style="border-color: {{.User.FavoriteTeam.PrimaryColor}};"{{end}}>
+                                {{if .User.AvatarURL}}
+                                    <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-full h-full object-cover">
+                                {{else}}
+                                    <span>{{slice .User.Username 0 1}}</span>
+                                {{end}}
+                            </div>
+                            {{if .User.FavoriteTeam}}
+                                <img src="{{.User.FavoriteTeam.LogoURL}}" alt="{{.User.FavoriteTeam.Code}}" class="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-zinc-900 border border-zinc-700 p-0.5 object-contain" title="{{.User.FavoriteTeam.City}} {{.User.FavoriteTeam.Name}}">
+                            {{else if eq .User.Username "ia_quiniela"}}
+                                <span class="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-purple-900 border border-purple-500 flex items-center justify-center text-[8px]" title="Bot Oficial">🤖</span>
+                            {{end}}
+                        </div>
+
+                        <div class="min-w-0">
+                            <div class="flex items-center space-x-1.5 truncate">
+                                <span class="text-xs sm:text-sm font-semibold text-white truncate">{{.User.Username}}</span>
+                                {{if eq .User.ID $.CurrentUser.ID}}
+                                    <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-white text-black shrink-0">TÚ</span>
+                                {{end}}
+                                {{if eq .User.Role "admin"}}
+                                    <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">Admin</span>
+                                {{end}}
+                            </div>
+                            <!-- Mini Progress Visual -->
+                            <div class="flex items-center space-x-2 mt-0.5">
+                                <span class="text-[10px] font-mono text-zinc-400">
+                                    {{.CompletedPicks}}/{{.TotalGames}} pronósticos
+                                </span>
+                                {{if and .HasTiebreaker (gt .TotalGames 0)}}
+                                    <span class="text-[10px] text-amber-400 font-bold flex items-center" title="Marcador de desempate capturado">
+                                        <i class="fa-solid fa-star text-[8px] mr-0.5"></i> Desempate
+                                    </span>
+                                {{end}}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Readiness Badge -->
+                    <div class="shrink-0 text-right">
+                        {{if $isReady}}
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                                <i class="fa-solid fa-circle-check mr-1.5 text-[10px]"></i> Listo
+                            </span>
+                        {{else if $isInProgress}}
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                                <i class="fa-solid fa-clock-rotate-left mr-1.5 text-[10px]"></i> {{.CompletedPicks}}/{{.TotalGames}}
+                            </span>
+                        {{else}}
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-zinc-800 text-zinc-400 border border-zinc-700">
+                                <i class="fa-solid fa-circle-minus mr-1.5 text-[10px] text-rose-400"></i> Sin enviar
+                            </span>
+                        {{end}}
+                    </div>
+                </div>
+            {{else}}
+                <div class="p-8 text-center text-zinc-500 text-xs">
+                    No se encontraron participantes registrados para esta jornada.
+                </div>
+            {{end}}
+        </div>
+
+        <!-- Modal Footer: Fair Play Info & Mobile Close -->
+        <div class="p-3 sm:p-4 bg-zinc-900/90 border-t border-[#222222] flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0">
+            <div class="flex items-center space-x-2 text-[11px] text-zinc-400">
+                <i class="fa-solid fa-shield-halved text-cyan-400 shrink-0"></i>
+                <span><strong>Fair Play:</strong> Los pronósticos específicos y marcadores están protegidos hasta el kickoff de cada partido.</span>
+            </div>
+
+            <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+                <button type="button"
+                        @click="openWhatsApp()"
+                        class="sm:hidden flex-1 inline-flex items-center justify-center space-x-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs">
+                    <i class="fa-brands fa-whatsapp"></i>
+                    <span>Abrir WhatsApp</span>
+                </button>
+                <button type="button"
+                        onclick="window.closeReadinessModal()"
+                        data-close-modal="true"
+                        class="w-full sm:w-auto px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold transition-colors cursor-pointer">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>

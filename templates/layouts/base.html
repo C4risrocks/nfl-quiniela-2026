@@ -435,6 +435,7 @@
     <!-- Global Head-to-Head & Interaction Modals Container -->
     <div id="h2h-modal-container"></div>
     <div id="game-stats-modal-container"></div>
+    <div id="readiness-modal-container"></div>
 
 
     <!-- Real-Time Live Game Alerts HUD (Kickoff, Lead Change, Pick Lock, Final) -->
@@ -789,6 +790,12 @@
                 cleanupModalState();
             };
 
+            window.closeReadinessModal = function() {
+                const readiness = document.getElementById('readiness-modal-container');
+                if (readiness) readiness.innerHTML = '';
+                cleanupModalState();
+            };
+
             document.addEventListener('htmx:beforeRequest', function(e) {
                 if (e.detail && e.detail.target && e.detail.target.id === 'game-stats-modal-container') {
                     window.__statsModalClosed = false;
@@ -863,6 +870,11 @@
                         window.closeAdminModal();
                     }
 
+                    const readiness = document.getElementById('readiness-modal-container');
+                    if (readiness && (readiness.contains(trigger) || trigger === readiness)) {
+                        window.closeReadinessModal();
+                    }
+
                     window.dispatchEvent(new CustomEvent('close-whatif'));
                     window.dispatchEvent(new CustomEvent('close-rivals'));
                     window.__rivalsOpen = false;
@@ -878,6 +890,7 @@
                     window.closeGameStatsModal();
                     window.closeH2HModal();
                     window.closeAdminModal();
+                    window.closeReadinessModal();
 
                     window.dispatchEvent(new CustomEvent('close-whatif'));
                     window.dispatchEvent(new CustomEvent('close-rivals'));

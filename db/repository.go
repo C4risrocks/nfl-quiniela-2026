@@ -22,6 +22,10 @@ func NewRepository(db *DB) *Repository {
 	return &Repository{db: db}
 }
 
+func (r *Repository) GetDB() *DB {
+	return r.db
+}
+
 // ----------------------------------------------------
 // System Settings
 // ----------------------------------------------------

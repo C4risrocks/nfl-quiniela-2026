@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -167,6 +168,21 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 
 	featureFlags, _ := h.repo.GetFeatureFlagsMap()
 
+	totalUsersCount := 0
+	readyUsersCount := 0
+	readyPercent := 0
+	if summaries, err := h.repo.GetUserWeeklySummaries(selectedWeek.ID); err == nil && len(summaries) > 0 {
+		totalUsersCount = len(summaries)
+		for _, s := range summaries {
+			if s.TotalGames > 0 && s.CompletedPicks == s.TotalGames {
+				readyUsersCount++
+			}
+		}
+		if totalUsersCount > 0 {
+			readyPercent = int(math.Round(float64(readyUsersCount) * 100.0 / float64(totalUsersCount)))
+		}
+	}
+
 	h.renderer.RenderPage(w, "picks.html", map[string]interface{}{
 		"ActiveNav":               "picks",
 		"User":                    user,
@@ -193,6 +209,9 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 		"TimeUntilKickoffSeconds": int64(timeUntilKickoff.Seconds()),
 		"MissingPicksCount":       missingPicksCount,
 		"FeatureFlags":            featureFlags,
+		"TotalUsersCount":         totalUsersCount,
+		"ReadyUsersCount":         readyUsersCount,
+		"ReadyPercent":            readyPercent,
 	})
 }
 
@@ -670,5 +689,84 @@ func (h *PicksHandler) ShowPicksMatrix(w http.ResponseWriter, r *http.Request) {
 		"Matrix":       matrixData,
 		"SelectedWeek": selectedWeek,
 		"Weeks":        weeks,
+	})
+}
+
+func (h *PicksHandler) PicksReadinessModal(w http.ResponseWriter, r *http.Request) {
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	weekIDStr := r.URL.Query().Get("week_id")
+	var weekID int64
+	if weekIDStr != "" {
+		weekID, _ = strconv.ParseInt(weekIDStr, 10, 64)
+	}
+
+	var selectedWeek *db.Week
+	if weekID > 0 {
+		selectedWeek, _ = h.repo.GetWeekByID(weekID)
+	}
+
+	if selectedWeek == nil {
+		season, err := h.repo.GetActiveSeason(h.seasonYear)
+		if err != nil {
+			http.Error(w, "Active season not found", http.StatusInternalServerError)
+			return
+		}
+		weeks, _ := h.repo.ListWeeks(season.ID)
+		if len(weeks) > 0 {
+			selectedWeek = weeks[0]
+			for _, wk := range weeks {
+				if wk.Status == "active" {
+					selectedWeek = wk
+					break
+				}
+			}
+		}
+	}
+
+	if selectedWeek == nil {
+		http.Error(w, "Week not found", http.StatusNotFound)
+		return
+	}
+
+	summaries, err := h.repo.GetUserWeeklySummaries(selectedWeek.ID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error fetching summaries: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	readyCount := 0
+	inProgressCount := 0
+	pendingCount := 0
+	totalCount := len(summaries)
+
+	for _, s := range summaries {
+		if s.TotalGames > 0 && s.CompletedPicks == s.TotalGames {
+			readyCount++
+		} else if s.CompletedPicks > 0 {
+			inProgressCount++
+		} else {
+			pendingCount++
+		}
+	}
+
+	readyPercent := 0
+	if totalCount > 0 {
+		readyPercent = int(math.Round(float64(readyCount) * 100.0 / float64(totalCount)))
+	}
+
+	h.renderer.RenderPartial(w, "picks_readiness_modal.html", map[string]interface{}{
+		"Week":            selectedWeek,
+		"Summaries":       summaries,
+		"CurrentUser":     currentUser,
+		"TotalCount":      totalCount,
+		"ReadyCount":      readyCount,
+		"InProgressCount": inProgressCount,
+		"PendingCount":    pendingCount,
+		"ReadyPercent":    readyPercent,
 	})
 }

@@ -1086,35 +1086,37 @@
                                                 class="px-2 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap">
                                             Todos ({{len .FeaturedPicks}})
                                         </button>
-                                        <button type="button" 
-                                                @click="embeddedTab = 'away'"
-                                                :class="embeddedTab === 'away' ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40' : 'text-zinc-400 hover:text-white'"
-                                                class="px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center space-x-1 whitespace-nowrap">
-                                            <img src="{{$fg.AwayTeam.LogoURL}}" class="w-3 h-3 object-contain">
-                                            <span>{{$fg.AwayTeam.Code}} ({{$fg.AwayPickCount}})</span>
-                                        </button>
-                                        <button type="button" 
-                                                @click="embeddedTab = 'home'"
-                                                :class="embeddedTab === 'home' ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40' : 'text-zinc-400 hover:text-white'"
-                                                class="px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center space-x-1 whitespace-nowrap">
-                                            <img src="{{$fg.HomeTeam.LogoURL}}" class="w-3 h-3 object-contain">
-                                            <span>{{$fg.HomeTeam.Code}} ({{$fg.HomePickCount}})</span>
-                                        </button>
-                                        {{if $fg.UserPick}}
+                                        {{if $.FeaturedGameLocked}}
                                             <button type="button" 
-                                                    @click="embeddedTab = 'rivals'"
-                                                    :class="embeddedTab === 'rivals' ? 'bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40' : 'text-zinc-400 hover:text-white'"
+                                                    @click="embeddedTab = 'away'"
+                                                    :class="embeddedTab === 'away' ? 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40' : 'text-zinc-400 hover:text-white'"
                                                     class="px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center space-x-1 whitespace-nowrap">
-                                                <i class="fa-solid fa-skull-crossbones text-[9px]"></i>
-                                                <span>Rivales</span>
+                                                <img src="{{$fg.AwayTeam.LogoURL}}" class="w-3 h-3 object-contain">
+                                                <span>{{$fg.AwayTeam.Code}} ({{$fg.AwayPickCount}})</span>
                                             </button>
                                             <button type="button" 
-                                                    @click="embeddedTab = 'allies'"
-                                                    :class="embeddedTab === 'allies' ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40' : 'text-zinc-400 hover:text-white'"
+                                                    @click="embeddedTab = 'home'"
+                                                    :class="embeddedTab === 'home' ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40' : 'text-zinc-400 hover:text-white'"
                                                     class="px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center space-x-1 whitespace-nowrap">
-                                                <i class="fa-solid fa-handshake text-[9px]"></i>
-                                                <span>Aliados</span>
+                                                <img src="{{$fg.HomeTeam.LogoURL}}" class="w-3 h-3 object-contain">
+                                                <span>{{$fg.HomeTeam.Code}} ({{$fg.HomePickCount}})</span>
                                             </button>
+                                            {{if $fg.UserPick}}
+                                                <button type="button" 
+                                                        @click="embeddedTab = 'rivals'"
+                                                        :class="embeddedTab === 'rivals' ? 'bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40' : 'text-zinc-400 hover:text-white'"
+                                                        class="px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center space-x-1 whitespace-nowrap">
+                                                    <i class="fa-solid fa-skull-crossbones text-[9px]"></i>
+                                                    <span>Rivales</span>
+                                                </button>
+                                                <button type="button" 
+                                                        @click="embeddedTab = 'allies'"
+                                                        :class="embeddedTab === 'allies' ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40' : 'text-zinc-400 hover:text-white'"
+                                                        class="px-2 py-1 rounded-lg transition-colors cursor-pointer flex items-center space-x-1 whitespace-nowrap">
+                                                    <i class="fa-solid fa-handshake text-[9px]"></i>
+                                                    <span>Aliados</span>
+                                                </button>
+                                            {{end}}
                                         {{end}}
                                     </div>
 
@@ -1127,6 +1129,13 @@
                                                class="w-full bg-zinc-900 border border-zinc-800 rounded-lg pl-7 pr-2.5 py-1 text-[11px] text-white placeholder-zinc-500 focus:outline-none focus:border-cyan-500">
                                     </div>
                                 </div>
+
+                                {{if not $.FeaturedGameLocked}}
+                                    <div class="px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center space-x-2">
+                                        <i class="fa-solid fa-shield-halved text-amber-400 shrink-0"></i>
+                                        <span><strong>Fair Play activo:</strong> Los pronósticos y desempates de los rivales se revelarán en cuanto inicie el partido.</span>
+                                    </div>
+                                {{end}}
 
                                 <!-- Mini Cards Grid inside Tab -->
                                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1">
@@ -1159,7 +1168,9 @@
                                                         {{if $isCurrent}}<span class="text-[8px] font-mono px-1 rounded bg-cyan-500/20 text-cyan-300">TÚ</span>{{end}}
                                                     </div>
                                                     <div class="text-[9px] font-mono">
-                                                        {{if $isDirectRival}}
+                                                        {{if not $.FeaturedGameLocked}}
+                                                            <span class="text-zinc-500">Pick enviado</span>
+                                                        {{else if $isDirectRival}}
                                                             <span class="text-rose-400">Rival</span>
                                                         {{else if $isAlly}}
                                                             <span class="text-emerald-400">Aliado</span>
@@ -1171,18 +1182,25 @@
                                             </div>
 
                                             <div class="flex items-center space-x-2 shrink-0">
-                                                <div class="flex items-center space-x-1 font-mono font-bold text-[11px] {{if $isUserAway}}text-cyan-400{{else}}text-amber-400{{end}}">
-                                                    {{if $isUserAway}}
-                                                        <img src="{{$fg.AwayTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
-                                                        <span>{{$fg.AwayTeam.Code}}</span>
-                                                    {{else if $isUserHome}}
-                                                        <img src="{{$fg.HomeTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
-                                                        <span>{{$fg.HomeTeam.Code}}</span>
+                                                {{if or $.FeaturedGameLocked $isCurrent}}
+                                                    <div class="flex items-center space-x-1 font-mono font-bold text-[11px] {{if $isUserAway}}text-cyan-400{{else}}text-amber-400{{end}}">
+                                                        {{if $isUserAway}}
+                                                            <img src="{{$fg.AwayTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
+                                                            <span>{{$fg.AwayTeam.Code}}</span>
+                                                        {{else if $isUserHome}}
+                                                            <img src="{{$fg.HomeTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
+                                                            <span>{{$fg.HomeTeam.Code}}</span>
+                                                        {{end}}
+                                                    </div>
+                                                    {{if and .PredictedAwayScore .PredictedHomeScore}}
+                                                        <span class="px-1.5 py-0.5 rounded text-[9px] font-mono bg-zinc-950 text-zinc-300 border border-zinc-800">
+                                                            {{.AwayScoreStr}}-{{.HomeScoreStr}}
+                                                        </span>
                                                     {{end}}
-                                                </div>
-                                                {{if and .PredictedAwayScore .PredictedHomeScore}}
-                                                    <span class="px-1.5 py-0.5 rounded text-[9px] font-mono bg-zinc-950 text-zinc-300 border border-zinc-800">
-                                                        {{.AwayScoreStr}}-{{.HomeScoreStr}}
+                                                {{else}}
+                                                    <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-zinc-950 text-zinc-500 border border-zinc-800 text-[10px] font-mono select-none" title="Se revela al comenzar el partido">
+                                                        <i class="fa-solid fa-lock text-[9px] text-zinc-500"></i>
+                                                        <span>🔒 Oculto</span>
                                                     </span>
                                                 {{end}}
                                                 {{if and $.User (ne .User.ID $.User.ID)}}
@@ -1325,37 +1343,39 @@
                                 <span class="px-1 py-0.2 rounded text-[9px] bg-white/10 font-mono">{{len .FeaturedPicks}}</span>
                             </button>
 
-                            <button type="button"
-                                    @click="rivalTab = 'away'"
-                                    :class="rivalTab === 'away' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
-                                    class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5">
-                                <img src="{{$fg.AwayTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
-                                <span>{{$fg.AwayTeam.Code}}</span>
-                                <span class="px-1 py-0.2 rounded text-[9px] bg-white/10 font-mono">{{$fg.AwayPickCount}}</span>
-                            </button>
-
-                            <button type="button"
-                                    @click="rivalTab = 'home'"
-                                    :class="rivalTab === 'home' ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
-                                    class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5">
-                                <img src="{{$fg.HomeTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
-                                <span>{{$fg.HomeTeam.Code}}</span>
-                                <span class="px-1 py-0.2 rounded text-[9px] bg-white/10 font-mono">{{$fg.HomePickCount}}</span>
-                            </button>
-
-                            {{if $fg.UserPick}}
+                            {{if $.FeaturedGameLocked}}
                                 <button type="button"
-                                        @click="rivalTab = 'rivals'"
-                                        :class="rivalTab === 'rivals' ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
-                                        class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1">
-                                    <span>⚔️ Rivales</span>
+                                        @click="rivalTab = 'away'"
+                                        :class="rivalTab === 'away' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
+                                        class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5">
+                                    <img src="{{$fg.AwayTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
+                                    <span>{{$fg.AwayTeam.Code}}</span>
+                                    <span class="px-1 py-0.2 rounded text-[9px] bg-white/10 font-mono">{{$fg.AwayPickCount}}</span>
                                 </button>
+
                                 <button type="button"
-                                        @click="rivalTab = 'allies'"
-                                        :class="rivalTab === 'allies' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
-                                        class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1">
-                                    <span>🤝 Aliados</span>
+                                        @click="rivalTab = 'home'"
+                                        :class="rivalTab === 'home' ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
+                                        class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5">
+                                    <img src="{{$fg.HomeTeam.LogoURL}}" class="w-3.5 h-3.5 object-contain">
+                                    <span>{{$fg.HomeTeam.Code}}</span>
+                                    <span class="px-1 py-0.2 rounded text-[9px] bg-white/10 font-mono">{{$fg.HomePickCount}}</span>
                                 </button>
+
+                                {{if $fg.UserPick}}
+                                    <button type="button"
+                                            @click="rivalTab = 'rivals'"
+                                            :class="rivalTab === 'rivals' ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
+                                            class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1">
+                                        <span>⚔️ Rivales</span>
+                                    </button>
+                                    <button type="button"
+                                            @click="rivalTab = 'allies'"
+                                            :class="rivalTab === 'allies' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold shadow-xs' : 'bg-zinc-900 text-zinc-400 hover:text-white border-zinc-800'"
+                                            class="px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1">
+                                        <span>🤝 Aliados</span>
+                                    </button>
+                                {{end}}
                             {{end}}
                         </div>
 
@@ -1378,6 +1398,13 @@
 
                 <!-- Modal Body: Rivals Cards Grid -->
                 <div class="p-3 sm:p-4 overflow-y-auto flex-1 min-h-0 overscroll-contain modal-scrollable grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {{if not $.FeaturedGameLocked}}
+                        <div class="col-span-full mb-1 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center space-x-2">
+                            <i class="fa-solid fa-shield-halved text-amber-400 text-sm shrink-0"></i>
+                            <span><strong>Fair Play activo:</strong> Este partido aún no inicia. Los pronósticos y desempates de los rivales se revelarán en cuanto comience el partido.</span>
+                        </div>
+                    {{end}}
+
                     {{$myPickIsAway := false}}
                     {{$myPickIsHome := false}}
                     {{if $fg.UserPick}}
@@ -1416,7 +1443,9 @@
                                             {{end}}
                                         </div>
                                         <div class="flex items-center space-x-1 mt-0.5">
-                                            {{if $isDirectRival}}
+                                            {{if not $.FeaturedGameLocked}}
+                                                <span class="text-[9px] font-mono text-zinc-500">Pick enviado</span>
+                                            {{else if $isDirectRival}}
                                                 <span class="text-[9px] font-bold text-rose-400 flex items-center">
                                                     <i class="fa-solid fa-skull-crossbones mr-1 text-[8px]"></i> Rival directo
                                                 </span>
@@ -1446,31 +1475,38 @@
 
                             <!-- Pick Box -->
                             <div class="p-2 rounded-lg bg-zinc-950/70 border border-zinc-800/80 flex items-center justify-between">
-                                <div class="flex items-center space-x-2">
-                                    {{if $isUserAway}}
-                                        <img src="{{$fg.AwayTeam.LogoURL}}" alt="{{$fg.AwayTeam.Code}}" class="w-6 h-6 object-contain drop-shadow-xs">
-                                        <div>
-                                            <div class="text-xs font-black text-cyan-400 leading-tight">{{$fg.AwayTeam.Code}}</div>
-                                            <div class="text-[9px] font-mono text-zinc-500 leading-tight">Visitante</div>
-                                        </div>
-                                    {{else if $isUserHome}}
-                                        <img src="{{$fg.HomeTeam.LogoURL}}" alt="{{$fg.HomeTeam.Code}}" class="w-6 h-6 object-contain drop-shadow-xs">
-                                        <div>
-                                            <div class="text-xs font-black text-amber-400 leading-tight">{{$fg.HomeTeam.Code}}</div>
-                                            <div class="text-[9px] font-mono text-zinc-500 leading-tight">Local</div>
-                                        </div>
-                                    {{else}}
-                                        <span class="text-zinc-600 font-mono text-[11px] italic">Sin pick</span>
-                                    {{end}}
-                                </div>
+                                {{if or $.FeaturedGameLocked $isCurrent}}
+                                    <div class="flex items-center space-x-2">
+                                        {{if $isUserAway}}
+                                            <img src="{{$fg.AwayTeam.LogoURL}}" alt="{{$fg.AwayTeam.Code}}" class="w-6 h-6 object-contain drop-shadow-xs">
+                                            <div>
+                                                <div class="text-xs font-black text-cyan-400 leading-tight">{{$fg.AwayTeam.Code}}</div>
+                                                <div class="text-[9px] font-mono text-zinc-500 leading-tight">Visitante</div>
+                                            </div>
+                                        {{else if $isUserHome}}
+                                            <img src="{{$fg.HomeTeam.LogoURL}}" alt="{{$fg.HomeTeam.Code}}" class="w-6 h-6 object-contain drop-shadow-xs">
+                                            <div>
+                                                <div class="text-xs font-black text-amber-400 leading-tight">{{$fg.HomeTeam.Code}}</div>
+                                                <div class="text-[9px] font-mono text-zinc-500 leading-tight">Local</div>
+                                            </div>
+                                        {{else}}
+                                            <span class="text-zinc-600 font-mono text-[11px] italic">Sin pick</span>
+                                        {{end}}
+                                    </div>
 
-                                <!-- Predicted Score -->
-                                {{if and .PredictedAwayScore .PredictedHomeScore}}
-                                    <div class="px-2 py-1 rounded-md bg-zinc-900 border border-zinc-800 text-right">
-                                        <div class="text-[8px] font-mono text-zinc-500 uppercase tracking-widest">Predicción</div>
-                                        <div class="text-[11px] font-mono font-black text-white">
-                                            {{.AwayScoreStr}} - {{.HomeScoreStr}}
+                                    <!-- Predicted Score -->
+                                    {{if and .PredictedAwayScore .PredictedHomeScore}}
+                                        <div class="px-2 py-1 rounded-md bg-zinc-900 border border-zinc-800 text-right">
+                                            <div class="text-[8px] font-mono text-zinc-500 uppercase tracking-widest">Predicción</div>
+                                            <div class="text-[11px] font-mono font-black text-white">
+                                                {{.AwayScoreStr}} - {{.HomeScoreStr}}
+                                            </div>
                                         </div>
+                                    {{end}}
+                                {{else}}
+                                    <div class="flex items-center space-x-2 text-zinc-400 font-mono text-xs py-1">
+                                        <i class="fa-solid fa-lock text-zinc-500 text-xs"></i>
+                                        <span class="text-[11px] text-zinc-400">Protegido hasta el kickoff</span>
                                     </div>
                                 {{end}}
                             </div>
@@ -1479,7 +1515,9 @@
                             <div class="flex items-center justify-between text-[10px] pt-1 border-t border-zinc-800/50">
                                 <span class="text-zinc-500 font-mono">Estado:</span>
                                 <div>
-                                    {{if eq $fg.Status "final"}}
+                                    {{if not $.FeaturedGameLocked}}
+                                        <span class="text-zinc-500 font-mono text-[10px]">Por disputarse (🔒 Oculto)</span>
+                                    {{else if eq $fg.Status "final"}}
                                         {{if .HasCorrectWinner}}
                                             <span class="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                                                 <i class="fa-solid fa-circle-check text-[9px] mr-1"></i> Acierto (+{{.TotalPoints}} pts)

@@ -249,9 +249,21 @@
                 </select>
             </div>
             <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
+                {{if gt .TotalUsersCount 0}}
+                <button type="button" 
+                        hx-get="/picks/readiness?week_id={{.SelectedWeek.ID}}"
+                        hx-target="#readiness-modal-container"
+                        hx-swap="innerHTML"
+                        title="Ver quién ya realizó picks y quién falta antes del inicio"
+                        class="inline-flex items-center px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-emerald-500/50 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer shrink-0">
+                    <i class="fa-solid fa-users-check mr-1 sm:mr-1.5 text-emerald-400"></i>
+                    <span>{{.ReadyUsersCount}}/{{.TotalUsersCount}} listos</span>
+                    <span class="ml-1.5 px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">{{.ReadyPercent}}%</span>
+                </button>
+                {{end}}
                 <a href="/picks/matrix?week={{.SelectedWeek.WeekNumber}}" 
-                   title="Ver matriz comunitaria de pronósticos"
-                   class="inline-flex items-center px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-cyan-500/50 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer shrink-0">
+                    title="Ver matriz comunitaria de pronósticos"
+                    class="inline-flex items-center px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-cyan-500/50 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer shrink-0">
                     <i class="fa-solid fa-table-cells mr-1 sm:mr-1.5 text-cyan-400"></i> Matriz
                     {{if isFeatureBeta .FeatureFlags "picks_matrix"}}
                         <span class="ml-1.5 px-1 py-0.2 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase tracking-wider">Beta</span>
