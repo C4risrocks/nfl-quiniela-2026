@@ -82,6 +82,19 @@ func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	scoringCfg, _ := h.repo.GetScoringConfig()
+	winnerPts := 10
+	if scoringCfg != nil && scoringCfg.WinnerPoints > 0 {
+		winnerPts = scoringCfg.WinnerPoints
+	}
+	// Default maximum is standard 16 games * winnerPts (e.g. 160 pts)
+	chartMaxPoints := 16 * winnerPts
+	for _, w := range weeklyHistory {
+		if w.Points > chartMaxPoints {
+			chartMaxPoints = w.Points
+		}
+	}
+
 	userAchievements, _ := h.repo.GetUserAchievements(profileUser.ID)
 	achMap := make(map[string]*db.UserAchievement)
 	for _, a := range userAchievements {
@@ -160,6 +173,7 @@ func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 		"TotalPlayers":              totalPlayers,
 		"WeeklyHistory":             weeklyHistory,
 		"BestWeek":                  bestWeek,
+		"ChartMaxPoints":            chartMaxPoints,
 		"AchievementDisplays":       achievementDisplays,
 		"UnlockedAchievementsCount": unlockedCount,
 		"TotalBadgesCount":          len(allBadges),
