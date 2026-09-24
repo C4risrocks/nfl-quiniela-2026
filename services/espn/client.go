@@ -16,8 +16,10 @@ import (
 const ESPNScoreboardURL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
 
 type Client struct {
-	httpClient *http.Client
-	baseURL    string
+	httpClient   *http.Client
+	baseURL      string
+	standingsURL string
+	scheduleURL  string
 }
 
 func NewClient() *Client {
@@ -25,7 +27,9 @@ func NewClient() *Client {
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
-		baseURL: ESPNScoreboardURL,
+		baseURL:      ESPNScoreboardURL,
+		standingsURL: "https://site.api.espn.com/apis/v2/sports/football/nfl/standings",
+		scheduleURL:  "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/%s/schedule",
 	}
 }
 

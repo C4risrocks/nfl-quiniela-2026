@@ -6,6 +6,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -2808,4 +2809,453 @@ func (r *Repository) IsFeatureAccessible(key string, u *User) bool {
 	}
 	return f.IsAccessibleTo(u)
 }
+
+// ----------------------------------------------------
+// Team Seasonal Statistics & Standings
+// ----------------------------------------------------
+
+// CalculateLocalStandings calculates official NFL standings directly from SQLite games
+func (r *Repository) CalculateLocalStandings(seasonYear int) (*SeasonStandings, error) {
+	season, err := r.GetActiveSeason(seasonYear)
+	if err != nil {
+		return nil, err
+	}
+
+	teams, err := r.ListTeams()
+	if err != nil {
+		return nil, err
+	}
+
+	teamMap := make(map[int64]*TeamStanding)
+	for _, t := range teams {
+		teamMap[t.ID] = &TeamStanding{
+			TeamID:         t.ID,
+			TeamCode:       t.Code,
+			TeamName:       t.Name,
+			TeamCity:       t.City,
+			LogoURL:        t.LogoURL,
+			PrimaryColor:   t.PrimaryColor,
+			SecondaryColor: t.SecondaryColor,
+			Conference:     t.Conference,
+			Division:       t.Division,
+			Streak:         "-",
+			GamesBehind:    "-",
+		}
+	}
+
+	query := `
+	SELECT g.home_team_id, g.away_team_id, g.home_score, g.away_score,
+	       ht.conference, ht.division, at.conference, at.division
+	FROM games g
+	JOIN weeks w ON g.week_id = w.id
+	JOIN teams ht ON g.home_team_id = ht.id
+	JOIN teams at ON g.away_team_id = at.id
+	WHERE w.season_id = ? AND g.status = 'final' AND g.home_score IS NOT NULL AND g.away_score IS NOT NULL
+	ORDER BY w.week_number ASC, g.kickoff_time ASC`
+
+	rows, err := r.db.Query(query, season.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	type localTeamSplits struct {
+		homeWins, homeLoss, homeTie int
+		awayWins, awayLoss, awayTie int
+		divWins, divLoss, divTie    int
+		confWins, confLoss, confTie int
+		history                     []string // "W", "L", "T"
+	}
+	splitsMap := make(map[int64]*localTeamSplits)
+	for tID := range teamMap {
+		splitsMap[tID] = &localTeamSplits{}
+	}
+
+	for rows.Next() {
+		var hID, aID int64
+		var hScore, aScore int
+		var hConf, hDiv, aConf, aDiv string
+
+		if err := rows.Scan(&hID, &aID, &hScore, &aScore, &hConf, &hDiv, &aConf, &aDiv); err != nil {
+			return nil, err
+		}
+
+		hTeam, okH := teamMap[hID]
+		aTeam, okA := teamMap[aID]
+		if !okH || !okA {
+			continue
+		}
+
+		hSplits := splitsMap[hID]
+		aSplits := splitsMap[aID]
+
+		hTeam.GamesPlayed++
+		aTeam.GamesPlayed++
+		hTeam.PointsFor += hScore
+		hTeam.PointsAgainst += aScore
+		aTeam.PointsFor += aScore
+		aTeam.PointsAgainst += hScore
+
+		isDiv := (hConf == aConf && hDiv == aDiv)
+		isConf := (hConf == aConf)
+
+		if hScore > aScore {
+			hTeam.Wins++
+			hSplits.homeWins++
+			hSplits.history = append(hSplits.history, "W")
+
+			aTeam.Losses++
+			aSplits.awayLoss++
+			aSplits.history = append(aSplits.history, "L")
+
+			if isDiv {
+				hSplits.divWins++
+				aSplits.divLoss++
+			}
+			if isConf {
+				hSplits.confWins++
+				aSplits.confLoss++
+			}
+		} else if aScore > hScore {
+			aTeam.Wins++
+			aSplits.awayWins++
+			aSplits.history = append(aSplits.history, "W")
+
+			hTeam.Losses++
+			hSplits.homeLoss++
+			hSplits.history = append(hSplits.history, "L")
+
+			if isDiv {
+				aSplits.divWins++
+				hSplits.divLoss++
+			}
+			if isConf {
+				aSplits.confWins++
+				hSplits.confLoss++
+			}
+		} else {
+			hTeam.Ties++
+			hSplits.homeTie++
+			hSplits.history = append(hSplits.history, "T")
+
+			aTeam.Ties++
+			aSplits.awayTie++
+			aSplits.history = append(aSplits.history, "T")
+
+			if isDiv {
+				hSplits.divTie++
+				aSplits.divTie++
+			}
+			if isConf {
+				hSplits.confTie++
+				aSplits.confTie++
+			}
+		}
+	}
+
+	allTeams := make([]*TeamStanding, 0, len(teamMap))
+	for tID, ts := range teamMap {
+		ts.PointDiff = ts.PointsFor - ts.PointsAgainst
+		totalDecisions := ts.Wins + ts.Losses + ts.Ties
+		if totalDecisions > 0 {
+			ts.WinPercent = (float64(ts.Wins) + 0.5*float64(ts.Ties)) / float64(totalDecisions)
+			ts.OffensivePPG = float64(ts.PointsFor) / float64(totalDecisions)
+			ts.DefensivePPG = float64(ts.PointsAgainst) / float64(totalDecisions)
+		}
+		ts.WinPercentFormatted = fmt.Sprintf("%.3f", ts.WinPercent)
+
+		sp := splitsMap[tID]
+		ts.HomeRecord = fmt.Sprintf("%d-%d", sp.homeWins, sp.homeLoss)
+		if sp.homeTie > 0 {
+			ts.HomeRecord += fmt.Sprintf("-%d", sp.homeTie)
+		}
+		ts.AwayRecord = fmt.Sprintf("%d-%d", sp.awayWins, sp.awayLoss)
+		if sp.awayTie > 0 {
+			ts.AwayRecord += fmt.Sprintf("-%d", sp.awayTie)
+		}
+		ts.DivisionRecord = fmt.Sprintf("%d-%d", sp.divWins, sp.divLoss)
+		if sp.divTie > 0 {
+			ts.DivisionRecord += fmt.Sprintf("-%d", sp.divTie)
+		}
+		ts.ConfRecord = fmt.Sprintf("%d-%d", sp.confWins, sp.confLoss)
+		if sp.confTie > 0 {
+			ts.ConfRecord += fmt.Sprintf("-%d", sp.confTie)
+		}
+
+		// Calculate streak
+		if len(sp.history) > 0 {
+			lastRes := sp.history[len(sp.history)-1]
+			count := 0
+			for i := len(sp.history) - 1; i >= 0; i-- {
+				if sp.history[i] == lastRes {
+					count++
+				} else {
+					break
+				}
+			}
+			ts.Streak = fmt.Sprintf("%s%d", lastRes, count)
+		}
+
+		allTeams = append(allTeams, ts)
+	}
+
+	// Sort league
+	sort.Slice(allTeams, func(i, j int) bool {
+		if allTeams[i].WinPercent != allTeams[j].WinPercent {
+			return allTeams[i].WinPercent > allTeams[j].WinPercent
+		}
+		if allTeams[i].Wins != allTeams[j].Wins {
+			return allTeams[i].Wins > allTeams[j].Wins
+		}
+		return allTeams[i].PointDiff > allTeams[j].PointDiff
+	})
+
+	standings := &SeasonStandings{
+		Year:        seasonYear,
+		IsCurrent:   true,
+		League:      allTeams,
+		Conferences: make([]*ConferenceStandings, 0, 2),
+		Divisions:   make([]*DivisionStandings, 0, 8),
+	}
+
+	// Group conferences
+	for _, confCode := range []string{"AFC", "NFC"} {
+		confName := "American Football Conference"
+		if confCode == "NFC" {
+			confName = "National Football Conference"
+		}
+		confGroup := &ConferenceStandings{
+			Conference: confCode,
+			Name:       confName,
+			Teams:      make([]*TeamStanding, 0, 16),
+		}
+		for _, t := range allTeams {
+			if t.Conference == confCode {
+				confGroup.Teams = append(confGroup.Teams, t)
+			}
+		}
+		for seedIdx, ct := range confGroup.Teams {
+			ct.ConferenceSeed = seedIdx + 1
+		}
+		standings.Conferences = append(standings.Conferences, confGroup)
+	}
+
+	// Group divisions
+	divNames := []struct{ conf, div, name string }{
+		{"AFC", "East", "AFC Este"},
+		{"AFC", "North", "AFC Norte"},
+		{"AFC", "South", "AFC Sur"},
+		{"AFC", "West", "AFC Oeste"},
+		{"NFC", "East", "NFC Este"},
+		{"NFC", "North", "NFC Norte"},
+		{"NFC", "South", "NFC Sur"},
+		{"NFC", "West", "NFC Oeste"},
+	}
+	for _, dInfo := range divNames {
+		divGroup := &DivisionStandings{
+			Name:       dInfo.name,
+			Conference: dInfo.conf,
+			Division:   dInfo.div,
+			Teams:      make([]*TeamStanding, 0, 4),
+		}
+		for _, t := range allTeams {
+			if t.Conference == dInfo.conf && t.Division == dInfo.div {
+				divGroup.Teams = append(divGroup.Teams, t)
+			}
+		}
+		for rIdx, dt := range divGroup.Teams {
+			dt.Rank = rIdx + 1
+		}
+		standings.Divisions = append(standings.Divisions, divGroup)
+	}
+
+	// Summary
+	if len(allTeams) > 0 {
+		topRec := allTeams[0]
+		topOff := allTeams[0]
+		topDef := allTeams[0]
+		bestStr := allTeams[0]
+		for _, t := range allTeams {
+			if t.PointsFor > topOff.PointsFor {
+				topOff = t
+			}
+			if t.GamesPlayed > 0 && t.PointsAgainst < topDef.PointsAgainst {
+				topDef = t
+			}
+			if strings.HasPrefix(t.Streak, "W") && (bestStr == nil || t.Wins > bestStr.Wins) {
+				bestStr = t
+			}
+		}
+		standings.Summary = &SeasonDashboardSummary{
+			TopRecordTeam:  topRec,
+			TopOffenseTeam: topOff,
+			TopDefenseTeam: topDef,
+			BestStreakTeam: bestStr,
+		}
+	}
+
+	return standings, nil
+}
+
+// GetTeamCommunityStats fetches quiniela community fan affinity and pick accuracy for a team
+func (r *Repository) GetTeamCommunityStats(teamID int64, seasonYear int) (*TeamCommunityStats, error) {
+	team, err := r.GetTeamByID(teamID)
+	if err != nil || team == nil {
+		return nil, fmt.Errorf("equipo no encontrado")
+	}
+
+	// Favorite users
+	favQuery := `
+	SELECT id, username, email, avatar_url, role, bio
+	FROM users
+	WHERE favorite_team_id = ?
+	ORDER BY username ASC`
+
+	rows, err := r.db.Query(favQuery, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	stats := &TeamCommunityStats{
+		TeamID:        teamID,
+		TeamCode:      team.Code,
+		FavoriteUsers: make([]*User, 0),
+	}
+
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.AvatarURL, &u.Role, &u.Bio); err != nil {
+			return nil, err
+		}
+		stats.FavoriteUsers = append(stats.FavoriteUsers, &u)
+	}
+
+	// Quiniela pick record on games where this team was picked
+	pickQuery := `
+	SELECT COUNT(p.id) as total_picks,
+	       COALESCE(SUM(CASE WHEN p.is_correct = 1 THEN 1 ELSE 0 END), 0) as win_picks
+	FROM picks p
+	JOIN games g ON p.game_id = g.id
+	JOIN weeks w ON g.week_id = w.id
+	JOIN seasons s ON w.season_id = s.id
+	WHERE s.year = ? AND p.picked_team_id = ? AND g.status = 'final'`
+
+	var totalPicks, winPicks int
+	_ = r.db.QueryRow(pickQuery, seasonYear, teamID).Scan(&totalPicks, &winPicks)
+
+	stats.TotalPicksMade = totalPicks
+	stats.WinningPicks = winPicks
+	if totalPicks > 0 {
+		stats.PickWinRate = int(float64(winPicks) / float64(totalPicks) * 100)
+	}
+
+	return stats, nil
+}
+
+// ListTeamGamesBySeason returns all games for a specific team in a season from SQLite
+func (r *Repository) ListTeamGamesBySeason(teamCode string, seasonYear int) ([]*TeamScheduleItem, error) {
+	team, err := r.GetTeamByCode(teamCode)
+	if err != nil || team == nil {
+		return nil, fmt.Errorf("equipo no encontrado")
+	}
+
+	query := `
+	SELECT g.id, g.kickoff_time, g.home_score, g.away_score, g.status, g.status_detail,
+	       COALESCE(g.broadcast, ''), w.week_number,
+	       ht.id, ht.code, ht.name, ht.city, ht.logo_url,
+	       at.id, at.code, at.name, at.city, at.logo_url
+	FROM games g
+	JOIN weeks w ON g.week_id = w.id
+	JOIN seasons s ON w.season_id = s.id
+	JOIN teams ht ON g.home_team_id = ht.id
+	JOIN teams at ON g.away_team_id = at.id
+	WHERE s.year = ? AND (g.home_team_id = ? OR g.away_team_id = ?)
+	ORDER BY w.week_number ASC, g.kickoff_time ASC`
+
+	rows, err := r.db.Query(query, seasonYear, team.ID, team.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]*TeamScheduleItem, 0)
+	for rows.Next() {
+		var gID int64
+		var kickoffStr, status, statusDetail, broadcast string
+		var weekNum int
+		var hScore, aScore *int
+		var htID, atID int64
+		var htCode, htName, htCity, htLogo string
+		var atCode, atName, atCity, atLogo string
+
+		if err := rows.Scan(
+			&gID, &kickoffStr, &hScore, &aScore, &status, &statusDetail,
+			&broadcast, &weekNum,
+			&htID, &htCode, &htName, &htCity, &htLogo,
+			&atID, &atCode, &atName, &atCity, &atLogo,
+		); err != nil {
+			return nil, err
+		}
+
+		kickoff, _ := time.Parse(time.RFC3339, kickoffStr)
+		if kickoff.IsZero() {
+			kickoff, _ = time.Parse("2006-01-02 15:04:05", kickoffStr)
+		}
+
+		isHome := (htID == team.ID)
+		var oppCode, oppName, oppCity, oppLogo string
+		var teamScore, oppScore *int
+
+		if isHome {
+			oppCode = atCode
+			oppName = atName
+			oppCity = atCity
+			oppLogo = atLogo
+			teamScore = hScore
+			oppScore = aScore
+		} else {
+			oppCode = htCode
+			oppName = htName
+			oppCity = htCity
+			oppLogo = htLogo
+			teamScore = aScore
+			oppScore = hScore
+		}
+
+		result := "scheduled"
+		if status == "final" && teamScore != nil && oppScore != nil {
+			if *teamScore > *oppScore {
+				result = "W"
+			} else if *teamScore < *oppScore {
+				result = "L"
+			} else {
+				result = "T"
+			}
+		} else if status == "in_progress" {
+			result = "in_progress"
+		}
+
+		items = append(items, &TeamScheduleItem{
+			WeekNumber:       weekNum,
+			KickoffTime:      kickoff,
+			KickoffFormatted: kickoff.Format("02/01 15:04"),
+			OpponentCode:     oppCode,
+			OpponentName:     oppName,
+			OpponentCity:     oppCity,
+			OpponentLogo:     oppLogo,
+			IsHome:           isHome,
+			HomeScore:        hScore,
+			AwayScore:        aScore,
+			TeamScore:        teamScore,
+			OpponentScore:    oppScore,
+			Result:           result,
+			StatusDetail:     statusDetail,
+			Broadcast:        broadcast,
+		})
+	}
+
+	return items, nil
+}
+
 

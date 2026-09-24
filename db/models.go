@@ -1540,3 +1540,113 @@ type WeeklyRecapData struct {
 	NextWeekKickoff   string          `json:"next_week_kickoff"`
 }
 
+// ----------------------------------------------------
+// Team Statistics & Standings Models
+// ----------------------------------------------------
+
+// TeamStanding holds the complete seasonal statistics for an NFL franchise
+type TeamStanding struct {
+	TeamID              int64   `json:"team_id"`
+	TeamCode            string  `json:"team_code"`
+	TeamName            string  `json:"team_name"`
+	TeamCity            string  `json:"team_city"`
+	LogoURL             string  `json:"logo_url"`
+	PrimaryColor        string  `json:"primary_color"`
+	SecondaryColor      string  `json:"secondary_color"`
+	Conference          string  `json:"conference"` // AFC or NFC
+	Division            string  `json:"division"`   // East, North, South, West
+	Rank                int     `json:"rank"`       // Division rank (1-4)
+	ConferenceSeed      int     `json:"seed"`       // Conference playoff seed (1-16)
+	Wins                int     `json:"wins"`
+	Losses              int     `json:"losses"`
+	Ties                int     `json:"ties"`
+	WinPercent          float64 `json:"win_percent"`
+	WinPercentFormatted string  `json:"win_percent_formatted"` // e.g. ".800" or "1.000"
+	GamesPlayed         int     `json:"games_played"`
+	PointsFor           int     `json:"points_for"`
+	PointsAgainst       int     `json:"points_against"`
+	PointDiff           int     `json:"point_diff"`
+	OffensivePPG        float64 `json:"offensive_ppg"`
+	DefensivePPG        float64 `json:"defensive_ppg"`
+	Streak              string  `json:"streak"`          // e.g. "W3", "L1"
+	HomeRecord          string  `json:"home_record"`     // e.g. "2-0"
+	AwayRecord          string  `json:"away_record"`     // e.g. "1-1"
+	DivisionRecord      string  `json:"division_record"` // e.g. "1-0"
+	ConfRecord          string  `json:"conf_record"`     // e.g. "2-1"
+	GamesBehind         string  `json:"games_behind"`    // e.g. "-", "1.5"
+
+	// Community quiniela metrics (for active season)
+	FavoriteFansCount int `json:"favorite_fans_count"`
+	QuinielaPickCount int `json:"quiniela_pick_count"`
+	QuinielaWinCount  int `json:"quiniela_win_count"`
+	QuinielaWinRate   int `json:"quiniela_win_rate"` // e.g. 75%
+}
+
+func (s *TeamStanding) FullName() string {
+	return s.TeamCity + " " + s.TeamName
+}
+
+// DivisionStandings groups standings for a 4-team NFL division
+type DivisionStandings struct {
+	Name       string          `json:"name"`       // e.g. "AFC Este", "NFC Norte"
+	Conference string          `json:"conference"` // AFC / NFC
+	Division   string          `json:"division"`   // East, North, South, West
+	Teams      []*TeamStanding `json:"teams"`
+}
+
+// ConferenceStandings groups 16 teams sorted by playoff seed
+type ConferenceStandings struct {
+	Conference string          `json:"conference"` // AFC / NFC
+	Name       string          `json:"name"`       // "American Football Conference"
+	Teams      []*TeamStanding `json:"teams"`
+}
+
+// SeasonDashboardSummary provides quick high-level league stats
+type SeasonDashboardSummary struct {
+	TopRecordTeam       *TeamStanding `json:"top_record_team"`
+	TopOffenseTeam      *TeamStanding `json:"top_offense_team"`
+	TopDefenseTeam      *TeamStanding `json:"top_defense_team"`
+	BestStreakTeam      *TeamStanding `json:"best_streak_team"`
+	QuinielaMostPopular *TeamStanding `json:"quiniela_most_popular"`
+}
+
+// SeasonStandings holds full standings and groupings for a single season
+type SeasonStandings struct {
+	Year        int                     `json:"year"`
+	IsCurrent   bool                    `json:"is_current"`
+	Summary     *SeasonDashboardSummary `json:"summary"`
+	Divisions   []*DivisionStandings    `json:"divisions"`
+	Conferences []*ConferenceStandings  `json:"conferences"`
+	League      []*TeamStanding         `json:"league"` // All 32 sorted by record
+}
+
+// TeamScheduleItem represents a single matchup in a team's schedule
+type TeamScheduleItem struct {
+	WeekNumber       int       `json:"week_number"`
+	KickoffTime      time.Time `json:"kickoff_time"`
+	KickoffFormatted string    `json:"kickoff_formatted"`
+	OpponentCode     string    `json:"opponent_code"`
+	OpponentName     string    `json:"opponent_name"`
+	OpponentCity     string    `json:"opponent_city"`
+	OpponentLogo     string    `json:"opponent_logo"`
+	IsHome           bool      `json:"is_home"`
+	HomeScore        *int      `json:"home_score"`
+	AwayScore        *int      `json:"away_score"`
+	TeamScore        *int      `json:"team_score"`
+	OpponentScore    *int      `json:"opponent_score"`
+	Result           string    `json:"result"` // "W", "L", "T", "scheduled", "in_progress"
+	StatusDetail     string    `json:"status_detail"`
+	Broadcast        string    `json:"broadcast"`
+}
+
+// TeamCommunityStats holds quiniela player affinity and pick performance
+type TeamCommunityStats struct {
+	TeamID         int64   `json:"team_id"`
+	TeamCode       string  `json:"team_code"`
+	FavoriteUsers  []*User `json:"favorite_users"`
+	TotalPicksMade int     `json:"total_picks_made"`
+	WinningPicks   int     `json:"winning_picks"`
+	PickWinRate    int     `json:"pick_win_rate"`
+}
+
+

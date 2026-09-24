@@ -1,0 +1,313 @@
+{{template "base.html" .}}
+
+{{define "title"}}{{.Team.City}} {{.Team.Name}} - Estadísticas NFL {{.SelectedSeason}}{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+
+    <!-- Breadcrumb & Back Navigation -->
+    <div class="flex items-center justify-between">
+        <a href="/teams?season={{.SelectedSeason}}" 
+           class="inline-flex items-center space-x-2 text-xs font-semibold text-zinc-400 hover:text-white transition-colors">
+            <i class="fa-solid fa-arrow-left text-[10px]"></i>
+            <span>Volver a Estadísticas de Equipos</span>
+        </a>
+
+        <!-- Season Switcher for this Team -->
+        <div class="flex items-center space-x-1.5 bg-zinc-950 p-1 rounded-xl border border-zinc-800">
+            <span class="text-[10px] font-mono uppercase text-zinc-500 px-2">Temporada:</span>
+            {{range .AvailableSeasons}}
+                <a href="/teams/{{$.Team.Code}}?season={{.}}"
+                   class="px-2.5 py-1 rounded-lg text-xs font-mono transition-all {{if eq . $.SelectedSeason}}bg-white text-black font-bold shadow-sm{{else}}text-zinc-400 hover:text-white{{end}}">
+                    {{.}}{{if eq . $.CurrentSeason}}*{{end}}
+                </a>
+            {{end}}
+        </div>
+    </div>
+
+    <!-- Franchise Hero Banner with Official Team Colors -->
+    <div class="relative vercel-card rounded-3xl p-6 sm:p-8 border border-zinc-800 overflow-hidden shadow-lg"
+         style="background: linear-gradient(135deg, {{.Team.PrimaryColor}}35 0%, #09090b 80%);">
+        
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6 relative z-10">
+            
+            <!-- Left: Identity -->
+            <div class="flex items-center space-x-5">
+                <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-zinc-900/90 border border-zinc-700/80 p-3.5 flex items-center justify-center shadow-xl shrink-0"
+                     style="border-top: 4px solid {{.Team.PrimaryColor}};">
+                    <img src="{{.Team.LogoURL}}" alt="{{.Team.Code}}" class="w-full h-full object-contain">
+                </div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-2 mb-1.5">
+                        <span class="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
+                            {{.Team.City}}
+                        </span>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-zinc-900 text-zinc-300 border border-zinc-700">
+                            {{.Team.Conference}} {{.Team.Division}}
+                        </span>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-zinc-800 text-white border border-zinc-700/60">
+                            Temporada {{.SelectedSeason}}
+                        </span>
+                    </div>
+                    <h1 class="text-2xl sm:text-4xl font-black text-white tracking-tight flex items-center">
+                        {{.Team.Name}}
+                        <span class="ml-3 text-xs sm:text-sm font-mono font-bold px-2.5 py-0.5 rounded-lg bg-zinc-800/90 text-zinc-300 border border-zinc-700">
+                            {{.Team.Code}}
+                        </span>
+                    </h1>
+                </div>
+            </div>
+
+            <!-- Right: Quick Highlight Badges -->
+            <div class="flex flex-wrap md:flex-col items-start md:items-end gap-2 text-xs font-mono">
+                <div class="px-3 py-1.5 rounded-xl bg-zinc-900/80 border border-zinc-700/60 text-white flex items-center space-x-2">
+                    <span class="text-zinc-400">Récord:</span>
+                    <strong class="text-sm font-bold text-emerald-400">
+                        {{.Detail.Standing.Wins}}-{{.Detail.Standing.Losses}}{{if gt .Detail.Standing.Ties 0}}-{{.Detail.Standing.Ties}}{{end}}
+                    </strong>
+                    <span class="text-zinc-500">({{.Detail.Standing.WinPercentFormatted}})</span>
+                </div>
+                <div class="px-3 py-1.5 rounded-xl bg-zinc-900/80 border border-zinc-700/60 text-white flex items-center space-x-2">
+                    <span class="text-zinc-400">Racha:</span>
+                    <strong class="font-bold {{if hasPrefix .Detail.Standing.Streak "W"}}text-emerald-400{{else if hasPrefix .Detail.Standing.Streak "L"}}text-rose-400{{else}}text-zinc-400{{end}}">
+                        {{.Detail.Standing.Streak}}
+                    </strong>
+                    <span class="text-zinc-600">·</span>
+                    <span class="text-zinc-400">DIF:</span>
+                    <strong class="{{if gt .Detail.Standing.PointDiff 0}}text-emerald-400{{else if lt .Detail.Standing.PointDiff 0}}text-rose-400{{else}}text-zinc-400{{end}}">
+                        {{if gt .Detail.Standing.PointDiff 0}}+{{end}}{{.Detail.Standing.PointDiff}}
+                    </strong>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Big KPI Grid (6 Metric Cards) -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        
+        <!-- Posición en División -->
+        <div class="vercel-card p-4 rounded-2xl border border-zinc-800 bg-zinc-950/60">
+            <span class="text-[10px] font-mono uppercase text-zinc-500 tracking-wider block">División</span>
+            <div class="text-xl font-black text-white mt-1">
+                #{{.Detail.Standing.Rank}}
+            </div>
+            <div class="text-[11px] font-mono text-zinc-400 mt-0.5">
+                {{.Team.Conference}} {{.Team.Division}}
+            </div>
+        </div>
+
+        <!-- Semilla de Conferencia -->
+        <div class="vercel-card p-4 rounded-2xl border border-zinc-800 bg-zinc-950/60">
+            <span class="text-[10px] font-mono uppercase text-zinc-500 tracking-wider block">Conferencia</span>
+            <div class="text-xl font-black text-white mt-1 flex items-center">
+                Seed #{{.Detail.Standing.ConferenceSeed}}
+            </div>
+            <div class="text-[11px] font-mono text-cyan-400 mt-0.5">
+                {{if le .Detail.Standing.ConferenceSeed 7}}Zona Playoff{{else}}En Contienda{{end}}
+            </div>
+        </div>
+
+        <!-- Puntos Anotados (Ofensiva) -->
+        <div class="vercel-card p-4 rounded-2xl border border-zinc-800 bg-zinc-950/60">
+            <span class="text-[10px] font-mono uppercase text-zinc-500 tracking-wider block">Ofensiva</span>
+            <div class="text-xl font-black text-white mt-1">
+                {{printf "%.1f" .Detail.Standing.OffensivePPG}}
+            </div>
+            <div class="text-[11px] font-mono text-zinc-400 mt-0.5">
+                {{.Detail.Standing.PointsFor}} pts totales
+            </div>
+        </div>
+
+        <!-- Puntos Recibidos (Defensiva) -->
+        <div class="vercel-card p-4 rounded-2xl border border-zinc-800 bg-zinc-950/60">
+            <span class="text-[10px] font-mono uppercase text-zinc-500 tracking-wider block">Defensiva</span>
+            <div class="text-xl font-black text-white mt-1">
+                {{printf "%.1f" .Detail.Standing.DefensivePPG}}
+            </div>
+            <div class="text-[11px] font-mono text-zinc-400 mt-0.5">
+                {{.Detail.Standing.PointsAgainst}} pts permitidos
+            </div>
+        </div>
+
+        <!-- Récord Local y Visita -->
+        <div class="vercel-card p-4 rounded-2xl border border-zinc-800 bg-zinc-950/60">
+            <span class="text-[10px] font-mono uppercase text-zinc-500 tracking-wider block">Local / Visita</span>
+            <div class="text-lg font-black text-white mt-1 font-mono">
+                {{.Detail.Standing.HomeRecord}} / {{.Detail.Standing.AwayRecord}}
+            </div>
+            <div class="text-[11px] font-mono text-zinc-400 mt-0.5">
+                {{.Detail.Standing.DivisionRecord}} Divisional
+            </div>
+        </div>
+
+        <!-- Quiniela Affinity -->
+        <div class="vercel-card p-4 rounded-2xl border border-purple-500/20 bg-purple-950/10">
+            <span class="text-[10px] font-mono uppercase text-purple-400 tracking-wider block">Quiniela</span>
+            {{if .Detail.CommunityStats}}
+                <div class="text-xl font-black text-purple-300 mt-1 flex items-center">
+                    <i class="fa-solid fa-heart mr-1.5 text-sm text-pink-400"></i>
+                    {{len .Detail.CommunityStats.FavoriteUsers}}
+                </div>
+                <div class="text-[11px] font-mono text-zinc-400 mt-0.5">
+                    {{.Detail.CommunityStats.PickWinRate}}% acierto picks
+                </div>
+            {{else}}
+                <div class="text-xl font-black text-zinc-500 mt-1">-</div>
+                <div class="text-[11px] font-mono text-zinc-600 mt-0.5">Histórico</div>
+            {{end}}
+        </div>
+
+    </div>
+
+    <!-- Main Content: Schedule & Results Table -->
+    <div class="vercel-card rounded-3xl border border-zinc-800 overflow-hidden bg-zinc-950/60 shadow-sm">
+        
+        <div class="px-6 py-4 bg-zinc-900 border-b border-zinc-800 flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h2 class="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center">
+                    <i class="fa-solid fa-calendar-check mr-2 text-zinc-400"></i> Calendario Oficial y Resultados — Temporada {{.SelectedSeason}}
+                </h2>
+                <p class="text-xs text-zinc-400 mt-0.5">
+                    Historial de resultados por jornada y partidos programados de la franquicia.
+                </p>
+            </div>
+            <div class="flex items-center space-x-2 text-xs font-mono text-zinc-400">
+                <span class="px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">{{.Detail.CompletedGames}} Finalizados</span>
+                <span class="px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">{{.Detail.UpcomingGames}} Por Jugar</span>
+            </div>
+        </div>
+
+        {{if .Detail.Schedule}}
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="text-[10px] font-mono uppercase text-zinc-500 border-b border-zinc-800 bg-zinc-950/40">
+                            <th class="py-3 pl-6 pr-2 w-16 text-center">Semana</th>
+                            <th class="py-3 px-3">Fecha y Hora</th>
+                            <th class="py-3 px-3 text-center">Condición</th>
+                            <th class="py-3 px-3">Rival</th>
+                            <th class="py-3 px-3 text-center">Resultado</th>
+                            <th class="py-3 px-3 text-center">Marcador</th>
+                            <th class="py-3 px-3 text-center">Transmisión</th>
+                            <th class="py-3 pr-6 text-right">Detalles</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-900">
+                        {{range .Detail.Schedule}}
+                            <tr class="hover:bg-zinc-900/50 transition-colors">
+                                <td class="py-3 pl-6 pr-2 text-center font-mono font-bold text-zinc-400">
+                                    {{.WeekNumber}}
+                                </td>
+                                <td class="py-3 px-3 font-mono text-zinc-300">
+                                    {{.KickoffFormatted}}
+                                </td>
+                                <td class="py-3 px-3 text-center font-mono text-xs font-semibold">
+                                    {{if .IsHome}}
+                                        <span class="px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">LOCAL</span>
+                                    {{else}}
+                                        <span class="px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">VISITA</span>
+                                    {{end}}
+                                </td>
+                                <td class="py-3 px-3">
+                                    <a href="/teams/{{.OpponentCode}}?season={{$.SelectedSeason}}" 
+                                       class="flex items-center space-x-2.5 hover:text-white transition-colors group">
+                                        <img src="{{.OpponentLogo}}" alt="{{.OpponentCode}}" class="w-6 h-6 object-contain shrink-0 group-hover:scale-110 transition-transform">
+                                        <div class="min-w-0">
+                                            <span class="font-bold text-zinc-200 group-hover:text-white">
+                                                {{.OpponentCity}} {{.OpponentName}}
+                                            </span>
+                                            <span class="text-[10px] font-mono text-zinc-500 ml-1">
+                                                ({{.OpponentCode}})
+                                            </span>
+                                        </div>
+                                    </a>
+                                </td>
+                                <td class="py-3 px-3 text-center">
+                                    {{if eq .Result "W"}}
+                                        <span class="inline-block px-2 py-0.5 rounded font-mono font-bold text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                            VICTORIA
+                                        </span>
+                                    {{else if eq .Result "L"}}
+                                        <span class="inline-block px-2 py-0.5 rounded font-mono font-bold text-xs bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                            DERROTA
+                                        </span>
+                                    {{else if eq .Result "T"}}
+                                        <span class="inline-block px-2 py-0.5 rounded font-mono font-bold text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                            EMPATE
+                                        </span>
+                                    {{else if eq .Result "in_progress"}}
+                                        <span class="inline-block px-2 py-0.5 rounded font-mono font-bold text-xs bg-red-600/30 text-red-400 border border-red-500/50 animate-pulse">
+                                            EN VIVO
+                                        </span>
+                                    {{else}}
+                                        <span class="text-zinc-500 font-mono text-[11px]">Programado</span>
+                                    {{end}}
+                                </td>
+                                <td class="py-3 px-3 text-center font-mono font-bold text-sm">
+                                    {{if and .TeamScore .OpponentScore}}
+                                        <span class="{{if eq .Result "W"}}text-emerald-400{{else if eq .Result "L"}}text-rose-400{{else}}text-zinc-200{{end}}">
+                                            {{.TeamScore}} - {{.OpponentScore}}
+                                        </span>
+                                    {{else}}
+                                        <span class="text-zinc-600 font-normal">--</span>
+                                    {{end}}
+                                </td>
+                                <td class="py-3 px-3 text-center font-mono text-[11px] text-zinc-400">
+                                    {{if .Broadcast}}{{.Broadcast}}{{else}}--{{end}}
+                                </td>
+                                <td class="py-3 pr-6 text-right font-mono text-[11px] text-zinc-500">
+                                    {{.StatusDetail}}
+                                </td>
+                            </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        {{else}}
+            <div class="p-8 text-center text-xs text-zinc-500">
+                No hay calendario disponible para la temporada {{.SelectedSeason}}.
+            </div>
+        {{end}}
+
+    </div>
+
+    <!-- Quiniela Community Affinity Section -->
+    {{if and .Detail.CommunityStats (gt (len .Detail.CommunityStats.FavoriteUsers) 0)}}
+        <div class="vercel-card rounded-3xl p-6 border border-purple-500/20 bg-purple-950/10 space-y-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-sm font-bold text-purple-300 font-mono flex items-center">
+                        <i class="fa-solid fa-users mr-2 text-pink-400"></i> Afición de {{.Team.Name}} en la Quiniela
+                    </h3>
+                    <p class="text-xs text-zinc-400 mt-0.5">
+                        Participantes registrados que tienen a {{.Team.City}} {{.Team.Name}} como su equipo favorito.
+                    </p>
+                </div>
+                <span class="text-xs font-mono font-bold text-purple-400 px-2.5 py-1 rounded-full bg-purple-500/20 border border-purple-500/30">
+                    {{len .Detail.CommunityStats.FavoriteUsers}} Fans Registrados
+                </span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pt-2">
+                {{range .Detail.CommunityStats.FavoriteUsers}}
+                    <div class="flex items-center space-x-3 p-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800">
+                        {{if .AvatarURL}}
+                            <img src="{{.AvatarURL}}" alt="{{.Username}}" class="w-8 h-8 rounded-full object-cover">
+                        {{else}}
+                            <div class="w-8 h-8 rounded-full bg-white text-black text-xs font-bold flex items-center justify-center">
+                                {{slice .Username 0 1}}
+                            </div>
+                        {{end}}
+                        <div class="min-w-0">
+                            <div class="text-xs font-bold text-zinc-200 truncate">{{.Username}}</div>
+                            <div class="text-[10px] text-zinc-500 font-mono">{{.Role}}</div>
+                        </div>
+                    </div>
+                {{end}}
+            </div>
+        </div>
+    {{end}}
+
+</div>
+{{end}}

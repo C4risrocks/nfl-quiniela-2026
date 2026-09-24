@@ -1,0 +1,230 @@
+<!-- Quick Team Detail Modal (HTMX Loaded) -->
+<div x-data="{ open: true }"
+     x-show="open"
+     x-cloak
+     @keydown.escape.window="open = false"
+     class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+
+    <!-- Modal Card Container -->
+    <div @click.outside="open = false"
+         class="relative w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+
+        <!-- Franchise Header Banner with Team Colors -->
+        <div class="relative p-6 border-b border-zinc-800/80 overflow-hidden"
+             style="background: linear-gradient(135deg, {{.Team.PrimaryColor}}25 0%, #09090b 100%);">
+            
+            <!-- Top Right Close Button -->
+            <button type="button" 
+                    @click="open = false"
+                    class="absolute top-4 right-4 p-2 rounded-full text-zinc-400 hover:text-white bg-zinc-900/60 hover:bg-zinc-800 transition-colors z-10 cursor-pointer">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+
+            <!-- Team Identity -->
+            <div class="flex items-center space-x-4">
+                <div class="w-16 h-16 rounded-2xl bg-zinc-900/80 border border-zinc-700/60 p-2.5 flex items-center justify-center shadow-lg shrink-0"
+                     style="border-top: 3px solid {{.Team.PrimaryColor}};">
+                    <img src="{{.Team.LogoURL}}" alt="{{.Team.Code}}" class="w-full h-full object-contain">
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
+                            {{.Team.City}}
+                        </span>
+                        <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold uppercase bg-zinc-900 text-zinc-300 border border-zinc-700">
+                            {{.Team.Conference}} {{.Team.Division}}
+                        </span>
+                        <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold text-white bg-zinc-800 border border-zinc-700/60">
+                            {{.SelectedSeason}}
+                        </span>
+                    </div>
+                    <h2 class="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center">
+                        {{.Team.Name}}
+                        <span class="ml-2.5 text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-zinc-800/80 text-zinc-300 border border-zinc-700/60">
+                            {{.Team.Code}}
+                        </span>
+                    </h2>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scrollable Modal Content -->
+        <div class="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+
+            <!-- 4 Quick-KPI Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <!-- Record -->
+                <div class="vercel-card p-3 rounded-xl border border-zinc-800 bg-zinc-900/40">
+                    <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider block">Récord</span>
+                    <div class="text-lg font-black text-white mt-1">
+                        {{.Detail.Standing.Wins}}-{{.Detail.Standing.Losses}}{{if gt .Detail.Standing.Ties 0}}-{{.Detail.Standing.Ties}}{{end}}
+                    </div>
+                    <div class="text-[10px] font-mono text-emerald-400 font-semibold">
+                        {{.Detail.Standing.WinPercentFormatted}} ({{.Detail.Standing.Streak}})
+                    </div>
+                </div>
+
+                <!-- Position / Seed -->
+                <div class="vercel-card p-3 rounded-xl border border-zinc-800 bg-zinc-900/40">
+                    <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider block">Posición</span>
+                    <div class="text-sm font-black text-white mt-1">
+                        #{{.Detail.Standing.Rank}} en División
+                    </div>
+                    <div class="text-[10px] font-mono text-cyan-400 font-semibold">
+                        Seed #{{.Detail.Standing.ConferenceSeed}} {{.Team.Conference}}
+                    </div>
+                </div>
+
+                <!-- Points & PPG -->
+                <div class="vercel-card p-3 rounded-xl border border-zinc-800 bg-zinc-900/40">
+                    <span class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider block">PPG / Dif</span>
+                    <div class="text-sm font-black text-white mt-1">
+                        {{printf "%.1f" .Detail.Standing.OffensivePPG}} / {{printf "%.1f" .Detail.Standing.DefensivePPG}}
+                    </div>
+                    <div class="text-[10px] font-mono font-semibold {{if gt .Detail.Standing.PointDiff 0}}text-emerald-400{{else if lt .Detail.Standing.PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}}">
+                        {{if gt .Detail.Standing.PointDiff 0}}+{{end}}{{.Detail.Standing.PointDiff}} Dif
+                    </div>
+                </div>
+
+                <!-- Quiniela Affinity (For Current Season) -->
+                <div class="vercel-card p-3 rounded-xl border border-zinc-800 bg-zinc-900/40">
+                    <span class="text-[10px] font-mono text-purple-400 uppercase tracking-wider block">Quiniela</span>
+                    {{if .Detail.CommunityStats}}
+                        <div class="text-sm font-black text-purple-300 mt-1 flex items-center">
+                            <i class="fa-solid fa-heart mr-1.5 text-xs text-pink-400"></i>
+                            {{len .Detail.CommunityStats.FavoriteUsers}} fans
+                        </div>
+                        <div class="text-[10px] font-mono text-zinc-400">
+                            {{.Detail.CommunityStats.PickWinRate}}% acierto
+                        </div>
+                    {{else}}
+                        <div class="text-sm font-black text-zinc-500 mt-1">N/A</div>
+                        <div class="text-[10px] font-mono text-zinc-600">Histórico</div>
+                    {{end}}
+                </div>
+            </div>
+
+            <!-- Splits Bar -->
+            <div class="grid grid-cols-3 gap-2 px-3 py-2 bg-zinc-900/40 rounded-xl border border-zinc-800/60 text-center text-xs">
+                <div>
+                    <span class="text-[10px] font-mono text-zinc-500 block uppercase">Local</span>
+                    <span class="font-bold text-zinc-200 font-mono">{{.Detail.Standing.HomeRecord}}</span>
+                </div>
+                <div class="border-x border-zinc-800">
+                    <span class="text-[10px] font-mono text-zinc-500 block uppercase">Visita</span>
+                    <span class="font-bold text-zinc-200 font-mono">{{.Detail.Standing.AwayRecord}}</span>
+                </div>
+                <div>
+                    <span class="text-[10px] font-mono text-zinc-500 block uppercase">División</span>
+                    <span class="font-bold text-zinc-200 font-mono">{{.Detail.Standing.DivisionRecord}}</span>
+                </div>
+            </div>
+
+            <!-- Season Schedule & Results -->
+            <div>
+                <div class="flex items-center justify-between mb-2.5">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-300 font-mono flex items-center">
+                        <i class="fa-solid fa-calendar-days mr-1.5 text-zinc-400"></i> Calendario y Resultados ({{len .Detail.Schedule}} Partidos)
+                    </h3>
+                    <span class="text-[10px] font-mono text-zinc-500">
+                        {{.Detail.CompletedGames}} jugados · {{.Detail.UpcomingGames}} pendientes
+                    </span>
+                </div>
+
+                {{if .Detail.Schedule}}
+                    <div class="rounded-xl border border-zinc-800/80 overflow-hidden bg-zinc-950 divide-y divide-zinc-900 max-h-72 overflow-y-auto">
+                        {{range .Detail.Schedule}}
+                            <div class="px-3 py-2.5 flex items-center justify-between text-xs hover:bg-zinc-900/40 transition-colors">
+                                
+                                <!-- Week & Opponent -->
+                                <div class="flex items-center space-x-3 min-w-0">
+                                    <span class="text-[10px] font-mono text-zinc-500 w-12 shrink-0">
+                                        Sem {{.WeekNumber}}
+                                    </span>
+                                    <span class="text-[10px] font-mono text-zinc-400 w-5 shrink-0 text-center">
+                                        {{if .IsHome}}vs{{else}}@{{end}}
+                                    </span>
+                                    <img src="{{.OpponentLogo}}" alt="{{.OpponentCode}}" class="w-5 h-5 object-contain shrink-0">
+                                    <span class="font-medium text-zinc-200 truncate max-w-[140px] sm:max-w-[180px]">
+                                        {{.OpponentCity}} {{.OpponentName}}
+                                    </span>
+                                </div>
+
+                                <!-- Result / Time -->
+                                <div class="flex items-center space-x-2.5 shrink-0">
+                                    {{if eq .Result "W"}}
+                                        <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                            W {{.TeamScore}}-{{.OpponentScore}}
+                                        </span>
+                                    {{else if eq .Result "L"}}
+                                        <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                            L {{.TeamScore}}-{{.OpponentScore}}
+                                        </span>
+                                    {{else if eq .Result "T"}}
+                                        <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                            T {{.TeamScore}}-{{.OpponentScore}}
+                                        </span>
+                                    {{else if eq .Result "in_progress"}}
+                                        <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-red-600/30 text-red-400 border border-red-500/50 animate-pulse">
+                                            EN VIVO
+                                        </span>
+                                    {{else}}
+                                        <div class="text-right">
+                                            <span class="text-[10px] font-mono text-zinc-400 block">{{.KickoffFormatted}}</span>
+                                            {{if .Broadcast}}<span class="text-[9px] font-mono text-zinc-500">{{.Broadcast}}</span>{{end}}
+                                        </div>
+                                    {{end}}
+                                </div>
+
+                            </div>
+                        {{end}}
+                    </div>
+                {{else}}
+                    <div class="p-4 rounded-xl border border-zinc-800 text-center text-xs text-zinc-500">
+                        No hay partidos disponibles para la temporada {{.SelectedSeason}}.
+                    </div>
+                {{end}}
+            </div>
+
+            <!-- Quiniela Fans Section (If any) -->
+            {{if and .Detail.CommunityStats (gt (len .Detail.CommunityStats.FavoriteUsers) 0)}}
+                <div class="p-3.5 rounded-xl border border-purple-500/20 bg-purple-950/10">
+                    <span class="text-[10px] font-mono uppercase tracking-wider text-purple-400 block mb-2 flex items-center">
+                        <i class="fa-solid fa-users mr-1.5"></i> Fans en la Quiniela ({{len .Detail.CommunityStats.FavoriteUsers}})
+                    </span>
+                    <div class="flex flex-wrap gap-2">
+                        {{range .Detail.CommunityStats.FavoriteUsers}}
+                            <div class="inline-flex items-center space-x-1.5 px-2 py-1 rounded-full bg-zinc-900 border border-zinc-700/60 text-xs text-zinc-200">
+                                {{if .AvatarURL}}
+                                    <img src="{{.AvatarURL}}" alt="{{.Username}}" class="w-4 h-4 rounded-full object-cover">
+                                {{else}}
+                                    <div class="w-4 h-4 rounded-full bg-white text-black text-[9px] font-bold flex items-center justify-center">
+                                        {{slice .Username 0 1}}
+                                    </div>
+                                {{end}}
+                                <span class="font-medium text-xs">{{.Username}}</span>
+                            </div>
+                        {{end}}
+                    </div>
+                </div>
+            {{end}}
+
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="px-5 py-3.5 bg-zinc-900/80 border-t border-zinc-800 flex items-center justify-between">
+            <a href="/teams/{{.Team.Code}}?season={{.SelectedSeason}}"
+               class="inline-flex items-center space-x-1.5 text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition-colors">
+                <span>Ver Ficha Completa del Equipo</span>
+                <i class="fa-solid fa-arrow-right text-[10px]"></i>
+            </a>
+
+            <button type="button"
+                    @click="open = false"
+                    class="px-4 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium transition-colors cursor-pointer">
+                Cerrar
+            </button>
+        </div>
+
+    </div>
+</div>

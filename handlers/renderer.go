@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"math"
 	"net/http"
+	"strings"
 	"time"
 
 	"nfl-quiniela-2026/db"
@@ -103,6 +104,7 @@ func (r *Renderer) FuncMap() template.FuncMap {
 			}
 			return s[start:end]
 		},
+		"hasPrefix": strings.HasPrefix,
 		"formatDate": func(t time.Time) string {
 			if t.IsZero() {
 				return "--"

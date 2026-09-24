@@ -1,0 +1,440 @@
+<!-- NFL Standings Dynamic Table Partial (Supports Division, Conference and League Views) -->
+{{$isCurrent := eq .SelectedSeason .CurrentSeason}}
+
+{{if eq .SelectedView "division"}}
+    <!-- ========================================== -->
+    <!-- VIEW 1: STANDINGS BY DIVISION (8 DIVISIONS)-->
+    <!-- ========================================== -->
+    <div class="space-y-6">
+
+        <!-- AFC Conference Header -->
+        <div class="flex items-center space-x-2 pt-2 border-b border-zinc-800 pb-2">
+            <span class="w-3 h-3 rounded-full bg-red-600 inline-block shadow-sm"></span>
+            <h2 class="text-sm font-bold uppercase tracking-wider text-red-400 font-mono">
+                American Football Conference (AFC)
+            </h2>
+        </div>
+
+        <!-- AFC 4 Divisions Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {{range .Standings.Divisions}}
+                {{if eq .Conference "AFC"}}
+                    <div class="vercel-card rounded-2xl border border-zinc-800 overflow-hidden bg-zinc-950/60 shadow-sm flex flex-col justify-between">
+                        <!-- Division Card Title Bar -->
+                        <div class="px-4 py-2.5 bg-zinc-900/80 border-b border-zinc-800 flex items-center justify-between">
+                            <span class="text-xs font-bold text-white tracking-wide flex items-center">
+                                <span class="w-2 h-2 rounded-full bg-red-500 mr-2"></span> {{.Name}}
+                            </span>
+                            <span class="text-[10px] font-mono text-zinc-400 uppercase">División AFC</span>
+                        </div>
+
+                        <!-- Division Teams Table -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead>
+                                    <tr class="text-[10px] font-mono uppercase text-zinc-500 border-b border-zinc-800/60 bg-zinc-950/40">
+                                        <th class="py-2 pl-3 pr-1 w-6">#</th>
+                                        <th class="py-2 px-2">Equipo</th>
+                                        <th class="py-2 px-2 text-center">G</th>
+                                        <th class="py-2 px-2 text-center">P</th>
+                                        {{if gt $.Standings.Year 0}}<th class="py-2 px-2 text-center">E</th>{{end}}
+                                        <th class="py-2 px-2 text-center">%</th>
+                                        <th class="py-2 px-2 text-center">DIF</th>
+                                        <th class="py-2 px-2 text-center">Racha</th>
+                                        <th class="py-2 pr-3 text-right">Ficha</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-zinc-900/80">
+                                    {{range .Teams}}
+                                        <tr class="hover:bg-zinc-900/50 transition-colors group">
+                                            <td class="py-2.5 pl-3 pr-1 font-mono text-[11px] text-zinc-500 font-bold">
+                                                {{.Rank}}
+                                            </td>
+                                            <td class="py-2.5 px-2">
+                                                <button type="button"
+                                                        hx-get="/teams/{{.TeamCode}}/modal?season={{$.SelectedSeason}}"
+                                                        hx-target="#team-modal-container"
+                                                        hx-swap="innerHTML"
+                                                        class="flex items-center space-x-2 text-left group-hover:text-white transition-colors cursor-pointer">
+                                                    <img src="{{.LogoURL}}" alt="{{.TeamCode}}" class="w-6 h-6 object-contain shrink-0 group-hover:scale-110 transition-transform">
+                                                    <div class="min-w-0">
+                                                        <div class="font-bold text-zinc-200 group-hover:text-white text-xs truncate flex items-center">
+                                                            {{.TeamCity}} {{.TeamName}}
+                                                        </div>
+                                                        <div class="text-[9.5px] font-mono text-zinc-500">
+                                                            {{.DivisionRecord}} Div · {{.HomeRecord}} Local
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            </td>
+                                            <td class="py-2.5 px-2 text-center font-mono font-bold text-zinc-100">{{.Wins}}</td>
+                                            <td class="py-2.5 px-2 text-center font-mono text-zinc-400">{{.Losses}}</td>
+                                            <td class="py-2.5 px-2 text-center font-mono text-zinc-500">{{.Ties}}</td>
+                                            <td class="py-2.5 px-2 text-center font-mono text-zinc-300 font-semibold">{{.WinPercentFormatted}}</td>
+                                            <td class="py-2.5 px-2 text-center font-mono text-[11px] font-semibold {{if gt .PointDiff 0}}text-emerald-400{{else if lt .PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}}">
+                                                {{if gt .PointDiff 0}}+{{end}}{{.PointDiff}}
+                                            </td>
+                                            <td class="py-2.5 px-2 text-center">
+                                                <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-bold {{if hasPrefix .Streak "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if hasPrefix .Streak "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}">
+                                                    {{.Streak}}
+                                                </span>
+                                            </td>
+                                            <td class="py-2.5 pr-3 text-right">
+                                                <button type="button"
+                                                        hx-get="/teams/{{.TeamCode}}/modal?season={{$.SelectedSeason}}"
+                                                        hx-target="#team-modal-container"
+                                                        hx-swap="innerHTML"
+                                                        title="Ver Ficha Rápida"
+                                                        class="p-1 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all cursor-pointer">
+                                                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    {{end}}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                {{end}}
+            {{end}}
+        </div>
+
+        <!-- NFC Conference Header -->
+        <div class="flex items-center space-x-2 pt-6 border-b border-zinc-800 pb-2">
+            <span class="w-3 h-3 rounded-full bg-blue-600 inline-block shadow-sm"></span>
+            <h2 class="text-sm font-bold uppercase tracking-wider text-blue-400 font-mono">
+                National Football Conference (NFC)
+            </h2>
+        </div>
+
+        <!-- NFC 4 Divisions Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {{range .Standings.Divisions}}
+                {{if eq .Conference "NFC"}}
+                    <div class="vercel-card rounded-2xl border border-zinc-800 overflow-hidden bg-zinc-950/60 shadow-sm flex flex-col justify-between">
+                        <!-- Division Card Title Bar -->
+                        <div class="px-4 py-2.5 bg-zinc-900/80 border-b border-zinc-800 flex items-center justify-between">
+                            <span class="text-xs font-bold text-white tracking-wide flex items-center">
+                                <span class="w-2 h-2 rounded-full bg-blue-500 mr-2"></span> {{.Name}}
+                            </span>
+                            <span class="text-[10px] font-mono text-zinc-400 uppercase">División NFC</span>
+                        </div>
+
+                        <!-- Division Teams Table -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead>
+                                    <tr class="text-[10px] font-mono uppercase text-zinc-500 border-b border-zinc-800/60 bg-zinc-950/40">
+                                        <th class="py-2 pl-3 pr-1 w-6">#</th>
+                                        <th class="py-2 px-2">Equipo</th>
+                                        <th class="py-2 px-2 text-center">G</th>
+                                        <th class="py-2 px-2 text-center">P</th>
+                                        {{if gt $.Standings.Year 0}}<th class="py-2 px-2 text-center">E</th>{{end}}
+                                        <th class="py-2 px-2 text-center">%</th>
+                                        <th class="py-2 px-2 text-center">DIF</th>
+                                        <th class="py-2 px-2 text-center">Racha</th>
+                                        <th class="py-2 pr-3 text-right">Ficha</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-zinc-900/80">
+                                    {{range .Teams}}
+                                        <tr class="hover:bg-zinc-900/50 transition-colors group">
+                                            <td class="py-2.5 pl-3 pr-1 font-mono text-[11px] text-zinc-500 font-bold">
+                                                {{.Rank}}
+                                            </td>
+                                            <td class="py-2.5 px-2">
+                                                <button type="button"
+                                                        hx-get="/teams/{{.TeamCode}}/modal?season={{$.SelectedSeason}}"
+                                                        hx-target="#team-modal-container"
+                                                        hx-swap="innerHTML"
+                                                        class="flex items-center space-x-2 text-left group-hover:text-white transition-colors cursor-pointer">
+                                                    <img src="{{.LogoURL}}" alt="{{.TeamCode}}" class="w-6 h-6 object-contain shrink-0 group-hover:scale-110 transition-transform">
+                                                    <div class="min-w-0">
+                                                        <div class="font-bold text-zinc-200 group-hover:text-white text-xs truncate flex items-center">
+                                                            {{.TeamCity}} {{.TeamName}}
+                                                        </div>
+                                                        <div class="text-[9.5px] font-mono text-zinc-500">
+                                                            {{.DivisionRecord}} Div · {{.HomeRecord}} Local
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            </td>
+                                            <td class="py-2.5 px-2 text-center font-mono font-bold text-zinc-100">{{.Wins}}</td>
+                                            <td class="py-2.5 px-2 text-center font-mono text-zinc-400">{{.Losses}}</td>
+                                            <td class="py-2.5 px-2 text-center font-mono text-zinc-500">{{.Ties}}</td>
+                                            <td class="py-2.5 px-2 text-center font-mono text-zinc-300 font-semibold">{{.WinPercentFormatted}}</td>
+                                            <td class="py-2.5 px-2 text-center font-mono text-[11px] font-semibold {{if gt .PointDiff 0}}text-emerald-400{{else if lt .PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}}">
+                                                {{if gt .PointDiff 0}}+{{end}}{{.PointDiff}}
+                                            </td>
+                                            <td class="py-2.5 px-2 text-center">
+                                                <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-bold {{if hasPrefix .Streak "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if hasPrefix .Streak "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}">
+                                                    {{.Streak}}
+                                                </span>
+                                            </td>
+                                            <td class="py-2.5 pr-3 text-right">
+                                                <button type="button"
+                                                        hx-get="/teams/{{.TeamCode}}/modal?season={{$.SelectedSeason}}"
+                                                        hx-target="#team-modal-container"
+                                                        hx-swap="innerHTML"
+                                                        title="Ver Ficha Rápida"
+                                                        class="p-1 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all cursor-pointer">
+                                                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    {{end}}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                {{end}}
+            {{end}}
+        </div>
+
+    </div>
+
+{{else if eq .SelectedView "conference"}}
+    <!-- ============================================== -->
+    <!-- VIEW 2: PLAYOFF PICTURE BY CONFERENCE (AFC/NFC)-->
+    <!-- ============================================== -->
+    <div class="space-y-6">
+
+        <!-- Playoff Legend Banner -->
+        <div class="px-4 py-2.5 rounded-xl bg-zinc-900/60 border border-zinc-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div class="flex items-center space-x-4">
+                <span class="text-zinc-400 font-mono text-[11px]">Criterios de Playoffs:</span>
+                <span class="inline-flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-amber-400"></span><span class="text-zinc-300 text-[11px]">Seed #1 (Descanso + Localía)</span></span>
+                <span class="inline-flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-cyan-400"></span><span class="text-zinc-300 text-[11px]">Seeds 2-4 (Campeón Divisional)</span></span>
+                <span class="inline-flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-purple-400"></span><span class="text-zinc-300 text-[11px]">Seeds 5-7 (Comodín)</span></span>
+            </div>
+            <span class="text-[10px] font-mono text-zinc-500">7 clasificados por conferencia</span>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            {{range .Standings.Conferences}}
+                <div class="vercel-card rounded-2xl border border-zinc-800 overflow-hidden bg-zinc-950/60 shadow-sm">
+                    
+                    <!-- Conference Header -->
+                    <div class="px-4 py-3 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full {{if eq .Conference "AFC"}}bg-red-500{{else}}bg-blue-500{{end}}"></span>
+                            <span class="text-sm font-bold text-white tracking-tight">{{.Name}}</span>
+                        </div>
+                        <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700/60">
+                            {{.Conference}} Standings
+                        </span>
+                    </div>
+
+                    <!-- 16 Teams Conference Standings Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="text-[10px] font-mono uppercase text-zinc-500 border-b border-zinc-800 bg-zinc-950/40">
+                                    <th class="py-2.5 pl-3 pr-1 w-8 text-center">Seed</th>
+                                    <th class="py-2.5 px-2">Equipo</th>
+                                    <th class="py-2.5 px-2 text-center">G-P-E</th>
+                                    <th class="py-2.5 px-2 text-center">%</th>
+                                    <th class="py-2.5 px-2 text-center">DIF</th>
+                                    <th class="py-2.5 px-2 text-center">Conf</th>
+                                    <th class="py-2.5 px-2 text-center">Racha</th>
+                                    <th class="py-2.5 pr-3 text-right">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-zinc-900">
+                                {{range $idx, $team := .Teams}}
+                                    {{$seed := add $idx 1}}
+                                    
+                                    <!-- Playoff Cutoff Line after Seed 7 -->
+                                    {{if eq $seed 8}}
+                                        <tr class="bg-cyan-950/20 border-y-2 border-dashed border-cyan-500/40">
+                                            <td colspan="8" class="py-1 text-center font-mono text-[9px] text-cyan-400 font-bold uppercase tracking-widest">
+                                                ▲ Línea de Clasificación a Playoffs (Top 7) ▲
+                                            </td>
+                                        </tr>
+                                    {{end}}
+
+                                    <tr class="hover:bg-zinc-900/60 transition-colors {{if le $seed 7}}bg-zinc-900/20{{end}} group">
+                                        <!-- Seed Badge -->
+                                        <td class="py-2 pl-3 pr-1 text-center font-mono font-bold text-xs">
+                                            {{if eq $seed 1}}
+                                                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px]">1</span>
+                                            {{else if le $seed 4}}
+                                                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[10px]">{{$seed}}</span>
+                                            {{else if le $seed 7}}
+                                                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[10px]">{{$seed}}</span>
+                                            {{else}}
+                                                <span class="text-zinc-600 text-[11px]">{{$seed}}</span>
+                                            {{end}}
+                                        </td>
+
+                                        <!-- Team Identity -->
+                                        <td class="py-2 px-2">
+                                            <button type="button"
+                                                    hx-get="/teams/{{$team.TeamCode}}/modal?season={{$.SelectedSeason}}"
+                                                    hx-target="#team-modal-container"
+                                                    hx-swap="innerHTML"
+                                                    class="flex items-center space-x-2 text-left group-hover:text-white transition-colors cursor-pointer">
+                                                <img src="{{$team.LogoURL}}" alt="{{$team.TeamCode}}" class="w-6 h-6 object-contain shrink-0 group-hover:scale-110 transition-transform">
+                                                <div class="min-w-0">
+                                                    <span class="font-bold text-zinc-200 group-hover:text-white text-xs truncate">
+                                                        {{$team.TeamCity}} {{$team.TeamName}}
+                                                    </span>
+                                                    <span class="text-[9.5px] font-mono text-zinc-500 block">
+                                                        {{$team.Division}} · {{$team.GamesBehind}} GB
+                                                    </span>
+                                                </div>
+                                            </button>
+                                        </td>
+
+                                        <!-- Record -->
+                                        <td class="py-2 px-2 text-center font-mono text-xs font-semibold text-zinc-200">
+                                            {{$team.Wins}}-{{$team.Losses}}{{if gt $team.Ties 0}}-{{$team.Ties}}{{end}}
+                                        </td>
+
+                                        <!-- Win % -->
+                                        <td class="py-2 px-2 text-center font-mono text-xs text-zinc-300">
+                                            {{$team.WinPercentFormatted}}
+                                        </td>
+
+                                        <!-- Point Diff -->
+                                        <td class="py-2 px-2 text-center font-mono text-[11px] font-semibold {{if gt $team.PointDiff 0}}text-emerald-400{{else if lt $team.PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}}">
+                                            {{if gt $team.PointDiff 0}}+{{end}}{{$team.PointDiff}}
+                                        </td>
+
+                                        <!-- Conf Record -->
+                                        <td class="py-2 px-2 text-center font-mono text-[10px] text-zinc-400">
+                                            {{$team.ConfRecord}}
+                                        </td>
+
+                                        <!-- Streak -->
+                                        <td class="py-2 px-2 text-center">
+                                            <span class="inline-block px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold {{if hasPrefix $team.Streak "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if hasPrefix $team.Streak "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}">
+                                                {{$team.Streak}}
+                                            </span>
+                                        </td>
+
+                                        <!-- Status Badge -->
+                                        <td class="py-2 pr-3 text-right">
+                                            {{if eq $seed 1}}
+                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase">Seed 1</span>
+                                            {{else if le $seed 4}}
+                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 uppercase">División</span>
+                                            {{else if le $seed 7}}
+                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">Wild Card</span>
+                                            {{else}}
+                                                <span class="text-zinc-600 text-[10px] font-mono">En contienda</span>
+                                            {{end}}
+                                        </td>
+                                    </tr>
+                                {{end}}
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            {{end}}
+        </div>
+
+    </div>
+
+{{else}}
+    <!-- ========================================== -->
+    <!-- VIEW 3: FULL LEAGUE TABLE (32 TEAMS)       -->
+    <!-- ========================================== -->
+    <div class="vercel-card rounded-2xl border border-zinc-800 overflow-hidden bg-zinc-950/60 shadow-sm">
+        
+        <div class="px-4 py-3 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between">
+            <span class="text-xs font-bold text-white tracking-wide flex items-center">
+                <i class="fa-solid fa-list-ol mr-2 text-zinc-400"></i> Tabla General de la NFL — 32 Equipos
+            </span>
+            <span class="text-[10px] font-mono text-zinc-400">Ordenado por récord global y diferencial</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="text-[10px] font-mono uppercase text-zinc-500 border-b border-zinc-800 bg-zinc-950/40">
+                        <th class="py-2.5 pl-3 pr-1 w-8 text-center">#</th>
+                        <th class="py-2.5 px-2">Equipo</th>
+                        <th class="py-2.5 px-2 text-center">Conf</th>
+                        <th class="py-2.5 px-2 text-center">Div</th>
+                        <th class="py-2.5 px-2 text-center">G</th>
+                        <th class="py-2.5 px-2 text-center">P</th>
+                        <th class="py-2.5 px-2 text-center">E</th>
+                        <th class="py-2.5 px-2 text-center">%</th>
+                        <th class="py-2.5 px-2 text-center">PF</th>
+                        <th class="py-2.5 px-2 text-center">PA</th>
+                        <th class="py-2.5 px-2 text-center">DIF</th>
+                        <th class="py-2.5 px-2 text-center">Racha</th>
+                        <th class="py-2.5 px-2 text-center">Local</th>
+                        <th class="py-2.5 px-2 text-center">Visita</th>
+                        {{if $isCurrent}}<th class="py-2.5 px-2 text-center">Quiniela</th>{{end}}
+                        <th class="py-2.5 pr-3 text-right">Acción</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-900">
+                    {{range $idx, $team := .Standings.League}}
+                        <tr class="hover:bg-zinc-900/60 transition-colors group">
+                            <td class="py-2.5 pl-3 pr-1 text-center font-mono text-[11px] font-bold text-zinc-500">
+                                {{add $idx 1}}
+                            </td>
+                            <td class="py-2.5 px-2">
+                                <button type="button"
+                                        hx-get="/teams/{{$team.TeamCode}}/modal?season={{$.SelectedSeason}}"
+                                        hx-target="#team-modal-container"
+                                        hx-swap="innerHTML"
+                                        class="flex items-center space-x-2.5 text-left group-hover:text-white transition-colors cursor-pointer">
+                                    <img src="{{$team.LogoURL}}" alt="{{$team.TeamCode}}" class="w-6 h-6 object-contain shrink-0 group-hover:scale-110 transition-transform">
+                                    <span class="font-bold text-zinc-200 group-hover:text-white text-xs truncate">
+                                        {{$team.TeamCity}} {{$team.TeamName}}
+                                    </span>
+                                </button>
+                            </td>
+                            <td class="py-2.5 px-2 text-center font-mono text-[11px] text-zinc-400 font-semibold">
+                                <span class="{{if eq $team.Conference "AFC"}}text-red-400{{else}}text-blue-400{{end}}">{{$team.Conference}}</span>
+                            </td>
+                            <td class="py-2.5 px-2 text-center font-mono text-[10px] text-zinc-500">
+                                {{$team.Division}}
+                            </td>
+                            <td class="py-2.5 px-2 text-center font-mono font-bold text-zinc-100 text-xs">{{$team.Wins}}</td>
+                            <td class="py-2.5 px-2 text-center font-mono text-zinc-400 text-xs">{{$team.Losses}}</td>
+                            <td class="py-2.5 px-2 text-center font-mono text-zinc-500 text-xs">{{$team.Ties}}</td>
+                            <td class="py-2.5 px-2 text-center font-mono font-semibold text-zinc-200 text-xs">{{$team.WinPercentFormatted}}</td>
+                            <td class="py-2.5 px-2 text-center font-mono text-[11px] text-zinc-300">{{$team.PointsFor}}</td>
+                            <td class="py-2.5 px-2 text-center font-mono text-[11px] text-zinc-400">{{$team.PointsAgainst}}</td>
+                            <td class="py-2.5 px-2 text-center font-mono text-[11px] font-bold {{if gt $team.PointDiff 0}}text-emerald-400{{else if lt $team.PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}}">
+                                {{if gt $team.PointDiff 0}}+{{end}}{{$team.PointDiff}}
+                            </td>
+                            <td class="py-2.5 px-2 text-center">
+                                <span class="inline-block px-1.5 py-0.2 rounded text-[10px] font-mono font-bold {{if hasPrefix $team.Streak "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if hasPrefix $team.Streak "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}">
+                                    {{$team.Streak}}
+                                </span>
+                            </td>
+                            <td class="py-2.5 px-2 text-center font-mono text-[10px] text-zinc-400">{{$team.HomeRecord}}</td>
+                            <td class="py-2.5 px-2 text-center font-mono text-[10px] text-zinc-400">{{$team.AwayRecord}}</td>
+                            {{if $isCurrent}}
+                                <td class="py-2.5 px-2 text-center">
+                                    {{if gt $team.FavoriteFansCount 0}}
+                                        <span class="inline-flex items-center text-[10px] font-mono text-purple-400 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded" title="{{$team.FavoriteFansCount}} fans en quiniela">
+                                            <i class="fa-solid fa-heart mr-1 text-[8px] text-pink-400"></i>{{$team.FavoriteFansCount}}
+                                        </span>
+                                    {{else}}
+                                        <span class="text-zinc-600 text-[10px] font-mono">-</span>
+                                    {{end}}
+                                </td>
+                            {{end}}
+                            <td class="py-2.5 pr-3 text-right">
+                                <a href="/teams/{{$team.TeamCode}}?season={{$.SelectedSeason}}"
+                                   class="inline-flex items-center space-x-1 px-2 py-1 rounded-md text-[11px] font-medium bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition-colors">
+                                    <span>Ver</span>
+                                    <i class="fa-solid fa-chevron-right text-[9px] text-zinc-500"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+{{end}}

@@ -223,6 +223,9 @@
                         <a href="/leaderboard" class="px-3 py-1.5 rounded-lg text-xs font-medium {{if eq .ActiveNav "leaderboard"}}bg-zinc-800/90 text-white font-semibold border border-zinc-700/60 shadow-sm{{else}}text-zinc-400 hover:text-white hover:bg-zinc-900{{end}} transition-all">
                             <i class="fa-solid fa-trophy mr-1.5 text-amber-400/90"></i> Posiciones
                         </a>
+                        <a href="/teams" class="px-3 py-1.5 rounded-lg text-xs font-medium {{if eq .ActiveNav "teams"}}bg-zinc-800/90 text-white font-semibold border border-zinc-700/60 shadow-sm{{else}}text-zinc-400 hover:text-white hover:bg-zinc-900{{end}} transition-all">
+                            <i class="fa-solid fa-shield-halved mr-1.5 text-zinc-400"></i> Equipos
+                        </a>
                         <a href="/rules" class="px-3 py-1.5 rounded-lg text-xs font-medium {{if eq .ActiveNav "rules"}}bg-zinc-800/90 text-white font-semibold border border-zinc-700/60 shadow-sm{{else}}text-zinc-400 hover:text-white hover:bg-zinc-900{{end}} transition-all">
                             <i class="fa-solid fa-circle-question mr-1.5 text-zinc-400"></i> Reglamento
                         </a>
@@ -358,6 +361,9 @@
             </a>
             <a href="/leaderboard" class="block px-3 py-2 rounded-lg text-sm font-medium {{if eq .ActiveNav "leaderboard"}}bg-zinc-800 text-white{{else}}text-zinc-400{{end}}">
                 <i class="fa-solid fa-trophy mr-2 text-amber-400"></i> Tabla de Posiciones
+            </a>
+            <a href="/teams" class="block px-3 py-2 rounded-lg text-sm font-medium {{if eq .ActiveNav "teams"}}bg-zinc-800 text-white font-semibold{{else}}text-zinc-400{{end}}">
+                <i class="fa-solid fa-shield-halved mr-2 text-zinc-400"></i> Equipos y Estadísticas
             </a>
             <a href="/rules" class="block px-3 py-2 rounded-lg text-sm font-medium {{if eq .ActiveNav "rules"}}bg-zinc-800 text-white{{else}}text-zinc-400{{end}}">
                 <i class="fa-solid fa-circle-question mr-2 text-zinc-400"></i> Reglamento

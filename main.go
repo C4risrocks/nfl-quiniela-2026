@@ -126,6 +126,7 @@ func main() {
 	liveHandler := handlers.NewLiveHandler(repo, renderer, syncer, cfg.CurrentSeasonYear)
 	eventsHandler := handlers.NewEventsHandler(broker)
 	notificationHandler := handlers.NewNotificationHandler(repo, renderer)
+	teamStatsHandler := handlers.NewTeamStatsHandler(repo, renderer, espnClient, cfg.CurrentSeasonYear)
 
 	// 8. Router Setup
 	r := chi.NewRouter()
@@ -201,6 +202,10 @@ func main() {
 	r.Get("/rules", rulesHandler.ShowRules)
 	r.Get("/leaderboard", leaderboardHandler.ShowLeaderboard)
 	r.Get("/leaderboard/table", leaderboardHandler.LeaderboardTable)
+	r.Get("/teams", teamStatsHandler.ShowTeams)
+	r.Get("/teams/table", teamStatsHandler.TeamsTablePartial)
+	r.Get("/teams/{code}", teamStatsHandler.ShowTeamDetail)
+	r.Get("/teams/{code}/modal", teamStatsHandler.TeamDetailModal)
 	r.Get("/live", liveHandler.ShowLive)
 	r.Get("/live/content", liveHandler.LiveContent)
 	r.Get("/games/{gameId}/stats", liveHandler.GameStatsModal)

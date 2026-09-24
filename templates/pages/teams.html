@@ -1,0 +1,187 @@
+{{template "base.html" .}}
+
+{{define "title"}}Estadísticas de Equipos - NFL Quiniela 2026{{end}}
+
+{{define "content"}}
+<div class="space-y-6" x-data="{ currentSeason: {{.SelectedSeason}}, currentView: '{{.SelectedView}}' }">
+
+    <!-- Header & Dashboard Controls -->
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 vercel-card p-5 sm:p-6 rounded-2xl shadow-sm border border-zinc-800">
+        <div>
+            <div class="flex items-center space-x-2 mb-1.5">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700/60">
+                    <i class="fa-solid fa-chart-line mr-1 text-cyan-400"></i> NFL Standings & Stats
+                </span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    Temporada {{.SelectedSeason}}
+                </span>
+            </div>
+            <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center">
+                <i class="fa-solid fa-shield-halved mr-2 text-zinc-400"></i> Estadísticas de Equipos
+            </h1>
+            <p class="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
+                Clasificación oficial de las 8 divisiones de la NFL, panorama de clasificación a Playoffs en AFC y NFC, y rendimiento histórico de cada franquicia.
+            </p>
+        </div>
+
+        <!-- Controls: Season & View Switcher -->
+        <div class="flex flex-wrap items-center gap-3">
+            
+            <!-- Season Dropdown / Segmented Selector -->
+            <div class="flex items-center space-x-1.5 bg-zinc-950 p-1 rounded-xl border border-zinc-800">
+                <span class="text-[11px] font-mono uppercase text-zinc-500 px-2">Año:</span>
+                {{range .AvailableSeasons}}
+                    <button type="button"
+                            @click="currentSeason = {{.}}; $dispatch('update-teams-table', { season: {{.}}, view: currentView })"
+                            :class="currentSeason === {{.}} ? 'bg-white text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                            class="px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer">
+                        {{.}}{{if eq . $.CurrentSeason}}*{{end}}
+                    </button>
+                {{end}}
+            </div>
+
+            <!-- View Modes: Division, Conference, League -->
+            <div class="bg-zinc-950 p-1 rounded-xl border border-zinc-800 flex items-center space-x-1">
+                <button type="button"
+                        @click="currentView = 'division'; $dispatch('update-teams-table', { season: currentSeason, view: 'division' })"
+                        :class="currentView === 'division' ? 'bg-zinc-800 text-white font-semibold shadow-sm border border-zinc-700/60' : 'text-zinc-400 hover:text-white'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer">
+                    <i class="fa-solid fa-table-cells-large mr-1.5 text-zinc-400"></i> Por División
+                </button>
+                <button type="button"
+                        @click="currentView = 'conference'; $dispatch('update-teams-table', { season: currentSeason, view: 'conference' })"
+                        :class="currentView === 'conference' ? 'bg-zinc-800 text-white font-semibold shadow-sm border border-zinc-700/60' : 'text-zinc-400 hover:text-white'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer">
+                    <i class="fa-solid fa-trophy mr-1.5 text-amber-400/90"></i> Playoffs (Conferencia)
+                </button>
+                <button type="button"
+                        @click="currentView = 'league'; $dispatch('update-teams-table', { season: currentSeason, view: 'league' })"
+                        :class="currentView === 'league' ? 'bg-zinc-800 text-white font-semibold shadow-sm border border-zinc-700/60' : 'text-zinc-400 hover:text-white'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer">
+                    <i class="fa-solid fa-list-ol mr-1.5 text-zinc-400"></i> Tabla General
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Top KPI Dashboard Summary Cards (Season Leaders) -->
+    {{if .Standings.Summary}}
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        
+        <!-- Top Record -->
+        {{if .Standings.Summary.TopRecordTeam}}
+        <div class="vercel-card p-3.5 rounded-xl border border-zinc-800/80 bg-zinc-950/60 flex flex-col justify-between">
+            <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-500 flex items-center">
+                <i class="fa-solid fa-crown mr-1.5 text-amber-400"></i> Mejor Récord
+            </span>
+            <div class="flex items-center space-x-2.5 mt-2">
+                <img src="{{.Standings.Summary.TopRecordTeam.LogoURL}}" alt="{{.Standings.Summary.TopRecordTeam.TeamCode}}" class="w-8 h-8 object-contain">
+                <div>
+                    <div class="text-xs font-bold text-white truncate max-w-[120px]">{{.Standings.Summary.TopRecordTeam.TeamName}}</div>
+                    <div class="text-[11px] font-mono font-semibold text-emerald-400">
+                        {{.Standings.Summary.TopRecordTeam.Wins}}-{{.Standings.Summary.TopRecordTeam.Losses}}{{if gt .Standings.Summary.TopRecordTeam.Ties 0}}-{{.Standings.Summary.TopRecordTeam.Ties}}{{end}} 
+                        <span class="text-zinc-500 font-normal">({{.Standings.Summary.TopRecordTeam.WinPercentFormatted}})</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{end}}
+
+        <!-- Top Offense -->
+        {{if .Standings.Summary.TopOffenseTeam}}
+        <div class="vercel-card p-3.5 rounded-xl border border-zinc-800/80 bg-zinc-950/60 flex flex-col justify-between">
+            <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-500 flex items-center">
+                <i class="fa-solid fa-fire mr-1.5 text-rose-400"></i> Mejor Ofensiva
+            </span>
+            <div class="flex items-center space-x-2.5 mt-2">
+                <img src="{{.Standings.Summary.TopOffenseTeam.LogoURL}}" alt="{{.Standings.Summary.TopOffenseTeam.TeamCode}}" class="w-8 h-8 object-contain">
+                <div>
+                    <div class="text-xs font-bold text-white truncate max-w-[120px]">{{.Standings.Summary.TopOffenseTeam.TeamName}}</div>
+                    <div class="text-[11px] font-mono font-semibold text-zinc-200">
+                        {{printf "%.1f" .Standings.Summary.TopOffenseTeam.OffensivePPG}} <span class="text-[10px] text-zinc-500 font-normal">PPG ({{.Standings.Summary.TopOffenseTeam.PointsFor}} pts)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{end}}
+
+        <!-- Top Defense -->
+        {{if .Standings.Summary.TopDefenseTeam}}
+        <div class="vercel-card p-3.5 rounded-xl border border-zinc-800/80 bg-zinc-950/60 flex flex-col justify-between">
+            <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-500 flex items-center">
+                <i class="fa-solid fa-shield mr-1.5 text-cyan-400"></i> Mejor Defensiva
+            </span>
+            <div class="flex items-center space-x-2.5 mt-2">
+                <img src="{{.Standings.Summary.TopDefenseTeam.LogoURL}}" alt="{{.Standings.Summary.TopDefenseTeam.TeamCode}}" class="w-8 h-8 object-contain">
+                <div>
+                    <div class="text-xs font-bold text-white truncate max-w-[120px]">{{.Standings.Summary.TopDefenseTeam.TeamName}}</div>
+                    <div class="text-[11px] font-mono font-semibold text-zinc-200">
+                        {{printf "%.1f" .Standings.Summary.TopDefenseTeam.DefensivePPG}} <span class="text-[10px] text-zinc-500 font-normal">PPG Recibidos</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{end}}
+
+        <!-- Best Streak -->
+        {{if .Standings.Summary.BestStreakTeam}}
+        <div class="vercel-card p-3.5 rounded-xl border border-zinc-800/80 bg-zinc-950/60 flex flex-col justify-between">
+            <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-500 flex items-center">
+                <i class="fa-solid fa-bolt mr-1.5 text-amber-400"></i> Mejor Racha
+            </span>
+            <div class="flex items-center space-x-2.5 mt-2">
+                <img src="{{.Standings.Summary.BestStreakTeam.LogoURL}}" alt="{{.Standings.Summary.BestStreakTeam.TeamCode}}" class="w-8 h-8 object-contain">
+                <div>
+                    <div class="text-xs font-bold text-white truncate max-w-[120px]">{{.Standings.Summary.BestStreakTeam.TeamName}}</div>
+                    <div class="text-[11px] font-mono font-semibold text-emerald-400">
+                        {{.Standings.Summary.BestStreakTeam.Streak}} <span class="text-[10px] text-zinc-500 font-normal">Consecutivos</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{end}}
+
+        <!-- Quiniela Most Popular Team (Current Season only) -->
+        {{if and .Standings.IsCurrent .Standings.Summary.QuinielaMostPopular}}
+        <div class="col-span-2 md:col-span-4 lg:col-span-1 vercel-card p-3.5 rounded-xl border border-purple-500/20 bg-purple-950/10 flex flex-col justify-between">
+            <span class="text-[10px] font-mono uppercase tracking-wider text-purple-400 flex items-center">
+                <i class="fa-solid fa-heart mr-1.5 text-pink-500"></i> Favorito Quiniela
+            </span>
+            <div class="flex items-center space-x-2.5 mt-2">
+                <img src="{{.Standings.Summary.QuinielaMostPopular.LogoURL}}" alt="{{.Standings.Summary.QuinielaMostPopular.TeamCode}}" class="w-8 h-8 object-contain">
+                <div>
+                    <div class="text-xs font-bold text-white truncate max-w-[120px]">{{.Standings.Summary.QuinielaMostPopular.TeamName}}</div>
+                    <div class="text-[11px] font-mono font-semibold text-purple-300">
+                        {{.Standings.Summary.QuinielaMostPopular.FavoriteFansCount}} <span class="text-[10px] text-zinc-400 font-normal">aficionados</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{end}}
+
+    </div>
+    {{end}}
+
+    <!-- Loading Indicator -->
+    <div id="teams-loading-indicator" class="htmx-indicator flex items-center justify-center p-8 text-xs text-zinc-400">
+        <i class="fa-solid fa-circle-notch fa-spin text-cyan-400 mr-2 text-base"></i> Cargando estadísticas y clasificación...
+    </div>
+
+    <!-- Dynamic Standings Container with HTMX Event Listener -->
+    <div id="teams-table-container"
+         @update-teams-table.window="
+             htmx.ajax('GET', '/teams/table?season=' + $event.detail.season + '&view=' + $event.detail.view, {
+                 target: '#teams-table-container',
+                 swap: 'innerHTML',
+                 indicator: '#teams-loading-indicator'
+             })
+         ">
+        {{template "teams_standings_table.html" (dict "Standings" .Standings "SelectedSeason" .SelectedSeason "SelectedView" .SelectedView "CurrentSeason" .CurrentSeason)}}
+    </div>
+
+    <!-- Quick Modal Container for Team Drilldown -->
+    <div id="team-modal-container"></div>
+
+</div>
+{{end}}
