@@ -109,6 +109,33 @@ func main() {
 		}
 	}()
 
+	// Pre-warm / ensure historical season standings (2022-2025) are persisted in DB
+	go func() {
+		time.Sleep(2 * time.Second)
+		teams, err := repo.ListTeams()
+		if err != nil {
+			return
+		}
+		teamMap := make(map[string]*db.Team, len(teams))
+		for _, t := range teams {
+			teamMap[t.Code] = t
+		}
+		for _, year := range []int{2025, 2024, 2023, 2022} {
+			has, err := repo.HasSeasonStandings(year)
+			if err == nil && has {
+				continue
+			}
+			log.Printf("[Teams] Pre-warming historical standings for season %d from ESPN...", year)
+			standings, err := espnClient.FetchNFLStandings(year, cfg.CurrentSeasonYear, teamMap)
+			if err == nil && standings != nil && len(standings.League) >= 30 {
+				if err := repo.SaveSeasonStandings(standings); err == nil {
+					log.Printf("[Teams] Season %d standings successfully persisted to DB (%d teams, Super Bowl: %s)",
+						year, len(standings.League), standings.League[0].SuperBowlTitle)
+				}
+			}
+		}
+	}()
+
 	// 6. Template Renderer
 	subTemplatesFS, err := fs.Sub(templatesFS, "templates")
 	if err != nil {

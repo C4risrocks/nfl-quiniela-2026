@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"nfl-quiniela-2026/db"
 	"nfl-quiniela-2026/services/espn"
 )
 
@@ -203,5 +204,195 @@ func TestTeamStatsHandler_PastSeasons(t *testing.T) {
 		t.Errorf("expected KC 2025 modal to contain Chiefs")
 	}
 }
+
+func TestTeamStatsHandler_SuperBowlChampionsAndPersistence(t *testing.T) {
+	repo, _, renderer, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	// Pre-seed DB standings for 2023 (Chiefs won Super Bowl LVIII)
+	kc, err := repo.GetTeamByCode("KC")
+	if err != nil || kc == nil {
+		t.Fatalf("KC team not found: %v", err)
+	}
+	sf, err := repo.GetTeamByCode("SF")
+	if err != nil || sf == nil {
+		t.Fatalf("SF team not found: %v", err)
+	}
+
+	kcStanding := &db.TeamStanding{
+		TeamID:              kc.ID,
+		TeamCode:            "KC",
+		TeamName:            "Chiefs",
+		TeamCity:            "Kansas City",
+		LogoURL:             kc.LogoURL,
+		Conference:          "AFC",
+		Division:            "West",
+		Wins:                11,
+		Losses:              6,
+		Ties:                0,
+		WinPercent:          0.647,
+		WinPercentFormatted: ".647",
+		PointsFor:           371,
+		PointsAgainst:       294,
+		PointDiff:           77,
+		Streak:              "W2",
+		HomeRecord:          "5-4",
+		AwayRecord:          "6-2",
+		ConfRecord:          "8-4",
+		DivisionRecord:      "4-2",
+		Rank:                1,
+		ConferenceSeed:      3,
+		IsSuperBowlChampion: true,
+		SuperBowlTitle:      "Super Bowl LVIII (25-22 vs SF)",
+	}
+
+	sfStanding := &db.TeamStanding{
+		TeamID:              sf.ID,
+		TeamCode:            "SF",
+		TeamName:            "49ers",
+		TeamCity:            "San Francisco",
+		LogoURL:             sf.LogoURL,
+		Conference:          "NFC",
+		Division:            "West",
+		Wins:                12,
+		Losses:              5,
+		Ties:                0,
+		WinPercent:          0.706,
+		WinPercentFormatted: ".706",
+		PointsFor:           491,
+		PointsAgainst:       298,
+		PointDiff:           193,
+		Streak:              "L1",
+		HomeRecord:          "5-3",
+		AwayRecord:          "7-2",
+		ConfRecord:          "10-2",
+		DivisionRecord:      "5-1",
+		Rank:                1,
+		ConferenceSeed:      1,
+		IsSuperBowlChampion: false,
+	}
+
+	standings2023 := &db.SeasonStandings{
+		Year: 2023,
+		League: []*db.TeamStanding{
+			sfStanding,
+			kcStanding,
+		},
+		Conferences: []*db.ConferenceStandings{
+			{Name: "American Football Conference", Conference: "AFC", Teams: []*db.TeamStanding{kcStanding}},
+			{Name: "National Football Conference", Conference: "NFC", Teams: []*db.TeamStanding{sfStanding}},
+		},
+		Divisions: []*db.DivisionStandings{
+			{Name: "AFC Oeste", Conference: "AFC", Division: "West", Teams: []*db.TeamStanding{kcStanding}},
+			{Name: "NFC Oeste", Conference: "NFC", Division: "West", Teams: []*db.TeamStanding{sfStanding}},
+		},
+		Summary: &db.SeasonDashboardSummary{
+			TopRecordTeam:     sfStanding,
+			TopOffenseTeam:    sfStanding,
+			TopDefenseTeam:    kcStanding,
+			SuperBowlChampion: kcStanding,
+		},
+	}
+
+	if err := repo.SaveSeasonStandings(standings2023); err != nil {
+		t.Fatalf("SaveSeasonStandings failed: %v", err)
+	}
+
+	// Pre-seed team schedule for KC 2023
+	kcScore := 25
+	sfScore := 22
+	testSchedule := []*db.TeamScheduleItem{
+		{
+			WeekNumber:       22,
+			KickoffFormatted: "11 feb 2024",
+			OpponentCode:     "SF",
+			OpponentName:     "49ers",
+			IsHome:           false,
+			TeamScore:        &kcScore,
+			OpponentScore:    &sfScore,
+			Result:           "W",
+			StatusDetail:     "Super Bowl LVIII",
+		},
+	}
+	if err := repo.SaveTeamSchedule("KC", 2023, testSchedule); err != nil {
+		t.Fatalf("SaveTeamSchedule failed: %v", err)
+	}
+
+	// Use an ESPN client pointing to an unreachable dummy URL to prove pure offline DB usage
+	offlineClient := espn.NewClientWithCustomURL("http://127.0.0.1:9", "http://127.0.0.1:9")
+	handler := NewTeamStatsHandler(repo, renderer, offlineClient, 2026)
+
+	r := chi.NewRouter()
+	r.Get("/teams", handler.ShowTeams)
+	r.Get("/teams/table", handler.TeamsTablePartial)
+	r.Get("/teams/{code}", handler.ShowTeamDetail)
+	r.Get("/teams/{code}/modal", handler.TeamDetailModal)
+
+	// 1. Check /teams?season=2023 (Loads from DB without hitting ESPN)
+	req := httptest.NewRequest(http.MethodGet, "/teams?season=2023&view=division", nil)
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK from DB standings, got %d. Body: %s", rr.Code, rr.Body.String())
+	}
+	body := rr.Body.String()
+	for _, exp := range []string{"Campeón Super Bowl", "Chiefs", "Super Bowl LVIII", "Campeón"} {
+		if !strings.Contains(body, exp) {
+			t.Errorf("expected body to contain %q", exp)
+		}
+	}
+
+	// 2. Check /teams/table?season=2023&view=conference
+	reqConf := httptest.NewRequest(http.MethodGet, "/teams/table?season=2023&view=conference", nil)
+	rrConf := httptest.NewRecorder()
+	r.ServeHTTP(rrConf, reqConf)
+
+	if rrConf.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for conference table, got %d", rrConf.Code)
+	}
+	if !strings.Contains(rrConf.Body.String(), "Campeón") {
+		t.Errorf("expected conference table to contain 'Campeón' badge")
+	}
+
+	// 3. Check /teams/table?season=2023&view=league
+	reqLeague := httptest.NewRequest(http.MethodGet, "/teams/table?season=2023&view=league", nil)
+	rrLeague := httptest.NewRecorder()
+	r.ServeHTTP(rrLeague, reqLeague)
+
+	if rrLeague.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for league table, got %d", rrLeague.Code)
+	}
+	if !strings.Contains(rrLeague.Body.String(), "Campeón") {
+		t.Errorf("expected league table to contain 'Campeón' badge")
+	}
+
+	// 4. Check /teams/KC?season=2023 (Team Detail from DB)
+	reqDetail := httptest.NewRequest(http.MethodGet, "/teams/KC?season=2023", nil)
+	rrDetail := httptest.NewRecorder()
+	r.ServeHTTP(rrDetail, reqDetail)
+
+	if rrDetail.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for KC detail, got %d", rrDetail.Code)
+	}
+	bodyDetail := rrDetail.Body.String()
+	if !strings.Contains(bodyDetail, "Campeón de Super Bowl") || !strings.Contains(bodyDetail, "LVIII") {
+		t.Errorf("expected KC detail to show Super Bowl champion badge")
+	}
+
+	// 5. Check /teams/KC/modal?season=2023 (Modal from DB)
+	reqModal := httptest.NewRequest(http.MethodGet, "/teams/KC/modal?season=2023", nil)
+	rrModal := httptest.NewRecorder()
+	r.ServeHTTP(rrModal, reqModal)
+
+	if rrModal.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for KC modal, got %d", rrModal.Code)
+	}
+	bodyModal := rrModal.Body.String()
+	if !strings.Contains(bodyModal, "Super Bowl LVIII") {
+		t.Errorf("expected KC modal to show Super Bowl LVIII badge")
+	}
+}
+
 
 

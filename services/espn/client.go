@@ -33,6 +33,18 @@ func NewClient() *Client {
 	}
 }
 
+// NewClientWithCustomURL creates a Client pointing to custom URLs (useful for unit tests and offline testing)
+func NewClientWithCustomURL(standingsURL, scheduleURL string) *Client {
+	return &Client{
+		httpClient: &http.Client{
+			Timeout: 2 * time.Second,
+		},
+		baseURL:      ESPNScoreboardURL,
+		standingsURL: standingsURL,
+		scheduleURL:  scheduleURL,
+	}
+}
+
 // FetchWeekScoreboard fetches games for a specific season, week, and seasonType (2 = regular season, 3 = postseason)
 func (c *Client) FetchWeekScoreboard(year, weekNum, seasonType int) (*ESPNScoreboardResponse, error) {
 	url := fmt.Sprintf("%s?dates=%d&seasontype=%d&week=%d", c.baseURL, year, seasonType, weekNum)

@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -3257,5 +3258,370 @@ func (r *Repository) ListTeamGamesBySeason(teamCode string, seasonYear int) ([]*
 
 	return items, nil
 }
+
+// ----------------------------------------------------
+// Team Season Standings & Schedules Persistence
+// ----------------------------------------------------
+
+// SuperBowlInfo stores official historical Super Bowl results
+type SuperBowlInfo struct {
+	TeamCode string
+	Edition  string
+	Score    string
+}
+
+var knownSuperBowlChampions = map[int]SuperBowlInfo{
+	2022: {TeamCode: "KC", Edition: "Super Bowl LVII", Score: "38-35 vs PHI"},
+	2023: {TeamCode: "KC", Edition: "Super Bowl LVIII", Score: "25-22 vs SF"},
+	2024: {TeamCode: "PHI", Edition: "Super Bowl LIX", Score: "40-22 vs KC"},
+	2025: {TeamCode: "SEA", Edition: "Super Bowl LX", Score: "29-13 vs NE"},
+}
+
+// GetSuperBowlChampion returns Super Bowl info for a given season year
+func GetSuperBowlChampion(year int) (SuperBowlInfo, bool) {
+	info, ok := knownSuperBowlChampions[year]
+	return info, ok
+}
+
+// SaveSeasonStandings persists all 32 team standing records for a season inside a transaction
+func (r *Repository) SaveSeasonStandings(standings *SeasonStandings) error {
+	if standings == nil || len(standings.League) == 0 {
+		return nil
+	}
+
+	// Preload team IDs before starting tx to avoid connection pool exhaustion/deadlock in SQLite
+	teamMap := make(map[string]int64)
+	if rows, err := r.db.Query("SELECT code, id FROM teams"); err == nil {
+		for rows.Next() {
+			var code string
+			var id int64
+			if err := rows.Scan(&code, &id); err == nil {
+				teamMap[code] = id
+			}
+		}
+		rows.Close()
+	}
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("starting transaction to save standings: %w", err)
+	}
+	defer tx.Rollback()
+
+	query := `
+	INSERT INTO team_season_standings (
+		season_year, team_id, team_code, team_name, team_city, logo_url,
+		primary_color, secondary_color, conference, division, wins, losses, ties,
+		win_percent, win_percent_formatted, games_played, points_for, points_against,
+		point_diff, offensive_ppg, defensive_ppg, streak, home_record, away_record,
+		division_record, conf_record, games_behind, division_rank, conference_seed,
+		is_super_bowl_champion, super_bowl_title, is_final, updated_at
+	) VALUES (
+		?, ?, ?, ?, ?, ?,
+		?, ?, ?, ?, ?, ?, ?,
+		?, ?, ?, ?, ?,
+		?, ?, ?, ?, ?, ?,
+		?, ?, ?, ?, ?,
+		?, ?, ?, CURRENT_TIMESTAMP
+	)
+	ON CONFLICT(season_year, team_code) DO UPDATE SET
+		team_id = excluded.team_id,
+		team_name = excluded.team_name,
+		team_city = excluded.team_city,
+		logo_url = excluded.logo_url,
+		primary_color = excluded.primary_color,
+		secondary_color = excluded.secondary_color,
+		conference = excluded.conference,
+		division = excluded.division,
+		wins = excluded.wins,
+		losses = excluded.losses,
+		ties = excluded.ties,
+		win_percent = excluded.win_percent,
+		win_percent_formatted = excluded.win_percent_formatted,
+		games_played = excluded.games_played,
+		points_for = excluded.points_for,
+		points_against = excluded.points_against,
+		point_diff = excluded.point_diff,
+		offensive_ppg = excluded.offensive_ppg,
+		defensive_ppg = excluded.defensive_ppg,
+		streak = excluded.streak,
+		home_record = excluded.home_record,
+		away_record = excluded.away_record,
+		division_record = excluded.division_record,
+		conf_record = excluded.conf_record,
+		games_behind = excluded.games_behind,
+		division_rank = excluded.division_rank,
+		conference_seed = excluded.conference_seed,
+		is_super_bowl_champion = excluded.is_super_bowl_champion,
+		super_bowl_title = excluded.super_bowl_title,
+		is_final = excluded.is_final,
+		updated_at = CURRENT_TIMESTAMP;`
+
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		return fmt.Errorf("preparing save standings query: %w", err)
+	}
+	defer stmt.Close()
+
+	sbInfo, hasSB := knownSuperBowlChampions[standings.Year]
+	isFinal := (standings.Year < 2026)
+
+	for _, t := range standings.League {
+		isSB := false
+		sbTitle := ""
+		if hasSB && t.TeamCode == sbInfo.TeamCode {
+			isSB = true
+			sbTitle = fmt.Sprintf("%s (%s)", sbInfo.Edition, sbInfo.Score)
+			t.IsSuperBowlChampion = true
+			t.SuperBowlTitle = sbTitle
+		}
+
+		if t.TeamID == 0 {
+			if id, ok := teamMap[t.TeamCode]; ok {
+				t.TeamID = id
+			}
+		}
+		var teamIDVal interface{}
+		if t.TeamID > 0 {
+			teamIDVal = t.TeamID
+		} else {
+			teamIDVal = nil
+		}
+
+		_, err := stmt.Exec(
+			standings.Year, teamIDVal, t.TeamCode, t.TeamName, t.TeamCity, t.LogoURL,
+			t.PrimaryColor, t.SecondaryColor, t.Conference, t.Division, t.Wins, t.Losses, t.Ties,
+			t.WinPercent, t.WinPercentFormatted, t.GamesPlayed, t.PointsFor, t.PointsAgainst,
+			t.PointDiff, t.OffensivePPG, t.DefensivePPG, t.Streak, t.HomeRecord, t.AwayRecord,
+			t.DivisionRecord, t.ConfRecord, t.GamesBehind, t.Rank, t.ConferenceSeed,
+			isSB, sbTitle, isFinal,
+		)
+		if err != nil {
+			return fmt.Errorf("executing save standings for %s: %w", t.TeamCode, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// GetSeasonStandings retrieves and reconstructs complete SeasonStandings from the database
+func (r *Repository) GetSeasonStandings(seasonYear int) (*SeasonStandings, error) {
+	query := `
+	SELECT
+		team_id, team_code, team_name, team_city, logo_url,
+		primary_color, secondary_color, conference, division, wins, losses, ties,
+		win_percent, win_percent_formatted, games_played, points_for, points_against,
+		point_diff, offensive_ppg, defensive_ppg, streak, home_record, away_record,
+		division_record, conf_record, games_behind, division_rank, conference_seed,
+		is_super_bowl_champion, super_bowl_title
+	FROM team_season_standings
+	WHERE season_year = ?
+	ORDER BY conference_seed ASC, win_percent DESC, point_diff DESC`
+
+	rows, err := r.db.Query(query, seasonYear)
+	if err != nil {
+		return nil, fmt.Errorf("querying team season standings: %w", err)
+	}
+	defer rows.Close()
+
+	var allTeams []*TeamStanding
+	for rows.Next() {
+		var ts TeamStanding
+		var teamID sql.NullInt64
+		err := rows.Scan(
+			&teamID, &ts.TeamCode, &ts.TeamName, &ts.TeamCity, &ts.LogoURL,
+			&ts.PrimaryColor, &ts.SecondaryColor, &ts.Conference, &ts.Division, &ts.Wins, &ts.Losses, &ts.Ties,
+			&ts.WinPercent, &ts.WinPercentFormatted, &ts.GamesPlayed, &ts.PointsFor, &ts.PointsAgainst,
+			&ts.PointDiff, &ts.OffensivePPG, &ts.DefensivePPG, &ts.Streak, &ts.HomeRecord, &ts.AwayRecord,
+			&ts.DivisionRecord, &ts.ConfRecord, &ts.GamesBehind, &ts.Rank, &ts.ConferenceSeed,
+			&ts.IsSuperBowlChampion, &ts.SuperBowlTitle,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scanning team standing row: %w", err)
+		}
+		if teamID.Valid {
+			ts.TeamID = teamID.Int64
+		}
+		allTeams = append(allTeams, &ts)
+	}
+
+	if len(allTeams) == 0 {
+		return nil, nil
+	}
+
+	// Reconstruct Conferences, Divisions, and Summary
+	standings := &SeasonStandings{
+		Year:        seasonYear,
+		IsCurrent:   (seasonYear == 2026),
+		League:      allTeams,
+		Conferences: make([]*ConferenceStandings, 0, 2),
+		Divisions:   make([]*DivisionStandings, 0, 8),
+	}
+
+	// Conferences
+	for _, conf := range []struct {
+		code string
+		name string
+	}{
+		{"AFC", "American Football Conference"},
+		{"NFC", "National Football Conference"},
+	} {
+		cg := &ConferenceStandings{
+			Conference: conf.code,
+			Name:       conf.name,
+			Teams:      make([]*TeamStanding, 0, 16),
+		}
+		for _, t := range allTeams {
+			if strings.EqualFold(t.Conference, conf.code) {
+				cg.Teams = append(cg.Teams, t)
+			}
+		}
+		sort.Slice(cg.Teams, func(i, j int) bool {
+			if cg.Teams[i].ConferenceSeed != cg.Teams[j].ConferenceSeed {
+				if cg.Teams[i].ConferenceSeed == 0 {
+					return false
+				}
+				if cg.Teams[j].ConferenceSeed == 0 {
+					return true
+				}
+				return cg.Teams[i].ConferenceSeed < cg.Teams[j].ConferenceSeed
+			}
+			return cg.Teams[i].WinPercent > cg.Teams[j].WinPercent
+		})
+		standings.Conferences = append(standings.Conferences, cg)
+	}
+
+	// Divisions
+	divisionsList := []struct {
+		conf string
+		div  string
+		name string
+	}{
+		{"AFC", "East", "AFC Este"},
+		{"AFC", "North", "AFC Norte"},
+		{"AFC", "South", "AFC Sur"},
+		{"AFC", "West", "AFC Oeste"},
+		{"NFC", "East", "NFC Este"},
+		{"NFC", "North", "NFC Norte"},
+		{"NFC", "South", "NFC Sur"},
+		{"NFC", "West", "NFC Oeste"},
+	}
+
+	for _, dInfo := range divisionsList {
+		dg := &DivisionStandings{
+			Name:       dInfo.name,
+			Conference: dInfo.conf,
+			Division:   dInfo.div,
+			Teams:      make([]*TeamStanding, 0, 4),
+		}
+		for _, t := range allTeams {
+			if strings.EqualFold(t.Conference, dInfo.conf) && strings.EqualFold(t.Division, dInfo.div) {
+				dg.Teams = append(dg.Teams, t)
+			}
+		}
+		sort.Slice(dg.Teams, func(i, j int) bool {
+			if dg.Teams[i].Rank > 0 && dg.Teams[j].Rank > 0 && dg.Teams[i].Rank != dg.Teams[j].Rank {
+				return dg.Teams[i].Rank < dg.Teams[j].Rank
+			}
+			if dg.Teams[i].WinPercent != dg.Teams[j].WinPercent {
+				return dg.Teams[i].WinPercent > dg.Teams[j].WinPercent
+			}
+			return dg.Teams[i].PointDiff > dg.Teams[j].PointDiff
+		})
+		for idx, t := range dg.Teams {
+			if t.Rank == 0 {
+				t.Rank = idx + 1
+			}
+		}
+		standings.Divisions = append(standings.Divisions, dg)
+	}
+
+	// Summary
+	summary := &SeasonDashboardSummary{
+		TopRecordTeam:  allTeams[0],
+		TopOffenseTeam: allTeams[0],
+		TopDefenseTeam: allTeams[0],
+		BestStreakTeam: allTeams[0],
+	}
+	maxPF := -1
+	minPA := 99999
+	bestStreakWins := -1
+
+	for _, t := range allTeams {
+		if t.IsSuperBowlChampion {
+			summary.SuperBowlChampion = t
+		}
+		if t.PointsFor > maxPF {
+			maxPF = t.PointsFor
+			summary.TopOffenseTeam = t
+		}
+		if t.GamesPlayed > 0 && t.PointsAgainst < minPA {
+			minPA = t.PointsAgainst
+			summary.TopDefenseTeam = t
+		}
+		if strings.HasPrefix(t.Streak, "W") {
+			if sWins, err := strconv.Atoi(strings.TrimPrefix(t.Streak, "W")); err == nil && sWins > bestStreakWins {
+				bestStreakWins = sWins
+				summary.BestStreakTeam = t
+			}
+		}
+	}
+	standings.Summary = summary
+
+	return standings, nil
+}
+
+// HasSeasonStandings checks if standings records already exist in the database for a given year
+func (r *Repository) HasSeasonStandings(seasonYear int) (bool, error) {
+	var count int
+	err := r.db.QueryRow("SELECT COUNT(1) FROM team_season_standings WHERE season_year = ?", seasonYear).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// SaveTeamSchedule saves the serialized schedule items for a team in a season
+func (r *Repository) SaveTeamSchedule(teamCode string, seasonYear int, schedule []*TeamScheduleItem) error {
+	if len(schedule) == 0 {
+		return nil
+	}
+	b, err := json.Marshal(schedule)
+	if err != nil {
+		return fmt.Errorf("marshaling team schedule: %w", err)
+	}
+
+	query := `
+	INSERT INTO team_season_schedules (season_year, team_code, schedule_json, updated_at)
+	VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+	ON CONFLICT(season_year, team_code) DO UPDATE SET
+		schedule_json = excluded.schedule_json,
+		updated_at = CURRENT_TIMESTAMP;`
+
+	_, err = r.db.Exec(query, seasonYear, strings.ToUpper(teamCode), string(b))
+	return err
+}
+
+// GetTeamSchedule loads the saved schedule for a team in a season from the database
+func (r *Repository) GetTeamSchedule(teamCode string, seasonYear int) ([]*TeamScheduleItem, error) {
+	var jsonStr string
+	err := r.db.QueryRow(
+		"SELECT schedule_json FROM team_season_schedules WHERE season_year = ? AND team_code = ?",
+		seasonYear, strings.ToUpper(teamCode),
+	).Scan(&jsonStr)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var items []*TeamScheduleItem
+	if err := json.Unmarshal([]byte(jsonStr), &items); err != nil {
+		return nil, fmt.Errorf("unmarshaling team schedule: %w", err)
+	}
+	return items, nil
+}
+
 
 

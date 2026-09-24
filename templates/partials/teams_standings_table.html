@@ -4,6 +4,24 @@
 <!-- Top KPI Dashboard Summary Cards (Season Leaders for Selected Season) -->
 {{if .Standings.Summary}}
 <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-6">
+
+    <!-- Super Bowl Champion (Historical Seasons) -->
+    {{if .Standings.Summary.SuperBowlChampion}}
+    <div class="col-span-2 md:col-span-4 lg:col-span-1 vercel-card p-3.5 rounded-xl border border-amber-500/40 bg-gradient-to-br from-amber-950/30 via-zinc-950/80 to-zinc-950/90 flex flex-col justify-between shadow-sm">
+        <span class="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold flex items-center">
+            <i class="fa-solid fa-trophy mr-1.5 text-amber-400"></i> Campeón Super Bowl
+        </span>
+        <div class="flex items-center space-x-2.5 mt-2">
+            <img src="{{.Standings.Summary.SuperBowlChampion.LogoURL}}" alt="{{.Standings.Summary.SuperBowlChampion.TeamCode}}" class="w-8 h-8 object-contain">
+            <div class="min-w-0">
+                <div class="text-xs font-bold text-white truncate max-w-[120px]">{{.Standings.Summary.SuperBowlChampion.TeamName}}</div>
+                <div class="text-[10px] font-mono font-semibold text-amber-300 truncate max-w-[140px]" title="{{.Standings.Summary.SuperBowlChampion.SuperBowlTitle}}">
+                    {{.Standings.Summary.SuperBowlChampion.SuperBowlTitle}}
+                </div>
+            </div>
+        </div>
+    </div>
+    {{end}}
     
     <!-- Top Record -->
     {{if .Standings.Summary.TopRecordTeam}}
@@ -159,6 +177,11 @@
                                                     <div class="min-w-0">
                                                         <div class="font-bold text-zinc-200 group-hover:text-white text-xs truncate flex items-center">
                                                             {{.TeamCity}} {{.TeamName}}
+                                                            {{if .IsSuperBowlChampion}}
+                                                                <span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center shrink-0">
+                                                                    <i class="fa-solid fa-trophy mr-1 text-[8px]"></i> Campeón
+                                                                </span>
+                                                            {{end}}
                                                         </div>
                                                         <div class="text-[9.5px] font-mono text-zinc-500">
                                                             {{.DivisionRecord}} Div · {{.HomeRecord}} Local
@@ -251,6 +274,11 @@
                                                     <div class="min-w-0">
                                                         <div class="font-bold text-zinc-200 group-hover:text-white text-xs truncate flex items-center">
                                                             {{.TeamCity}} {{.TeamName}}
+                                                            {{if .IsSuperBowlChampion}}
+                                                                <span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center shrink-0">
+                                                                    <i class="fa-solid fa-trophy mr-1 text-[8px]"></i> Campeón
+                                                                </span>
+                                                            {{end}}
                                                         </div>
                                                         <div class="text-[9.5px] font-mono text-zinc-500">
                                                             {{.DivisionRecord}} Div · {{.HomeRecord}} Local
@@ -375,9 +403,14 @@
                                                     class="flex items-center space-x-2 text-left group-hover:text-white transition-colors cursor-pointer">
                                                 <img src="{{$team.LogoURL}}" alt="{{$team.TeamCode}}" class="w-6 h-6 object-contain shrink-0 group-hover:scale-110 transition-transform">
                                                 <div class="min-w-0">
-                                                    <span class="font-bold text-zinc-200 group-hover:text-white text-xs truncate">
+                                                    <div class="font-bold text-zinc-200 group-hover:text-white text-xs truncate flex items-center">
                                                         {{$team.TeamCity}} {{$team.TeamName}}
-                                                    </span>
+                                                        {{if $team.IsSuperBowlChampion}}
+                                                            <span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center shrink-0" title="Campeón de Super Bowl {{$team.SuperBowlTitle}}">
+                                                                <i class="fa-solid fa-trophy mr-1 text-[8px]"></i> Campeón
+                                                            </span>
+                                                        {{end}}
+                                                    </div>
                                                     <span class="text-[9.5px] font-mono text-zinc-500 block">
                                                         {{$team.Division}} · {{$team.GamesBehind}} GB
                                                     </span>
@@ -487,6 +520,11 @@
                                     <span class="font-bold text-zinc-200 group-hover:text-white text-xs truncate">
                                         {{$team.TeamCity}} {{$team.TeamName}}
                                     </span>
+                                    {{if $team.IsSuperBowlChampion}}
+                                        <span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center shrink-0" title="Campeón de Super Bowl {{$team.SuperBowlTitle}}">
+                                            <i class="fa-solid fa-trophy mr-1 text-[8px]"></i> Campeón
+                                        </span>
+                                    {{end}}
                                 </button>
                             </td>
                             <td class="py-2.5 px-2 text-center font-mono text-[11px] text-zinc-400 font-semibold">

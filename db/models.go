@@ -1574,6 +1574,8 @@ type TeamStanding struct {
 	DivisionRecord      string  `json:"division_record"` // e.g. "1-0"
 	ConfRecord          string  `json:"conf_record"`     // e.g. "2-1"
 	GamesBehind         string  `json:"games_behind"`    // e.g. "-", "1.5"
+	IsSuperBowlChampion bool    `json:"is_super_bowl_champion"`
+	SuperBowlTitle      string  `json:"super_bowl_title"`
 
 	// Community quiniela metrics (for active season)
 	FavoriteFansCount int `json:"favorite_fans_count"`
@@ -1603,6 +1605,7 @@ type ConferenceStandings struct {
 
 // SeasonDashboardSummary provides quick high-level league stats
 type SeasonDashboardSummary struct {
+	SuperBowlChampion   *TeamStanding `json:"super_bowl_champion"`
 	TopRecordTeam       *TeamStanding `json:"top_record_team"`
 	TopOffenseTeam      *TeamStanding `json:"top_offense_team"`
 	TopDefenseTeam      *TeamStanding `json:"top_defense_team"`

@@ -153,17 +153,40 @@ func (h *TeamStatsHandler) getStandingsWithFallback(seasonYear int) *db.SeasonSt
 	var standings *db.SeasonStandings
 	var err error
 
-	// Try ESPN first
+	// 1. For historical seasons (< currentSeason), check Database first (0ms, 100% offline-ready)
+	if seasonYear < h.seasonYear && h.repo != nil {
+		standings, _ = h.repo.GetSeasonStandings(seasonYear)
+		if standings != nil && len(standings.League) > 0 {
+			return standings
+		}
+	}
+
+	// 2. Fetch from ESPN
 	if h.espnClient != nil {
 		standings, err = h.espnClient.FetchNFLStandings(seasonYear, h.seasonYear, teamMap)
+		if standings != nil && len(standings.League) > 0 && h.repo != nil {
+			// Persist immediately to Database
+			_ = h.repo.SaveSeasonStandings(standings)
+		}
 	}
 
-	// Fallback to local SQLite calculation for active season if ESPN failed
-	if (standings == nil || err != nil) && seasonYear == h.seasonYear {
+	// 3. If ESPN failed, check Database as fallback
+	if (standings == nil || err != nil || len(standings.League) == 0) && h.repo != nil {
+		dbStandings, _ := h.repo.GetSeasonStandings(seasonYear)
+		if dbStandings != nil && len(dbStandings.League) > 0 {
+			standings = dbStandings
+		}
+	}
+
+	// 4. Fallback to local SQLite calculation for active season if ESPN & DB both failed
+	if (standings == nil || len(standings.League) == 0) && seasonYear == h.seasonYear {
 		standings, _ = h.repo.CalculateLocalStandings(h.seasonYear)
+		if standings != nil && len(standings.League) > 0 && h.repo != nil {
+			_ = h.repo.SaveSeasonStandings(standings)
+		}
 	}
 
-	// If still nil, construct an empty fallback model
+	// 5. If still nil, construct an empty fallback model
 	if standings == nil {
 		standings = &db.SeasonStandings{
 			Year:        seasonYear,
@@ -253,9 +276,17 @@ func (h *TeamStatsHandler) buildTeamDetailData(team *db.Team, seasonYear int) *T
 		schedule, _ = h.repo.ListTeamGamesBySeason(team.Code, seasonYear)
 	}
 
-	// If schedule is empty or this is a past season, query ESPN
+	// For past seasons, check local DB first (0ms, offline-ready)
+	if len(schedule) == 0 && h.repo != nil {
+		schedule, _ = h.repo.GetTeamSchedule(team.Code, seasonYear)
+	}
+
+	// If schedule is still empty, query ESPN and persist to DB
 	if len(schedule) == 0 && h.espnClient != nil {
 		schedule, _ = h.espnClient.FetchTeamSchedule(team.Code, seasonYear, teamMap)
+		if len(schedule) > 0 && h.repo != nil {
+			_ = h.repo.SaveTeamSchedule(team.Code, seasonYear, schedule)
+		}
 	}
 
 	completedCount := 0

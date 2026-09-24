@@ -186,3 +186,53 @@ CREATE TABLE IF NOT EXISTS feature_flags (
     is_beta BOOLEAN NOT NULL DEFAULT 0,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS team_season_standings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    season_year INTEGER NOT NULL,
+    team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
+    team_code TEXT NOT NULL,
+    team_name TEXT NOT NULL DEFAULT '',
+    team_city TEXT NOT NULL DEFAULT '',
+    logo_url TEXT NOT NULL DEFAULT '',
+    primary_color TEXT NOT NULL DEFAULT '#000000',
+    secondary_color TEXT NOT NULL DEFAULT '#FFFFFF',
+    conference TEXT NOT NULL DEFAULT '',
+    division TEXT NOT NULL DEFAULT '',
+    wins INTEGER NOT NULL DEFAULT 0,
+    losses INTEGER NOT NULL DEFAULT 0,
+    ties INTEGER NOT NULL DEFAULT 0,
+    win_percent REAL NOT NULL DEFAULT 0.0,
+    win_percent_formatted TEXT NOT NULL DEFAULT '.000',
+    games_played INTEGER NOT NULL DEFAULT 0,
+    points_for INTEGER NOT NULL DEFAULT 0,
+    points_against INTEGER NOT NULL DEFAULT 0,
+    point_diff INTEGER NOT NULL DEFAULT 0,
+    offensive_ppg REAL NOT NULL DEFAULT 0.0,
+    defensive_ppg REAL NOT NULL DEFAULT 0.0,
+    streak TEXT NOT NULL DEFAULT '-',
+    home_record TEXT NOT NULL DEFAULT '0-0',
+    away_record TEXT NOT NULL DEFAULT '0-0',
+    division_record TEXT NOT NULL DEFAULT '0-0',
+    conf_record TEXT NOT NULL DEFAULT '0-0',
+    games_behind TEXT NOT NULL DEFAULT '-',
+    division_rank INTEGER NOT NULL DEFAULT 0,
+    conference_seed INTEGER NOT NULL DEFAULT 0,
+    is_super_bowl_champion BOOLEAN NOT NULL DEFAULT 0,
+    super_bowl_title TEXT NOT NULL DEFAULT '',
+    is_final BOOLEAN NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(season_year, team_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_standings_season_seed ON team_season_standings(season_year, conference_seed);
+CREATE INDEX IF NOT EXISTS idx_team_standings_team ON team_season_standings(team_id);
+
+CREATE TABLE IF NOT EXISTS team_season_schedules (
+    season_year INTEGER NOT NULL,
+    team_code TEXT NOT NULL,
+    schedule_json TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(season_year, team_code)
+);
+

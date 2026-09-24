@@ -399,6 +399,16 @@ func (c *Client) FetchNFLStandings(year int, currentYear int, teamMap map[string
 	})
 	standings.League = allTeams
 
+	if sbInfo, hasSB := db.GetSuperBowlChampion(year); hasSB {
+		for _, t := range allTeams {
+			if t.TeamCode == sbInfo.TeamCode {
+				t.IsSuperBowlChampion = true
+				t.SuperBowlTitle = fmt.Sprintf("%s (%s)", sbInfo.Edition, sbInfo.Score)
+				break
+			}
+		}
+	}
+
 	// Build Dashboard Summary
 	standings.Summary = buildDashboardSummary(allTeams)
 
@@ -426,6 +436,13 @@ func buildDashboardSummary(teams []*db.TeamStanding) *db.SeasonDashboardSummary 
 		TopOffenseTeam: teams[0],
 		TopDefenseTeam: teams[0],
 		BestStreakTeam: teams[0],
+	}
+
+	for _, t := range teams {
+		if t.IsSuperBowlChampion {
+			summary.SuperBowlChampion = t
+			break
+		}
 	}
 
 	maxPF := -1
