@@ -1560,6 +1560,17 @@ func TestBetaTesterAndFeatureFlags(t *testing.T) {
 		t.Errorf("Expected picks_matrix is_beta=true")
 	}
 
+	whatIfFlag, exists := flagMap["live_whatif"]
+	if !exists {
+		t.Fatalf("Expected live_whatif feature flag to exist")
+	}
+	if whatIfFlag.AccessLevel != "all" {
+		t.Errorf("Expected live_whatif access_level=all, got %s", whatIfFlag.AccessLevel)
+	}
+	if !whatIfFlag.IsBeta {
+		t.Errorf("Expected live_whatif is_beta=true")
+	}
+
 	// 5. Test Access Enforcement
 	// Normal player (reset to not beta)
 	_ = repo.SetUserBetaTester(player.ID, false)

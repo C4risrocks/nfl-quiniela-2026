@@ -90,6 +90,7 @@ type LiveViewData struct {
 	CurrentTime         time.Time
 	LockMode            string
 	WhatIfJSON          template.JS
+	FeatureFlags        map[string]*db.FeatureFlag
 }
 
 func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
@@ -472,6 +473,8 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 		whatIfJSON = template.JS(jsonBytes)
 	}
 
+	featureFlags, _ := h.repo.GetFeatureFlagsMap()
+
 	return &LiveViewData{
 		ActiveNav:           "live",
 		User:                currentUser,
@@ -491,6 +494,7 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 		CurrentTime:         now,
 		LockMode:            lockMode,
 		WhatIfJSON:          whatIfJSON,
+		FeatureFlags:        featureFlags,
 	}, nil
 }
 

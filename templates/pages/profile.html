@@ -238,7 +238,7 @@
         </div>
     {{end}}
 
-    {{if and .IsOwnProfile .ProfileUser.IsBetaTester}}
+    {{if and .IsOwnProfile .ProfileUser.CanAccessBeta}}
         <div class="p-4 rounded-2xl bg-gradient-to-r from-purple-950/40 via-zinc-900 to-zinc-950 border border-purple-500/30 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
             <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/40 flex items-center justify-center shrink-0 text-base">
