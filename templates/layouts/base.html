@@ -37,6 +37,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Geist:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/custom.css">
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -164,6 +165,21 @@
         .htmx-request.htmx-indicator {
             opacity: 1;
         }
+
+        /* Modal active scroll lock & mobile pan enablement */
+        body.overflow-hidden,
+        html.overflow-hidden {
+            overflow: hidden !important;
+        }
+
+        .modal-scrollable,
+        .fixed.inset-0 .overflow-y-auto,
+        [data-modal-scroll="true"] {
+            overflow-y: auto !important;
+            overscroll-behavior-y: contain;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y !important;
+        }
     </style>
 </head>
 <body class="min-h-full flex flex-col font-sans antialiased bg-black text-[#ededed] selection:bg-cyan-500 selection:text-black bg-grid overflow-x-hidden w-full max-w-full" x-data="{ mobileMenuOpen: false }">
@@ -211,13 +227,41 @@
 
                 <!-- User Controls -->
                 <div class="hidden md:flex items-center space-x-3">
-                    <!-- Live Alerts Bell Toggle -->
-                    <button type="button" 
-                            @click="$dispatch('request-notification-permission')" 
-                            class="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors text-xs relative cursor-pointer" 
-                            title="Activar alertas en vivo en el navegador">
-                        <i class="fa-regular fa-bell"></i>
-                    </button>
+                    {{if .User}}
+                    <!-- In-App Notification Center Bell Dropdown -->
+                    <div class="relative" x-data="{ notifsOpen: false }">
+                        <button type="button" 
+                                @click="notifsOpen = !notifsOpen" 
+                                hx-get="/notifications" 
+                                hx-target="#notifs-dropdown-wrapper" 
+                                hx-swap="innerHTML"
+                                class="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition-all text-xs relative cursor-pointer" 
+                                title="Centro de Notificaciones">
+                            <i class="fa-regular fa-bell text-sm"></i>
+                            <span hx-get="/notifications/badge" hx-trigger="load, every 60s" hx-swap="outerHTML">
+                                <span id="notification-badge" class="hidden"></span>
+                            </span>
+                        </button>
+
+                        <!-- Dropdown Menu -->
+                        <div x-show="notifsOpen" 
+                             @click.outside="notifsOpen = false" 
+                             x-cloak 
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+                             x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                             x-transition:leave="transition ease-in duration-100"
+                             x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+                             x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+                             class="absolute right-0 mt-2 z-50">
+                            <div id="notifs-dropdown-wrapper">
+                                <div class="w-80 p-6 text-center text-xs text-zinc-500 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-xl">
+                                    <i class="fa-solid fa-circle-notch fa-spin mr-2"></i> Cargando notificaciones...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {{end}}
 
                     {{if .User}}
                         <a href="/profile" class="flex items-center space-x-2 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 px-2.5 py-1 rounded-full text-xs transition-colors" title="Mi Perfil y Ajustes" {{if .User.FavoriteTeam}}style="border-left: 2px solid {{.User.FavoriteTeam.PrimaryColor}};"{{end}}>
@@ -243,6 +287,9 @@
                             {{if .User.IsAdmin}}
                                 <span class="text-[9px] uppercase font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1 rounded">Admin</span>
                             {{end}}
+                            {{if .User.IsBetaTester}}
+                                <span class="text-[9px] uppercase font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 rounded flex items-center space-x-0.5"><i class="fa-solid fa-flask text-[8px] mr-0.5 text-purple-400"></i>Beta</span>
+                            {{end}}
                         </a>
                         <form action="/logout" method="POST" class="inline">
                             <button type="submit" class="p-1.5 text-zinc-400 hover:text-zinc-200 rounded-lg hover:bg-zinc-900 transition-colors text-xs cursor-pointer" title="Cerrar sesión">
@@ -259,12 +306,32 @@
 
                 <!-- Mobile Menu Button & Bell -->
                 <div class="md:hidden flex items-center space-x-1">
-                    <button type="button" 
-                            @click="$dispatch('request-notification-permission')" 
-                            class="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors text-xs cursor-pointer" 
-                            title="Activar alertas en vivo">
-                        <i class="fa-regular fa-bell"></i>
-                    </button>
+                    {{if .User}}
+                    <div class="relative" x-data="{ mobileNotifsOpen: false }">
+                        <button type="button" 
+                                @click="mobileNotifsOpen = !mobileNotifsOpen" 
+                                hx-get="/notifications" 
+                                hx-target="#mobile-notifs-dropdown-wrapper" 
+                                hx-swap="innerHTML"
+                                class="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors text-xs relative cursor-pointer" 
+                                title="Centro de Notificaciones">
+                            <i class="fa-regular fa-bell text-sm"></i>
+                            <span hx-get="/notifications/badge" hx-trigger="load, every 60s" hx-swap="outerHTML">
+                                <span id="notification-badge" class="hidden"></span>
+                            </span>
+                        </button>
+                        <div x-show="mobileNotifsOpen" 
+                             @click.outside="mobileNotifsOpen = false" 
+                             x-cloak 
+                             class="fixed inset-x-3 top-16 z-50">
+                            <div id="mobile-notifs-dropdown-wrapper" class="w-full max-w-sm mx-auto">
+                                <div class="w-full p-6 text-center text-xs text-zinc-500 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl">
+                                    <i class="fa-solid fa-circle-notch fa-spin mr-2"></i> Cargando notificaciones...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {{end}}
                     <button @click="mobileMenuOpen = !mobileMenuOpen" class="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900 cursor-pointer">
                         <i class="fa-solid" :class="mobileMenuOpen ? 'fa-xmark' : 'fa-bars'"></i>
                     </button>
@@ -320,6 +387,9 @@
                                 {{end}}
                                 {{if .User.FeaturedBadgeTitle}}
                                     <span class="text-[10px] leading-none shrink-0" title="{{.User.FeaturedBadgeTitle}}">{{.User.FeaturedBadgeIcon}}</span>
+                                {{end}}
+                                {{if .User.IsBetaTester}}
+                                    <span class="text-[8px] uppercase font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1 py-0.2 rounded flex items-center space-x-0.5 shrink-0"><i class="fa-solid fa-flask text-[7px] mr-0.5 text-purple-400"></i>Beta</span>
                                 {{end}}
                             </div>
                             {{if .User.Bio}}
@@ -652,7 +722,7 @@
 
             function checkAnyModalOpen() {
                 const fixedModals = Array.from(document.querySelectorAll('.fixed.inset-0')).filter(isModalVisible);
-                const isOpen = fixedModals.length > 0 || !!window.__whatIfOpen || !!window.__rivalsOpen;
+                const isOpen = fixedModals.length > 0;
                 window.__modalOpen = isOpen;
                 if (isOpen) {
                     if (!document.body.classList.contains('overflow-hidden')) {
@@ -809,7 +879,6 @@
             });
 
             window.addEventListener('open-rivals', function() { setTimeout(checkAnyModalOpen, 10); });
-            window.addEventListener('open-whatif', function() { setTimeout(checkAnyModalOpen, 10); });
 
             // MutationObserver to keep window.__modalOpen and scroll lock in sync with DOM changes
             if (window.MutationObserver) {

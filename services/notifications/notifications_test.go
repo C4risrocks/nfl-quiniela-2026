@@ -72,3 +72,71 @@ func TestReminderWorkerLogic(t *testing.T) {
 
 	_ = time.Now()
 }
+
+func TestWeeklyRecapEmailAndDigest(t *testing.T) {
+	dbPath := "test_recap_unit.db"
+	_ = os.Remove(dbPath)
+	defer os.Remove(dbPath)
+
+	database, err := db.InitDB("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("InitDB: %v", err)
+	}
+	defer database.Close()
+
+	repo := db.NewRepository(database)
+	_ = db.SeedDatabase(repo, "admin", "admin@test.com", "pass123", 2026)
+
+	season, _ := repo.GetActiveSeason(2026)
+	week, _ := repo.GetWeekByNumber(season.ID, 1)
+
+	user, _ := repo.CreateUser("recap_player", "player@test.com", "hash", "player")
+
+	sender := NewEmailSender("", 587, "", "", "quiniela@test.com", "http://localhost:8080")
+	worker := NewReminderWorker(repo, sender, 2026)
+
+	// 1. Test SendWeeklyRecapEmail with mock data
+	recapData := &db.WeeklyRecapData{
+		WeekID:            week.ID,
+		WeekNumber:        1,
+		WeekName:          "Semana 1",
+		TotalParticipants: 10,
+		Podium: []*db.PodiumEntry{
+			{Rank: 1, UserID: user.ID, Username: "recap_player", TotalPoints: 12, CorrectPicks: 10, TotalPicks: 16},
+		},
+		UserRecap: &db.UserRecapStats{
+			WeeklyRank:      1,
+			TotalPoints:     12,
+			CorrectPicks:    10,
+			TotalGames:      16,
+			AccuracyPercent: 63,
+			SeasonRank:      1,
+			SeasonTotalPts:  12,
+		},
+		NextWeekNumber: 2,
+		NextWeekName:   "Semana 2",
+	}
+
+	if err := sender.SendWeeklyRecapEmail(user, recapData); err != nil {
+		t.Fatalf("SendWeeklyRecapEmail failed: %v", err)
+	}
+
+	// 2. Test SendManualWeeklyRecap
+	sent, err := worker.SendManualWeeklyRecap(week.ID)
+	if err != nil {
+		t.Fatalf("SendManualWeeklyRecap failed: %v", err)
+	}
+	if sent < 1 {
+		t.Errorf("Expected at least 1 recap sent, got %d", sent)
+	}
+
+	// 3. Verify user received in-app notification
+	notifs, err := repo.ListUserNotifications(user.ID, 5)
+	if err != nil || len(notifs) == 0 {
+		t.Fatalf("Expected in-app notification for user, got err: %v, count: %d", err, len(notifs))
+	}
+	if notifs[0].Type != "weekly_recap" {
+		t.Errorf("Expected notif type 'weekly_recap', got %s", notifs[0].Type)
+	}
+}
+

@@ -1,0 +1,68 @@
+{{template "base.html" .}}
+
+{{define "title"}}{{.FeatureName}} (Beta Privada) - NFL Quiniela 2026{{end}}
+
+{{define "content"}}
+<div class="max-w-2xl mx-auto py-12 px-4 sm:px-6 text-center space-y-6">
+
+    <!-- Glowing Icon Shield -->
+    <div class="relative inline-flex items-center justify-center">
+        <div class="w-20 h-20 rounded-3xl bg-gradient-to-tr from-purple-600/30 to-indigo-500/20 border border-purple-500/40 flex items-center justify-center shadow-lg shadow-purple-500/10 backdrop-blur-md">
+            <i class="fa-solid fa-flask text-3xl text-purple-400 animate-pulse"></i>
+        </div>
+        <div class="absolute -top-1 -right-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-black uppercase bg-purple-500 text-black shadow-sm">
+            BETA
+        </div>
+    </div>
+
+    <!-- Main Heading -->
+    <div class="space-y-2">
+        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-purple-500/10 text-purple-300 border border-purple-500/30 uppercase tracking-wider">
+            <i class="fa-solid fa-lock mr-1.5 text-[9px] text-purple-400"></i> Acceso Exclusivo para Beta Testers
+        </span>
+        <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            {{if .FeatureName}}{{.FeatureName}}{{else}}Función Experimental{{end}}
+        </h1>
+        <p class="text-sm text-zinc-400 max-w-lg mx-auto leading-relaxed">
+            Esta característica se encuentra actualmente en fase de evaluación privada para asegurar la máxima estabilidad, rapidez y precisión en los pronósticos.
+        </p>
+    </div>
+
+    <!-- Feature Description Box if available -->
+    {{if .FeatureDesc}}
+    <div class="vercel-card p-5 rounded-2xl text-left border border-zinc-800 bg-zinc-950/60 max-w-md mx-auto space-y-2 shadow-sm">
+        <div class="flex items-center space-x-2 text-xs font-bold text-zinc-300">
+            <i class="fa-solid fa-sparkles text-amber-400"></i>
+            <span>¿De qué trata esta función?</span>
+        </div>
+        <p class="text-xs text-zinc-400 leading-relaxed font-normal">
+            {{.FeatureDesc}}
+        </p>
+    </div>
+    {{end}}
+
+    <!-- Callout on How to become beta tester -->
+    <div class="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/80 text-xs text-zinc-400 max-w-md mx-auto">
+        <p class="flex items-center justify-center space-x-1.5 text-zinc-300 font-medium mb-1">
+            <i class="fa-solid fa-circle-info text-cyan-400"></i>
+            <span>¿Deseas probar funciones antes que nadie?</span>
+        </p>
+        <p class="text-[11px] text-zinc-500">
+            Solicita a un administrador de la liga la asignación del rol de <strong class="text-purple-300">Beta Tester</strong> para habilitar las herramientas avanzadas en tu perfil.
+        </p>
+    </div>
+
+    <!-- Navigation Actions -->
+    <div class="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <a href="/picks" class="w-full sm:w-auto py-2.5 px-6 rounded-xl bg-white hover:bg-zinc-200 text-black font-extrabold text-xs transition-colors shadow-sm flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-list-check"></i>
+            <span>Regresar a mis Pronósticos</span>
+        </a>
+        <a href="/leaderboard" class="w-full sm:w-auto py-2.5 px-5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white font-semibold text-xs border border-zinc-700 transition-colors flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-trophy text-amber-400"></i>
+            <span>Ver Tabla de Posiciones</span>
+        </a>
+    </div>
+
+</div>
+{{end}}

@@ -109,7 +109,7 @@ func (r *Repository) SetScoringConfig(cfg *ScoringConfig) error {
 // Users
 // ----------------------------------------------------
 
-const userColumns = `id, username, email, password_hash, role, avatar_url, favorite_team_id, email_verified, verification_token, verification_sent_at, reset_token, reset_token_expires_at, notify_email, created_at, bio, featured_badge_code`
+const userColumns = `id, username, email, password_hash, role, avatar_url, favorite_team_id, email_verified, verification_token, verification_sent_at, reset_token, reset_token_expires_at, notify_email, created_at, bio, featured_badge_code, notify_kickoff, notify_recap, is_beta_tester`
 
 func scanUserRow(scanner interface{ Scan(dest ...any) error }) (*User, error) {
 	var u User
@@ -119,12 +119,15 @@ func scanUserRow(scanner interface{ Scan(dest ...any) error }) (*User, error) {
 	var resetExpStr sql.NullString
 	var bioStr sql.NullString
 	var featBadgeStr sql.NullString
+	var notifyKickoff sql.NullBool
+	var notifyRecap sql.NullBool
+	var isBetaTester sql.NullBool
 
 	err := scanner.Scan(
 		&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarURL, &favTeamID,
 		&u.EmailVerified, &u.VerificationToken, &verifSentAtStr,
 		&u.ResetToken, &resetExpStr, &u.NotifyEmail, &createdAtStr,
-		&bioStr, &featBadgeStr,
+		&bioStr, &featBadgeStr, &notifyKickoff, &notifyRecap, &isBetaTester,
 	)
 	if err != nil {
 		return nil, err
@@ -147,6 +150,17 @@ func scanUserRow(scanner interface{ Scan(dest ...any) error }) (*User, error) {
 	}
 	if featBadgeStr.Valid {
 		u.FeaturedBadgeCode = featBadgeStr.String
+	}
+	u.NotifyKickoff = true
+	if notifyKickoff.Valid {
+		u.NotifyKickoff = notifyKickoff.Bool
+	}
+	u.NotifyRecap = true
+	if notifyRecap.Valid {
+		u.NotifyRecap = notifyRecap.Bool
+	}
+	if isBetaTester.Valid {
+		u.IsBetaTester = isBetaTester.Bool
 	}
 	return &u, nil
 }
@@ -388,9 +402,17 @@ func (r *Repository) UpdateUserPassword(userID int64, newPasswordHash string) er
 	return err
 }
 
-func (r *Repository) UpdateUserPreferences(userID int64, avatarURL string, favoriteTeamID *int64, notifyEmail bool, bio, featuredBadgeCode string) error {
-	query := `UPDATE users SET avatar_url = ?, favorite_team_id = ?, notify_email = ?, bio = ?, featured_badge_code = ? WHERE id = ?`
-	_, err := r.db.Exec(query, avatarURL, favoriteTeamID, notifyEmail, bio, featuredBadgeCode, userID)
+func (r *Repository) UpdateUserPreferences(userID int64, avatarURL string, favoriteTeamID *int64, notifyEmail bool, bio, featuredBadgeCode string, notifyOpts ...bool) error {
+	notifyKickoff := true
+	notifyRecap := true
+	if len(notifyOpts) >= 1 {
+		notifyKickoff = notifyOpts[0]
+	}
+	if len(notifyOpts) >= 2 {
+		notifyRecap = notifyOpts[1]
+	}
+	query := `UPDATE users SET avatar_url = ?, favorite_team_id = ?, notify_email = ?, bio = ?, featured_badge_code = ?, notify_kickoff = ?, notify_recap = ? WHERE id = ?`
+	_, err := r.db.Exec(query, avatarURL, favoriteTeamID, notifyEmail, bio, featuredBadgeCode, notifyKickoff, notifyRecap, userID)
 	return err
 }
 
@@ -1022,7 +1044,7 @@ func (r *Repository) CreateManualGame(g *Game) (*Game, error) {
 	query := `
 	INSERT INTO games (week_id, espn_game_id, home_team_id, away_team_id, kickoff_time, home_score, away_score, status, status_detail, is_tiebreaker, is_locked)
 	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	res, err := r.db.Exec(query, g.WeekID, g.ESPNGameID, g.HomeTeamID, g.AwayTeamID, g.KickoffTime.Format("2006-01-02 15:04:05"), g.HomeScore, g.AwayScore, g.Status, g.StatusDetail, g.IsTiebreaker, g.IsLocked)
+	res, err := r.db.Exec(query, g.WeekID, g.ESPNGameID, g.HomeTeamID, g.AwayTeamID, g.KickoffTime.UTC().Format("2006-01-02 15:04:05"), g.HomeScore, g.AwayScore, g.Status, g.StatusDetail, g.IsTiebreaker, g.IsLocked)
 	if err != nil {
 		return nil, err
 	}
@@ -1718,7 +1740,7 @@ func parseTimeSafe(tStr string) time.Time {
 
 func (r *Repository) GetUsersWithPendingPicks(weekID int64) ([]*User, error) {
 	query := `
-	SELECT u.id, u.username, u.email, u.password_hash, u.role, u.created_at
+	SELECT u.id, u.username, u.email, u.password_hash, u.role, u.created_at, u.notify_email, u.notify_kickoff, u.notify_recap
 	FROM users u
 	WHERE (
 		SELECT COUNT(*) FROM picks p 
@@ -1728,7 +1750,6 @@ func (r *Repository) GetUsersWithPendingPicks(weekID int64) ([]*User, error) {
 		SELECT COUNT(*) FROM games WHERE week_id = ?
 	)
 	AND (SELECT COUNT(*) FROM games WHERE week_id = ?) > 0
-	AND u.notify_email = 1
 	ORDER BY u.username ASC`
 
 	rows, err := r.db.Query(query, weekID, weekID, weekID)
@@ -1741,10 +1762,20 @@ func (r *Repository) GetUsersWithPendingPicks(weekID int64) ([]*User, error) {
 	for rows.Next() {
 		var u User
 		var createdAtStr string
-		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &createdAtStr); err != nil {
+		var notifyKickoff sql.NullBool
+		var notifyRecap sql.NullBool
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &createdAtStr, &u.NotifyEmail, &notifyKickoff, &notifyRecap); err != nil {
 			return nil, err
 		}
 		u.CreatedAt = parseTimeSafe(createdAtStr)
+		u.NotifyKickoff = true
+		if notifyKickoff.Valid {
+			u.NotifyKickoff = notifyKickoff.Bool
+		}
+		u.NotifyRecap = true
+		if notifyRecap.Valid {
+			u.NotifyRecap = notifyRecap.Bool
+		}
 		users = append(users, &u)
 	}
 	return users, nil
@@ -1762,6 +1793,201 @@ func (r *Repository) LogReminderSent(userID, weekID int64, reminderType string) 
 	return err
 }
 
+// ----------------------------------------------------
+// In-App Notifications
+// ----------------------------------------------------
+
+func (r *Repository) CreateInAppNotification(userID int64, title, message, link, notifType string) (*InAppNotification, error) {
+	query := `INSERT INTO in_app_notifications (user_id, title, message, link, type, is_read, created_at) VALUES (?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)`
+	res, err := r.db.Exec(query, userID, title, message, link, notifType)
+	if err != nil {
+		return nil, err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+	return &InAppNotification{
+		ID:        id,
+		UserID:    userID,
+		Title:     title,
+		Message:   message,
+		Link:      link,
+		Type:      notifType,
+		IsRead:    false,
+		CreatedAt: time.Now(),
+	}, nil
+}
+
+func (r *Repository) ListUserNotifications(userID int64, limit int) ([]*InAppNotification, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	query := `
+	SELECT id, user_id, title, message, link, type, is_read, created_at
+	FROM in_app_notifications
+	WHERE user_id = ?
+	ORDER BY created_at DESC, id DESC
+	LIMIT ?`
+
+	rows, err := r.db.Query(query, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var notifs []*InAppNotification
+	for rows.Next() {
+		var n InAppNotification
+		var createdAtStr string
+		if err := rows.Scan(&n.ID, &n.UserID, &n.Title, &n.Message, &n.Link, &n.Type, &n.IsRead, &createdAtStr); err != nil {
+			return nil, err
+		}
+		n.CreatedAt = parseTimeSafe(createdAtStr)
+		notifs = append(notifs, &n)
+	}
+	return notifs, nil
+}
+
+func (r *Repository) GetUnreadNotificationsCount(userID int64) (int, error) {
+	var count int
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM in_app_notifications WHERE user_id = ? AND is_read = 0`, userID).Scan(&count)
+	return count, err
+}
+
+func (r *Repository) MarkNotificationAsRead(notifID, userID int64) error {
+	query := `UPDATE in_app_notifications SET is_read = 1 WHERE id = ? AND user_id = ?`
+	_, err := r.db.Exec(query, notifID, userID)
+	return err
+}
+
+func (r *Repository) MarkAllNotificationsAsRead(userID int64) error {
+	query := `UPDATE in_app_notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0`
+	_, err := r.db.Exec(query, userID)
+	return err
+}
+
+func (r *Repository) GetUpcomingKickoffForWeek(weekID int64, now time.Time) (*time.Time, *Game, error) {
+	games, err := r.ListGamesByWeek(weekID)
+	if err != nil || len(games) == 0 {
+		return nil, nil, err
+	}
+
+	var earliest *time.Time
+	var earliestGame *Game
+	for _, g := range games {
+		if g.KickoffTime.After(now) {
+			if earliest == nil || g.KickoffTime.Before(*earliest) {
+				t := g.KickoffTime
+				earliest = &t
+				earliestGame = g
+			}
+		}
+	}
+	return earliest, earliestGame, nil
+}
+
+func (r *Repository) GetWeeklyRecapData(weekID int64, userID int64) (*WeeklyRecapData, error) {
+	week, err := r.GetWeekByID(weekID)
+	if err != nil {
+		return nil, fmt.Errorf("week not found: %w", err)
+	}
+
+	lbEntries, err := r.GetWeeklyLeaderboard(weekID)
+	if err != nil {
+		return nil, fmt.Errorf("loading weekly leaderboard: %w", err)
+	}
+
+	seasonEntries, _ := r.GetSeasonLeaderboard(week.SeasonID)
+
+	// Season rank lookup map
+	seasonRankMap := make(map[int64]int)
+	seasonPtsMap := make(map[int64]int)
+	for _, se := range seasonEntries {
+		seasonRankMap[se.UserID] = se.Rank
+		seasonPtsMap[se.UserID] = se.TotalPoints
+	}
+
+	// Build podium (up to 3 distinct ranks / players)
+	var podium []*PodiumEntry
+	for i, entry := range lbEntries {
+		if i >= 3 {
+			break
+		}
+		teamCode := ""
+		if entry.FavoriteTeam != nil {
+			teamCode = entry.FavoriteTeam.Code
+		}
+		isBot := entry.IsAI()
+		podium = append(podium, &PodiumEntry{
+			Rank:             entry.Rank,
+			UserID:           entry.UserID,
+			Username:         entry.Username,
+			AvatarURL:        entry.AvatarURL,
+			FavoriteTeamCode: teamCode,
+			TotalPoints:      entry.TotalPoints,
+			CorrectPicks:     entry.CorrectPicks,
+			TotalPicks:       entry.TotalPicks,
+			TiebreakerError:  entry.TiebreakerError,
+			IsBot:            isBot,
+		})
+	}
+
+	// Build UserRecapStats for the requested user
+	var userStats *UserRecapStats
+	for _, entry := range lbEntries {
+		if entry.UserID == userID {
+			acc := 0
+			if entry.TotalPicks > 0 {
+				acc = int(math.Round(float64(entry.CorrectPicks) / float64(entry.TotalPicks) * 100))
+			}
+			userStats = &UserRecapStats{
+				WeeklyRank:       entry.Rank,
+				TotalPoints:      entry.TotalPoints,
+				CorrectPicks:     entry.CorrectPicks,
+				TotalGames:       entry.TotalPicks,
+				AccuracyPercent:  acc,
+				TiebreakerPoints: 0,
+				HasTiebreaker:    entry.HasTiebreaker,
+				SeasonRank:       seasonRankMap[userID],
+				SeasonTotalPts:   seasonPtsMap[userID],
+			}
+			break
+		}
+	}
+
+	// Look up Next Week info
+	nextWeekNumber := week.WeekNumber + 1
+	nextWeekName := fmt.Sprintf("Semana %d", nextWeekNumber)
+	nextWeekKickoff := ""
+	if nextWeek, err := r.GetWeekByNumber(week.SeasonID, nextWeekNumber); err == nil && nextWeek != nil {
+		nextWeekName = nextWeek.Name
+		nextGames, _ := r.ListGamesByWeek(nextWeek.ID)
+		if len(nextGames) > 0 {
+			earliest := nextGames[0].KickoffTime
+			for _, ng := range nextGames[1:] {
+				if ng.KickoffTime.Before(earliest) {
+					earliest = ng.KickoffTime
+				}
+			}
+			nextWeekKickoff = earliest.Format("Monday 02 Jan, 03:04 PM MST")
+		}
+	}
+
+	return &WeeklyRecapData{
+		WeekID:            weekID,
+		WeekNumber:        week.WeekNumber,
+		WeekName:          week.Name,
+		Podium:            podium,
+		TotalParticipants: len(lbEntries),
+		UserRecap:         userStats,
+		NextWeekNumber:    nextWeekNumber,
+		NextWeekName:      nextWeekName,
+		NextWeekKickoff:   nextWeekKickoff,
+	}, nil
+}
+
+
 func (r *Repository) SetUserEmailVerified(userID int64, verified bool) error {
 	v := 0
 	if verified {
@@ -1778,6 +2004,16 @@ func (r *Repository) SetUserRole(userID int64, role string) error {
 	}
 	query := `UPDATE users SET role = ? WHERE id = ?`
 	_, err := r.db.Exec(query, role, userID)
+	return err
+}
+
+func (r *Repository) SetUserBetaTester(userID int64, isBeta bool) error {
+	v := 0
+	if isBeta {
+		v = 1
+	}
+	query := `UPDATE users SET is_beta_tester = ? WHERE id = ?`
+	_, err := r.db.Exec(query, v, userID)
 	return err
 }
 
@@ -2480,5 +2716,96 @@ func (r *Repository) GetWeekForecasts(weekID int64) (map[int64]*GameForecast, er
 		forecasts[f.GameID] = &f
 	}
 	return forecasts, nil
+}
+
+// ----------------------------------------------------
+// Feature Flags
+// ----------------------------------------------------
+
+func (r *Repository) ListFeatureFlags() ([]*FeatureFlag, error) {
+	query := `SELECT key, name, description, access_level, is_beta, updated_at FROM feature_flags ORDER BY key ASC`
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var flags []*FeatureFlag
+	for rows.Next() {
+		var f FeatureFlag
+		var updatedAtStr string
+		var isBetaVal int
+		if err := rows.Scan(&f.Key, &f.Name, &f.Description, &f.AccessLevel, &isBetaVal, &updatedAtStr); err != nil {
+			return nil, err
+		}
+		f.IsBeta = isBetaVal != 0
+		f.UpdatedAt = parseTimeSafe(updatedAtStr)
+		flags = append(flags, &f)
+	}
+	return flags, nil
+}
+
+func (r *Repository) GetFeatureFlagsMap() (map[string]*FeatureFlag, error) {
+	flags, err := r.ListFeatureFlags()
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[string]*FeatureFlag, len(flags))
+	for _, f := range flags {
+		m[f.Key] = f
+	}
+	return m, nil
+}
+
+func (r *Repository) GetFeatureFlag(key string) (*FeatureFlag, error) {
+	query := `SELECT key, name, description, access_level, is_beta, updated_at FROM feature_flags WHERE key = ?`
+	row := r.db.QueryRow(query, key)
+	var f FeatureFlag
+	var updatedAtStr string
+	var isBetaVal int
+	if err := row.Scan(&f.Key, &f.Name, &f.Description, &f.AccessLevel, &isBetaVal, &updatedAtStr); err != nil {
+		return nil, err
+	}
+	f.IsBeta = isBetaVal != 0
+	f.UpdatedAt = parseTimeSafe(updatedAtStr)
+	return &f, nil
+}
+
+func (r *Repository) UpdateFeatureFlag(key string, accessLevel string, isBeta bool) error {
+	betaVal := 0
+	if isBeta {
+		betaVal = 1
+	}
+	query := `UPDATE feature_flags SET access_level = ?, is_beta = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?`
+	_, err := r.db.Exec(query, accessLevel, betaVal, key)
+	return err
+}
+
+func (r *Repository) UpsertFeatureFlag(f *FeatureFlag) error {
+	betaVal := 0
+	if f.IsBeta {
+		betaVal = 1
+	}
+	query := `
+	INSERT INTO feature_flags (key, name, description, access_level, is_beta, updated_at)
+	VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	ON CONFLICT(key) DO UPDATE SET
+		name = excluded.name,
+		description = excluded.description,
+		access_level = excluded.access_level,
+		is_beta = excluded.is_beta,
+		updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := r.db.Exec(query, f.Key, f.Name, f.Description, f.AccessLevel, betaVal)
+	return err
+}
+
+func (r *Repository) IsFeatureAccessible(key string, u *User) bool {
+	f, err := r.GetFeatureFlag(key)
+	if err != nil || f == nil {
+		// Default to true if feature not in DB to avoid accidental lockout
+		return true
+	}
+	return f.IsAccessibleTo(u)
 }
 

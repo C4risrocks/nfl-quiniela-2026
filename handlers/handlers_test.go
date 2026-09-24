@@ -1295,6 +1295,8 @@ func TestPicksMatrixHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create user: %v", err)
 	}
+	_ = repo.SetUserBetaTester(user.ID, true)
+	user, _ = repo.GetUserByID(user.ID)
 
 	// 1. GET /picks/matrix as full page
 	req := httptest.NewRequest(http.MethodGet, "/picks/matrix?week=1", nil)
@@ -1539,6 +1541,453 @@ func TestWeek2LiveHandling(t *testing.T) {
 		t.Errorf("Expected modal body to contain 'EN VIVO'")
 	}
 }
+
+func TestNotificationHandlerEndpoints(t *testing.T) {
+	repo, authService, _, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	subTemplatesFS, _ := fs.Sub(os.DirFS(".."), "templates")
+	renderer := NewRenderer(subTemplatesFS)
+	notifHandler := NewNotificationHandler(repo, renderer)
+
+	user, err := authService.Register("notif_user", "notif@test.com", "pass123")
+	if err != nil {
+		t.Fatalf("Failed to register user: %v", err)
+	}
+
+	// 1. Unauthenticated badge check: returns 200
+	reqUnauth := httptest.NewRequest(http.MethodGet, "/notifications/badge", nil)
+	rrUnauth := httptest.NewRecorder()
+	notifHandler.GetUnreadBadge(rrUnauth, reqUnauth)
+	if rrUnauth.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for unauthenticated badge check, got %d", rrUnauth.Code)
+	}
+
+	// 2. Unread badge with 0 notifications
+	reqBadge0 := httptest.NewRequest(http.MethodGet, "/notifications/badge", nil)
+	reqBadge0 = reqBadge0.WithContext(injectUser(reqBadge0.Context(), user))
+	rrBadge0 := httptest.NewRecorder()
+	notifHandler.GetUnreadBadge(rrBadge0, reqBadge0)
+	if rrBadge0.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK, got %d", rrBadge0.Code)
+	}
+	if !strings.Contains(rrBadge0.Body.String(), "hidden") {
+		t.Errorf("Expected badge to be hidden when 0 unread, got %s", rrBadge0.Body.String())
+	}
+
+	// 3. Create 2 notifications
+	n1, err := repo.CreateInAppNotification(user.ID, "kickoff_24h", "Recordatorio de Kickoff", "Faltan menos de 24 horas para el partido", "/picks")
+	if err != nil {
+		t.Fatalf("Failed to create notification 1: %v", err)
+	}
+	_, err = repo.CreateInAppNotification(user.ID, "weekly_recap", "Resumen Semanal", "Revisa el podio de la jornada", "/leaderboard")
+	if err != nil {
+		t.Fatalf("Failed to create notification 2: %v", err)
+	}
+
+	// 4. Check badge now reflects 2
+	reqBadge2 := httptest.NewRequest(http.MethodGet, "/notifications/badge", nil)
+	reqBadge2 = reqBadge2.WithContext(injectUser(reqBadge2.Context(), user))
+	rrBadge2 := httptest.NewRecorder()
+	notifHandler.GetUnreadBadge(rrBadge2, reqBadge2)
+	if !strings.Contains(rrBadge2.Body.String(), ">2<") {
+		t.Errorf("Expected badge to contain '>2<', got %s", rrBadge2.Body.String())
+	}
+
+	// 5. Get Notifications dropdown list
+	reqDropdown := httptest.NewRequest(http.MethodGet, "/notifications", nil)
+	reqDropdown = reqDropdown.WithContext(injectUser(reqDropdown.Context(), user))
+	rrDropdown := httptest.NewRecorder()
+	notifHandler.GetNotifications(rrDropdown, reqDropdown)
+	if rrDropdown.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for notifications dropdown, got %d", rrDropdown.Code)
+	}
+	dropdownHTML := rrDropdown.Body.String()
+	if !strings.Contains(dropdownHTML, "Recordatorio de Kickoff") {
+		t.Errorf("Expected dropdown to contain 'Recordatorio de Kickoff'")
+	}
+	if !strings.Contains(dropdownHTML, "Resumen Semanal") {
+		t.Errorf("Expected dropdown to contain 'Resumen Semanal'")
+	}
+
+	// 6. Mark single notification as read
+	reqMark1 := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/notifications/%d/read", n1.ID), nil)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", fmt.Sprintf("%d", n1.ID))
+	reqMark1 = reqMark1.WithContext(context.WithValue(injectUser(reqMark1.Context(), user), chi.RouteCtxKey, rctx))
+	rrMark1 := httptest.NewRecorder()
+	notifHandler.MarkAsRead(rrMark1, reqMark1)
+	if rrMark1.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for MarkAsRead, got %d", rrMark1.Code)
+	}
+
+	unreadCount, _ := repo.GetUnreadNotificationsCount(user.ID)
+	if unreadCount != 1 {
+		t.Errorf("Expected 1 unread notification after marking one read, got %d", unreadCount)
+	}
+
+	// 7. Mark all as read
+	reqMarkAll := httptest.NewRequest(http.MethodPost, "/notifications/read-all", nil)
+	reqMarkAll = reqMarkAll.WithContext(injectUser(reqMarkAll.Context(), user))
+	rrMarkAll := httptest.NewRecorder()
+	notifHandler.MarkAllAsRead(rrMarkAll, reqMarkAll)
+	if rrMarkAll.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for MarkAllAsRead, got %d", rrMarkAll.Code)
+	}
+
+	unreadCount, _ = repo.GetUnreadNotificationsCount(user.ID)
+	if unreadCount != 0 {
+		t.Errorf("Expected 0 unread notifications after MarkAllAsRead, got %d", unreadCount)
+	}
+}
+
+func TestPicksKickoffCountdownDeadlineBanner(t *testing.T) {
+	repo, authService, _, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	subTemplatesFS, _ := fs.Sub(os.DirFS(".."), "templates")
+	renderer := NewRenderer(subTemplatesFS)
+	picksHandler := NewPicksHandler(repo, renderer, nil, 2026)
+
+	user, _ := authService.Register("count_user", "count@test.com", "pass123")
+	season, _ := repo.GetActiveSeason(2026)
+	week, _ := repo.GetWeekByNumber(season.ID, 4)
+	kc, _ := repo.GetTeamByCode("KC")
+	bal, _ := repo.GetTeamByCode("BAL")
+
+	// Case A: Game in 12 hours (< 24h deadline)
+	now := time.Now().UTC()
+	_, err := repo.CreateManualGame(&db.Game{
+		WeekID:       week.ID,
+		HomeTeamID:   kc.ID,
+		AwayTeamID:   bal.ID,
+		KickoffTime:  now.Add(12 * time.Hour),
+		Status:       "scheduled",
+		StatusDetail: "Sun, 1:00 PM",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create manual game: %v", err)
+	}
+
+	reqPicks := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/picks?week=%d", week.WeekNumber), nil)
+	reqPicks = reqPicks.WithContext(injectUser(reqPicks.Context(), user))
+	rrPicks := httptest.NewRecorder()
+	picksHandler.ShowPicks(rrPicks, reqPicks)
+
+	if rrPicks.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from ShowPicks, got %d", rrPicks.Code)
+	}
+	body := rrPicks.Body.String()
+	if !strings.Contains(body, "Cierre en Menos de 24 Horas") {
+		t.Errorf("Expected countdown banner 'Cierre en Menos de 24 Horas' in HTML when kickoff is in 12h")
+	}
+
+	// Case B: In Week 5 where kickoff is in 48 hours (> 24h deadline)
+	week5, _ := repo.GetWeekByNumber(season.ID, 5)
+	_, _ = repo.CreateManualGame(&db.Game{
+		WeekID:       week5.ID,
+		HomeTeamID:   kc.ID,
+		AwayTeamID:   bal.ID,
+		KickoffTime:  now.Add(48 * time.Hour),
+		Status:       "scheduled",
+		StatusDetail: "Sun, 1:00 PM",
+	})
+
+	reqPicks5 := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/picks?week=%d", week5.WeekNumber), nil)
+	reqPicks5 = reqPicks5.WithContext(injectUser(reqPicks5.Context(), user))
+	rrPicks5 := httptest.NewRecorder()
+	picksHandler.ShowPicks(rrPicks5, reqPicks5)
+
+	if rrPicks5.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from ShowPicks week 5, got %d", rrPicks5.Code)
+	}
+	body5 := rrPicks5.Body.String()
+	if strings.Contains(body5, "Cierre en Menos de 24 Horas") {
+		t.Errorf("Expected countdown banner NOT to show when kickoff is in 48h")
+	}
+}
+
+func TestAdminSendWeeklyRecap(t *testing.T) {
+	repo, _, _, calculator, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	subTemplatesFS, _ := fs.Sub(os.DirFS(".."), "templates")
+	renderer := NewRenderer(subTemplatesFS)
+
+	worker := notifications.NewReminderWorker(repo, nil, 2026)
+	adminHandler := NewAdminHandler(repo, renderer, nil, calculator, nil, worker, 2026)
+
+	adminUser, _ := repo.GetUserByUsername("admin")
+	season, _ := repo.GetActiveSeason(2026)
+	week, _ := repo.GetWeekByNumber(season.ID, 1)
+
+	form := url.Values{}
+	form.Set("week_id", strconvFormat(week.ID))
+
+	req := httptest.NewRequest(http.MethodPost, "/admin/reminders/weekly-recap", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(injectUser(req.Context(), adminUser))
+	rr := httptest.NewRecorder()
+
+	adminHandler.SendWeeklyRecap(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from SendWeeklyRecap, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "resúmenes semanales") {
+		t.Errorf("Expected success response with 'resúmenes semanales', got: %s", rr.Body.String())
+	}
+}
+
+func TestProfileHandlerPreferencesWithGranularNotifications(t *testing.T) {
+	repo, authService, _, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	subTemplatesFS, _ := fs.Sub(os.DirFS(".."), "templates")
+	renderer := NewRenderer(subTemplatesFS)
+	profileHandler := NewProfileHandler(repo, authService, renderer, t.TempDir())
+
+	u, err := authService.Register("prefuser", "pref@test.com", "pass123")
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	form := url.Values{}
+	form.Set("has_notif_prefs", "1")
+	form.Set("notify_email", "1")
+	form.Set("notify_kickoff", "1")
+	form.Set("notify_recap", "0") // disabled recap
+
+	req := httptest.NewRequest(http.MethodPost, "/profile/preferences", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(injectUser(req.Context(), u))
+	rr := httptest.NewRecorder()
+
+	profileHandler.HandleUpdatePreferences(rr, req)
+
+	if rr.Code != http.StatusSeeOther {
+		t.Fatalf("Expected 303 SeeOther, got %d", rr.Code)
+	}
+
+	freshUser, _ := repo.GetUserByID(u.ID)
+	if !freshUser.NotifyEmail {
+		t.Errorf("Expected NotifyEmail=true")
+	}
+	if !freshUser.NotifyKickoff {
+		t.Errorf("Expected NotifyKickoff=true")
+	}
+	if freshUser.NotifyRecap {
+		t.Errorf("Expected NotifyRecap=false")
+	}
+}
+
+func TestAdminToggleUserBeta(t *testing.T) {
+	repo, authService, renderer, calculator, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	adminHandler := NewAdminHandler(repo, renderer, nil, calculator, nil, nil, 2026)
+	adminUser, _ := repo.GetUserByUsername("admin")
+
+	playerUser, err := authService.Register("testbetauser", "testbeta@test.com", "pass123")
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	if playerUser.IsBetaTester {
+		t.Fatalf("New user should not be a beta tester by default")
+	}
+
+	// 1. Toggle to TRUE
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("userId", strconvFormat(playerUser.ID))
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/admin/users/%d/toggle-beta", playerUser.ID), nil)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	req = req.WithContext(injectUser(req.Context(), adminUser))
+	rr := httptest.NewRecorder()
+
+	adminHandler.ToggleUserBeta(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "Beta Tester") {
+		t.Errorf("Expected response to contain 'Beta Tester', got: %s", rr.Body.String())
+	}
+
+	updatedUser, err := repo.GetUserByID(playerUser.ID)
+	if err != nil || !updatedUser.IsBetaTester {
+		t.Fatalf("Expected user to be beta tester in DB, got %+v", updatedUser)
+	}
+
+	// 2. Toggle to FALSE
+	rctx2 := chi.NewRouteContext()
+	rctx2.URLParams.Add("userId", strconvFormat(playerUser.ID))
+	req2 := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/admin/users/%d/toggle-beta", playerUser.ID), nil)
+	req2 = req2.WithContext(context.WithValue(req2.Context(), chi.RouteCtxKey, rctx2))
+	req2 = req2.WithContext(injectUser(req2.Context(), adminUser))
+	rr2 := httptest.NewRecorder()
+
+	adminHandler.ToggleUserBeta(rr2, req2)
+
+	if rr2.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK, got %d", rr2.Code)
+	}
+	if !strings.Contains(rr2.Body.String(), "Estándar") {
+		t.Errorf("Expected response to contain 'Estándar', got: %s", rr2.Body.String())
+	}
+
+	updatedUser2, err := repo.GetUserByID(playerUser.ID)
+	if err != nil || updatedUser2.IsBetaTester {
+		t.Fatalf("Expected user beta tester to be false in DB, got %+v", updatedUser2)
+	}
+
+	// 3. Invalid ID
+	rctxInvalid := chi.NewRouteContext()
+	rctxInvalid.URLParams.Add("userId", "abc")
+	reqInvalid := httptest.NewRequest(http.MethodPost, "/admin/users/abc/toggle-beta", nil)
+	reqInvalid = reqInvalid.WithContext(context.WithValue(reqInvalid.Context(), chi.RouteCtxKey, rctxInvalid))
+	rrInvalid := httptest.NewRecorder()
+	adminHandler.ToggleUserBeta(rrInvalid, reqInvalid)
+	if rrInvalid.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request for invalid user ID, got %d", rrInvalid.Code)
+	}
+}
+
+func TestAdminSaveFeatureFlags(t *testing.T) {
+	repo, _, renderer, calculator, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	adminHandler := NewAdminHandler(repo, renderer, nil, calculator, nil, nil, 2026)
+	adminUser, _ := repo.GetUserByUsername("admin")
+
+	form := url.Values{}
+	form.Set("access_level_picks_matrix", "beta")
+	form.Set("is_beta_picks_matrix", "1")
+	form.Set("access_level_picks_compare", "disabled")
+	form.Set("is_beta_picks_compare", "0")
+
+	req := httptest.NewRequest(http.MethodPost, "/admin/features/save", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(injectUser(req.Context(), adminUser))
+	rr := httptest.NewRecorder()
+
+	adminHandler.SaveFeatureFlags(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from SaveFeatureFlags, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "Control de características actualizado") {
+		t.Errorf("Expected response to confirm update, got: %s", rr.Body.String())
+	}
+
+	flagMatrix, err := repo.GetFeatureFlag("picks_matrix")
+	if err != nil || flagMatrix.AccessLevel != "beta" || !flagMatrix.IsBeta {
+		t.Errorf("Expected picks_matrix to be access=beta, is_beta=true, got %+v", flagMatrix)
+	}
+
+	flagCompare, err := repo.GetFeatureFlag("picks_compare")
+	if err != nil || flagCompare.AccessLevel != "disabled" || flagCompare.IsBeta {
+		t.Errorf("Expected picks_compare to be access=disabled, is_beta=false, got %+v", flagCompare)
+	}
+}
+
+func TestFeatureFlagAccessControlGating(t *testing.T) {
+	repo, authService, _, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	subTemplatesFS, _ := fs.Sub(os.DirFS(".."), "templates")
+	renderer := NewRenderer(subTemplatesFS)
+	picksHandler := NewPicksHandler(repo, renderer, nil, 2026)
+
+	normalPlayer, err := authService.Register("normaluser", "norm@test.com", "pass123")
+	if err != nil {
+		t.Fatalf("Failed to create normal player: %v", err)
+	}
+
+	betaPlayer, err := authService.Register("betauser", "beta@test.com", "pass123")
+	if err != nil {
+		t.Fatalf("Failed to create beta player: %v", err)
+	}
+	_ = repo.SetUserBetaTester(betaPlayer.ID, true)
+	betaPlayer, _ = repo.GetUserByID(betaPlayer.ID)
+
+	adminUser, _ := repo.GetUserByUsername("admin")
+
+	// Restrict picks_matrix to 'beta'
+	_ = repo.UpdateFeatureFlag("picks_matrix", "beta", true)
+
+	// 1. Normal player accesses picks_matrix -> Locked
+	reqNormal := httptest.NewRequest(http.MethodGet, "/picks/matrix?week=1", nil)
+	reqNormal = reqNormal.WithContext(injectUser(reqNormal.Context(), normalPlayer))
+	rrNormal := httptest.NewRecorder()
+	picksHandler.ShowPicksMatrix(rrNormal, reqNormal)
+
+	if rrNormal.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK with beta locked template, got %d", rrNormal.Code)
+	}
+	bodyNormal := rrNormal.Body.String()
+	if !strings.Contains(bodyNormal, "Acceso Exclusivo para Beta Testers") {
+		t.Errorf("Expected locked page with 'Acceso Exclusivo para Beta Testers', got body: %s", bodyNormal)
+	}
+	if strings.Contains(bodyNormal, "matrix-table-container") {
+		t.Errorf("Did not expect matrix table container in locked view")
+	}
+
+	// 2. Beta player accesses picks_matrix -> Allowed
+	reqBeta := httptest.NewRequest(http.MethodGet, "/picks/matrix?week=1", nil)
+	reqBeta = reqBeta.WithContext(injectUser(reqBeta.Context(), betaPlayer))
+	rrBeta := httptest.NewRecorder()
+	picksHandler.ShowPicksMatrix(rrBeta, reqBeta)
+
+	if rrBeta.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for beta player, got %d", rrBeta.Code)
+	}
+	bodyBeta := rrBeta.Body.String()
+	if strings.Contains(bodyBeta, "Función en Fase Beta Privada") {
+		t.Errorf("Beta tester should not be locked out")
+	}
+	if !strings.Contains(bodyBeta, "Matriz de Pronósticos") {
+		t.Errorf("Beta tester should see matrix page title")
+	}
+
+	// 3. Admin accesses picks_matrix -> Allowed
+	reqAdmin := httptest.NewRequest(http.MethodGet, "/picks/matrix?week=1", nil)
+	reqAdmin = reqAdmin.WithContext(injectUser(reqAdmin.Context(), adminUser))
+	rrAdmin := httptest.NewRecorder()
+	picksHandler.ShowPicksMatrix(rrAdmin, reqAdmin)
+
+	if rrAdmin.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for admin, got %d", rrAdmin.Code)
+	}
+	bodyAdmin := rrAdmin.Body.String()
+	if strings.Contains(bodyAdmin, "Función en Fase Beta Privada") {
+		t.Errorf("Admin should not be locked out")
+	}
+
+	// 4. Test ComparePicks gating
+	_ = repo.UpdateFeatureFlag("picks_compare", "beta", true)
+
+	// Non-beta tries to compare
+	reqCompareNormal := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/picks/compare?rival_id=%d", betaPlayer.ID), nil)
+	reqCompareNormal = reqCompareNormal.WithContext(injectUser(reqCompareNormal.Context(), normalPlayer))
+	rrCompareNormal := httptest.NewRecorder()
+	picksHandler.ComparePicks(rrCompareNormal, reqCompareNormal)
+
+	if !strings.Contains(rrCompareNormal.Body.String(), "Beta Privada") {
+		t.Errorf("Expected 'Beta Privada' for normal user, got: %s", rrCompareNormal.Body.String())
+	}
+
+	// Beta player tries to compare
+	reqCompareBeta := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/picks/compare?rival_id=%d", normalPlayer.ID), nil)
+	reqCompareBeta = reqCompareBeta.WithContext(injectUser(reqCompareBeta.Context(), betaPlayer))
+	rrCompareBeta := httptest.NewRecorder()
+	picksHandler.ComparePicks(rrCompareBeta, reqCompareBeta)
+
+	if strings.Contains(rrCompareBeta.Body.String(), "Beta Privada") {
+		t.Errorf("Beta tester should have access to compare picks")
+	}
+}
+
 
 
 

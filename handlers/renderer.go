@@ -7,6 +7,8 @@ import (
 	"math"
 	"net/http"
 	"time"
+
+	"nfl-quiniela-2026/db"
 )
 
 // Spanish day and month translations
@@ -123,6 +125,24 @@ func (r *Renderer) FuncMap() template.FuncMap {
 				t = t.In(CDMXLocation)
 			}
 			return t.Format("02/01/2006 15:04")
+		},
+		"isFeatureBeta": func(flags map[string]*db.FeatureFlag, key string) bool {
+			if flags == nil {
+				return false
+			}
+			if f, ok := flags[key]; ok && f != nil {
+				return f.IsBeta
+			}
+			return false
+		},
+		"hasFeatureAccess": func(u *db.User, flags map[string]*db.FeatureFlag, key string) bool {
+			if flags == nil {
+				return true
+			}
+			if f, ok := flags[key]; ok && f != nil {
+				return f.IsAccessibleTo(u)
+			}
+			return true
 		},
 	}
 }

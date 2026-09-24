@@ -131,8 +131,11 @@ func (d *DB) migrate() error {
 		"ALTER TABLE users ADD COLUMN reset_token TEXT DEFAULT NULL",
 		"ALTER TABLE users ADD COLUMN reset_token_expires_at TIMESTAMP DEFAULT NULL",
 		"ALTER TABLE users ADD COLUMN notify_email BOOLEAN NOT NULL DEFAULT 1",
+		"ALTER TABLE users ADD COLUMN notify_kickoff BOOLEAN NOT NULL DEFAULT 1",
+		"ALTER TABLE users ADD COLUMN notify_recap BOOLEAN NOT NULL DEFAULT 1",
 		"ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''",
 		"ALTER TABLE users ADD COLUMN featured_badge_code TEXT DEFAULT ''",
+		"ALTER TABLE users ADD COLUMN is_beta_tester BOOLEAN NOT NULL DEFAULT 0",
 	}
 	if d.DriverName == "pgx" {
 		userCols = []string{
@@ -142,8 +145,11 @@ func (d *DB) migrate() error {
 			"ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT DEFAULT NULL",
 			"ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires_at TIMESTAMP DEFAULT NULL",
 			"ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_email BOOLEAN NOT NULL DEFAULT TRUE",
+			"ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_kickoff BOOLEAN NOT NULL DEFAULT TRUE",
+			"ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_recap BOOLEAN NOT NULL DEFAULT TRUE",
 			"ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT ''",
 			"ALTER TABLE users ADD COLUMN IF NOT EXISTS featured_badge_code TEXT DEFAULT ''",
+			"ALTER TABLE users ADD COLUMN IF NOT EXISTS is_beta_tester BOOLEAN NOT NULL DEFAULT FALSE",
 		}
 	}
 	for _, colStmt := range userCols {
@@ -242,6 +248,45 @@ func (d *DB) migrate() error {
 	}
 	if _, err := d.Exec(seedBotUser); err != nil {
 		log.Printf("[DB] Warning seeding bot user: %v", err)
+	}
+
+	// Create feature_flags table if not exists
+	createFeatureFlagsTable := `
+	CREATE TABLE IF NOT EXISTS feature_flags (
+		key TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		description TEXT NOT NULL DEFAULT '',
+		access_level TEXT NOT NULL DEFAULT 'all',
+		is_beta BOOLEAN NOT NULL DEFAULT 0,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);`
+	if d.DriverName == "pgx" {
+		createFeatureFlagsTable = strings.ReplaceAll(createFeatureFlagsTable, "BOOLEAN NOT NULL DEFAULT 0", "BOOLEAN NOT NULL DEFAULT FALSE")
+	}
+	if _, err := d.Exec(createFeatureFlagsTable); err != nil {
+		log.Printf("[DB] Warning creating feature_flags table: %v", err)
+	}
+
+	// Seed default feature flags
+	seedFeatures := []struct {
+		key         string
+		name        string
+		description string
+		accessLevel string
+		isBeta      int
+	}{
+		{"picks_matrix", "Matriz de Pronósticos", "Grilla interactiva comparativa de pronósticos de toda la liga semana a semana.", "beta", 1},
+		{"picks_compare", "Duelo Cara a Cara", "Comparador de pronósticos y divergencias entre rivales directos.", "all", 1},
+		{"ai_forecast", "Pronósticos con IA", "Probabilidades estimadas por machine learning y marcadores proyectados.", "all", 1},
+		{"live_gamecenter", "Game Center en Vivo", "Transmisión en directo minuto a minuto vía Server-Sent Events.", "all", 0},
+		{"community_picks", "Tendencias Comunitarias", "Porcentaje de selección comunitaria de cada equipo por partido.", "all", 0},
+	}
+	for _, f := range seedFeatures {
+		query := `INSERT OR IGNORE INTO feature_flags (key, name, description, access_level, is_beta) VALUES (?, ?, ?, ?, ?)`
+		if d.DriverName == "pgx" {
+			query = `INSERT INTO feature_flags (key, name, description, access_level, is_beta) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (key) DO NOTHING`
+		}
+		_, _ = d.Exec(query, f.key, f.name, f.description, f.accessLevel, f.isBeta)
 	}
 
 	return nil

@@ -23,6 +23,9 @@ type User struct {
 	ResetToken          *string    `json:"-"`
 	ResetTokenExpiresAt *time.Time `json:"-"`
 	NotifyEmail         bool       `json:"notify_email"`
+	NotifyKickoff       bool       `json:"notify_kickoff"`
+	NotifyRecap         bool       `json:"notify_recap"`
+	IsBetaTester        bool       `json:"is_beta_tester"`
 	Bio                 string           `json:"bio"`
 	FeaturedBadgeCode   string           `json:"featured_badge_code"`
 	FavoriteTeam        *Team            `json:"favorite_team,omitempty"`
@@ -45,6 +48,10 @@ func (u *User) GetFavoriteTeamID() int64 {
 
 func (u *User) IsAdmin() bool {
 	return u.Role == "admin"
+}
+
+func (u *User) CanAccessBeta() bool {
+	return u != nil && (u.IsAdmin() || u.IsBetaTester)
 }
 
 func (u *User) IsBot() bool {
@@ -101,6 +108,34 @@ type SystemSetting struct {
 	Key       string    `json:"key"`
 	Value     string    `json:"value"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// FeatureFlag represents an individual feature toggle and rollout configuration
+type FeatureFlag struct {
+	Key         string    `json:"key"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	AccessLevel string    `json:"access_level"` // "all", "beta", "admin", "disabled"
+	IsBeta      bool      `json:"is_beta"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (f *FeatureFlag) IsAccessibleTo(u *User) bool {
+	if f == nil {
+		return true
+	}
+	switch f.AccessLevel {
+	case "disabled":
+		return false
+	case "admin":
+		return u != nil && u.IsAdmin()
+	case "beta":
+		return u != nil && (u.IsAdmin() || u.IsBetaTester)
+	case "all":
+		return true
+	default:
+		return true
+	}
 }
 
 // Season represents an NFL season
@@ -1414,3 +1449,94 @@ func (f *GameForecast) ConsensusLabel() string {
 		return "Consenso IA"
 	}
 }
+
+// InAppNotification represents an in-app alert for a user
+type InAppNotification struct {
+	ID        int64     `json:"id"`
+	UserID    int64     `json:"user_id"`
+	Title     string    `json:"title"`
+	Message   string    `json:"message"`
+	Link      string    `json:"link"`
+	Type      string    `json:"type"` // "kickoff_reminder", "weekly_recap", "achievement", "system"
+	IsRead    bool      `json:"is_read"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (n *InAppNotification) TimeAgo() string {
+	diff := time.Since(n.CreatedAt)
+	if diff < time.Minute {
+		return "Hace un momento"
+	} else if diff < time.Hour {
+		mins := int(diff.Minutes())
+		if mins == 1 {
+			return "Hace 1 minuto"
+		}
+		return fmt.Sprintf("Hace %d minutos", mins)
+	} else if diff < 24*time.Hour {
+		hours := int(diff.Hours())
+		if hours == 1 {
+			return "Hace 1 hora"
+		}
+		return fmt.Sprintf("Hace %d horas", hours)
+	} else {
+		days := int(diff.Hours() / 24)
+		if days == 1 {
+			return "Hace 1 día"
+		}
+		return fmt.Sprintf("Hace %d días", days)
+	}
+}
+
+func (n *InAppNotification) Icon() string {
+	switch n.Type {
+	case "kickoff_reminder":
+		return "fa-solid fa-clock text-amber-400"
+	case "weekly_recap":
+		return "fa-solid fa-trophy text-yellow-400"
+	case "achievement":
+		return "fa-solid fa-medal text-emerald-400"
+	default:
+		return "fa-solid fa-bell text-blue-400"
+	}
+}
+
+// PodiumEntry represents a top player in the weekly or season rankings
+type PodiumEntry struct {
+	Rank            int    `json:"rank"`
+	UserID          int64  `json:"user_id"`
+	Username        string `json:"username"`
+	AvatarURL       string `json:"avatar_url"`
+	FavoriteTeamCode string `json:"favorite_team_code"`
+	TotalPoints     int    `json:"total_points"`
+	CorrectPicks    int    `json:"correct_picks"`
+	TotalPicks      int    `json:"total_picks"`
+	TiebreakerError int    `json:"tiebreaker_error"`
+	IsBot           bool   `json:"is_bot"`
+}
+
+// UserRecapStats holds the user's personal summary for a completed week
+type UserRecapStats struct {
+	WeeklyRank       int `json:"weekly_rank"`
+	TotalPoints      int `json:"total_points"`
+	CorrectPicks     int `json:"correct_picks"`
+	TotalGames       int `json:"total_games"`
+	AccuracyPercent  int `json:"accuracy_percent"`
+	TiebreakerPoints int `json:"tiebreaker_points"`
+	HasTiebreaker    bool `json:"has_tiebreaker"`
+	SeasonRank       int `json:"season_rank"`
+	SeasonTotalPts   int `json:"season_total_pts"`
+}
+
+// WeeklyRecapData holds all aggregated data for the weekly digest
+type WeeklyRecapData struct {
+	WeekID            int64           `json:"week_id"`
+	WeekNumber        int             `json:"week_number"`
+	WeekName          string          `json:"week_name"`
+	Podium            []*PodiumEntry  `json:"podium"`
+	TotalParticipants int             `json:"total_participants"`
+	UserRecap         *UserRecapStats `json:"user_recap"`
+	NextWeekNumber    int             `json:"next_week_number"`
+	NextWeekName      string          `json:"next_week_name"`
+	NextWeekKickoff   string          `json:"next_week_kickoff"`
+}
+

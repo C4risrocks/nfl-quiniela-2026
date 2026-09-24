@@ -15,6 +15,8 @@
          favTeamId: '{{.ProfileUser.GetFavoriteTeamID}}',
          featuredBadgeCode: '{{.ProfileUser.FeaturedBadgeCode}}',
          notifyEmail: {{if .ProfileUser.NotifyEmail}}true{{else}}false{{end}},
+         notifyKickoff: {{if .ProfileUser.NotifyKickoff}}true{{else}}false{{end}},
+         notifyRecap: {{if .ProfileUser.NotifyRecap}}true{{else}}false{{end}},
          customUrlInput: '',
          
          teams: [
@@ -125,6 +127,9 @@
                     {{if .ProfileUser.IsAdmin}}
                         <span class="text-[9px] uppercase font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded">Admin</span>
                     {{end}}
+                    {{if .ProfileUser.IsBetaTester}}
+                        <span class="text-[9px] uppercase font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded flex items-center space-x-1 shadow-xs"><i class="fa-solid fa-flask text-[8px] mr-1 text-purple-400"></i>Beta Tester</span>
+                    {{end}}
                     {{if not .IsOwnProfile}}
                         <span class="text-[9px] uppercase font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded">Rival</span>
                     {{end}}
@@ -230,6 +235,27 @@
         <div class="p-3.5 rounded-xl bg-red-950/40 border border-red-500/30 text-red-300 text-xs flex items-center space-x-2 shadow-sm">
             <i class="fa-solid fa-circle-exclamation text-red-400"></i>
             <span>{{.Error}}</span>
+        </div>
+    {{end}}
+
+    {{if and .IsOwnProfile .ProfileUser.IsBetaTester}}
+        <div class="p-4 rounded-2xl bg-gradient-to-r from-purple-950/40 via-zinc-900 to-zinc-950 border border-purple-500/30 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/40 flex items-center justify-center shrink-0 text-base">
+                    <i class="fa-solid fa-flask"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="font-bold text-white text-sm">Miembro del Programa Beta Tester</span>
+                        <span class="px-1.5 py-0.2 rounded text-[9px] font-mono uppercase bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">Activo</span>
+                    </div>
+                    <span class="text-[11px] text-zinc-400 block mt-0.5">Tienes acceso a herramientas en desarrollo como la Matriz de Pronósticos y modelos predictivos avanzados de IA.</span>
+                </div>
+            </div>
+            <a href="/picks/matrix" class="self-start sm:self-auto shrink-0 px-3.5 py-2 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 text-xs font-bold transition-all flex items-center space-x-1.5">
+                <i class="fa-solid fa-table-cells text-xs"></i>
+                <span>Abrir Matriz Beta</span>
+            </a>
         </div>
     {{end}}
 
@@ -644,13 +670,32 @@
                            class="w-full bg-zinc-900 border border-zinc-700/80 text-white text-xs rounded-xl px-3.5 py-2.5 focus:ring-1 focus:ring-white outline-none">
                 </div>
 
-                <div class="pt-1">
+                <input type="hidden" name="has_notif_prefs" value="1">
+                <div class="pt-1 space-y-3">
                     <label class="flex items-start space-x-3 cursor-pointer select-none">
                         <input type="checkbox" name="notify_email" value="1" {{if .ProfileUser.NotifyEmail}}checked{{end}}
                                 class="w-4 h-4 mt-0.5 rounded bg-zinc-900 border-zinc-700 text-white focus:ring-0 focus:ring-offset-0">
                         <div>
                             <span class="text-xs font-medium text-white block">Recordatorios por Correo</span>
                             <span class="text-[11px] text-zinc-400 block mt-0.5 leading-relaxed">Recibir alertas automáticas antes de que inicien los partidos si aún tienes pronósticos pendientes.</span>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start space-x-3 cursor-pointer select-none">
+                        <input type="checkbox" name="notify_kickoff" value="1" {{if .ProfileUser.NotifyKickoff}}checked{{end}}
+                                class="w-4 h-4 mt-0.5 rounded bg-zinc-900 border-zinc-700 text-white focus:ring-0 focus:ring-offset-0">
+                        <div>
+                            <span class="text-xs font-medium text-white block">Alertas de Kickoff (24h y 2h antes)</span>
+                            <span class="text-[11px] text-zinc-400 block mt-0.5 leading-relaxed">Notificaciones de cuenta regresiva y partidos a punto de iniciar con pronósticos incompletos.</span>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start space-x-3 cursor-pointer select-none">
+                        <input type="checkbox" name="notify_recap" value="1" {{if .ProfileUser.NotifyRecap}}checked{{end}}
+                                class="w-4 h-4 mt-0.5 rounded bg-zinc-900 border-zinc-700 text-white focus:ring-0 focus:ring-offset-0">
+                        <div>
+                            <span class="text-xs font-medium text-white block">Resumen Semanal y Podio</span>
+                            <span class="text-[11px] text-zinc-400 block mt-0.5 leading-relaxed">Digest al terminar la jornada con el podio (1º, 2º y 3º), tus puntos y ranking.</span>
                         </div>
                     </label>
                 </div>
@@ -735,7 +780,7 @@
             </div>
 
             <!-- Scrollable Content with Live Preview and Form -->
-            <form action="/profile/preferences" method="POST" enctype="multipart/form-data" class="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col">
+            <form action="/profile/preferences" method="POST" enctype="multipart/form-data" class="flex-1 min-h-0 overflow-y-auto overscroll-contain modal-scrollable flex flex-col">
                 <div class="p-4 sm:p-6 space-y-5">
                     
                     <!-- Live Preview Box -->
@@ -793,6 +838,7 @@
                     <!-- Hidden Inputs for Form Submission -->
                     <input type="hidden" name="avatar_url" :value="avatarUrl">
                     <input type="hidden" name="featured_badge_code" :value="featuredBadgeCode">
+                    <input type="hidden" name="has_notif_prefs" value="1">
 
                     <!-- Tab Buttons -->
                     <div class="flex border-b border-zinc-800 space-x-1 overflow-x-auto no-scrollbar">
@@ -1070,6 +1116,30 @@
                                 </div>
                             </label>
                         </div>
+
+                        <div class="p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                            <label class="flex items-start space-x-3 cursor-pointer select-none">
+                                <input type="checkbox" name="notify_kickoff" value="1" 
+                                       x-model="notifyKickoff"
+                                       class="w-4 h-4 mt-0.5 rounded bg-zinc-900 border-zinc-700 text-white focus:ring-0 focus:ring-offset-0">
+                                <div>
+                                    <span class="text-xs font-bold text-white block">Alertas de Kickoff (24h y 2h antes)</span>
+                                    <span class="text-[11px] text-zinc-400 block mt-0.5 leading-relaxed">Avisos urgentes por correo y en la campana antes del inicio del primer partido con pronósticos pendientes.</span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                            <label class="flex items-start space-x-3 cursor-pointer select-none">
+                                <input type="checkbox" name="notify_recap" value="1" 
+                                       x-model="notifyRecap"
+                                       class="w-4 h-4 mt-0.5 rounded bg-zinc-900 border-zinc-700 text-white focus:ring-0 focus:ring-offset-0">
+                                <div>
+                                    <span class="text-xs font-bold text-white block">Resumen Semanal y Podio</span>
+                                    <span class="text-[11px] text-zinc-400 block mt-0.5 leading-relaxed">Digest semanal con el podio (1º, 2º y 3º lugar), tus aciertos, ranking y botón a la próxima jornada.</span>
+                                </div>
+                            </label>
+                        </div>
                     </div>
 
                 </div>
@@ -1114,7 +1184,7 @@
             </div>
 
             <!-- Scrollable Content -->
-            <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 space-y-4 text-center">
+            <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain modal-scrollable p-6 space-y-4 text-center">
                 <!-- Huge Badge Icon with rarity glow -->
                 <div class="w-24 h-24 mx-auto rounded-2xl flex items-center justify-center text-5xl shadow-xl border shrink-0"
                      :class="{

@@ -253,6 +253,9 @@
                    title="Ver matriz comunitaria de pronósticos"
                    class="inline-flex items-center px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-cyan-500/50 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer shrink-0">
                     <i class="fa-solid fa-table-cells mr-1 sm:mr-1.5 text-cyan-400"></i> Matriz
+                    {{if isFeatureBeta .FeatureFlags "picks_matrix"}}
+                        <span class="ml-1.5 px-1 py-0.2 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase tracking-wider">Beta</span>
+                    {{end}}
                 </a>
                 {{if .Games}}
                     <button type="button" 
@@ -278,6 +281,95 @@
             </div>
         </div>
     </div>
+
+    {{if and .HasUpcomingDeadline (not .IsFullWeekLocked)}}
+    <!-- 24-Hour Kickoff Countdown Banner -->
+    <div x-data="{
+            targetTime: new Date('{{.NextKickoffISO}}').getTime(),
+            timeLeftStr: '',
+            hours: 0,
+            minutes: 0,
+            seconds: 0,
+            isExpired: false,
+            updateCountdown() {
+                const now = new Date().getTime();
+                const diff = this.targetTime - now;
+                if (diff <= 0) {
+                    this.isExpired = true;
+                    this.timeLeftStr = '00:00:00';
+                    return;
+                }
+                const h = Math.floor(diff / (1000 * 60 * 60));
+                const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const s = Math.floor((diff % (1000 * 60)) / 1000);
+                this.hours = h;
+                this.minutes = m;
+                this.seconds = s;
+                this.timeLeftStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            },
+            init() {
+                this.updateCountdown();
+                setInterval(() => this.updateCountdown(), 1000);
+            }
+         }"
+         class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-950/40 via-zinc-950/90 to-zinc-950 border border-amber-500/40 shadow-lg relative overflow-hidden backdrop-blur-md">
+        
+        <!-- Background football icon -->
+        <div class="absolute -right-6 -bottom-6 text-amber-500/5 text-8xl pointer-events-none transform -rotate-12">
+            <i class="fa-solid fa-clock"></i>
+        </div>
+
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+            <!-- Left Info -->
+            <div class="space-y-1">
+                <div class="flex items-center space-x-2">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wider animate-pulse">
+                        <i class="fa-solid fa-bolt mr-1 text-[9px]"></i> Cierre en Menos de 24 Horas
+                    </span>
+                    {{if .UpcomingGame}}
+                    <span class="text-xs font-mono text-zinc-400">
+                        Próximo: {{.UpcomingGame.AwayTeam.Code}} @ {{.UpcomingGame.HomeTeam.Code}}
+                    </span>
+                    {{end}}
+                </div>
+                
+                <h3 class="text-base sm:text-lg font-black text-white tracking-tight flex items-center">
+                    <span>¡El próximo partido inicia el {{.FormattedNextKickoff}}!</span>
+                </h3>
+                
+                <p class="text-xs text-zinc-400">
+                    {{if gt .MissingPicksCount 0}}
+                        Aún tienes <strong class="text-amber-300 font-bold">{{.MissingPicksCount}}</strong> {{if eq .MissingPicksCount 1}}partido pendiente{{else}}partidos pendientes{{end}} por pronosticar en esta jornada.
+                    {{else}}
+                        <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-circle-check mr-1"></i> ¡Tus pronósticos están al día!</span> Puedes modificarlos libremente antes de la patada inicial.
+                    {{end}}
+                </p>
+            </div>
+
+            <!-- Right Clock & CTA -->
+            <div class="flex flex-row items-center gap-3 shrink-0">
+                <!-- Clock Box -->
+                <div class="bg-black/80 border border-amber-500/30 px-3.5 py-2 rounded-xl flex items-center space-x-2 shadow-inner">
+                    <i class="fa-regular fa-clock text-amber-400 text-xs"></i>
+                    <div class="flex flex-col items-center">
+                        <span class="text-[9px] font-mono text-zinc-500 uppercase tracking-wider leading-none">Tiempo Restante</span>
+                        <span class="font-mono text-lg sm:text-xl font-black text-white tracking-widest mt-0.5" x-text="timeLeftStr">--:--:--</span>
+                    </div>
+                </div>
+
+                {{if gt .MissingPicksCount 0}}
+                <!-- Action Button -->
+                <button type="button" 
+                        @click="jumpToMissing()" 
+                        class="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-xs transition-transform transform active:scale-95 shadow-md flex items-center space-x-1.5 cursor-pointer">
+                    <i class="fa-solid fa-pen-to-square text-xs"></i>
+                    <span>Completar Ahora</span>
+                </button>
+                {{end}}
+            </div>
+        </div>
+    </div>
+    {{end}}
 
     {{if and .User (not .User.EmailVerified)}}
         <!-- Unverified Email Notification Banner -->
@@ -672,7 +764,7 @@
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0">
         
-        <div class="relative w-full max-w-md bg-[#121212] border border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-2xl space-y-4 max-h-[90dvh] my-auto overflow-y-auto overscroll-contain"
+        <div class="relative w-full max-w-md bg-[#121212] border border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-2xl space-y-4 max-h-[90dvh] my-auto overflow-y-auto overscroll-contain modal-scrollable"
              @click.stop
              @click.away="confirmOpen = false"
              @keydown.escape.window="confirmOpen = false"

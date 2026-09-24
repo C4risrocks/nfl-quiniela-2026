@@ -134,24 +134,65 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Upcoming kickoff & 24h deadline countdown calculation
+	upcomingKickoff, upcomingGame, _ := h.repo.GetUpcomingKickoffForWeek(selectedWeek.ID, now)
+	hasUpcomingDeadline := false
+	var timeUntilKickoff time.Duration
+	var nextKickoffISO string
+	var formattedNextKickoff string
+	var closingTargetDeadline *time.Time
+
+	if scoringCfg.LockMode == "full_week" && effectiveFirstKickoff != nil {
+		closingTargetDeadline = effectiveFirstKickoff
+	} else if upcomingKickoff != nil {
+		closingTargetDeadline = upcomingKickoff
+	}
+
+	if closingTargetDeadline != nil {
+		nextKickoffISO = closingTargetDeadline.Format(time.RFC3339)
+		timeUntilKickoff = closingTargetDeadline.Sub(now)
+		if timeUntilKickoff > 0 && timeUntilKickoff <= 24*time.Hour {
+			hasUpcomingDeadline = true
+		}
+		formattedNextKickoff = h.formatKickoff(*closingTargetDeadline)
+	}
+
+	missingPicksCount := 0
+	for _, g := range games {
+		isLocked := g.IsGameOrWeekLocked(now, scoringCfg.LockMode, firstKickoff)
+		if !isLocked && !g.HasPickCompleted() {
+			missingPicksCount++
+		}
+	}
+
+	featureFlags, _ := h.repo.GetFeatureFlagsMap()
+
 	h.renderer.RenderPage(w, "picks.html", map[string]interface{}{
-		"ActiveNav":          "picks",
-		"User":               user,
-		"Weeks":              weeks,
-		"SelectedWeek":       selectedWeek,
-		"Games":              games,
-		"PicksCount":         picksCount,
-		"UserWeeklyPoints":   userWeeklyPts,
-		"UserCorrectPicks":   userCorrectPicks,
-		"CurrentTime":        time.Now(),
-		"ScoringConfig":      scoringCfg,
-		"LockMode":           scoringCfg.LockMode,
-		"FirstKickoff":       firstKickoff,
-		"IsFullWeekLocked":   isFullWeekLocked,
-		"JustSaved":          r.URL.Query().Get("saved") == "1",
-		"MissingCount":       func() int { m, _ := strconv.Atoi(r.URL.Query().Get("missing")); return m }(),
-		"IsWeek1GraceActive": selectedWeek.WeekNumber == 1 && time.Now().Before(db.Week1GraceDeadline),
-		"Week1GraceDeadline": db.Week1GraceDeadline,
+		"ActiveNav":               "picks",
+		"User":                    user,
+		"Weeks":                   weeks,
+		"SelectedWeek":            selectedWeek,
+		"Games":                   games,
+		"PicksCount":              picksCount,
+		"UserWeeklyPoints":        userWeeklyPts,
+		"UserCorrectPicks":        userCorrectPicks,
+		"CurrentTime":             time.Now(),
+		"ScoringConfig":           scoringCfg,
+		"LockMode":                scoringCfg.LockMode,
+		"FirstKickoff":            firstKickoff,
+		"IsFullWeekLocked":        isFullWeekLocked,
+		"JustSaved":               r.URL.Query().Get("saved") == "1",
+		"MissingCount":            func() int { m, _ := strconv.Atoi(r.URL.Query().Get("missing")); return m }(),
+		"IsWeek1GraceActive":      selectedWeek.WeekNumber == 1 && time.Now().Before(db.Week1GraceDeadline),
+		"Week1GraceDeadline":      db.Week1GraceDeadline,
+		"HasUpcomingDeadline":     hasUpcomingDeadline,
+		"UpcomingKickoff":         closingTargetDeadline,
+		"UpcomingGame":            upcomingGame,
+		"NextKickoffISO":          nextKickoffISO,
+		"FormattedNextKickoff":    formattedNextKickoff,
+		"TimeUntilKickoffSeconds": int64(timeUntilKickoff.Seconds()),
+		"MissingPicksCount":       missingPicksCount,
+		"FeatureFlags":            featureFlags,
 	})
 }
 
@@ -466,6 +507,13 @@ func (h *PicksHandler) ComparePicks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.repo.IsFeatureAccessible("picks_compare", currentUser) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `<div class="p-6 rounded-2xl bg-zinc-950 border border-purple-500/30 text-center space-y-3"><div class="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/40 flex items-center justify-center mx-auto text-xl"><i class="fa-solid fa-flask"></i></div><h3 class="text-sm font-bold text-white">Duelo Cara a Cara (Beta Privada)</h3><p class="text-xs text-zinc-400">Esta función está reservada temporalmente para Beta Testers y Administradores.</p></div>`)
+		return
+	}
+
 	rivalIDStr := r.URL.Query().Get("rival_id")
 	rivalID, err := strconv.ParseInt(rivalIDStr, 10, 64)
 	if err != nil || rivalID <= 0 {
@@ -548,6 +596,16 @@ func (h *PicksHandler) formatKickoff(t time.Time) string {
 // ShowPicksMatrix displays the full community picks matrix (sábana)
 func (h *PicksHandler) ShowPicksMatrix(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUserFromContext(r.Context())
+	if !h.repo.IsFeatureAccessible("picks_matrix", user) {
+		h.renderer.RenderPage(w, "beta_locked.html", map[string]interface{}{
+			"ActiveNav":   "picks",
+			"User":        user,
+			"FeatureName": "Matriz de Pronósticos",
+			"FeatureDesc": "La sábana comparativa comunitaria permite ver en una sola grilla en tiempo real los pronósticos de todos los competidores semana a semana.",
+		})
+		return
+	}
+
 	season, err := h.repo.GetActiveSeason(2026)
 	if err != nil {
 		http.Error(w, "Error loading season", http.StatusInternalServerError)
@@ -596,7 +654,7 @@ func (h *PicksHandler) ShowPicksMatrix(w http.ResponseWriter, r *http.Request) {
 
 	matrixData.User = user
 
-	if r.Header.Get("HX-Request") == "true" && r.URL.Query().Get("partial") == "1" {
+	if r.Header.Get("HX-Request") == "true" || r.URL.Query().Get("partial") == "1" {
 		h.renderer.RenderPartial(w, "picks_matrix_table.html", map[string]interface{}{
 			"Matrix":       matrixData,
 			"User":         user,

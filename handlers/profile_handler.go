@@ -318,8 +318,15 @@ func (h *ProfileHandler) HandleUpdatePreferences(w http.ResponseWriter, r *http.
 	}
 
 	notifyEmail := r.FormValue("notify_email") == "on" || r.FormValue("notify_email") == "true" || r.FormValue("notify_email") == "1"
+	notifyKickoff := r.FormValue("notify_kickoff") == "on" || r.FormValue("notify_kickoff") == "true" || r.FormValue("notify_kickoff") == "1"
+	notifyRecap := r.FormValue("notify_recap") == "on" || r.FormValue("notify_recap") == "true" || r.FormValue("notify_recap") == "1"
+	// If granular prefs not present in form submission, default to true if notifyEmail is true
+	if r.FormValue("has_notif_prefs") != "1" && notifyEmail {
+		notifyKickoff = true
+		notifyRecap = true
+	}
 
-	if err := h.repo.UpdateUserPreferences(user.ID, avatarURL, favTeamID, notifyEmail, bio, featuredBadgeCode); err != nil {
+	if err := h.repo.UpdateUserPreferences(user.ID, avatarURL, favTeamID, notifyEmail, bio, featuredBadgeCode, notifyKickoff, notifyRecap); err != nil {
 		http.Redirect(w, r, fmt.Sprintf("/profile?err=%s", "Error al guardar preferencias"), http.StatusSeeOther)
 		return
 	}

@@ -87,6 +87,8 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 		syncStatus = h.syncer.GetSyncStatus()
 	}
 
+	featureFlags, _ := h.repo.ListFeatureFlags()
+
 	h.renderer.RenderPage(w, "admin.html", map[string]interface{}{
 		"ActiveNav":          "admin",
 		"User":               user,
@@ -99,6 +101,7 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 		"PendingUsers":       pendingUsers,
 		"PendingCount":       len(pendingUsers),
 		"SyncStatus":         syncStatus,
+		"FeatureFlags":       featureFlags,
 		"IsWeek1GraceActive": selectedWeek.WeekNumber == 1 && time.Now().Before(db.Week1GraceDeadline),
 		"Week1GraceDeadline": db.Week1GraceDeadline,
 	})
@@ -418,6 +421,37 @@ func (h *AdminHandler) SendReminders(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, `<div class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center space-x-2"><i class="fa-solid fa-circle-check text-emerald-400"></i><span>¡Éxito! Se enviaron <strong>%d</strong> %s a jugadores con pronósticos pendientes.</span></div>`, count, reminderLabel)
 }
 
+func (h *AdminHandler) SendWeeklyRecap(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	weekID, err := strconv.ParseInt(r.FormValue("week_id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid week id", http.StatusBadRequest)
+		return
+	}
+
+	if h.reminderWorker == nil {
+		http.Error(w, "Servicio de notificaciones no disponible", http.StatusInternalServerError)
+		return
+	}
+
+	count, err := h.reminderWorker.SendManualWeeklyRecap(weekID)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `<div class="p-2 rounded bg-red-500/10 border border-red-500/20 text-red-300 text-xs">Error al despachar resumen: %v</div>`, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, `<div class="p-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 text-xs flex items-center space-x-2"><i class="fa-solid fa-trophy text-yellow-400"></i><span>¡Éxito! Se despacharon <strong>%d</strong> resúmenes semanales (notificación interna y correo).</span></div>`, count)
+}
+
+
 func (h *AdminHandler) ShowUserPicks(w http.ResponseWriter, r *http.Request) {
 	targetUserID, err := strconv.ParseInt(chi.URLParam(r, "userId"), 10, 64)
 	if err != nil {
@@ -604,6 +638,76 @@ func (h *AdminHandler) ToggleUserRole(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `<span class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold bg-zinc-900 text-zinc-400 border border-zinc-800">player</span>`)
 	}
 }
+
+func (h *AdminHandler) ToggleUserBeta(w http.ResponseWriter, r *http.Request) {
+	targetUserID, err := strconv.ParseInt(chi.URLParam(r, "userId"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	targetUser, err := h.repo.GetUserByID(targetUserID)
+	if err != nil || targetUser == nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	newBetaState := !targetUser.IsBetaTester
+	if err := h.repo.SetUserBetaTester(targetUserID, newBetaState); err != nil {
+		http.Error(w, "Error toggling beta status", http.StatusInternalServerError)
+		return
+	}
+
+	statusText := "removido de"
+	if newBetaState {
+		statusText = "agregado a"
+	}
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Usuario %s %s Beta Testers", "type": "info"}}`, targetUser.Username, statusText))
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	if newBetaState {
+		fmt.Fprintf(w, `<button hx-post="/admin/users/%d/toggle-beta" hx-swap="outerHTML" class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold cursor-pointer hover:opacity-80 transition-opacity bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-xs"><i class="fa-solid fa-flask mr-1 text-[8px] text-purple-400"></i>Beta Tester</button>`, targetUserID)
+	} else {
+		fmt.Fprintf(w, `<button hx-post="/admin/users/%d/toggle-beta" hx-swap="outerHTML" class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold cursor-pointer hover:opacity-80 transition-opacity bg-zinc-900 text-zinc-500 border border-zinc-800">Estándar</button>`, targetUserID)
+	}
+}
+
+func (h *AdminHandler) SaveFeatureFlags(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Error en los datos del formulario", "type": "error"}}`)
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	flags, err := h.repo.ListFeatureFlags()
+	if err != nil {
+		http.Error(w, "Error reading feature flags", http.StatusInternalServerError)
+		return
+	}
+
+	updatedCount := 0
+	for _, flag := range flags {
+		accessLevel := strings.TrimSpace(r.FormValue("access_level_" + flag.Key))
+		if accessLevel == "" {
+			accessLevel = flag.AccessLevel
+		}
+		if accessLevel != "all" && accessLevel != "beta" && accessLevel != "admin" && accessLevel != "disabled" {
+			accessLevel = "all"
+		}
+
+		isBeta := r.FormValue("is_beta_"+flag.Key) == "1" || r.FormValue("is_beta_"+flag.Key) == "on"
+
+		if err := h.repo.UpdateFeatureFlag(flag.Key, accessLevel, isBeta); err == nil {
+			updatedCount++
+		}
+	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "¡Configuración de %d características guardada con éxito!", "type": "success"}}`, updatedCount))
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, `<div class="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs flex items-center space-x-2"><i class="fa-solid fa-flask text-purple-400"></i><span>¡Control de características actualizado! Se aplicaron los niveles de acceso y etiquetas Beta en tiempo real.</span></div>`)
+}
+
 
 func (h *AdminHandler) ExportWeekPicksCSV(w http.ResponseWriter, r *http.Request) {
 	season, err := h.repo.GetActiveSeason(h.seasonYear)

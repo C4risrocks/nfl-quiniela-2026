@@ -25,9 +25,19 @@
 }
 
 /* Modal active scroll lock */
-body.overflow-hidden {
+body.overflow-hidden,
+html.overflow-hidden {
     overflow: hidden !important;
-    touch-action: none;
-    -webkit-overflow-scrolling: auto;
 }
+
+/* Enhanced Modal & Dynamic Container Scrollable Utility */
+.modal-scrollable,
+.fixed.inset-0 .overflow-y-auto,
+[data-modal-scroll="true"] {
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y !important;
+}
+
 

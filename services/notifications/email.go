@@ -202,6 +202,104 @@ const passwordResetTemplateHTML = `<!DOCTYPE html>
 </body>
 </html>`
 
+const weeklyRecapTemplateHTML = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resumen Semanal NFL Quiniela 2026</title>
+<style>
+  body { margin: 0; padding: 0; background-color: #000000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #ededed; }
+  .container { max-width: 600px; margin: 30px auto; background-color: #0c0c0c; border: 1px solid #222222; border-radius: 16px; padding: 32px; }
+  .badge { display: inline-block; background-color: rgba(234, 179, 8, 0.12); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 9999px; font-size: 11px; font-weight: 700; padding: 4px 12px; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.05em; }
+  h1 { font-size: 24px; font-weight: 900; color: #ffffff; margin: 0 0 8px 0; letter-spacing: -0.02em; }
+  p { font-size: 14px; line-height: 1.6; color: #a1a1aa; margin: 0 0 20px 0; }
+  .card { background-color: #141414; border: 1px solid #27272a; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+  .btn-row { text-align: center; margin: 28px 0 10px 0; }
+  .btn-primary { display: inline-block; background-color: #ffffff; color: #000000; font-size: 13px; font-weight: 700; text-decoration: none; padding: 12px 24px; border-radius: 10px; margin: 4px; }
+  .btn-secondary { display: inline-block; background-color: #27272a; color: #ffffff; font-size: 13px; font-weight: 600; text-decoration: none; padding: 12px 20px; border-radius: 10px; margin: 4px; }
+  .footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid #1f1f1f; font-size: 11px; color: #71717a; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="badge">🏆 Resultados Oficiales &bull; {{.Recap.WeekName}}</div>
+  <h1>¡La jornada ha concluido!</h1>
+  <p>Hola {{.Username}}, todos los partidos de <strong>{{.Recap.WeekName}}</strong> han finalizado y los puntajes han sido calculados.</p>
+
+  {{if .Recap.UserRecap}}
+  <div class="card" style="border-left: 4px solid #3b82f6;">
+    <div style="font-size: 12px; font-weight: 700; color: #60a5fa; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
+      Tu Desempeño Personal
+    </div>
+    <div style="font-size: 15px; color: #e4e4e7; margin-bottom: 12px;">
+      Terminaste en la posición <strong>#{{.Recap.UserRecap.WeeklyRank}}</strong> de {{.Recap.TotalParticipants}} participantes en esta jornada.
+    </div>
+
+    <table width="100%" cellpadding="0" cellspacing="6" style="margin-top: 10px;">
+      <tr>
+        <td align="center" style="background-color: #1a1a1a; border: 1px solid #2e2e33; border-radius: 8px; padding: 10px; width: 25%;">
+          <div style="font-size: 18px; font-weight: 800; color: #facc15; font-family: monospace;">{{.Recap.UserRecap.TotalPoints}}</div>
+          <div style="font-size: 9px; color: #a1a1aa; text-transform: uppercase; margin-top: 2px;">Puntos</div>
+        </td>
+        <td align="center" style="background-color: #1a1a1a; border: 1px solid #2e2e33; border-radius: 8px; padding: 10px; width: 25%;">
+          <div style="font-size: 18px; font-weight: 800; color: #34d399; font-family: monospace;">{{.Recap.UserRecap.CorrectPicks}}/{{.Recap.UserRecap.TotalGames}}</div>
+          <div style="font-size: 9px; color: #a1a1aa; text-transform: uppercase; margin-top: 2px;">Aciertos</div>
+        </td>
+        <td align="center" style="background-color: #1a1a1a; border: 1px solid #2e2e33; border-radius: 8px; padding: 10px; width: 25%;">
+          <div style="font-size: 18px; font-weight: 800; color: #60a5fa; font-family: monospace;">{{.Recap.UserRecap.AccuracyPercent}}%</div>
+          <div style="font-size: 9px; color: #a1a1aa; text-transform: uppercase; margin-top: 2px;">Efectividad</div>
+        </td>
+        <td align="center" style="background-color: #1a1a1a; border: 1px solid #2e2e33; border-radius: 8px; padding: 10px; width: 25%;">
+          <div style="font-size: 18px; font-weight: 800; color: #ffffff; font-family: monospace;">#{{.Recap.UserRecap.SeasonRank}}</div>
+          <div style="font-size: 9px; color: #a1a1aa; text-transform: uppercase; margin-top: 2px;">General ({{.Recap.UserRecap.SeasonTotalPts}} pts)</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+  {{end}}
+
+  <!-- Podium Section -->
+  <div class="card">
+    <div style="font-size: 12px; font-weight: 700; color: #facc15; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">
+      Podio de la Jornada
+    </div>
+    <table width="100%" cellpadding="6" cellspacing="0" style="font-size: 13px;">
+      {{range .Recap.Podium}}
+      <tr style="border-bottom: 1px solid #222222;">
+        <td width="30" align="center" style="font-weight: 800; font-size: 15px;">
+          {{if eq .Rank 1}}🥇{{else if eq .Rank 2}}🥈{{else if eq .Rank 3}}🥉{{else}}#{{.Rank}}{{end}}
+        </td>
+        <td style="font-weight: 700; color: #ffffff;">
+          {{.Username}}
+          {{if .FavoriteTeamCode}}<span style="font-size: 10px; background: #27272a; padding: 2px 6px; border-radius: 4px; color: #a1a1aa; margin-left: 6px;">{{.FavoriteTeamCode}}</span>{{end}}
+        </td>
+        <td align="right" style="font-family: monospace; font-weight: 700; color: #facc15;">
+          {{.TotalPoints}} pts
+        </td>
+        <td align="right" style="font-family: monospace; font-size: 11px; color: #a1a1aa;">
+          ({{.CorrectPicks}}/{{.TotalPicks}} aciertos)
+        </td>
+      </tr>
+      {{end}}
+    </table>
+  </div>
+
+  <div class="btn-row">
+    <a href="{{.LeaderboardURL}}" class="btn-primary">Ver Tabla de Posiciones Completa &rarr;</a>
+    {{if .NextWeekPicksURL}}
+    <a href="{{.NextWeekPicksURL}}" class="btn-secondary">Pronósticos {{.Recap.NextWeekName}} &rarr;</a>
+    {{end}}
+  </div>
+
+  <div class="footer">
+    NFL Quiniela 2026 &bull; Puedes modificar tus preferencias de notificación en tu <a href="{{.ProfileURL}}" style="color: #a1a1aa; text-decoration: underline;">Perfil</a>.
+  </div>
+</div>
+</body>
+</html>`
+
+
 type EmailTemplateData struct {
 	Username         string
 	WeekName         string
@@ -334,6 +432,50 @@ func (s *EmailSender) SendPasswordResetEmail(user *db.User, token string, custom
 
 	return s.sendMail(user.Email, user.Username, subject, body.String())
 }
+
+// SendWeeklyRecapEmail sends a personalized weekly recap email with podium and individual stats
+func (s *EmailSender) SendWeeklyRecapEmail(user *db.User, recap *db.WeeklyRecapData, customBaseURL ...string) error {
+	subject := fmt.Sprintf("🏆 Resumen Oficial: %s - NFL Quiniela 2026", recap.WeekName)
+	baseURL := s.appBaseURL
+	if len(customBaseURL) > 0 && customBaseURL[0] != "" {
+		baseURL = customBaseURL[0]
+	}
+	baseURL = strings.TrimRight(baseURL, "/")
+
+	leaderboardURL := fmt.Sprintf("%s/leaderboard?week=%d", baseURL, recap.WeekNumber)
+	profileURL := fmt.Sprintf("%s/profile", baseURL)
+	nextWeekPicksURL := ""
+	if recap.NextWeekNumber > 0 {
+		nextWeekPicksURL = fmt.Sprintf("%s/picks?week=%d", baseURL, recap.NextWeekNumber)
+	}
+
+	data := struct {
+		Username         string
+		Recap            *db.WeeklyRecapData
+		LeaderboardURL   string
+		NextWeekPicksURL string
+		ProfileURL       string
+	}{
+		Username:         user.Username,
+		Recap:            recap,
+		LeaderboardURL:   leaderboardURL,
+		NextWeekPicksURL: nextWeekPicksURL,
+		ProfileURL:       profileURL,
+	}
+
+	tmpl, err := template.New("recap").Parse(weeklyRecapTemplateHTML)
+	if err != nil {
+		return fmt.Errorf("parsing recap template: %w", err)
+	}
+
+	var body bytes.Buffer
+	if err := tmpl.Execute(&body, data); err != nil {
+		return fmt.Errorf("executing recap template: %w", err)
+	}
+
+	return s.sendMail(user.Email, user.Username, subject, body.String())
+}
+
 
 // sendMail handles SMTP dispatch via Port 587 (STARTTLS) or Port 465 (SSL) or Mock mode
 func (s *EmailSender) sendMail(toEmail, toName, subject, htmlBody string) error {

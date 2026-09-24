@@ -353,7 +353,7 @@
         </div>
 
         <!-- Tab 1: Interactive Games List -->
-        <div x-show="activeTab === 'games'" class="p-3 sm:p-4 overflow-y-auto flex-1 space-y-2">
+        <div x-show="activeTab === 'games'" class="p-3 sm:p-4 max-h-[65vh] sm:max-h-[70vh] overflow-y-auto overscroll-contain modal-scrollable space-y-2">
             <template x-for="g in games" :key="g.id">
                 <div class="p-2.5 sm:p-3 rounded-xl bg-zinc-900/70 border border-zinc-800/80 flex flex-col gap-2">
                     
@@ -470,7 +470,7 @@
         </div>
 
         <!-- Tab 2: Projected Leaderboard -->
-        <div x-show="activeTab === 'leaderboard'" class="p-3 sm:p-4 overflow-y-auto flex-1 space-y-1.5">
+        <div x-show="activeTab === 'leaderboard'" class="p-3 sm:p-4 max-h-[65vh] sm:max-h-[70vh] overflow-y-auto overscroll-contain modal-scrollable space-y-1.5">
             <div class="text-[11px] text-zinc-400 mb-2 font-mono flex items-center justify-between">
                 <span>Posiciones proyectadas según ganadores simulados</span>
                 <span class="text-purple-400 font-bold" x-text="simulatedGamesCount + ' partidos configurados'"></span>
@@ -545,7 +545,7 @@
         </div>
 
         <!-- Tab 3: Probabilities, Mathematical Ceiling & Swing Games -->
-        <div x-show="activeTab === 'odds'" class="p-3 sm:p-4 overflow-y-auto flex-1 space-y-4">
+        <div x-show="activeTab === 'odds'" class="p-3 sm:p-4 max-h-[65vh] sm:max-h-[70vh] overflow-y-auto overscroll-contain modal-scrollable space-y-4">
             
             <!-- Explanatory Header -->
             <div class="p-3 sm:p-3.5 rounded-xl bg-cyan-950/30 border border-cyan-500/30 flex items-start justify-between gap-3 text-xs">

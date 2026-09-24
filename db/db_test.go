@@ -1343,4 +1343,255 @@ func TestUpdateUserPreferences(t *testing.T) {
 	}
 }
 
+func TestInAppNotificationsAndRecap(t *testing.T) {
+	dbPath := "test_notifs_unit.db"
+	_ = os.Remove(dbPath)
+	defer os.Remove(dbPath)
+
+	database, err := InitDB("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("Failed to init DB: %v", err)
+	}
+	defer database.Close()
+	repo := NewRepository(database)
+
+	if err := SeedDatabase(repo, "admin", "admin@quiniela.com", "admin123", 2026); err != nil {
+		t.Fatalf("SeedDatabase failed: %v", err)
+	}
+
+	user, err := repo.CreateUser("testnotif", "notif@example.com", "hash", "player")
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	// 1. Initial count should be 0
+	count, err := repo.GetUnreadNotificationsCount(user.ID)
+	if err != nil {
+		t.Fatalf("GetUnreadNotificationsCount error: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("Expected 0 unread notifications, got %d", count)
+	}
+
+	// 2. Create in-app notifications
+	n1, err := repo.CreateInAppNotification(user.ID, "Kickoff en 2h", "Completa tus picks", "/picks?week=1", "kickoff_reminder")
+	if err != nil {
+		t.Fatalf("CreateInAppNotification error: %v", err)
+	}
+	_, err = repo.CreateInAppNotification(user.ID, "Resumen Semana 1", "¡Quedaste en 2do lugar!", "/leaderboard?week=1", "weekly_recap")
+	if err != nil {
+		t.Fatalf("CreateInAppNotification error: %v", err)
+	}
+
+	// 3. Count should be 2
+	count, err = repo.GetUnreadNotificationsCount(user.ID)
+	if err != nil || count != 2 {
+		t.Errorf("Expected 2 unread notifications, got %d (err: %v)", count, err)
+	}
+
+	// 4. List notifications
+	list, err := repo.ListUserNotifications(user.ID, 10)
+	if err != nil || len(list) != 2 {
+		t.Fatalf("Expected 2 notifications in list, got %d (err: %v)", len(list), err)
+	}
+	if list[0].Title != "Resumen Semana 1" { // latest first
+		t.Errorf("Expected latest notif first, got %s", list[0].Title)
+	}
+	if list[0].Icon() == "" {
+		t.Errorf("Expected non-empty icon for notif")
+	}
+	if list[0].TimeAgo() == "" {
+		t.Errorf("Expected non-empty TimeAgo for notif")
+	}
+
+	// 5. Mark single notification as read
+	if err := repo.MarkNotificationAsRead(n1.ID, user.ID); err != nil {
+		t.Fatalf("MarkNotificationAsRead error: %v", err)
+	}
+	count, _ = repo.GetUnreadNotificationsCount(user.ID)
+	if count != 1 {
+		t.Errorf("Expected 1 unread notification after marking one read, got %d", count)
+	}
+
+	// 6. Mark all as read
+	if err := repo.MarkAllNotificationsAsRead(user.ID); err != nil {
+		t.Fatalf("MarkAllNotificationsAsRead error: %v", err)
+	}
+	count, _ = repo.GetUnreadNotificationsCount(user.ID)
+	if count != 0 {
+		t.Errorf("Expected 0 unread notifications after mark all, got %d", count)
+	}
+
+	// 7. Test preferences with notify_kickoff and notify_recap
+	if err := repo.UpdateUserPreferences(user.ID, "", nil, true, "Bio test", "mvp", false, true); err != nil {
+		t.Fatalf("UpdateUserPreferences with opts failed: %v", err)
+	}
+	updatedUser, err := repo.GetUserByID(user.ID)
+	if err != nil {
+		t.Fatalf("GetUserByID error: %v", err)
+	}
+	if updatedUser.NotifyKickoff != false {
+		t.Errorf("Expected NotifyKickoff=false, got true")
+	}
+	if updatedUser.NotifyRecap != true {
+		t.Errorf("Expected NotifyRecap=true, got false")
+	}
+
+	// 8. Test upcoming kickoff helper
+	season, _ := repo.GetActiveSeason(2026)
+	weeks, _ := repo.ListWeeks(season.ID)
+	teams, _ := repo.ListTeams()
+
+	now := time.Now().UTC()
+	pastKickoff := now.Add(-2 * time.Hour)
+	futureKickoff := now.Add(4 * time.Hour)
+
+	_, _ = repo.CreateManualGame(&Game{
+		WeekID:       weeks[1].ID,
+		HomeTeamID:   teams[0].ID,
+		AwayTeamID:   teams[1].ID,
+		KickoffTime:  pastKickoff,
+		Status:       "final",
+		IsTiebreaker: false,
+	})
+	gFuture, _ := repo.CreateManualGame(&Game{
+		WeekID:       weeks[1].ID,
+		HomeTeamID:   teams[1].ID,
+		AwayTeamID:   teams[0].ID,
+		KickoffTime:  futureKickoff,
+		Status:       "scheduled",
+		IsTiebreaker: true,
+	})
+
+	upcomingTime, upcomingGame, err := repo.GetUpcomingKickoffForWeek(weeks[1].ID, now)
+	if err != nil {
+		t.Fatalf("GetUpcomingKickoffForWeek error: %v", err)
+	}
+	if upcomingTime == nil || upcomingGame == nil {
+		t.Fatalf("Expected upcoming kickoff and game, got nil")
+	}
+	if upcomingGame.ID != gFuture.ID {
+		t.Errorf("Expected upcoming game to be %d, got %d", gFuture.ID, upcomingGame.ID)
+	}
+
+	// 9. Test GetWeeklyRecapData
+	recap, err := repo.GetWeeklyRecapData(weeks[1].ID, user.ID)
+	if err != nil {
+		t.Fatalf("GetWeeklyRecapData error: %v", err)
+	}
+	if recap.WeekNumber != 2 {
+		t.Errorf("Expected WeekNumber 2, got %d", recap.WeekNumber)
+	}
+	if recap.NextWeekNumber != 3 {
+		t.Errorf("Expected NextWeekNumber 3, got %d", recap.NextWeekNumber)
+	}
+}
+
+func TestBetaTesterAndFeatureFlags(t *testing.T) {
+	testDB := "test_beta_features.db"
+	database, err := InitDB("sqlite", testDB)
+	if err != nil {
+		t.Fatalf("InitDB error: %v", err)
+	}
+	defer func() {
+		database.Close()
+		os.Remove(testDB)
+	}()
+
+	repo := NewRepository(database)
+
+	// 1. Create a normal user
+	player, err := repo.CreateUser("betaplayer", "betaplayer@test.com", "hash", "player")
+	if err != nil {
+		t.Fatalf("CreateUser error: %v", err)
+	}
+	if player.IsBetaTester {
+		t.Errorf("Expected IsBetaTester to be false by default")
+	}
+	if player.CanAccessBeta() {
+		t.Errorf("Expected CanAccessBeta to be false for normal player")
+	}
+
+	// 2. Set as Beta Tester
+	if err := repo.SetUserBetaTester(player.ID, true); err != nil {
+		t.Fatalf("SetUserBetaTester error: %v", err)
+	}
+	playerUpdated, err := repo.GetUserByID(player.ID)
+	if err != nil {
+		t.Fatalf("GetUserByID error: %v", err)
+	}
+	if !playerUpdated.IsBetaTester {
+		t.Errorf("Expected IsBetaTester to be true")
+	}
+	if !playerUpdated.CanAccessBeta() {
+		t.Errorf("Expected CanAccessBeta to be true for beta tester")
+	}
+
+	// 3. Admin user always can access beta
+	admin, err := repo.CreateUser("betaadmin", "betaadmin@test.com", "hash", "admin")
+	if err != nil {
+		t.Fatalf("CreateUser admin error: %v", err)
+	}
+	if !admin.CanAccessBeta() {
+		t.Errorf("Expected CanAccessBeta to be true for admin")
+	}
+
+	// 4. Test Feature Flags List & Defaults
+	flags, err := repo.ListFeatureFlags()
+	if err != nil {
+		t.Fatalf("ListFeatureFlags error: %v", err)
+	}
+	if len(flags) < 5 {
+		t.Errorf("Expected at least 5 seeded feature flags, got %d", len(flags))
+	}
+
+	flagMap, err := repo.GetFeatureFlagsMap()
+	if err != nil {
+		t.Fatalf("GetFeatureFlagsMap error: %v", err)
+	}
+	matrixFlag, exists := flagMap["picks_matrix"]
+	if !exists {
+		t.Fatalf("Expected picks_matrix feature flag to exist")
+	}
+	if matrixFlag.AccessLevel != "beta" {
+		t.Errorf("Expected picks_matrix access_level=beta, got %s", matrixFlag.AccessLevel)
+	}
+	if !matrixFlag.IsBeta {
+		t.Errorf("Expected picks_matrix is_beta=true")
+	}
+
+	// 5. Test Access Enforcement
+	// Normal player (reset to not beta)
+	_ = repo.SetUserBetaTester(player.ID, false)
+	normalPlayer, _ := repo.GetUserByID(player.ID)
+
+	if repo.IsFeatureAccessible("picks_matrix", normalPlayer) {
+		t.Errorf("Expected picks_matrix to NOT be accessible to normal player")
+	}
+	if !repo.IsFeatureAccessible("picks_matrix", playerUpdated) {
+		t.Errorf("Expected picks_matrix to be accessible to beta player")
+	}
+	if !repo.IsFeatureAccessible("picks_matrix", admin) {
+		t.Errorf("Expected picks_matrix to be accessible to admin")
+	}
+
+	// 6. Test UpdateFeatureFlag
+	if err := repo.UpdateFeatureFlag("picks_matrix", "all", false); err != nil {
+		t.Fatalf("UpdateFeatureFlag error: %v", err)
+	}
+	if !repo.IsFeatureAccessible("picks_matrix", normalPlayer) {
+		t.Errorf("Expected picks_matrix to be accessible to normal player after opening to 'all'")
+	}
+
+	// 7. Test Disabled Flag
+	if err := repo.UpdateFeatureFlag("picks_matrix", "disabled", true); err != nil {
+		t.Fatalf("UpdateFeatureFlag error: %v", err)
+	}
+	if repo.IsFeatureAccessible("picks_matrix", admin) {
+		t.Errorf("Expected disabled feature to NOT be accessible to anyone")
+	}
+}
+
+
+
 

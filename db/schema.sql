@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS users (
     reset_token TEXT DEFAULT NULL,
     reset_token_expires_at TIMESTAMP DEFAULT NULL,
     notify_email BOOLEAN NOT NULL DEFAULT 1,
+    notify_kickoff BOOLEAN NOT NULL DEFAULT 1,
+    notify_recap BOOLEAN NOT NULL DEFAULT 1,
+    is_beta_tester BOOLEAN NOT NULL DEFAULT 0,
     bio TEXT DEFAULT '',
     featured_badge_code TEXT DEFAULT '',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -161,3 +164,25 @@ CREATE TABLE IF NOT EXISTS game_forecasts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_forecasts_game_id ON game_forecasts(game_id);
+
+CREATE TABLE IF NOT EXISTS in_app_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    link TEXT NOT NULL DEFAULT '',
+    type TEXT NOT NULL DEFAULT 'info', -- 'kickoff_reminder', 'weekly_recap', 'achievement', 'system'
+    is_read BOOLEAN NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_in_app_notifs_user_read ON in_app_notifications(user_id, is_read, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS feature_flags (
+    key TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    access_level TEXT NOT NULL DEFAULT 'all', -- 'all', 'beta', 'admin', 'disabled'
+    is_beta BOOLEAN NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

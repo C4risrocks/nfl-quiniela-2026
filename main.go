@@ -125,6 +125,7 @@ func main() {
 	adminHandler := handlers.NewAdminHandler(repo, renderer, syncer, calculator, broker, reminderWorker, cfg.CurrentSeasonYear)
 	liveHandler := handlers.NewLiveHandler(repo, renderer, syncer, cfg.CurrentSeasonYear)
 	eventsHandler := handlers.NewEventsHandler(broker)
+	notificationHandler := handlers.NewNotificationHandler(repo, renderer)
 
 	// 8. Router Setup
 	r := chi.NewRouter()
@@ -222,6 +223,12 @@ func main() {
 		player.Post("/profile/preferences", profileHandler.HandleUpdatePreferences)
 		player.Post("/profile/avatar/upload", profileHandler.HandleUploadAvatar)
 		player.Post("/profile/password", profileHandler.HandleChangePassword)
+
+		// Notifications Center
+		player.Get("/notifications", notificationHandler.GetNotifications)
+		player.Get("/notifications/badge", notificationHandler.GetUnreadBadge)
+		player.Post("/notifications/{id}/read", notificationHandler.MarkAsRead)
+		player.Post("/notifications/read-all", notificationHandler.MarkAllAsRead)
 	})
 
 	// Admin Protected Routes
@@ -237,12 +244,15 @@ func main() {
 		admin.Post("/admin/games/toggle-lock", adminHandler.ToggleGameLock)
 		admin.Post("/admin/games/toggle-tiebreaker", adminHandler.ToggleTiebreaker)
 		admin.Post("/admin/reminders/send", adminHandler.SendReminders)
+		admin.Post("/admin/reminders/weekly-recap", adminHandler.SendWeeklyRecap)
 
 		// User Management & Pick Override
 		admin.Get("/admin/users/{userId}/picks", adminHandler.ShowUserPicks)
 		admin.Post("/admin/users/{userId}/picks/save", adminHandler.SaveUserPicks)
 		admin.Post("/admin/users/{userId}/verify-email", adminHandler.VerifyUserEmail)
 		admin.Post("/admin/users/{userId}/toggle-role", adminHandler.ToggleUserRole)
+		admin.Post("/admin/users/{userId}/toggle-beta", adminHandler.ToggleUserBeta)
+		admin.Post("/admin/features/save", adminHandler.SaveFeatureFlags)
 		admin.Get("/admin/picks/export", adminHandler.ExportWeekPicksCSV)
 	})
 

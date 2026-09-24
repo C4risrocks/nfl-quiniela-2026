@@ -55,6 +55,11 @@
                         class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
                     <i class="fa-solid fa-envelope mr-1.5"></i> Recordatorios
                 </button>
+                <button @click="activeTab = 'features'" 
+                        :class="activeTab === 'features' ? 'bg-white text-black font-semibold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
+                    <i class="fa-solid fa-flask mr-1.5 text-purple-400"></i> Features Beta
+                </button>
             </div>
         </div>
     </div>
@@ -420,11 +425,28 @@
                                         <div class="text-[10px] text-zinc-500 font-mono truncate">{{.User.Email}}</div>
                                     </div>
                                 </div>
-                                <button hx-post="/admin/users/{{.User.ID}}/toggle-role" 
-                                        hx-swap="outerHTML"
-                                        class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold shrink-0 {{if .User.IsAdmin}}bg-amber-500/10 text-amber-300 border border-amber-500/30{{else}}bg-zinc-900 text-zinc-400 border border-zinc-800{{end}}">
-                                    {{.User.Role}}
-                                </button>
+                                <div class="flex items-center space-x-1.5 shrink-0">
+                                    <button hx-post="/admin/users/{{.User.ID}}/toggle-role" 
+                                            hx-swap="outerHTML"
+                                            class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold shrink-0 {{if .User.IsAdmin}}bg-amber-500/10 text-amber-300 border border-amber-500/30{{else}}bg-zinc-900 text-zinc-400 border border-zinc-800{{end}}">
+                                        {{.User.Role}}
+                                    </button>
+                                    {{if .User.IsBetaTester}}
+                                        <button hx-post="/admin/users/{{.User.ID}}/toggle-beta" 
+                                                hx-swap="outerHTML"
+                                                class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold cursor-pointer hover:opacity-80 transition-opacity bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-xs"
+                                                title="Revocar Beta">
+                                            <i class="fa-solid fa-flask text-[8px] text-purple-400"></i>
+                                        </button>
+                                    {{else}}
+                                        <button hx-post="/admin/users/{{.User.ID}}/toggle-beta" 
+                                                hx-swap="outerHTML"
+                                                class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold cursor-pointer hover:opacity-80 transition-opacity bg-zinc-900 text-zinc-500 border border-zinc-800"
+                                                title="Activar Beta">
+                                            Beta
+                                        </button>
+                                    {{end}}
+                                </div>
                             </div>
 
                             <div class="flex items-center justify-between text-xs pt-2 border-t border-zinc-800/60">
@@ -466,6 +488,7 @@
                             <th class="py-2.5 px-3">Usuario</th>
                             <th class="py-2.5 px-3">Correo & Estado</th>
                             <th class="py-2.5 px-3 text-center">Rol</th>
+                            <th class="py-2.5 px-3 text-center">Beta Tester</th>
                             <th class="py-2.5 px-3 text-center">Picks ({{.SelectedWeek.Name}})</th>
                             <th class="py-2.5 px-3 text-right">Acciones</th>
                         </tr>
@@ -541,6 +564,23 @@
                                                 title="Clic para cambiar rol">
                                             {{.User.Role}}
                                         </button>
+                                    </td>
+                                    <td class="py-2.5 px-3 text-center">
+                                        {{if .User.IsBetaTester}}
+                                            <button hx-post="/admin/users/{{.User.ID}}/toggle-beta" 
+                                                    hx-swap="outerHTML"
+                                                    class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold cursor-pointer hover:opacity-80 transition-opacity bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-xs"
+                                                    title="Clic para revocar acceso Beta">
+                                                <i class="fa-solid fa-flask mr-1 text-[8px] text-purple-400"></i>Beta Tester
+                                            </button>
+                                        {{else}}
+                                            <button hx-post="/admin/users/{{.User.ID}}/toggle-beta" 
+                                                    hx-swap="outerHTML"
+                                                    class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold cursor-pointer hover:opacity-80 transition-opacity bg-zinc-900 text-zinc-500 border border-zinc-800"
+                                                    title="Clic para otorgar acceso Beta">
+                                                Estándar
+                                            </button>
+                                        {{end}}
                                     </td>
                                     <td class="py-2.5 px-3 text-center font-mono">
                                         {{if eq .CompletedPicks .TotalGames}}
@@ -632,7 +672,7 @@
             {{end}}
 
             <!-- Reminder Metric Stats -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
                 <div class="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800">
                     <div class="text-[11px] font-mono text-zinc-500 uppercase tracking-wider">Total Jugadores</div>
                     <div class="text-xl font-bold font-mono text-white mt-1">{{len .Users}}</div>
@@ -654,15 +694,29 @@
                             <input type="hidden" name="reminder_type" value="grace_period">
                             <button type="submit" 
                                     class="w-full py-2 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-semibold text-xs transition-colors shadow-sm flex items-center justify-center">
-                                <i class="fa-solid fa-clock-rotate-left mr-1.5"></i> Enviar Alerta de Prórroga
+                                <i class="fa-solid fa-clock-rotate-left mr-1.5"></i> Enviar Alerta Prórroga
                             </button>
                         {{else}}
                             <input type="hidden" name="reminder_type" value="kickoff">
                             <button type="submit" 
                                     class="w-full py-2 px-3 rounded-lg bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-colors shadow-sm flex items-center justify-center">
-                                <i class="fa-solid fa-paper-plane mr-1.5"></i> Enviar Recordatorio Kickoff
+                                <i class="fa-solid fa-paper-plane mr-1.5"></i> Enviar Recordatorio
                             </button>
                         {{end}}
+                    </form>
+                </div>
+
+                <div class="p-4 rounded-xl bg-zinc-950/80 border border-zinc-800 flex flex-col justify-center">
+                    <form hx-post="/admin/reminders/weekly-recap"
+                          hx-target="#reminder-result"
+                          hx-swap="innerHTML"
+                          class="space-y-2">
+                        <input type="hidden" name="week_id" value="{{.SelectedWeek.ID}}">
+                        <button type="submit" 
+                                class="w-full py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-black font-extrabold text-xs transition-colors shadow-sm flex items-center justify-center"
+                                title="Enviar resumen con podio y posiciones a todos los jugadores">
+                            <i class="fa-solid fa-trophy mr-1.5"></i> Enviar Resumen Semanal
+                        </button>
                     </form>
                 </div>
             </div>
@@ -713,6 +767,105 @@
                 </table>
             </div>
 
+        </div>
+    </div>
+
+    <!-- TAB 5: Feature Flags & Beta Features -->
+    <div x-show="activeTab === 'features'" x-cloak class="space-y-6">
+        <div class="vercel-card p-6 rounded-2xl">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-base font-bold text-white mb-1 flex items-center">
+                        <i class="fa-solid fa-flask text-purple-400 mr-2"></i>
+                        Control de Características & Features Beta
+                    </h2>
+                    <p class="text-xs text-zinc-400">
+                        Gestiona qué funcionalidades están activas para todos los jugadores, reservadas exclusivamente para Beta Testers y Administradores, o en fase privada.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Feedback Target -->
+            <div id="features-save-feedback" class="mb-4"></div>
+
+            <form hx-post="/admin/features/save"
+                  hx-target="#features-save-feedback"
+                  class="space-y-4">
+
+                <div class="overflow-x-auto rounded-xl border border-zinc-800">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="border-b border-zinc-800 bg-black/40 text-zinc-500 font-mono text-[11px] uppercase tracking-wider">
+                                <th class="py-3 px-4">Característica</th>
+                                <th class="py-3 px-4 text-center">Etiqueta Beta</th>
+                                <th class="py-3 px-4">Nivel de Acceso</th>
+                                <th class="py-3 px-4 text-right">Estado Actual</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-900 text-zinc-300">
+                            {{range .FeatureFlags}}
+                                <tr class="hover:bg-zinc-900/30">
+                                    <td class="py-3 px-4">
+                                        <div class="font-bold text-white text-xs flex items-center space-x-2">
+                                            <span>{{.Name}}</span>
+                                            <span class="text-[10px] font-mono text-zinc-500 font-normal">({{.Key}})</span>
+                                        </div>
+                                        <div class="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">{{.Description}}</div>
+                                    </td>
+                                    <td class="py-3 px-4 text-center">
+                                        <label class="inline-flex items-center space-x-2 cursor-pointer select-none">
+                                            <input type="checkbox" 
+                                                   name="is_beta_{{.Key}}" 
+                                                   value="1" 
+                                                   {{if .IsBeta}}checked{{end}}
+                                                   class="w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-purple-600 focus:ring-0">
+                                            <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-purple-500/10 text-purple-300 border border-purple-500/30 uppercase">
+                                                <i class="fa-solid fa-flask text-[8px] mr-1 text-purple-400"></i>Beta
+                                            </span>
+                                        </label>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <select name="access_level_{{.Key}}" 
+                                                class="bg-zinc-900 border border-zinc-700 text-white text-xs rounded-xl px-3 py-1.5 focus:ring-1 focus:ring-white">
+                                            <option value="all" {{if eq .AccessLevel "all"}}selected{{end}}>🟢 Todos los Jugadores (Público)</option>
+                                            <option value="beta" {{if eq .AccessLevel "beta"}}selected{{end}}>🟣 Beta Testers y Administradores</option>
+                                            <option value="admin" {{if eq .AccessLevel "admin"}}selected{{end}}>🟡 Solo Administradores</option>
+                                            <option value="disabled" {{if eq .AccessLevel "disabled"}}selected{{end}}>🔴 Desactivado Globalmente</option>
+                                        </select>
+                                    </td>
+                                    <td class="py-3 px-4 text-right font-mono">
+                                        {{if eq .AccessLevel "all"}}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                                                Público
+                                            </span>
+                                        {{else if eq .AccessLevel "beta"}}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/35">
+                                                Beta Only
+                                            </span>
+                                        {{else if eq .AccessLevel "admin"}}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                                                Admin Only
+                                            </span>
+                                        {{else}}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/10 text-red-400 border border-red-500/30">
+                                                Inactivo
+                                            </span>
+                                        {{end}}
+                                    </td>
+                                </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pt-2 flex justify-end">
+                    <button type="submit" 
+                            class="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-colors shadow-sm flex items-center space-x-2 cursor-pointer">
+                        <i class="fa-solid fa-floppy-disk text-xs"></i>
+                        <span>Guardar Cambios de Características</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
