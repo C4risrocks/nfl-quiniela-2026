@@ -371,3 +371,39 @@ func TestFetchTeamSchedule(t *testing.T) {
 	}
 }
 
+func TestLiveESPN2025(t *testing.T) {
+	client := NewClient()
+	for _, year := range []int{2025, 2024, 2023, 2022} {
+		standings, err := client.FetchNFLStandings(year, 2026, nil)
+		if err != nil {
+			t.Errorf("year %d err: %v", year, err)
+			continue
+		}
+		if standings == nil || len(standings.League) != 32 {
+			t.Errorf("year %d: expected 32 teams, got %d", year, len(standings.League))
+		} else {
+			if len(standings.Divisions) != 8 {
+				t.Errorf("year %d: expected 8 divisions, got %d", year, len(standings.Divisions))
+			}
+			for _, div := range standings.Divisions {
+				if len(div.Teams) != 4 {
+					t.Errorf("year %d division %s: expected 4 teams, got %d", year, div.Name, len(div.Teams))
+				}
+			}
+			t.Logf("year %d: successfully fetched 32 teams across 8 divisions (Top: %s %d-%d)", 
+				year, standings.League[0].TeamName, standings.League[0].Wins, standings.League[0].Losses)
+		}
+	}
+
+	// Also verify schedule retrieval for past season (2025 KC)
+	sched, err := client.FetchTeamSchedule("KC", 2025, nil)
+	if err != nil {
+		t.Fatalf("fetch 2025 KC schedule err: %v", err)
+	}
+	if len(sched) == 0 {
+		t.Fatalf("expected non-empty schedule for 2025 KC")
+	}
+	t.Logf("2025 KC schedule items: %d (Game 1: vs %s, Result: %s)", len(sched), sched[0].OpponentCode, sched[0].Result)
+}
+
+

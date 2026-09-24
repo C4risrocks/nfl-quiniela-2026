@@ -1,6 +1,105 @@
 <!-- NFL Standings Dynamic Table Partial (Supports Division, Conference and League Views) -->
 {{$isCurrent := eq .SelectedSeason .CurrentSeason}}
 
+<!-- Top KPI Dashboard Summary Cards (Season Leaders for Selected Season) -->
+{{if .Standings.Summary}}
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-6">
+    
+    <!-- Top Record -->
+    {{if .Standings.Summary.TopRecordTeam}}
+    <div class="vercel-card p-3.5 rounded-xl border border-zinc-800/80 bg-zinc-950/60 flex flex-col justify-between">
+        <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-500 flex items-center">
+            <i class="fa-solid fa-crown mr-1.5 text-amber-400"></i> Mejor Récord
+        </span>
+        <div class="flex items-center space-x-2.5 mt-2">
+            <img src="{{.Standings.Summary.TopRecordTeam.LogoURL}}" alt="{{.Standings.Summary.TopRecordTeam.TeamCode}}" class="w-8 h-8 object-contain">
+            <div>
+                <div class="text-xs font-bold text-white truncate max-w-[120px]">{{.Standings.Summary.TopRecordTeam.TeamName}}</div>
+                <div class="text-[11px] font-mono font-semibold text-emerald-400">
+                    {{.Standings.Summary.TopRecordTeam.Wins}}-{{.Standings.Summary.TopRecordTeam.Losses}}{{if gt .Standings.Summary.TopRecordTeam.Ties 0}}-{{.Standings.Summary.TopRecordTeam.Ties}}{{end}} 
+                    <span class="text-zinc-500 font-normal">({{.Standings.Summary.TopRecordTeam.WinPercentFormatted}})</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{end}}
+
+    <!-- Top Offense -->
+    {{if .Standings.Summary.TopOffenseTeam}}
+    <div class="vercel-card p-3.5 rounded-xl border border-zinc-800/80 bg-zinc-950/60 flex flex-col justify-between">
+        <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-500 flex items-center">
+            <i class="fa-solid fa-fire mr-1.5 text-rose-400"></i> Mejor Ofensiva
+        </span>
+        <div class="flex items-center space-x-2.5 mt-2">
+            <img src="{{.Standings.Summary.TopOffenseTeam.LogoURL}}" alt="{{.Standings.Summary.TopOffenseTeam.TeamCode}}" class="w-8 h-8 object-contain">
+            <div>
+                <div class="text-xs font-bold text-white truncate max-w-[120px]">{{.Standings.Summary.TopOffenseTeam.TeamName}}</div>
+                <div class="text-[11px] font-mono font-semibold text-zinc-200">
+                    {{printf "%.1f" .Standings.Summary.TopOffenseTeam.OffensivePPG}} <span class="text-[10px] text-zinc-500 font-normal">PPG ({{.Standings.Summary.TopOffenseTeam.PointsFor}} pts)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{end}}
+
+    <!-- Top Defense -->
+    {{if .Standings.Summary.TopDefenseTeam}}
+    <div class="vercel-card p-3.5 rounded-xl border border-zinc-800/80 bg-zinc-950/60 flex flex-col justify-between">
+        <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-500 flex items-center">
+            <i class="fa-solid fa-shield mr-1.5 text-cyan-400"></i> Mejor Defensiva
+        </span>
+        <div class="flex items-center space-x-2.5 mt-2">
+            <img src="{{.Standings.Summary.TopDefenseTeam.LogoURL}}" alt="{{.Standings.Summary.TopDefenseTeam.TeamCode}}" class="w-8 h-8 object-contain">
+            <div>
+                <div class="text-xs font-bold text-white truncate max-w-[120px]">{{.Standings.Summary.TopDefenseTeam.TeamName}}</div>
+                <div class="text-[11px] font-mono font-semibold text-zinc-200">
+                    {{printf "%.1f" .Standings.Summary.TopDefenseTeam.DefensivePPG}} <span class="text-[10px] text-zinc-500 font-normal">PPG Recibidos</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{end}}
+
+    <!-- Best Streak -->
+    {{if .Standings.Summary.BestStreakTeam}}
+    <div class="vercel-card p-3.5 rounded-xl border border-zinc-800/80 bg-zinc-950/60 flex flex-col justify-between">
+        <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-500 flex items-center">
+            <i class="fa-solid fa-bolt mr-1.5 text-amber-400"></i> Mejor Racha
+        </span>
+        <div class="flex items-center space-x-2.5 mt-2">
+            <img src="{{.Standings.Summary.BestStreakTeam.LogoURL}}" alt="{{.Standings.Summary.BestStreakTeam.TeamCode}}" class="w-8 h-8 object-contain">
+            <div>
+                <div class="text-xs font-bold text-white truncate max-w-[120px]">{{.Standings.Summary.BestStreakTeam.TeamName}}</div>
+                <div class="text-[11px] font-mono font-semibold text-emerald-400">
+                    {{.Standings.Summary.BestStreakTeam.Streak}} <span class="text-[10px] text-zinc-500 font-normal">Consecutivos</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{end}}
+
+    <!-- Quiniela Most Popular Team (Current Season only) -->
+    {{if and .Standings.IsCurrent .Standings.Summary.QuinielaMostPopular}}
+    <div class="col-span-2 md:col-span-4 lg:col-span-1 vercel-card p-3.5 rounded-xl border border-purple-500/20 bg-purple-950/10 flex flex-col justify-between">
+        <span class="text-[10px] font-mono uppercase tracking-wider text-purple-400 flex items-center">
+            <i class="fa-solid fa-heart mr-1.5 text-pink-500"></i> Favorito Quiniela
+        </span>
+        <div class="flex items-center space-x-2.5 mt-2">
+            <img src="{{.Standings.Summary.QuinielaMostPopular.LogoURL}}" alt="{{.Standings.Summary.QuinielaMostPopular.TeamCode}}" class="w-8 h-8 object-contain">
+            <div>
+                <div class="text-xs font-bold text-white truncate max-w-[120px]">{{.Standings.Summary.QuinielaMostPopular.TeamName}}</div>
+                <div class="text-[11px] font-mono font-semibold text-purple-300">
+                    {{.Standings.Summary.QuinielaMostPopular.FavoriteFansCount}} <span class="text-[10px] text-zinc-400 font-normal">aficionados</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{end}}
+
+</div>
+{{end}}
+
+
 {{if eq .SelectedView "division"}}
     <!-- ========================================== -->
     <!-- VIEW 1: STANDINGS BY DIVISION (8 DIVISIONS)-->

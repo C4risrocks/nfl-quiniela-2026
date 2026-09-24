@@ -30,6 +30,17 @@ var (
 
 	scheduleCacheMu sync.Mutex
 	scheduleCache   = make(map[string]scheduleCacheEntry)
+
+	defaultTeamDivisions = map[string]struct{ Conf, Div string }{
+		"BUF": {"AFC", "East"}, "MIA": {"AFC", "East"}, "NE": {"AFC", "East"}, "NYJ": {"AFC", "East"},
+		"BAL": {"AFC", "North"}, "CIN": {"AFC", "North"}, "CLE": {"AFC", "North"}, "PIT": {"AFC", "North"},
+		"HOU": {"AFC", "South"}, "IND": {"AFC", "South"}, "JAX": {"AFC", "South"}, "TEN": {"AFC", "South"},
+		"DEN": {"AFC", "West"}, "KC": {"AFC", "West"}, "LV": {"AFC", "West"}, "LAC": {"AFC", "West"},
+		"DAL": {"NFC", "East"}, "NYG": {"NFC", "East"}, "PHI": {"NFC", "East"}, "WSH": {"NFC", "East"},
+		"CHI": {"NFC", "North"}, "DET": {"NFC", "North"}, "GB": {"NFC", "North"}, "MIN": {"NFC", "North"},
+		"ATL": {"NFC", "South"}, "CAR": {"NFC", "South"}, "NO": {"NFC", "South"}, "TB": {"NFC", "South"},
+		"ARI": {"NFC", "West"}, "LAR": {"NFC", "West"}, "SF": {"NFC", "West"}, "SEA": {"NFC", "West"},
+	}
 )
 
 // ESPNStandingsRawResponse structures for decoding site.api.espn.com/apis/v2/sports/football/nfl/standings
@@ -133,7 +144,6 @@ func (c *Client) FetchNFLStandings(year int, currentYear int, teamMap map[string
 		return nil, fmt.Errorf("creating espn standings request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "NFL-Quiniela-2026/1.0")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -266,6 +276,12 @@ func (c *Client) FetchNFLStandings(year int, currentYear int, teamMap map[string
 				secondaryColor = localTeam.SecondaryColor
 				teamDivision = localTeam.Division
 				confAbbr = localTeam.Conference
+			}
+			if teamDivision == "" {
+				if d, ok := defaultTeamDivisions[code]; ok {
+					teamDivision = d.Div
+					confAbbr = d.Conf
+				}
 			}
 
 			ts := &db.TeamStanding{
@@ -464,7 +480,6 @@ func (c *Client) FetchTeamSchedule(teamCode string, year int, teamMap map[string
 		return nil, fmt.Errorf("creating schedule request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "NFL-Quiniela-2026/1.0")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

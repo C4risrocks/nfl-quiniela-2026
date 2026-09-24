@@ -138,3 +138,70 @@ func TestTeamStatsHandler_TeamDetailAndModal(t *testing.T) {
 	}
 }
 
+func TestTeamStatsHandler_PastSeasons(t *testing.T) {
+	handler, cleanup := setupTestTeamStats(t)
+	defer cleanup()
+
+	r := chi.NewRouter()
+	r.Get("/teams", handler.ShowTeams)
+	r.Get("/teams/table", handler.TeamsTablePartial)
+	r.Get("/teams/{code}", handler.ShowTeamDetail)
+	r.Get("/teams/{code}/modal", handler.TeamDetailModal)
+
+	// 1. /teams?season=2025 (Page)
+	req := httptest.NewRequest(http.MethodGet, "/teams?season=2025&view=division", nil)
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 for 2025 /teams, got %d. Body: %s", rr.Code, rr.Body.String())
+	}
+	body := rr.Body.String()
+	if !strings.Contains(body, "Temporada 2025") {
+		t.Errorf("expected body to contain 'Temporada 2025'")
+	}
+	if !strings.Contains(body, "AFC Este") {
+		t.Errorf("expected body to contain division 'AFC Este'")
+	}
+
+	// 2. /teams/table?season=2025&view=conference
+	reqConf := httptest.NewRequest(http.MethodGet, "/teams/table?season=2025&view=conference", nil)
+	rrConf := httptest.NewRecorder()
+	r.ServeHTTP(rrConf, reqConf)
+
+	if rrConf.Code != http.StatusOK {
+		t.Fatalf("expected 200 for 2025 conference table, got %d", rrConf.Code)
+	}
+	bodyConf := rrConf.Body.String()
+	if !strings.Contains(bodyConf, "Línea de Clasificación a Playoffs") {
+		t.Errorf("expected conference table to contain playoff cutoff line")
+	}
+
+	// 3. /teams/KC?season=2025 (Detail with schedule)
+	reqDetail := httptest.NewRequest(http.MethodGet, "/teams/KC?season=2025", nil)
+	rrDetail := httptest.NewRecorder()
+	r.ServeHTTP(rrDetail, reqDetail)
+
+	if rrDetail.Code != http.StatusOK {
+		t.Fatalf("expected 200 for 2025 KC detail, got %d", rrDetail.Code)
+	}
+	bodyDetail := rrDetail.Body.String()
+	if !strings.Contains(bodyDetail, "Chiefs") || !strings.Contains(bodyDetail, "Temporada 2025") {
+		t.Errorf("expected KC 2025 detail to contain Chiefs and Temporada 2025")
+	}
+
+	// 4. /teams/KC/modal?season=2025 (Modal)
+	reqModal := httptest.NewRequest(http.MethodGet, "/teams/KC/modal?season=2025", nil)
+	rrModal := httptest.NewRecorder()
+	r.ServeHTTP(rrModal, reqModal)
+
+	if rrModal.Code != http.StatusOK {
+		t.Fatalf("expected 200 for 2025 KC modal, got %d", rrModal.Code)
+	}
+	bodyModal := rrModal.Body.String()
+	if !strings.Contains(bodyModal, "Chiefs") {
+		t.Errorf("expected KC 2025 modal to contain Chiefs")
+	}
+}
+
+
