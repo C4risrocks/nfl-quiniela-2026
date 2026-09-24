@@ -281,6 +281,7 @@ func (d *DB) migrate() error {
 		{"live_gamecenter", "Game Center en Vivo", "Transmisión en directo minuto a minuto vía Server-Sent Events.", "all", 0},
 		{"community_picks", "Tendencias Comunitarias", "Porcentaje de selección comunitaria de cada equipo por partido.", "all", 0},
 		{"live_whatif", "Simulador What-If", "Simulador interactivo de escenarios y proyección de tabla de posiciones en tiempo real.", "all", 1},
+		{"ai_autofill", "Llenado Asistido por IA", "Autocompletar partidos y marcadores proyectados con un solo clic usando el modelo predictivo oficial.", "beta", 1},
 	}
 	for _, f := range seedFeatures {
 		query := `INSERT OR IGNORE INTO feature_flags (key, name, description, access_level, is_beta) VALUES (?, ?, ?, ?, ?)`

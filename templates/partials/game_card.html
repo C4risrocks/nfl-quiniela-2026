@@ -9,14 +9,16 @@
 {{$showScoreInputs := or (eq $scoringMode "weighted") .Game.IsTiebreaker}}
 {{$user := .User}}
 {{$isAdmin := and $user $user.IsAdmin}}
+{{$canUseAIAutofill := hasFeatureAccess $user .FeatureFlags "ai_autofill"}}
 {{$canViewBotPick := or $locked $isAdmin}}
+{{$canEmbedAIForAutofill := or $canViewBotPick $canUseAIAutofill}}
 
 <div id="game-card-{{.Game.ID}}" 
      data-game-id="{{.Game.ID}}"
      data-is-tiebreaker="{{.Game.IsTiebreaker}}"
      data-locked="{{$locked}}"
      data-scoring-mode="{{$scoringMode}}"
-     {{if and .Game.Forecast $canViewBotPick}}
+     {{if and .Game.Forecast $canEmbedAIForAutofill}}
      data-ai-winner-id="{{.Game.Forecast.PredictedWinnerID}}"
      data-ai-home-score="{{.Game.Forecast.ProjHomeScore}}"
      data-ai-away-score="{{.Game.Forecast.ProjAwayScore}}"
@@ -262,7 +264,7 @@
     </div>
 
     <!-- AI Forecast & Audit Strip -->
-    {{if .Game.Forecast}}
+    {{if and .Game.Forecast (hasFeatureAccess $user .FeatureFlags "ai_forecast")}}
         {{if $canViewBotPick}}
         <div class="my-2 p-2 rounded-xl bg-zinc-950/80 border border-zinc-800/80 text-xs shadow-inner"
              x-data="{ showAudit: false }"

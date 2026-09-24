@@ -91,7 +91,7 @@
             window.dispatchEvent(new CustomEvent('show-toast', {
                 detail: { 
                     message: filled > 0 
-                        ? `⚡ Modo Admin: Se aplicaron pronósticos y marcadores de IA a ${filled} partidos.` 
+                        ? `⚡ Llenado Asistido: Se aplicaron pronósticos y marcadores de IA a ${filled} partidos.` 
                         : 'No se encontraron partidos desbloqueados para autocompletar.', 
                     type: 'success' 
                 }
@@ -543,13 +543,16 @@
                         </button>
                     {{end}}
 
-                    {{if and .User .User.IsAdmin (not .IsFullWeekLocked)}}
+                    {{if and (hasFeatureAccess .User .FeatureFlags "ai_autofill") (not .IsFullWeekLocked)}}
                         <button type="button" 
                                 @click="autoFillWithAI()"
-                                title="Herramienta de Administración: Completar partidos y marcadores con pronóstico oficial de IA"
+                                title="Autocompletar partidos y marcadores proyectados con el modelo predictivo de IA"
                                 class="inline-flex items-center px-2.5 py-1.5 rounded-xl bg-indigo-950/60 border border-indigo-500/40 hover:bg-indigo-900/60 text-indigo-300 hover:text-white text-xs font-semibold transition-all shadow-sm cursor-pointer shrink-0">
                             <i class="fa-solid fa-robot text-indigo-400 mr-1.5 text-[11px]"></i>
-                            <span class="hidden sm:inline">Llenar con </span>IA Admin 🤖
+                            <span class="hidden sm:inline">Llenar con </span>IA 🤖
+                            {{if isFeatureBeta .FeatureFlags "ai_autofill"}}
+                                <span class="ml-1.5 px-1 py-0.2 rounded text-[8.5px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">Beta</span>
+                            {{end}}
                         </button>
                     {{end}}
 
@@ -621,7 +624,7 @@
                  class="grid gap-3.5 transition-all pb-24 sm:pb-0"
                  :class="viewMode === 'compact' ? 'grid-cols-1 !gap-2 max-w-3xl mx-auto' : (viewMode === 'focus' ? 'grid-cols-1 max-w-2xl mx-auto' : 'grid-cols-1 lg:grid-cols-2')">
                 {{range $idx, $game := .Games}}
-                    {{template "game_card.html" (dict "Game" $game "GameIndex" $idx "CurrentTime" $.CurrentTime "FormattedKickoff" (formatDate $game.KickoffTime) "LockMode" $.LockMode "FirstKickoff" $.FirstKickoff "ScoringMode" $.ScoringConfig.ScoringMode "ScoringConfig" $.ScoringConfig "User" $.User)}}
+                    {{template "game_card.html" (dict "Game" $game "GameIndex" $idx "CurrentTime" $.CurrentTime "FormattedKickoff" (formatDate $game.KickoffTime) "LockMode" $.LockMode "FirstKickoff" $.FirstKickoff "ScoringMode" $.ScoringConfig.ScoringMode "ScoringConfig" $.ScoringConfig "User" $.User "FeatureFlags" $.FeatureFlags)}}
                 {{end}}
             </div>
 

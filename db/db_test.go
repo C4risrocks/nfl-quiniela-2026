@@ -1571,6 +1571,17 @@ func TestBetaTesterAndFeatureFlags(t *testing.T) {
 		t.Errorf("Expected live_whatif is_beta=true")
 	}
 
+	autofillFlag, exists := flagMap["ai_autofill"]
+	if !exists {
+		t.Fatalf("Expected ai_autofill feature flag to exist")
+	}
+	if autofillFlag.AccessLevel != "beta" {
+		t.Errorf("Expected ai_autofill access_level=beta, got %s", autofillFlag.AccessLevel)
+	}
+	if !autofillFlag.IsBeta {
+		t.Errorf("Expected ai_autofill is_beta=true")
+	}
+
 	// 5. Test Access Enforcement
 	// Normal player (reset to not beta)
 	_ = repo.SetUserBetaTester(player.ID, false)
