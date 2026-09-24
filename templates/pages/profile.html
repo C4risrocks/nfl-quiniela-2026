@@ -198,9 +198,11 @@
                     <button hx-post="/verify-email/resend"
                             hx-target="#resend-profile-container"
                             hx-swap="innerHTML"
-                            class="py-2 px-3.5 rounded-xl bg-zinc-900 border border-amber-500/30 text-amber-300 hover:bg-amber-500/10 text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer">
-                        <i class="fa-solid fa-paper-plane text-[10px]"></i>
-                        <span>Reenviar Confirmación</span>
+                            class="py-2 px-3.5 rounded-xl bg-zinc-900 border border-amber-500/30 text-amber-300 hover:bg-amber-500/10 text-xs font-semibold transition-all flex items-center space-x-1.5 cursor-pointer">
+                        <i class="fa-solid fa-paper-plane text-[10px] htmx-request-hide"></i>
+                        <i class="fa-solid fa-circle-notch fa-spin text-[10px] htmx-indicator"></i>
+                        <span class="htmx-request-hide">Reenviar Confirmación</span>
+                        <span class="htmx-indicator">Enviando enlace...</span>
                     </button>
                 </div>
                 {{end}}

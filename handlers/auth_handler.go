@@ -157,6 +157,7 @@ func (h *AuthHandler) HandleResendVerification(w http.ResponseWriter, r *http.Re
 	}
 
 	if freshUser.EmailVerified {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Tu correo ya se encuentra verificado.", "type": "info"}}`)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprintf(w, `<div class="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center space-x-1.5"><i class="fa-solid fa-circle-check"></i><span>Tu correo ya está verificado.</span></div>`)
 		return
@@ -164,11 +165,13 @@ func (h *AuthHandler) HandleResendVerification(w http.ResponseWriter, r *http.Re
 
 	token, err := auth.GenerateRandomToken(32)
 	if err != nil {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Error al generar token de verificación", "type": "error"}}`)
 		http.Error(w, "Error generando token", http.StatusInternalServerError)
 		return
 	}
 
 	if err := h.repo.SetVerificationToken(freshUser.ID, token); err != nil {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Error al guardar token de verificación", "type": "error"}}`)
 		http.Error(w, "Error guardando token", http.StatusInternalServerError)
 		return
 	}
@@ -180,8 +183,9 @@ func (h *AuthHandler) HandleResendVerification(w http.ResponseWriter, r *http.Re
 		}(freshUser, token, baseURL)
 	}
 
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "¡Enlace de verificación enviado a %s!", "type": "success"}}`, freshUser.Email))
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<div class="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center space-x-1.5"><i class="fa-solid fa-paper-plane"></i><span>¡Enlace reenviado a <strong>%s</strong>! Revisa tu bandeja de entrada o spam.</span></div>`, freshUser.Email)
+	fmt.Fprintf(w, `<div class="p-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center space-x-1.5"><i class="fa-solid fa-paper-plane mr-1 text-emerald-400"></i><span>¡Enlace reenviado a <strong>%s</strong>! Revisa tu bandeja de entrada o spam.</span></div>`, freshUser.Email)
 }
 
 func (h *AuthHandler) ShowForgotPassword(w http.ResponseWriter, r *http.Request) {

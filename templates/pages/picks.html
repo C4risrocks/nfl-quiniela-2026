@@ -382,8 +382,10 @@
                 <button hx-post="/verify-email/resend"
                         hx-target="#resend-banner-container"
                         hx-swap="innerHTML"
-                        class="underline hover:text-white font-semibold whitespace-nowrap">
-                    Reenviar enlace
+                        class="underline hover:text-white font-semibold whitespace-nowrap flex items-center cursor-pointer">
+                    <i class="fa-solid fa-circle-notch fa-spin mr-1.5 htmx-indicator text-[10px]"></i>
+                    <span class="htmx-request-hide">Reenviar enlace</span>
+                    <span class="htmx-indicator">Enviando enlace...</span>
                 </button>
             </div>
         </div>

@@ -283,8 +283,11 @@
                     </select>
                 </div>
 
-                <button type="submit" class="px-4 py-2 rounded-lg bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-colors shadow-sm flex items-center">
-                    <i class="fa-solid fa-rotate mr-1.5"></i> Sincronizar Ahora
+                <button type="submit" class="px-4 py-2 rounded-xl bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-all shadow-sm flex items-center cursor-pointer">
+                    <i class="fa-solid fa-rotate mr-1.5 htmx-request-hide"></i>
+                    <i class="fa-solid fa-circle-notch fa-spin mr-1.5 htmx-indicator"></i>
+                    <span class="htmx-request-hide">Sincronizar Ahora</span>
+                    <span class="htmx-indicator">Sincronizando con ESPN...</span>
                 </button>
 
                 <div id="sync-result" class="text-xs text-zinc-300 font-medium ml-2"></div>
@@ -693,14 +696,20 @@
                         {{if and (eq .SelectedWeek.WeekNumber 1) .IsWeek1GraceActive}}
                             <input type="hidden" name="reminder_type" value="grace_period">
                             <button type="submit" 
-                                    class="w-full py-2 px-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-semibold text-xs transition-colors shadow-sm flex items-center justify-center">
-                                <i class="fa-solid fa-clock-rotate-left mr-1.5"></i> Enviar Alerta Prórroga
+                                    class="w-full py-2.5 px-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold text-xs transition-all shadow-sm flex items-center justify-center cursor-pointer">
+                                <i class="fa-solid fa-clock-rotate-left mr-1.5 htmx-request-hide"></i>
+                                <i class="fa-solid fa-circle-notch fa-spin mr-1.5 htmx-indicator"></i>
+                                <span class="htmx-request-hide">Enviar Alerta Prórroga</span>
+                                <span class="htmx-indicator">Enviando Alertas...</span>
                             </button>
                         {{else}}
                             <input type="hidden" name="reminder_type" value="kickoff">
                             <button type="submit" 
-                                    class="w-full py-2 px-3 rounded-lg bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-colors shadow-sm flex items-center justify-center">
-                                <i class="fa-solid fa-paper-plane mr-1.5"></i> Enviar Recordatorio
+                                    class="w-full py-2.5 px-3 rounded-xl bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-all shadow-sm flex items-center justify-center cursor-pointer">
+                                <i class="fa-solid fa-paper-plane mr-1.5 htmx-request-hide"></i>
+                                <i class="fa-solid fa-circle-notch fa-spin mr-1.5 htmx-indicator"></i>
+                                <span class="htmx-request-hide">Enviar Recordatorios</span>
+                                <span class="htmx-indicator">Enviando Recordatorios...</span>
                             </button>
                         {{end}}
                     </form>
@@ -713,15 +722,19 @@
                           class="space-y-2">
                         <input type="hidden" name="week_id" value="{{.SelectedWeek.ID}}">
                         <button type="submit" 
-                                class="w-full py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-black font-extrabold text-xs transition-colors shadow-sm flex items-center justify-center"
+                                class="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-black font-extrabold text-xs transition-all shadow-sm flex items-center justify-center cursor-pointer"
                                 title="Enviar resumen con podio y posiciones a todos los jugadores">
-                            <i class="fa-solid fa-trophy mr-1.5"></i> Enviar Resumen Semanal
+                            <i class="fa-solid fa-trophy mr-1.5 htmx-request-hide"></i>
+                            <i class="fa-solid fa-circle-notch fa-spin mr-1.5 htmx-indicator"></i>
+                            <span class="htmx-request-hide">Enviar Resumen Semanal</span>
+                            <span class="htmx-indicator">Despachando Resumen...</span>
                         </button>
                     </form>
                 </div>
             </div>
 
-            <div id="reminder-result" class="mb-6"></div>
+            <!-- Feedback Target for Reminders -->
+            <div id="reminder-result" class="mb-4 transition-all duration-300"></div>
 
             <!-- List of Pending Users -->
             <h3 class="text-xs font-bold font-mono text-zinc-400 uppercase tracking-wider mb-2">Jugadores que aún no completan {{.SelectedWeek.Name}}:</h3>
@@ -860,9 +873,11 @@
 
                 <div class="pt-2 flex justify-end">
                     <button type="submit" 
-                            class="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-colors shadow-sm flex items-center space-x-2 cursor-pointer">
-                        <i class="fa-solid fa-floppy-disk text-xs"></i>
-                        <span>Guardar Cambios de Características</span>
+                            class="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-all shadow-sm flex items-center space-x-2 cursor-pointer">
+                        <i class="fa-solid fa-floppy-disk text-xs htmx-request-hide"></i>
+                        <i class="fa-solid fa-circle-notch fa-spin text-xs htmx-indicator"></i>
+                        <span class="htmx-request-hide">Guardar Cambios de Características</span>
+                        <span class="htmx-indicator">Guardando Cambios...</span>
                     </button>
                 </div>
             </form>

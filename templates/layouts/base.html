@@ -156,14 +156,23 @@
                 linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
         }
 
-        /* HTMX Indicator styles */
+        /* HTMX Indicator styles & Loading States */
         .htmx-indicator {
-            opacity: 0;
-            transition: opacity 200ms ease-in;
+            display: none !important;
         }
         .htmx-request .htmx-indicator,
         .htmx-request.htmx-indicator {
-            opacity: 1;
+            display: inline-flex !important;
+        }
+        .htmx-request .htmx-request-hide,
+        .htmx-request.htmx-request-hide {
+            display: none !important;
+        }
+        button.htmx-request,
+        button:disabled {
+            opacity: 0.75;
+            cursor: wait !important;
+            pointer-events: none;
         }
 
         /* Modal active scroll lock & mobile pan enablement */

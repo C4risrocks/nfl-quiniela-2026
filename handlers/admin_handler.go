@@ -405,20 +405,29 @@ func (h *AdminHandler) SendReminders(w http.ResponseWriter, r *http.Request) {
 
 	reminderType := r.FormValue("reminder_type") // "grace_period" or "kickoff"
 	count, err := h.reminderWorker.SendManualReminders(weekID, reminderType)
-	if err != nil {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `<div class="p-2 rounded bg-red-500/10 border border-red-500/20 text-red-300 text-xs">Error: %v</div>`, err)
-		return
-	}
-
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
 	reminderLabel := "recordatorios de patada inicial"
 	if reminderType == "grace_period" {
 		reminderLabel = "avisos urgentes de prórroga"
 	}
-	fmt.Fprintf(w, `<div class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center space-x-2"><i class="fa-solid fa-circle-check text-emerald-400"></i><span>¡Éxito! Se enviaron <strong>%d</strong> %s a jugadores con pronósticos pendientes.</span></div>`, count, reminderLabel)
+
+	if err != nil {
+		w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Error al enviar recordatorios: %s", "type": "error"}}`, strings.ReplaceAll(err.Error(), `"`, `'`)))
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `<div class="p-3.5 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 text-xs flex items-center space-x-2.5"><i class="fa-solid fa-circle-exclamation text-red-400 text-base"></i><span>Error al procesar recordatorios: %v</span></div>`, err)
+		return
+	}
+
+	if count == 0 {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "¡Al día! No hay recordatorios pendientes por enviar para esta jornada.", "type": "info"}}`)
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `<div class="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/25 text-blue-300 text-xs flex items-center space-x-2.5 shadow-sm"><i class="fa-solid fa-circle-check text-blue-400 text-base"></i><span>¡Éxito! Todos los jugadores registrados tienen sus pronósticos al día o ya cuentan con aviso previo de %s.</span></div>`, reminderLabel)
+		return
+	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "¡Éxito! Se enviaron %d %s", "type": "success"}}`, count, reminderLabel))
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, `<div class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs flex items-center space-x-2.5 shadow-sm"><i class="fa-solid fa-circle-check text-emerald-400 text-base"></i><span>¡Éxito! Se enviaron <strong>%d</strong> %s a jugadores con pronósticos pendientes.</span></div>`, count, reminderLabel)
 }
 
 func (h *AdminHandler) SendWeeklyRecap(w http.ResponseWriter, r *http.Request) {
@@ -439,16 +448,25 @@ func (h *AdminHandler) SendWeeklyRecap(w http.ResponseWriter, r *http.Request) {
 	}
 
 	count, err := h.reminderWorker.SendManualWeeklyRecap(weekID)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
 	if err != nil {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Error al despachar resumen semanal: %s", "type": "error"}}`, strings.ReplaceAll(err.Error(), `"`, `'`)))
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `<div class="p-2 rounded bg-red-500/10 border border-red-500/20 text-red-300 text-xs">Error al despachar resumen: %v</div>`, err)
+		fmt.Fprintf(w, `<div class="p-3.5 rounded-xl bg-red-500/10 border border-red-500/25 text-red-300 text-xs flex items-center space-x-2.5"><i class="fa-solid fa-circle-exclamation text-red-400 text-base"></i><span>Error al despachar resumen: %v</span></div>`, err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if count == 0 {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "No hubo resúmenes semanales nuevos pendientes por despachar.", "type": "info"}}`)
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `<div class="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/25 text-blue-300 text-xs flex items-center space-x-2.5 shadow-sm"><i class="fa-solid fa-circle-info text-blue-400 text-base"></i><span>¡Éxito! Todos los jugadores participantes ya han recibido sus resúmenes semanales o no hay destinatarios pendientes.</span></div>`)
+		return
+	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "¡Éxito! Se despacharon %d resúmenes semanales", "type": "success"}}`, count))
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `<div class="p-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 text-xs flex items-center space-x-2"><i class="fa-solid fa-trophy text-yellow-400"></i><span>¡Éxito! Se despacharon <strong>%d</strong> resúmenes semanales (notificación interna y correo).</span></div>`, count)
+	fmt.Fprintf(w, `<div class="p-3.5 rounded-xl bg-yellow-500/10 border border-yellow-500/25 text-yellow-300 text-xs flex items-center space-x-2.5 shadow-sm"><i class="fa-solid fa-trophy text-yellow-400 text-base"></i><span>¡Éxito! Se despacharon <strong>%d</strong> resúmenes semanales (notificación interna y correo).</span></div>`, count)
 }
 
 
