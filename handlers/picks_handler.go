@@ -540,6 +540,18 @@ func (h *PicksHandler) ComparePicks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	rival, err := h.repo.GetUserByID(rivalID)
+	if err != nil || rival == nil {
+		http.Error(w, "Rival not found", http.StatusNotFound)
+		return
+	}
+	if rival.IsAdmin() {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `<div class="p-6 rounded-2xl bg-zinc-950 border border-zinc-800 text-center space-y-3"><div class="w-12 h-12 rounded-2xl bg-zinc-900 text-zinc-400 border border-zinc-800 flex items-center justify-center mx-auto text-xl"><i class="fa-solid fa-shield-halved"></i></div><h3 class="text-sm font-bold text-white">Cuenta de Administración</h3><p class="text-xs text-zinc-400">Las cuentas de administración no participan en competencias ni duelos directos.</p></div>`)
+		return
+	}
+
 	weekIDStr := r.URL.Query().Get("week_id")
 	var weekID int64
 	if weekIDStr != "" {

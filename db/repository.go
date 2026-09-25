@@ -1164,7 +1164,7 @@ func (r *Repository) ListPicksForGame(gameID int64) ([]*Pick, error) {
 	FROM picks p
 	JOIN users u ON p.user_id = u.id
 	LEFT JOIN teams t ON p.picked_team_id = t.id
-	WHERE p.game_id = ?
+	WHERE p.game_id = ? AND COALESCE(u.role, 'player') != 'admin'
 	ORDER BY u.username ASC`
 
 	rows, err := r.db.Query(query, gameID)
@@ -1320,7 +1320,10 @@ func (r *Repository) GetWeekCommunityStats(weekID int64) (map[int64]*GameCommuni
 			COALESCE(SUM(CASE WHEN p.picked_team_id = g.home_team_id THEN 1 ELSE 0 END), 0) as home_picks,
 			COALESCE(SUM(CASE WHEN p.picked_team_id = g.away_team_id THEN 1 ELSE 0 END), 0) as away_picks
 		FROM games g
-		LEFT JOIN picks p ON p.game_id = g.id
+		LEFT JOIN (
+			picks p 
+			JOIN users u ON p.user_id = u.id AND COALESCE(u.role, 'player') != 'admin'
+		) ON p.game_id = g.id
 		WHERE g.week_id = ?
 		GROUP BY g.id
 	`
@@ -1362,6 +1365,9 @@ func (r *Repository) GetHeadToHeadComparison(weekID, userAID, userBID int64) (*H
 	userB, err := r.GetUserByID(userBID)
 	if err != nil {
 		return nil, fmt.Errorf("user B not found: %w", err)
+	}
+	if userA.IsAdmin() || userB.IsAdmin() {
+		return nil, fmt.Errorf("las cuentas de administración no participan en duelos directos")
 	}
 	week, err := r.GetWeekByID(weekID)
 	if err != nil {
@@ -1748,7 +1754,8 @@ func (r *Repository) GetUsersWithPendingPicks(weekID int64) ([]*User, error) {
 	query := `
 	SELECT u.id, u.username, u.email, u.password_hash, u.role, u.created_at, u.notify_email, u.notify_kickoff, u.notify_recap
 	FROM users u
-	WHERE (
+	WHERE COALESCE(u.role, 'player') != 'admin'
+	AND (
 		SELECT COUNT(*) FROM picks p 
 		JOIN games g ON p.game_id = g.id 
 		WHERE p.user_id = u.id AND g.week_id = ? AND (p.picked_team_id IS NOT NULL OR (p.predicted_home_score IS NOT NULL AND p.predicted_away_score IS NOT NULL))
@@ -2045,6 +2052,9 @@ func (r *Repository) GetUserWeeklySummaries(weekID int64) ([]*UserWeeklySummary,
 
 	var summaries []*UserWeeklySummary
 	for _, u := range users {
+		if u.IsAdmin() {
+			continue
+		}
 		picks, _ := r.GetUserPicksForWeek(u.ID, weekID)
 		completed := 0
 		hasTb := false
@@ -2089,7 +2099,7 @@ func (r *Repository) GetPicksExportDataForWeek(weekID int64) ([]*PickExportRow, 
 	JOIN teams at ON g.away_team_id = at.id
 	LEFT JOIN picks p ON p.user_id = u.id AND p.game_id = g.id
 	LEFT JOIN teams pt ON p.picked_team_id = pt.id
-	WHERE g.week_id = ?
+	WHERE g.week_id = ? AND COALESCE(u.role, 'player') != 'admin'
 	ORDER BY u.username ASC, g.kickoff_time ASC, g.id ASC`
 
 	rows, err := r.db.Query(query, weekID)

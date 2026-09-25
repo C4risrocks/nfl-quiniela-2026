@@ -29,36 +29,36 @@
         <div class="flex flex-wrap items-center gap-3">
             
             <!-- Season Dropdown / Segmented Selector -->
-            <div class="flex items-center space-x-1.5 bg-zinc-950 p-1 rounded-xl border border-zinc-800">
-                <span class="text-[11px] font-mono uppercase text-zinc-500 px-2">Año:</span>
+            <div class="flex items-center space-x-1.5 bg-zinc-950 p-1 rounded-xl border border-zinc-800 overflow-x-auto no-scrollbar max-w-full">
+                <span class="text-[11px] font-mono uppercase text-zinc-500 px-2 shrink-0">Año:</span>
                 {{range .AvailableSeasons}}
                     <button type="button"
                             @click="currentSeason = {{.}}; $dispatch('update-teams-table', { season: {{.}}, view: currentView })"
                             :class="currentSeason === {{.}} ? 'bg-white text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
-                            class="px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer">
+                            class="px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer shrink-0">
                         {{.}}{{if eq . $.CurrentSeason}}*{{end}}
                     </button>
                 {{end}}
             </div>
 
             <!-- View Modes: Division, Conference, League -->
-            <div class="bg-zinc-950 p-1 rounded-xl border border-zinc-800 flex items-center space-x-1">
+            <div class="bg-zinc-950 p-1 rounded-xl border border-zinc-800 flex items-center space-x-1 overflow-x-auto no-scrollbar max-w-full">
                 <button type="button"
                         @click="currentView = 'division'; $dispatch('update-teams-table', { season: currentSeason, view: 'division' })"
                         :class="currentView === 'division' ? 'bg-zinc-800 text-white font-semibold shadow-sm border border-zinc-700/60' : 'text-zinc-400 hover:text-white'"
-                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer">
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap shrink-0">
                     <i class="fa-solid fa-table-cells-large mr-1.5 text-zinc-400"></i> Por División
                 </button>
                 <button type="button"
                         @click="currentView = 'conference'; $dispatch('update-teams-table', { season: currentSeason, view: 'conference' })"
                         :class="currentView === 'conference' ? 'bg-zinc-800 text-white font-semibold shadow-sm border border-zinc-700/60' : 'text-zinc-400 hover:text-white'"
-                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer">
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap shrink-0">
                     <i class="fa-solid fa-trophy mr-1.5 text-amber-400/90"></i> Playoffs (Conferencia)
                 </button>
                 <button type="button"
                         @click="currentView = 'league'; $dispatch('update-teams-table', { season: currentSeason, view: 'league' })"
                         :class="currentView === 'league' ? 'bg-zinc-800 text-white font-semibold shadow-sm border border-zinc-700/60' : 'text-zinc-400 hover:text-white'"
-                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer">
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap shrink-0">
                     <i class="fa-solid fa-list-ol mr-1.5 text-zinc-400"></i> Tabla General
                 </button>
             </div>

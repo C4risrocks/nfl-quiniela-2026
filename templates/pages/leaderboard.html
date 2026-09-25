@@ -40,7 +40,7 @@
             {{if eq .ViewMode "weekly"}}
                 <div class="flex items-center space-x-2">
                     <select onchange="window.location.href = '/leaderboard?mode=weekly&week=' + this.value"
-                            class="bg-zinc-900 border border-zinc-700 text-white text-xs font-semibold rounded-xl px-3 py-1.5 focus:ring-1 focus:ring-white">
+                            class="bg-zinc-900 border border-zinc-700 text-white text-base sm:text-xs font-semibold rounded-xl px-3 py-1.5 focus:ring-1 focus:ring-white">
                         {{range .Weeks}}
                             <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
                                 {{.Name}}

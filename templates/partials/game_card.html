@@ -410,12 +410,13 @@
 
             <div class="flex items-center justify-center space-x-1 sm:space-x-2 shrink-0">
                 <!-- Away Score Input with Steppers -->
-                <div class="flex items-center space-x-0.5 sm:space-x-1">
+                <div class="flex items-center space-x-1">
                     <span class="font-mono font-bold text-xs text-zinc-300 mr-0.5 sm:mr-1">{{.Game.AwayTeam.Code}}</span>
                     {{if not $locked}}
                     <button type="button" 
                             @click="stepScore('away', -1)"
-                            class="w-6 h-6 rounded-md bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-zinc-300 font-bold text-xs flex items-center justify-center cursor-pointer select-none transition-colors shrink-0">
+                            aria-label="Disminuir marcador visitante"
+                            class="w-8 h-8 sm:w-6 sm:h-6 min-w-[32px] min-h-[32px] sm:min-w-[24px] sm:min-h-[24px] rounded-lg bg-zinc-800 hover:bg-zinc-700 active:scale-90 text-zinc-200 font-bold text-sm sm:text-xs flex items-center justify-center cursor-pointer select-none transition-transform shrink-0">
                         -
                     </button>
                     {{end}}
@@ -430,11 +431,12 @@
                             value="{{if $pick}}{{$pick.AwayScoreStr}}{{end}}"
                             placeholder="--" 
                             {{if $locked}}disabled{{end}}
-                            class="w-9 sm:w-10 py-1 px-0.5 sm:px-1 text-center font-mono font-bold text-xs bg-zinc-900 border border-zinc-700/80 rounded-lg text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white disabled:opacity-40 disabled:bg-zinc-950">
+                            class="w-11 sm:w-10 py-1.5 sm:py-1 px-1 text-center font-mono font-bold text-base sm:text-xs bg-zinc-900 border border-zinc-700/80 rounded-lg text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white disabled:opacity-40 disabled:bg-zinc-950">
                     {{if not $locked}}
                     <button type="button" 
                             @click="stepScore('away', 1)"
-                            class="w-6 h-6 rounded-md bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-zinc-300 font-bold text-xs flex items-center justify-center cursor-pointer select-none transition-colors shrink-0">
+                            aria-label="Aumentar marcador visitante"
+                            class="w-8 h-8 sm:w-6 sm:h-6 min-w-[32px] min-h-[32px] sm:min-w-[24px] sm:min-h-[24px] rounded-lg bg-zinc-800 hover:bg-zinc-700 active:scale-90 text-zinc-200 font-bold text-sm sm:text-xs flex items-center justify-center cursor-pointer select-none transition-transform shrink-0">
                         +
                     </button>
                     {{end}}
@@ -443,11 +445,12 @@
                 <span class="text-zinc-600 font-bold px-0.5">-</span>
 
                 <!-- Home Score Input with Steppers -->
-                <div class="flex items-center space-x-0.5 sm:space-x-1">
+                <div class="flex items-center space-x-1">
                     {{if not $locked}}
                     <button type="button" 
                             @click="stepScore('home', -1)"
-                            class="w-6 h-6 rounded-md bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-zinc-300 font-bold text-xs flex items-center justify-center cursor-pointer select-none transition-colors shrink-0">
+                            aria-label="Disminuir marcador local"
+                            class="w-8 h-8 sm:w-6 sm:h-6 min-w-[32px] min-h-[32px] sm:min-w-[24px] sm:min-h-[24px] rounded-lg bg-zinc-800 hover:bg-zinc-700 active:scale-90 text-zinc-200 font-bold text-sm sm:text-xs flex items-center justify-center cursor-pointer select-none transition-transform shrink-0">
                         -
                     </button>
                     {{end}}
@@ -462,11 +465,12 @@
                             value="{{if $pick}}{{$pick.HomeScoreStr}}{{end}}"
                             placeholder="--" 
                             {{if $locked}}disabled{{end}}
-                            class="w-9 sm:w-10 py-1 px-0.5 sm:px-1 text-center font-mono font-bold text-xs bg-zinc-900 border border-zinc-700/80 rounded-lg text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white disabled:opacity-40 disabled:bg-zinc-950">
+                            class="w-11 sm:w-10 py-1.5 sm:py-1 px-1 text-center font-mono font-bold text-base sm:text-xs bg-zinc-900 border border-zinc-700/80 rounded-lg text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white disabled:opacity-40 disabled:bg-zinc-950">
                     {{if not $locked}}
                     <button type="button" 
                             @click="stepScore('home', 1)"
-                            class="w-6 h-6 rounded-md bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-zinc-300 font-bold text-xs flex items-center justify-center cursor-pointer select-none transition-colors shrink-0">
+                            aria-label="Aumentar marcador local"
+                            class="w-8 h-8 sm:w-6 sm:h-6 min-w-[32px] min-h-[32px] sm:min-w-[24px] sm:min-h-[24px] rounded-lg bg-zinc-800 hover:bg-zinc-700 active:scale-90 text-zinc-200 font-bold text-sm sm:text-xs flex items-center justify-center cursor-pointer select-none transition-transform shrink-0">
                         +
                     </button>
                     {{end}}

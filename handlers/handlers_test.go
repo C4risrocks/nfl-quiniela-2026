@@ -959,6 +959,17 @@ func TestAdminUserManagementAndOverride(t *testing.T) {
 		t.Errorf("Expected playerjoe to become admin, got %s", uRoleCheck.Role)
 	}
 
+	// Toggle back to player to ensure dual-way toggle works and playerjoe remains a competitor
+	rrRole2 := httptest.NewRecorder()
+	adminHandler.ToggleUserRole(rrRole2, reqRole)
+	if rrRole2.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK toggling role back to player, got %d", rrRole2.Code)
+	}
+	uRoleCheck2, _ := repo.GetUserByID(playerUser.ID)
+	if uRoleCheck2.Role != "player" {
+		t.Errorf("Expected playerjoe to become player again, got %s", uRoleCheck2.Role)
+	}
+
 	// 3. Test ShowUserPicks Modal
 	reqPicks := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/admin/users/%d/picks?week_id=%d", playerUser.ID, week1.ID), nil)
 	reqPicks = reqPicks.WithContext(context.WithValue(reqPicks.Context(), chi.RouteCtxKey, rctx))

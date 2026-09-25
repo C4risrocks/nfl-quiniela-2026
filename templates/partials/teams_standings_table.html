@@ -154,10 +154,10 @@
                                         <th class="py-2 px-2">Equipo</th>
                                         <th class="py-2 px-2 text-center">G</th>
                                         <th class="py-2 px-2 text-center">P</th>
-                                        {{if gt $.Standings.Year 0}}<th class="py-2 px-2 text-center">E</th>{{end}}
+                                        {{if gt $.Standings.Year 0}}<th class="py-2 px-2 text-center hidden sm:table-cell">E</th>{{end}}
                                         <th class="py-2 px-2 text-center">%</th>
-                                        <th class="py-2 px-2 text-center">DIF</th>
-                                        <th class="py-2 px-2 text-center">Racha</th>
+                                        <th class="py-2 px-2 text-center hidden sm:table-cell">DIF</th>
+                                        <th class="py-2 px-2 text-center hidden md:table-cell">Racha</th>
                                         <th class="py-2 pr-3 text-right">Ficha</th>
                                     </tr>
                                 </thead>
@@ -191,12 +191,12 @@
                                             </td>
                                             <td class="py-2.5 px-2 text-center font-mono font-bold text-zinc-100">{{.Wins}}</td>
                                             <td class="py-2.5 px-2 text-center font-mono text-zinc-400">{{.Losses}}</td>
-                                            <td class="py-2.5 px-2 text-center font-mono text-zinc-500">{{.Ties}}</td>
+                                            <td class="py-2.5 px-2 text-center font-mono text-zinc-500 hidden sm:table-cell">{{.Ties}}</td>
                                             <td class="py-2.5 px-2 text-center font-mono text-zinc-300 font-semibold">{{.WinPercentFormatted}}</td>
-                                            <td class="py-2.5 px-2 text-center font-mono text-[11px] font-semibold {{if gt .PointDiff 0}}text-emerald-400{{else if lt .PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}}">
+                                            <td class="py-2.5 px-2 text-center font-mono text-[11px] font-semibold {{if gt .PointDiff 0}}text-emerald-400{{else if lt .PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}} hidden sm:table-cell">
                                                 {{if gt .PointDiff 0}}+{{end}}{{.PointDiff}}
                                             </td>
-                                            <td class="py-2.5 px-2 text-center">
+                                            <td class="py-2.5 px-2 text-center hidden md:table-cell">
                                                 <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-bold {{if hasPrefix .Streak "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if hasPrefix .Streak "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}">
                                                     {{.Streak}}
                                                 </span>
@@ -251,10 +251,10 @@
                                         <th class="py-2 px-2">Equipo</th>
                                         <th class="py-2 px-2 text-center">G</th>
                                         <th class="py-2 px-2 text-center">P</th>
-                                        {{if gt $.Standings.Year 0}}<th class="py-2 px-2 text-center">E</th>{{end}}
+                                        {{if gt $.Standings.Year 0}}<th class="py-2 px-2 text-center hidden sm:table-cell">E</th>{{end}}
                                         <th class="py-2 px-2 text-center">%</th>
-                                        <th class="py-2 px-2 text-center">DIF</th>
-                                        <th class="py-2 px-2 text-center">Racha</th>
+                                        <th class="py-2 px-2 text-center hidden sm:table-cell">DIF</th>
+                                        <th class="py-2 px-2 text-center hidden md:table-cell">Racha</th>
                                         <th class="py-2 pr-3 text-right">Ficha</th>
                                     </tr>
                                 </thead>
@@ -288,12 +288,12 @@
                                             </td>
                                             <td class="py-2.5 px-2 text-center font-mono font-bold text-zinc-100">{{.Wins}}</td>
                                             <td class="py-2.5 px-2 text-center font-mono text-zinc-400">{{.Losses}}</td>
-                                            <td class="py-2.5 px-2 text-center font-mono text-zinc-500">{{.Ties}}</td>
+                                            <td class="py-2.5 px-2 text-center font-mono text-zinc-500 hidden sm:table-cell">{{.Ties}}</td>
                                             <td class="py-2.5 px-2 text-center font-mono text-zinc-300 font-semibold">{{.WinPercentFormatted}}</td>
-                                            <td class="py-2.5 px-2 text-center font-mono text-[11px] font-semibold {{if gt .PointDiff 0}}text-emerald-400{{else if lt .PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}}">
+                                            <td class="py-2.5 px-2 text-center font-mono text-[11px] font-semibold {{if gt .PointDiff 0}}text-emerald-400{{else if lt .PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}} hidden sm:table-cell">
                                                 {{if gt .PointDiff 0}}+{{end}}{{.PointDiff}}
                                             </td>
-                                            <td class="py-2.5 px-2 text-center">
+                                            <td class="py-2.5 px-2 text-center hidden md:table-cell">
                                                 <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-bold {{if hasPrefix .Streak "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if hasPrefix .Streak "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}">
                                                     {{.Streak}}
                                                 </span>
@@ -361,9 +361,9 @@
                                     <th class="py-2.5 px-2">Equipo</th>
                                     <th class="py-2.5 px-2 text-center">G-P-E</th>
                                     <th class="py-2.5 px-2 text-center">%</th>
-                                    <th class="py-2.5 px-2 text-center">DIF</th>
-                                    <th class="py-2.5 px-2 text-center">Conf</th>
-                                    <th class="py-2.5 px-2 text-center">Racha</th>
+                                    <th class="py-2.5 px-2 text-center hidden sm:table-cell">DIF</th>
+                                    <th class="py-2.5 px-2 text-center hidden md:table-cell">Conf</th>
+                                    <th class="py-2.5 px-2 text-center hidden md:table-cell">Racha</th>
                                     <th class="py-2.5 pr-3 text-right">Estado</th>
                                 </tr>
                             </thead>
@@ -429,17 +429,17 @@
                                         </td>
 
                                         <!-- Point Diff -->
-                                        <td class="py-2 px-2 text-center font-mono text-[11px] font-semibold {{if gt $team.PointDiff 0}}text-emerald-400{{else if lt $team.PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}}">
+                                        <td class="py-2 px-2 text-center font-mono text-[11px] font-semibold {{if gt $team.PointDiff 0}}text-emerald-400{{else if lt $team.PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}} hidden sm:table-cell">
                                             {{if gt $team.PointDiff 0}}+{{end}}{{$team.PointDiff}}
                                         </td>
 
                                         <!-- Conf Record -->
-                                        <td class="py-2 px-2 text-center font-mono text-[10px] text-zinc-400">
+                                        <td class="py-2 px-2 text-center font-mono text-[10px] text-zinc-400 hidden md:table-cell">
                                             {{$team.ConfRecord}}
                                         </td>
 
                                         <!-- Streak -->
-                                        <td class="py-2 px-2 text-center">
+                                        <td class="py-2 px-2 text-center hidden md:table-cell">
                                             <span class="inline-block px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold {{if hasPrefix $team.Streak "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if hasPrefix $team.Streak "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}">
                                                 {{$team.Streak}}
                                             </span>

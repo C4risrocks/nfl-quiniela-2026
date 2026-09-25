@@ -130,7 +130,7 @@
                     {{if .ProfileUser.IsBetaTester}}
                         <span class="text-[9px] uppercase font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded flex items-center space-x-1 shadow-xs"><i class="fa-solid fa-flask text-[8px] mr-1 text-purple-400"></i>Beta Tester</span>
                     {{end}}
-                    {{if not .IsOwnProfile}}
+                    {{if and (not .IsOwnProfile) (not .ProfileUser.IsAdmin)}}
                         <span class="text-[9px] uppercase font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded">Rival</span>
                     {{end}}
                 </div>
@@ -207,7 +207,8 @@
                 </div>
                 {{end}}
             {{else}}
-                <!-- H2H Duel Button against this rival -->
+                <!-- H2H Duel Button against this rival (players only, not admin) -->
+                {{if not .ProfileUser.IsAdmin}}
                 <button type="button"
                         hx-get="/picks/compare?rival_id={{.ProfileUser.ID}}"
                         hx-target="#h2h-modal-container"
@@ -216,9 +217,10 @@
                     <i class="fa-solid fa-code-compare text-xs text-rose-400"></i>
                     <span>Duelo Cara a Cara</span>
                 </button>
+                {{end}}
 
                 <a href="/leaderboard"
-                   class="py-2 px-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white text-xs font-semibold transition-colors flex items-center space-x-1.5">
+                    class="py-2 px-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white text-xs font-semibold transition-colors flex items-center space-x-1.5">
                     <i class="fa-solid fa-arrow-left text-[10px]"></i>
                     <span>Volver a la Tabla</span>
                 </a>
