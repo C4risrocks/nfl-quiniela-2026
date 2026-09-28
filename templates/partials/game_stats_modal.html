@@ -35,7 +35,7 @@
             window.__statsModalExpandedDrive = this.expandedDrive;
         }
      }"
-     x-init="try { document.body.classList.add('overflow-hidden'); } catch(e) {}">
+     x-init="document.body.classList.add('overflow-hidden')">
 
     <div class="vercel-card w-full max-w-4xl max-h-[90dvh] my-auto rounded-2xl flex flex-col overflow-hidden shadow-2xl border border-zinc-800 bg-zinc-950"
          @click.stop>
@@ -127,6 +127,29 @@
                 </div>
             </div>
 
+            <!-- Win Probability Live Strip (if available) -->
+            {{if and .Summary .Summary.HasWinProb}}
+                <div class="py-1 px-2.5 sm:px-3 rounded-xl bg-zinc-950/70 border border-zinc-800/80">
+                    <div class="flex items-center justify-between text-[10px] font-mono mb-1">
+                        <span class="text-cyan-400 font-bold flex items-center space-x-1">
+                            <span>{{.Game.AwayTeam.Code}}</span>
+                            <span class="text-white">{{.Summary.WinProbAway}}%</span>
+                        </span>
+                        <span class="text-zinc-500 uppercase tracking-widest text-[9px] flex items-center font-bold">
+                            <i class="fa-solid fa-chart-line text-[9px] mr-1 text-amber-400"></i> Probabilidad de Victoria
+                        </span>
+                        <span class="text-amber-400 font-bold flex items-center space-x-1">
+                            <span class="text-white">{{.Summary.WinProbHome}}%</span>
+                            <span>{{.Game.HomeTeam.Code}}</span>
+                        </span>
+                    </div>
+                    <div class="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden flex">
+                        <div class="bg-cyan-500 h-full transition-all duration-500" style="width: {{.Summary.WinProbAway}}%;"></div>
+                        <div class="bg-amber-500 h-full transition-all duration-500" style="width: {{.Summary.WinProbHome}}%;"></div>
+                    </div>
+                </div>
+            {{end}}
+
             <!-- Linescore Quarters Table (if available) -->
             {{$lines := .Game.LinescoreData}}
             {{if and $lines (gt (len $lines.AwayScores) 0)}}
@@ -179,6 +202,16 @@
                 </button>
 
                 <button type="button"
+                        @click="setActiveTab('winprob')"
+                        :class="activeTab === 'winprob' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+                        class="flex-1 min-w-[85px] sm:min-w-0 py-2 px-2.5 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink min-h-[40px]">
+                    <i class="fa-solid fa-chart-line text-xs text-amber-400"></i>
+                    <span class="hidden sm:inline">Probabilidad</span>
+                    <span class="sm:hidden">Win %</span>
+                    {{if .Summary}}{{if .Summary.HasWinProb}}<span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 animate-pulse"></span>{{end}}{{end}}
+                </button>
+
+                <button type="button"
                         @click="setActiveTab('players')"
                         :class="activeTab === 'players' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
                         class="flex-1 min-w-[85px] sm:min-w-0 py-2 px-2.5 rounded-lg transition-all flex items-center justify-center space-x-1 cursor-pointer shrink-0 sm:shrink min-h-[40px]">
@@ -210,6 +243,204 @@
 
         <!-- 2. Scrollable Body Content (flex-1, min-h-0, overflow-y-auto) -->
         <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain modal-scrollable p-4 sm:p-6 space-y-6">
+
+            <!-- TAB: WIN PROBABILITY (PROBABILIDAD) -->
+            <div x-show="activeTab === 'winprob'" class="space-y-4">
+                {{if and .Summary .Summary.HasWinProb}}
+                    {{$chart := .Summary.WinProbChart 640.0 220.0}}
+                    {{$pivotal := .Summary.PivotalPlays 3}}
+
+                    <!-- Win % KPI Strip -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="p-3 sm:p-4 rounded-xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/40 via-zinc-900/60 to-zinc-950 flex items-center justify-between">
+                            <div class="flex items-center space-x-2.5 min-w-0">
+                                <img src="{{.Game.AwayTeam.LogoURL}}" alt="{{.Game.AwayTeam.Code}}" class="w-8 h-8 sm:w-10 sm:h-10 object-contain shrink-0">
+                                <div class="min-w-0">
+                                    <span class="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block truncate">{{.Game.AwayTeam.Name}}</span>
+                                    <span class="text-xs font-black text-white font-mono">{{.Game.AwayTeam.Code}}</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-2xl sm:text-3xl font-black font-mono text-cyan-400">{{.Summary.WinProbAway}}%</span>
+                                <span class="text-[9px] font-mono text-zinc-500 block">Probabilidad</span>
+                            </div>
+                        </div>
+
+                        <div class="p-3 sm:p-4 rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-950/40 via-zinc-900/60 to-zinc-950 flex items-center justify-between">
+                            <div class="flex items-center space-x-2.5 min-w-0">
+                                <img src="{{.Game.HomeTeam.LogoURL}}" alt="{{.Game.HomeTeam.Code}}" class="w-8 h-8 sm:w-10 sm:h-10 object-contain shrink-0">
+                                <div class="min-w-0">
+                                    <span class="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block truncate">{{.Game.HomeTeam.Name}}</span>
+                                    <span class="text-xs font-black text-white font-mono">{{.Game.HomeTeam.Code}}</span>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-2xl sm:text-3xl font-black font-mono text-amber-400">{{.Summary.WinProbHome}}%</span>
+                                <span class="text-[9px] font-mono text-zinc-500 block">Probabilidad</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Interactive SVG Chart -->
+                    {{if $chart}}
+                    <div class="p-3 sm:p-5 rounded-2xl bg-zinc-900/50 border border-zinc-800 space-y-3"
+                         x-data="{
+                             hoveredPt: null,
+                             points: {{$chart.PointsJSON}},
+                             onHover(e) {
+                                 if (!this.points || this.points.length === 0) return;
+                                 const rect = e.currentTarget.getBoundingClientRect();
+                                 const relX = (e.clientX - rect.left) / rect.width;
+                                 const idx = Math.min(Math.max(Math.round(relX * (this.points.length - 1)), 0), this.points.length - 1);
+                                 this.hoveredPt = this.points[idx];
+                             },
+                             onTouch(e) {
+                                 if (!this.points || this.points.length === 0 || !e.touches[0]) return;
+                                 const rect = e.currentTarget.getBoundingClientRect();
+                                 const relX = (e.touches[0].clientX - rect.left) / rect.width;
+                                 const idx = Math.min(Math.max(Math.round(relX * (this.points.length - 1)), 0), this.points.length - 1);
+                                 this.hoveredPt = this.points[idx];
+                             }
+                         }">
+                        
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-mono font-bold uppercase tracking-wider text-zinc-300 flex items-center">
+                                <i class="fa-solid fa-chart-area mr-1.5 text-amber-400"></i> Gráfica de Probabilidad de Victoria (ESPN FPI)
+                            </span>
+                            <span class="text-[10px] font-mono text-zinc-500">
+                                Pasa el cursor o desliza para ver jugadas
+                            </span>
+                        </div>
+
+                        <!-- SVG Graph Area -->
+                        <div class="relative w-full overflow-hidden rounded-xl bg-zinc-950 border border-zinc-800/80 p-1 cursor-crosshair"
+                             @mousemove="onHover($event)"
+                             @mouseleave="hoveredPt = null"
+                             @touchstart="onTouch($event)"
+                             @touchmove="onTouch($event)"
+                             @touchend="hoveredPt = null">
+                            
+                            <svg viewBox="0 0 {{$chart.Width}} {{$chart.Height}}" class="w-full h-44 sm:h-56 select-none overflow-visible">
+                                <defs>
+                                    <linearGradient id="homeAdvGradientModal" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.35" />
+                                        <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.0" />
+                                    </linearGradient>
+                                    <linearGradient id="awayAdvGradientModal" x1="0" y1="1" x2="0" y2="0">
+                                        <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.35" />
+                                        <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.0" />
+                                    </linearGradient>
+                                </defs>
+
+                                <!-- Upper Zone (Home) & Lower Zone (Away) -->
+                                <rect x="40" y="15" width="580" height="{{subF $chart.MidY 15.0}}" fill="url(#homeAdvGradientModal)" opacity="0.4" />
+                                <rect x="40" y="{{$chart.MidY}}" width="580" height="{{subF 195.0 $chart.MidY}}" fill="url(#awayAdvGradientModal)" opacity="0.4" />
+
+                                <!-- 50% Baseline -->
+                                <line x1="40" y1="{{$chart.MidY}}" x2="620" y2="{{$chart.MidY}}" stroke="#52525b" stroke-width="1.2" stroke-dasharray="4,4" />
+                                <text x="44" y="{{subF $chart.MidY 4.0}}" fill="#a1a1aa" font-size="9" font-family="monospace" font-weight="bold">50% PARIDAD</text>
+
+                                <!-- Top & Bottom Labels -->
+                                <text x="44" y="24" fill="#fbbf24" font-size="9" font-family="monospace" font-weight="bold">{{$.Game.HomeTeam.Code}} 100%</text>
+                                <text x="44" y="190" fill="#22d3ee" font-size="9" font-family="monospace" font-weight="bold">{{$.Game.AwayTeam.Code}} 100%</text>
+
+                                <!-- Quarter Divider Lines -->
+                                {{range $chart.QuarterMarkers}}
+                                    <line x1="{{.X}}" y1="15" x2="{{.X}}" y2="195" stroke="#27272a" stroke-width="1" stroke-dasharray="2,2" />
+                                    <text x="{{.X}}" y="208" fill="#71717a" font-size="9" font-family="monospace" text-anchor="middle" font-weight="bold">{{.Label}}</text>
+                                {{end}}
+
+                                <!-- Main Win Probability Curve -->
+                                <path d="{{$chart.LinePath}}" fill="none" stroke="#f4f4f5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+
+                                <!-- Hovered Interactive Point Circle -->
+                                <circle x-show="hoveredPt" 
+                                        :cx="hoveredPt?.x" 
+                                        :cy="hoveredPt?.y" 
+                                        r="5" 
+                                        fill="#fbbf24" 
+                                        stroke="#ffffff" 
+                                        stroke-width="2" 
+                                        class="transition-all duration-75" />
+                            </svg>
+                        </div>
+
+                        <!-- Tooltip Card below graph -->
+                        <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800 min-h-[60px] flex flex-col justify-center">
+                            <template x-if="hoveredPt">
+                                <div class="space-y-1 animate-in fade-in duration-100">
+                                    <div class="flex items-center justify-between text-xs font-mono">
+                                        <div class="flex items-center space-x-2">
+                                            <span class="px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-300 font-bold" x-text="'Q' + hoveredPt.quarter + ' ' + (hoveredPt.clock || '')"></span>
+                                            <span class="text-white font-bold" x-text="'Marcador: ' + hoveredPt.score"></span>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <span class="text-cyan-400 font-bold" x-text="'{{$.Game.AwayTeam.Code}} ' + hoveredPt.away_pct + '%'"></span>
+                                            <span class="text-zinc-600">&bull;</span>
+                                            <span class="text-amber-400 font-bold" x-text="'{{$.Game.HomeTeam.Code}} ' + hoveredPt.home_pct + '%'"></span>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-zinc-300 italic" x-text="hoveredPt.text || 'Sin descripción de jugada'"></p>
+                                </div>
+                            </template>
+                            <template x-if="!hoveredPt">
+                                <div class="flex items-center justify-between text-xs font-mono text-zinc-400">
+                                    <span class="flex items-center space-x-2">
+                                        <i class="fa-solid fa-hand-pointer text-amber-400 text-xs"></i>
+                                        <span>Explora la gráfica para ver la jugada y probabilidad en cada instante.</span>
+                                    </span>
+                                    <span class="text-zinc-300 font-bold">
+                                        {{$.Game.AwayTeam.Code}} {{.Summary.WinProbAway}}% &bull; {{$.Game.HomeTeam.Code}} {{.Summary.WinProbHome}}%
+                                    </span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    {{end}}
+
+                    <!-- Pivotal Plays (Jugadas Clave) -->
+                    {{if $pivotal}}
+                    <div class="space-y-2.5">
+                        <h4 class="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400 flex items-center">
+                            <i class="fa-solid fa-bolt-lightning mr-1.5 text-amber-400"></i> Jugadas de Quiebre (Mayor Giro de Probabilidad)
+                        </h4>
+                        <div class="space-y-2">
+                            {{range $p := $pivotal}}
+                                <div class="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 flex items-start space-x-3 text-xs">
+                                    <div class="shrink-0 text-center">
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 block">
+                                            &plusmn;{{$p.SwingDeltaPct}}%
+                                        </span>
+                                        <span class="text-[9px] font-mono text-zinc-500 block mt-0.5">GIRO</span>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center space-x-2 font-mono text-[10px] text-zinc-400">
+                                            <span class="font-bold text-zinc-300">Q{{$p.Quarter}} {{$p.Clock}}</span>
+                                            <span>&bull;</span>
+                                            <span class="text-zinc-400">Marcador: {{$p.AwayScore}}-{{$p.HomeScore}}</span>
+                                            <span>&bull;</span>
+                                            <span class="text-amber-400 font-bold">Local {{mathRoundPct $p.HomeWinPercentage}}%</span>
+                                        </div>
+                                        <p class="text-zinc-200 mt-0.5 leading-snug">{{$p.Text}}</p>
+                                    </div>
+                                </div>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+
+                {{else}}
+                    <div class="p-8 text-center rounded-2xl bg-zinc-900/30 border border-dashed border-zinc-800 space-y-3">
+                        <div class="w-12 h-12 mx-auto rounded-full bg-zinc-900 flex items-center justify-center text-zinc-500">
+                            <i class="fa-solid fa-chart-line text-lg"></i>
+                        </div>
+                        <h4 class="text-sm font-bold text-white">Probabilidad de victoria no disponible</h4>
+                        <p class="text-xs text-zinc-400 max-w-sm mx-auto">
+                            Las proyecciones jugada a jugada de ESPN FPI se calculan dinámicamente una vez iniciado el encuentro.
+                        </p>
+                    </div>
+                {{end}}
+            </div>
 
             <!-- TAB 1: BOXSCORE TEAM COMPARISON -->
             <div x-show="activeTab === 'boxscore'" class="space-y-4">
@@ -303,6 +534,40 @@
                             <div class="col-span-3 text-[11px] text-zinc-400 font-sans font-medium">Tiempo de Posesión</div>
                             <div class="col-span-2 text-right font-bold text-amber-400">{{$home.PossessionTime}}</div>
                         </div>
+
+                        <!-- Venue & Weather Info Card (if available) -->
+                        {{if and $.Summary $.Summary.VenueInfo}}
+                            {{$v := $.Summary.VenueInfo}}
+                            <div class="mt-4 p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800 space-y-2.5">
+                                <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-bold flex items-center">
+                                    <i class="fa-solid fa-landmark text-amber-400 mr-1.5"></i> Estadio y Condiciones de Juego
+                                </span>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                    <div class="bg-zinc-900/60 p-2 rounded-lg border border-zinc-800/60">
+                                        <span class="text-[9px] font-mono text-zinc-500 uppercase block">Estadio</span>
+                                        <span class="font-bold text-white block truncate">{{$v.VenueName}}</span>
+                                        <span class="text-[10px] text-zinc-400 block truncate">{{$v.Location}}</span>
+                                    </div>
+                                    <div class="bg-zinc-900/60 p-2 rounded-lg border border-zinc-800/60">
+                                        <span class="text-[9px] font-mono text-zinc-500 uppercase block">Superficie</span>
+                                        <span class="font-bold text-white block">{{$v.Surface}}</span>
+                                        {{if $v.FormattedAttendance}}
+                                            <span class="text-[10px] text-zinc-400 block">{{$v.FormattedAttendance}} fans</span>
+                                        {{end}}
+                                    </div>
+                                    <div class="bg-zinc-900/60 p-2 rounded-lg border border-zinc-800/60">
+                                        <span class="text-[9px] font-mono text-zinc-500 uppercase block">Clima</span>
+                                        <span class="font-bold text-white block">{{if $v.WeatherTemp}}{{$v.WeatherTemp}}{{else}}Techado{{end}}</span>
+                                        <span class="text-[10px] text-zinc-400 block">{{if $v.WeatherWind}}Viento: {{$v.WeatherWind}}{{else}}Estable{{end}}</span>
+                                    </div>
+                                    <div class="bg-zinc-900/60 p-2 rounded-lg border border-zinc-800/60">
+                                        <span class="text-[9px] font-mono text-zinc-500 uppercase block">Árbitro</span>
+                                        <span class="font-bold text-white block truncate">{{if $v.Referee}}{{$v.Referee}}{{else}}Oficial NFL{{end}}</span>
+                                        <span class="text-[10px] text-zinc-400 block">Oficial Principal</span>
+                                    </div>
+                                </div>
+                            </div>
+                        {{end}}
                     </div>
                 {{else}}
                     <div class="p-8 text-center rounded-2xl bg-zinc-900/30 border border-dashed border-zinc-800 space-y-3">
@@ -324,6 +589,30 @@
             <!-- TAB 2: INDIVIDUAL PLAYER STATISTICS -->
             <div x-show="activeTab === 'players'" class="space-y-4">
                 {{if and .Summary .Summary.HasPlayerStats}}
+                    <!-- Game Leaders Spotlight (if available) -->
+                    {{if and $.Summary $.Summary.HasLeaders}}
+                        <div class="space-y-2">
+                            <h4 class="text-xs font-mono uppercase tracking-wider text-zinc-400 font-bold flex items-center">
+                                <i class="fa-solid fa-crown text-amber-400 text-xs mr-1.5"></i> Líderes Destacados del Partido
+                            </h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                {{range $.Summary.Leaders}}
+                                    <div class="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 flex items-center space-x-3">
+                                        <div class="relative shrink-0">
+                                            <img src="{{.HeadshotURL}}" alt="{{.PlayerName}}" class="w-10 h-10 rounded-full object-cover bg-zinc-800 border border-zinc-700">
+                                            <img src="{{.TeamLogoURL}}" alt="{{.TeamCode}}" class="w-4 h-4 object-contain absolute -bottom-1 -right-1 drop-shadow-sm">
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <span class="text-[9px] font-mono uppercase font-bold text-cyan-400 block tracking-wider">{{.Category}}</span>
+                                            <h5 class="text-xs font-bold text-white truncate">{{.PlayerName}}</h5>
+                                            <p class="text-[11px] font-mono text-zinc-300 font-semibold truncate">{{.DisplayStat}}</p>
+                                        </div>
+                                    </div>
+                                {{end}}
+                            </div>
+                        </div>
+                    {{end}}
+
                     <!-- Team Switcher -->
                     <div class="flex items-center justify-center space-x-2 sm:space-x-3 pb-3 border-b border-zinc-800">
                         <button type="button"
@@ -519,8 +808,15 @@
                                                     <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 uppercase animate-pulse">En Curso</span>
                                                 {{end}}
                                             </div>
-                                            <div class="text-[10px] font-mono text-zinc-500 mt-0.5">
-                                                Inicio: Q{{$drv.StartPeriod}} {{$drv.StartClock}} ({{$drv.StartField}}) &bull; Fin: {{$drv.EndField}}
+                                            <div class="text-[10px] font-mono text-zinc-500 mt-0.5 flex flex-wrap items-center gap-1.5">
+                                                <span>Q{{$drv.StartPeriod}} {{$drv.StartClock}}</span>
+                                                <span>&bull;</span>
+                                                <span class="inline-flex items-center space-x-1 text-zinc-400">
+                                                    <span class="px-1 py-0.2 rounded bg-zinc-800/80 font-bold text-zinc-300">{{$drv.StartField}}</span>
+                                                    <i class="fa-solid fa-arrow-right text-[8px] text-zinc-600"></i>
+                                                    <span class="px-1 py-0.2 rounded bg-zinc-800/80 font-bold text-zinc-300">{{$drv.EndField}}</span>
+                                                </span>
+                                                <span class="text-emerald-400 font-bold">({{$drv.Yards}} yds netas)</span>
                                             </div>
                                         </div>
                                     </div>
@@ -541,12 +837,24 @@
                                         <div class="space-y-2 text-xs divide-y divide-zinc-900">
                                             {{range $drv.Plays}}
                                                 <div class="pt-2 first:pt-0 flex items-start space-x-2">
-                                                    <span class="text-[10px] font-mono text-zinc-500 shrink-0 mt-0.5">{{.Clock}}</span>
+                                                    <span class="text-[10px] font-mono text-zinc-500 shrink-0 mt-0.5 w-10 text-right">{{.Clock}}</span>
                                                     <div class="flex-1 min-w-0">
+                                                        {{if .DownDistanceText}}
+                                                            <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-zinc-800 text-zinc-300 border border-zinc-700/80 mr-1">{{.DownDistanceText}}</span>
+                                                        {{end}}
                                                         <span class="text-[10px] font-mono font-bold text-zinc-400 uppercase mr-1">{{.Type}}</span>
                                                         <span class="text-zinc-300 leading-snug">{{.Text}}</span>
                                                         {{if .StatYardage}}
-                                                            <span class="text-[10px] font-mono text-cyan-400 font-semibold ml-1">({{.StatYardage}} yds)</span>
+                                                            {{if gt .StatYardage 0}}
+                                                                <span class="text-[10px] font-mono text-emerald-400 font-semibold ml-1">(+{{.StatYardage}} yds)</span>
+                                                            {{else if lt .StatYardage 0}}
+                                                                <span class="text-[10px] font-mono text-rose-400 font-semibold ml-1">({{.StatYardage}} yds)</span>
+                                                            {{else}}
+                                                                <span class="text-[10px] font-mono text-zinc-500 font-semibold ml-1">(0 yds)</span>
+                                                            {{end}}
+                                                        {{end}}
+                                                        {{if .IsScoringPlay}}
+                                                            <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase ml-1">ANOTACIÓN</span>
                                                         {{end}}
                                                     </div>
                                                 </div>

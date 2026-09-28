@@ -172,6 +172,83 @@ type ESPNSummaryResponse struct {
 		Previous []ESPNDrive `json:"previous"`
 		Current  *ESPNDrive  `json:"current"`
 	} `json:"drives"`
+	WinProbability []ESPNWinProbabilityItem `json:"winprobability"`
+	GameInfo       ESPNGameInfo             `json:"gameInfo"`
+	Leaders        []ESPNTeamLeaderGroup    `json:"leaders"`
+}
+
+// ESPNWinProbabilityItem represents an ESPN win probability data point per play
+type ESPNWinProbabilityItem struct {
+	HomeWinPercentage float64 `json:"homeWinPercentage"`
+	TiePercentage     float64 `json:"tiePercentage"`
+	PlayID            string  `json:"playId"`
+	SecondsLeft       int     `json:"secondsLeft,omitempty"`
+}
+
+// ESPNGameInfo represents venue, weather, and officiating details from ESPN summary
+type ESPNGameInfo struct {
+	Venue struct {
+		ID       string `json:"id"`
+		FullName string `json:"fullName"`
+		Address  struct {
+			City    string `json:"city"`
+			State   string `json:"state"`
+			Country string `json:"country"`
+		} `json:"address"`
+		Grass  bool `json:"grass"`
+		Images []struct {
+			Href string `json:"href"`
+		} `json:"images"`
+	} `json:"venue"`
+	Attendance int `json:"attendance"`
+	Weather    *struct {
+		DisplayValue string `json:"displayValue"`
+		Temperature  int    `json:"temperature"`
+		ConditionID  string `json:"conditionId"`
+		Gust         int    `json:"gust"`
+	} `json:"weather"`
+	Officials []struct {
+		FullName string `json:"fullName"`
+		Position struct {
+			Name string `json:"name"`
+		} `json:"position"`
+		Order int `json:"order"`
+	} `json:"officials"`
+}
+
+// ESPNTeamLeaderGroup represents one team's leader categories (passing, rushing, receiving)
+type ESPNTeamLeaderGroup struct {
+	Team struct {
+		ID           string `json:"id"`
+		Abbreviation string `json:"abbreviation"`
+		DisplayName  string `json:"displayName"`
+		Logo         string `json:"logo"`
+	} `json:"team"`
+	Leaders []struct {
+		Name        string `json:"name"`
+		DisplayName string `json:"displayName"`
+		Leaders     []struct {
+			DisplayValue string  `json:"displayValue"`
+			Value        float64 `json:"value"`
+			Athlete      struct {
+				ID          string `json:"id"`
+				FullName    string `json:"fullName"`
+				DisplayName string `json:"displayName"`
+				ShortName   string `json:"shortName"`
+				Jersey      string `json:"jersey"`
+				Headshot    struct {
+					Href string `json:"href"`
+				} `json:"headshot"`
+				Position struct {
+					Abbreviation string `json:"abbreviation"`
+				} `json:"position"`
+			} `json:"athlete"`
+			MainStat struct {
+				Value string `json:"value"`
+				Label string `json:"label"`
+			} `json:"mainStat"`
+		} `json:"leaders"`
+	} `json:"leaders"`
 }
 
 // ESPNDrivePlay represents a single play item within an ESPN drive
@@ -188,6 +265,20 @@ type ESPNDrivePlay struct {
 	Type struct {
 		Text string `json:"text"`
 	} `json:"type"`
+	ScoringPlay bool `json:"scoringPlay"`
+	AwayScore   int  `json:"awayScore"`
+	HomeScore   int  `json:"homeScore"`
+	Start       struct {
+		DownDistanceText string `json:"downDistanceText"`
+		Down             int    `json:"down"`
+		Distance         int    `json:"distance"`
+		YardLine         int    `json:"yardLine"`
+	} `json:"start"`
+	End struct {
+		DownDistanceText      string `json:"downDistanceText"`
+		ShortDownDistanceText string `json:"shortDownDistanceText"`
+		PossessionText        string `json:"possessionText"`
+	} `json:"end"`
 }
 
 // ESPNDrive represents an offensive drive from ESPN NFL summary

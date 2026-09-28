@@ -65,6 +65,15 @@ func (r *Renderer) FuncMap() template.FuncMap {
 		"sub": func(a, b int) int {
 			return a - b
 		},
+		"addF": func(a, b float64) float64 {
+			return a + b
+		},
+		"subF": func(a, b float64) float64 {
+			return a - b
+		},
+		"mathRoundPct": func(v float64) int {
+			return int(math.Round(v * 100))
+		},
 		"mul": func(a, b int) int {
 			return a * b
 		},

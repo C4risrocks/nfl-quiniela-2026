@@ -176,17 +176,212 @@ func GenerateRealisticSummary(game *db.Game) *db.GameDetailedSummary {
 	// Scoring plays & offensive drives
 	scoringPlays, drives := buildScoringAndDrives(game, awayCode, awayName, awayLogo, homeCode, homeName, homeLogo, awayScore, homeScore, rnd)
 
+	// Leaders calculation
+	leaders := buildFallbackLeaders(awayRoster, awayCode, awayLogo, awayStats, homeRoster, homeCode, homeLogo, homeStats)
+
+	// Venue calculation
+	venueInfo := buildFallbackVenue(game, rnd)
+
+	// Win Probability calculation
+	winProbPoints, curHomePct, curAwayPct := buildFallbackWinProbability(scoringPlays, awayScore, homeScore, rnd)
+
 	return &db.GameDetailedSummary{
-		AwayStats:       awayStats,
-		HomeStats:       homeStats,
-		AwayPlayerStats: awayPlayerStats,
-		HomePlayerStats: homePlayerStats,
-		ScoringPlays:    scoringPlays,
-		Drives:          drives,
-		HasStats:        true,
-		HasPlayerStats:  true,
-		HasDrives:       len(drives) > 0,
+		AwayStats:         awayStats,
+		HomeStats:         homeStats,
+		AwayPlayerStats:   awayPlayerStats,
+		HomePlayerStats:   homePlayerStats,
+		ScoringPlays:      scoringPlays,
+		Drives:            drives,
+		Leaders:           leaders,
+		VenueInfo:         venueInfo,
+		WinProbability:    winProbPoints,
+		CurrentHomeWinPct: curHomePct,
+		CurrentAwayWinPct: curAwayPct,
+		HasStats:          true,
+		HasPlayerStats:    true,
+		HasDrives:         len(drives) > 0,
+		HasWinProb:        len(winProbPoints) > 0,
+		HasLeaders:        len(leaders) > 0,
 	}
+}
+
+func buildFallbackLeaders(awayRoster defaultRoster, awayCode, awayLogo string, awayStats *db.TeamBoxscoreStats, homeRoster defaultRoster, homeCode, homeLogo string, homeStats *db.TeamBoxscoreStats) []db.GameLeaderItem {
+	var leaders []db.GameLeaderItem
+	leaders = append(leaders, db.GameLeaderItem{
+		Category:    "Pase",
+		PlayerName:  awayRoster.QB.Name,
+		TeamCode:    awayCode,
+		TeamLogoURL: awayLogo,
+		Jersey:      awayRoster.QB.Jersey,
+		Position:    "QB",
+		HeadshotURL: awayRoster.QB.HeadshotURL,
+		DisplayStat: fmt.Sprintf("%s, %s YDS", awayStats.CompAtt, awayStats.PassingYards),
+		Value:       awayStats.PassingYards + " YDS",
+	})
+	leaders = append(leaders, db.GameLeaderItem{
+		Category:    "Acarreo",
+		PlayerName:  awayRoster.RB.Name,
+		TeamCode:    awayCode,
+		TeamLogoURL: awayLogo,
+		Jersey:      awayRoster.RB.Jersey,
+		Position:    "RB",
+		HeadshotURL: awayRoster.RB.HeadshotURL,
+		DisplayStat: fmt.Sprintf("%s CAR, %s YDS", awayStats.RushingAttempts, awayStats.RushingYards),
+		Value:       awayStats.RushingYards + " YDS",
+	})
+	leaders = append(leaders, db.GameLeaderItem{
+		Category:    "Recepción",
+		PlayerName:  awayRoster.WR1.Name,
+		TeamCode:    awayCode,
+		TeamLogoURL: awayLogo,
+		Jersey:      awayRoster.WR1.Jersey,
+		Position:    awayRoster.WR1.Position,
+		HeadshotURL: awayRoster.WR1.HeadshotURL,
+		DisplayStat: fmt.Sprintf("6 REC, %s YDS", awayStats.PassingYards),
+		Value:       "6 REC",
+	})
+
+	leaders = append(leaders, db.GameLeaderItem{
+		Category:    "Pase",
+		PlayerName:  homeRoster.QB.Name,
+		TeamCode:    homeCode,
+		TeamLogoURL: homeLogo,
+		Jersey:      homeRoster.QB.Jersey,
+		Position:    "QB",
+		HeadshotURL: homeRoster.QB.HeadshotURL,
+		DisplayStat: fmt.Sprintf("%s, %s YDS", homeStats.CompAtt, homeStats.PassingYards),
+		Value:       homeStats.PassingYards + " YDS",
+	})
+	leaders = append(leaders, db.GameLeaderItem{
+		Category:    "Acarreo",
+		PlayerName:  homeRoster.RB.Name,
+		TeamCode:    homeCode,
+		TeamLogoURL: homeLogo,
+		Jersey:      homeRoster.RB.Jersey,
+		Position:    "RB",
+		HeadshotURL: homeRoster.RB.HeadshotURL,
+		DisplayStat: fmt.Sprintf("%s CAR, %s YDS", homeStats.RushingAttempts, homeStats.RushingYards),
+		Value:       homeStats.RushingYards + " YDS",
+	})
+	leaders = append(leaders, db.GameLeaderItem{
+		Category:    "Recepción",
+		PlayerName:  homeRoster.WR1.Name,
+		TeamCode:    homeCode,
+		TeamLogoURL: homeLogo,
+		Jersey:      homeRoster.WR1.Jersey,
+		Position:    homeRoster.WR1.Position,
+		HeadshotURL: homeRoster.WR1.HeadshotURL,
+		DisplayStat: fmt.Sprintf("7 REC, %s YDS", homeStats.PassingYards),
+		Value:       "7 REC",
+	})
+
+	return leaders
+}
+
+func buildFallbackVenue(game *db.Game, rnd *rand.Rand) *db.GameVenueInfo {
+	venueName := "Estadio NFL"
+	city := "Ciudad NFL"
+	surface := "Pasto Natural"
+	if game.HomeTeam != nil {
+		venueName = fmt.Sprintf("%s Stadium", game.HomeTeam.City)
+		city = game.HomeTeam.City
+		if strings.Contains("DET MIN IND NO DAL ATL LV LAC LAR", game.HomeTeam.Code) {
+			surface = "Domo / Sintético"
+		}
+	}
+	referees := []string{"Clete Blakeman", "Carl Cheffers", "Brad Allen", "Clay Martin", "Shawn Hochuli", "Bill Vinovich"}
+	ref := referees[rnd.Intn(len(referees))]
+
+	return &db.GameVenueInfo{
+		VenueName:        venueName,
+		City:             city,
+		State:            "EE. UU.",
+		Surface:          surface,
+		Attendance:       65000 + rnd.Intn(16000),
+		WeatherTemp:      fmt.Sprintf("%d°F", 60+rnd.Intn(22)),
+		WeatherCondition: "Despejado",
+		WeatherWind:      fmt.Sprintf("%d mph", 4+rnd.Intn(10)),
+		Referee:          ref,
+	}
+}
+
+func buildFallbackWinProbability(scoringPlays []db.ScoringPlayItem, awayScore, homeScore int, rnd *rand.Rand) ([]db.WinProbabilityPoint, int, int) {
+	var points []db.WinProbabilityPoint
+
+	initHome := 0.52 + (rnd.Float64()-0.5)*0.04
+	points = append(points, db.WinProbabilityPoint{
+		PlayID:            "play_start",
+		HomeWinPercentage: initHome,
+		AwayWinPercentage: 1.0 - initHome,
+		Quarter:           1,
+		Clock:             "15:00",
+		Text:              "Patada inicial de salida (Kickoff)",
+		HomeScore:         0,
+		AwayScore:         0,
+		SwingDelta:        0,
+	})
+
+	prevHome := initHome
+	curAway := 0
+	curHome := 0
+
+	for idx, sp := range scoringPlays {
+		curAway = sp.AwayScore
+		curHome = sp.HomeScore
+		q := sp.Quarter
+		if q < 1 {
+			q = 1
+		}
+		timeWeight := float64(q) / 4.0
+		lead := float64(curHome - curAway)
+
+		homeProb := 0.50 + (lead * 0.038 * (0.8 + timeWeight*0.7))
+		if homeProb > 0.98 {
+			homeProb = 0.98
+		}
+		if homeProb < 0.02 {
+			homeProb = 0.02
+		}
+
+		swing := homeProb - prevHome
+		prevHome = homeProb
+
+		points = append(points, db.WinProbabilityPoint{
+			PlayID:            fmt.Sprintf("play_score_%d", idx),
+			HomeWinPercentage: homeProb,
+			AwayWinPercentage: 1.0 - homeProb,
+			Quarter:           q,
+			Clock:             sp.Clock,
+			Text:              sp.Text,
+			HomeScore:         curHome,
+			AwayScore:         curAway,
+			SwingDelta:        swing,
+		})
+	}
+
+	finalHomeProb := 0.50
+	if homeScore > awayScore {
+		finalHomeProb = 1.0
+	} else if awayScore > homeScore {
+		finalHomeProb = 0.0
+	}
+
+	points = append(points, db.WinProbabilityPoint{
+		PlayID:            "play_final",
+		HomeWinPercentage: finalHomeProb,
+		AwayWinPercentage: 1.0 - finalHomeProb,
+		Quarter:           4,
+		Clock:             "00:00",
+		Text:              "Final del partido",
+		HomeScore:         homeScore,
+		AwayScore:         awayScore,
+		SwingDelta:        finalHomeProb - prevHome,
+	})
+
+	curHomePct := int(math.Round(finalHomeProb * 100))
+	curAwayPct := int(math.Round((1.0 - finalHomeProb) * 100))
+
+	return points, curHomePct, curAwayPct
 }
 
 func buildTeamStats(code, name, logo string, score int, rnd *rand.Rand) *db.TeamBoxscoreStats {
@@ -371,6 +566,45 @@ func buildScoringAndDrives(
 	}
 
 	addDrive := func(q int, teamCode, teamName, teamLogo, resCode, resLabel string, plays, yds int, clock, dur string) {
+		drvPlays := make([]db.DrivePlayItem, 0, 3)
+		drvPlays = append(drvPlays, db.DrivePlayItem{
+			Quarter:          q,
+			Clock:            clock,
+			Type:             "Rush",
+			Text:             fmt.Sprintf("Acarreo por el centro para ganancia de %d yardas", 4+rnd.Intn(5)),
+			StatYardage:      4 + rnd.Intn(5),
+			DownDistanceText: "1st & 10",
+		})
+		drvPlays = append(drvPlays, db.DrivePlayItem{
+			Quarter:          q,
+			Clock:            "08:15",
+			Type:             "Pass",
+			Text:             fmt.Sprintf("Pase completo hacia la banda derecha para %d yardas", 12+rnd.Intn(10)),
+			StatYardage:      12 + rnd.Intn(10),
+			DownDistanceText: "2nd & 6",
+		})
+		if resCode == "TD" {
+			drvPlays = append(drvPlays, db.DrivePlayItem{
+				Quarter:          q,
+				Clock:            "05:30",
+				Type:             "Touchdown",
+				Text:             fmt.Sprintf("Pase de anotación de %d yardas para Touchdown", 15+rnd.Intn(15)),
+				StatYardage:      15 + rnd.Intn(15),
+				DownDistanceText: "1st & Goal",
+				IsScoringPlay:    true,
+			})
+		} else if resCode == "FG" {
+			drvPlays = append(drvPlays, db.DrivePlayItem{
+				Quarter:          q,
+				Clock:            "02:10",
+				Type:             "Field Goal",
+				Text:             fmt.Sprintf("Gol de campo de %d yardas exitoso", 32+rnd.Intn(15)),
+				StatYardage:      0,
+				DownDistanceText: "4th & 3",
+				IsScoringPlay:    true,
+			})
+		}
+
 		drives = append(drives, db.DriveItem{
 			ID:            fmt.Sprintf("d-%d-%d", q, len(drives)+1),
 			TeamCode:      teamCode,
@@ -388,6 +622,7 @@ func buildScoringAndDrives(
 			DisplayResult: resLabel,
 			IsScore:       resCode == "TD" || resCode == "FG",
 			IsCurrent:     false,
+			Plays:         drvPlays,
 		})
 	}
 

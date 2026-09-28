@@ -359,11 +359,14 @@ type ScoringPlayItem struct {
 
 // DrivePlayItem represents a single play inside an offensive drive
 type DrivePlayItem struct {
-	Quarter     int    `json:"quarter"`
-	Clock       string `json:"clock"`
-	Text        string `json:"text"`
-	Type        string `json:"type"`
-	StatYardage int    `json:"stat_yardage"`
+	PlayID           string `json:"play_id,omitempty"`
+	Quarter          int    `json:"quarter"`
+	Clock            string `json:"clock"`
+	Text             string `json:"text"`
+	Type             string `json:"type"`
+	StatYardage      int    `json:"stat_yardage"`
+	DownDistanceText string `json:"down_distance,omitempty"`
+	IsScoringPlay    bool   `json:"is_scoring_play,omitempty"`
 }
 
 // DriveItem represents an offensive series (possession)
@@ -435,22 +438,317 @@ type TeamPlayerStats struct {
 	Categories []PlayerStatCategory `json:"categories"`
 }
 
+// WinProbabilityPoint represents a discrete win probability snapshot during a game
+type WinProbabilityPoint struct {
+	PlayID            string  `json:"play_id"`
+	HomeWinPercentage float64 `json:"home_win_percentage"` // 0.0 to 1.0
+	AwayWinPercentage float64 `json:"away_win_percentage"` // 0.0 to 1.0
+	TiePercentage     float64 `json:"tie_percentage"`
+	Quarter           int     `json:"quarter,omitempty"`
+	Clock             string  `json:"clock,omitempty"`
+	Text              string  `json:"text,omitempty"`
+	HomeScore         int     `json:"home_score,omitempty"`
+	AwayScore         int     `json:"away_score,omitempty"`
+	SwingDelta        float64 `json:"swing_delta,omitempty"` // Change in home probability from previous play
+}
+
+// SwingDeltaPct returns absolute swing percentage as integer (e.g. 18 for +18%)
+func (w WinProbabilityPoint) SwingDeltaPct() int {
+	return int(math.Round(math.Abs(w.SwingDelta) * 100))
+}
+
+// GameLeaderItem represents a top individual performer in a key stat category
+type GameLeaderItem struct {
+	Category    string `json:"category"`     // "Pase", "Acarreo", "Recepción"
+	PlayerName  string `json:"player_name"`
+	TeamCode    string `json:"team_code"`
+	TeamLogoURL string `json:"team_logo_url"`
+	Jersey      string `json:"jersey"`
+	Position    string `json:"position"`
+	HeadshotURL string `json:"headshot_url"`
+	DisplayStat string `json:"display_stat"` // e.g. "24/32, 285 YDS, 3 TD"
+	Value       string `json:"value"`        // e.g. "285 YDS"
+}
+
+// GameVenueInfo represents stadium venue, weather, and officiating details
+type GameVenueInfo struct {
+	VenueName        string `json:"venue_name"`
+	City             string `json:"city"`
+	State            string `json:"state"`
+	Surface          string `json:"surface"`           // Pasto Natural / Artificial
+	Attendance       int    `json:"attendance"`
+	WeatherTemp      string `json:"weather_temp"`      // e.g. "72°F"
+	WeatherCondition string `json:"weather_condition"` // e.g. "Despejado"
+	WeatherWind      string `json:"weather_wind"`
+	Referee          string `json:"referee"`
+}
+
+func (v *GameVenueInfo) Location() string {
+	if v == nil {
+		return ""
+	}
+	if v.City != "" && v.State != "" {
+		return fmt.Sprintf("%s, %s", v.City, v.State)
+	}
+	if v.City != "" {
+		return v.City
+	}
+	return v.VenueName
+}
+
+func (v *GameVenueInfo) FormattedAttendance() string {
+	if v == nil || v.Attendance <= 0 {
+		return ""
+	}
+	str := fmt.Sprintf("%d", v.Attendance)
+	n := len(str)
+	if n <= 3 {
+		return str
+	}
+	var res strings.Builder
+	rem := n % 3
+	if rem > 0 {
+		res.WriteString(str[:rem])
+	}
+	for i := rem; i < n; i += 3 {
+		if res.Len() > 0 {
+			res.WriteString(",")
+		}
+		res.WriteString(str[i : i+3])
+	}
+	return res.String()
+}
+
 // GameDetailedSummary combines boxscore team statistics, player statistics, scoring plays and offensive drives
 type GameDetailedSummary struct {
-	AwayStats       *TeamBoxscoreStats `json:"away_stats,omitempty"`
-	HomeStats       *TeamBoxscoreStats `json:"home_stats,omitempty"`
-	AwayPlayerStats *TeamPlayerStats   `json:"away_player_stats,omitempty"`
-	HomePlayerStats *TeamPlayerStats   `json:"home_player_stats,omitempty"`
-	ScoringPlays    []ScoringPlayItem  `json:"scoring_plays,omitempty"`
-	Drives          []DriveItem        `json:"drives,omitempty"`
-	StatusDetail    string             `json:"status_detail,omitempty"`
-	GameStatus      string             `json:"game_status,omitempty"`
-	AwayScore       *int               `json:"away_score,omitempty"`
-	HomeScore       *int               `json:"home_score,omitempty"`
-	Linescores      string             `json:"linescores,omitempty"`
-	HasStats        bool               `json:"has_stats"`
-	HasPlayerStats  bool               `json:"has_player_stats"`
-	HasDrives       bool               `json:"has_drives"`
+	AwayStats         *TeamBoxscoreStats    `json:"away_stats,omitempty"`
+	HomeStats         *TeamBoxscoreStats    `json:"home_stats,omitempty"`
+	AwayPlayerStats   *TeamPlayerStats      `json:"away_player_stats,omitempty"`
+	HomePlayerStats   *TeamPlayerStats      `json:"home_player_stats,omitempty"`
+	ScoringPlays      []ScoringPlayItem     `json:"scoring_plays,omitempty"`
+	Drives            []DriveItem           `json:"drives,omitempty"`
+	StatusDetail      string                `json:"status_detail,omitempty"`
+	GameStatus        string                `json:"game_status,omitempty"`
+	AwayScore         *int                  `json:"away_score,omitempty"`
+	HomeScore         *int                  `json:"home_score,omitempty"`
+	Linescores        string                `json:"linescores,omitempty"`
+	WinProbability    []WinProbabilityPoint `json:"win_probability,omitempty"`
+	CurrentHomeWinPct int                   `json:"current_home_win_pct"`
+	CurrentAwayWinPct int                   `json:"current_away_win_pct"`
+	Leaders           []GameLeaderItem      `json:"leaders,omitempty"`
+	VenueInfo         *GameVenueInfo        `json:"venue_info,omitempty"`
+	HasStats          bool                  `json:"has_stats"`
+	HasPlayerStats    bool                  `json:"has_player_stats"`
+	HasDrives         bool                  `json:"has_drives"`
+	HasWinProb        bool                  `json:"has_win_prob"`
+	HasLeaders        bool                  `json:"has_leaders"`
+}
+
+func (s *GameDetailedSummary) WinProbHome() int {
+	if s == nil || !s.HasWinProb {
+		return 50
+	}
+	if s.CurrentHomeWinPct > 0 || s.CurrentAwayWinPct > 0 {
+		return s.CurrentHomeWinPct
+	}
+	if len(s.WinProbability) > 0 {
+		return int(math.Round(s.WinProbability[len(s.WinProbability)-1].HomeWinPercentage * 100))
+	}
+	return 50
+}
+
+func (s *GameDetailedSummary) WinProbAway() int {
+	if s == nil || !s.HasWinProb {
+		return 50
+	}
+	if s.CurrentHomeWinPct > 0 || s.CurrentAwayWinPct > 0 {
+		return s.CurrentAwayWinPct
+	}
+	return 100 - s.WinProbHome()
+}
+
+// PivotalPlays returns up to limit plays that caused the highest probability shift
+func (s *GameDetailedSummary) PivotalPlays(limit int) []WinProbabilityPoint {
+	if s == nil || len(s.WinProbability) < 2 {
+		return nil
+	}
+	if limit <= 0 {
+		limit = 3
+	}
+
+	type indexedPoint struct {
+		pt   WinProbabilityPoint
+		absD float64
+	}
+
+	candidates := make([]indexedPoint, 0, len(s.WinProbability))
+	for i := 1; i < len(s.WinProbability); i++ {
+		pt := s.WinProbability[i]
+		absD := math.Abs(pt.SwingDelta)
+		if absD >= 0.05 && pt.Text != "" {
+			candidates = append(candidates, indexedPoint{pt: pt, absD: absD})
+		}
+	}
+
+	for i := 0; i < len(candidates)-1; i++ {
+		for j := i + 1; j < len(candidates); j++ {
+			if candidates[j].absD > candidates[i].absD {
+				candidates[i], candidates[j] = candidates[j], candidates[i]
+			}
+		}
+	}
+
+	if len(candidates) > limit {
+		candidates = candidates[:limit]
+	}
+
+	result := make([]WinProbabilityPoint, len(candidates))
+	for i, c := range candidates {
+		result[i] = c.pt
+	}
+	return result
+}
+
+// WinProbQuarterMarker marks quarter transitions on the SVG chart
+type WinProbQuarterMarker struct {
+	Label string  `json:"label"` // "Q1", "Q2", "Q3", "Q4", "OT"
+	X     float64 `json:"x"`
+}
+
+// WinProbInteractivePoint holds data for interactive hover inspection on the chart
+type WinProbInteractivePoint struct {
+	X        float64 `json:"x"`
+	Y        float64 `json:"y"`
+	HomePct  int     `json:"home_pct"`
+	AwayPct  int     `json:"away_pct"`
+	Quarter  int     `json:"quarter"`
+	Clock    string  `json:"clock"`
+	Text     string  `json:"text"`
+	Score    string  `json:"score"`
+	SwingPct int     `json:"swing_pct"`
+}
+
+// WinProbChartData contains precalculated SVG coordinates and JSON for reactive rendering
+type WinProbChartData struct {
+	Width             float64                   `json:"width"`
+	Height            float64                   `json:"height"`
+	MidY              float64                   `json:"mid_y"`
+	LinePath          string                    `json:"line_path"`
+	HomeAreaPath      string                    `json:"home_area_path"`
+	QuarterMarkers    []WinProbQuarterMarker   `json:"quarter_markers"`
+	InteractivePoints []WinProbInteractivePoint `json:"interactive_points"`
+	PointsJSON        string                    `json:"points_json"`
+}
+
+// WinProbChart computes SVG coordinates and paths for the win probability line and area graph
+func (s *GameDetailedSummary) WinProbChart(w, h float64) *WinProbChartData {
+	if s == nil || len(s.WinProbability) == 0 {
+		return nil
+	}
+	if w <= 0 {
+		w = 600
+	}
+	if h <= 0 {
+		h = 200
+	}
+
+	leftPad := 40.0
+	rightPad := 20.0
+	topPad := 15.0
+	bottomPad := 25.0
+
+	plotW := w - leftPad - rightPad
+	plotH := h - topPad - bottomPad
+	midY := topPad + (plotH / 2.0)
+
+	n := len(s.WinProbability)
+	if n == 1 {
+		pt := s.WinProbability[0]
+		y := topPad + (1.0-pt.HomeWinPercentage)*plotH
+		line := fmt.Sprintf("M %.1f %.1f L %.1f %.1f", leftPad, y, leftPad+plotW, y)
+		return &WinProbChartData{
+			Width:      w,
+			Height:     h,
+			MidY:       midY,
+			LinePath:   line,
+			PointsJSON: "[]",
+		}
+	}
+
+	type ptCoords struct {
+		x, y float64
+	}
+	coords := make([]ptCoords, n)
+	quarterSeen := make(map[int]bool)
+	var markers []WinProbQuarterMarker
+	var interPoints []WinProbInteractivePoint
+
+	var lineSb strings.Builder
+	for i, pt := range s.WinProbability {
+		x := leftPad + (float64(i)/float64(n-1))*plotW
+		homeProb := pt.HomeWinPercentage
+		if homeProb < 0 {
+			homeProb = 0
+		}
+		if homeProb > 1 {
+			homeProb = 1
+		}
+		y := topPad + (1.0-homeProb)*plotH
+		coords[i] = ptCoords{x: x, y: y}
+
+		if i == 0 {
+			lineSb.WriteString(fmt.Sprintf("M %.1f %.1f", x, y))
+		} else {
+			lineSb.WriteString(fmt.Sprintf(" L %.1f %.1f", x, y))
+		}
+
+		if pt.Quarter > 0 && !quarterSeen[pt.Quarter] {
+			quarterSeen[pt.Quarter] = true
+			lbl := fmt.Sprintf("Q%d", pt.Quarter)
+			if pt.Quarter > 4 {
+				lbl = "OT"
+			}
+			markers = append(markers, WinProbQuarterMarker{
+				Label: lbl,
+				X:     math.Round(x*10) / 10,
+			})
+		}
+
+		interPoints = append(interPoints, WinProbInteractivePoint{
+			X:        math.Round(x*10) / 10,
+			Y:        math.Round(y*10) / 10,
+			HomePct:  int(math.Round(pt.HomeWinPercentage * 100)),
+			AwayPct:  int(math.Round(pt.AwayWinPercentage * 100)),
+			Quarter:  pt.Quarter,
+			Clock:    pt.Clock,
+			Text:     pt.Text,
+			Score:    fmt.Sprintf("%d - %d", pt.AwayScore, pt.HomeScore),
+			SwingPct: pt.SwingDeltaPct(),
+		})
+	}
+
+	var homeAreaSb strings.Builder
+	homeAreaSb.WriteString(fmt.Sprintf("M %.1f %.1f", coords[0].x, midY))
+	for _, c := range coords {
+		homeAreaSb.WriteString(fmt.Sprintf(" L %.1f %.1f", c.x, c.y))
+	}
+	homeAreaSb.WriteString(fmt.Sprintf(" L %.1f %.1f Z", coords[n-1].x, midY))
+
+	pointsJSON := "[]"
+	if b, err := json.Marshal(interPoints); err == nil {
+		pointsJSON = string(b)
+	}
+
+	return &WinProbChartData{
+		Width:             w,
+		Height:            h,
+		MidY:              midY,
+		LinePath:          lineSb.String(),
+		HomeAreaPath:      homeAreaSb.String(),
+		QuarterMarkers:    markers,
+		InteractivePoints: interPoints,
+		PointsJSON:        pointsJSON,
+	}
 }
 
 

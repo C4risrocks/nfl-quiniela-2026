@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -517,6 +518,157 @@ func (c *Client) FetchGameSummary(espnGameID string) (*db.GameDetailedSummary, e
 	}
 	result.Drives = allDrives
 	result.HasDrives = len(allDrives) > 0
+
+	// Build play lookup map for winprobability enrichment
+	playMap := make(map[string]ESPNDrivePlay)
+	for _, drv := range espnResp.Drives.Previous {
+		for _, p := range drv.Plays {
+			playMap[p.ID] = p
+		}
+	}
+	if espnResp.Drives.Current != nil {
+		for _, p := range espnResp.Drives.Current.Plays {
+			playMap[p.ID] = p
+		}
+	}
+
+	// Parse ESPN win probability data
+	if len(espnResp.WinProbability) > 0 {
+		winPoints := make([]db.WinProbabilityPoint, 0, len(espnResp.WinProbability))
+		var prevHomePct float64
+		for i, wp := range espnResp.WinProbability {
+			awayPct := 1.0 - wp.HomeWinPercentage - wp.TiePercentage
+			if awayPct < 0 {
+				awayPct = 0
+			}
+
+			pt := db.WinProbabilityPoint{
+				PlayID:            wp.PlayID,
+				HomeWinPercentage: wp.HomeWinPercentage,
+				AwayWinPercentage: awayPct,
+				TiePercentage:     wp.TiePercentage,
+			}
+
+			if p, ok := playMap[wp.PlayID]; ok {
+				pt.Quarter = p.Period.Number
+				pt.Clock = p.Clock.DisplayValue
+				pt.Text = p.Text
+				pt.HomeScore = p.HomeScore
+				pt.AwayScore = p.AwayScore
+			}
+
+			if i == 0 {
+				prevHomePct = wp.HomeWinPercentage
+				pt.SwingDelta = 0
+			} else {
+				pt.SwingDelta = wp.HomeWinPercentage - prevHomePct
+				prevHomePct = wp.HomeWinPercentage
+			}
+
+			winPoints = append(winPoints, pt)
+		}
+
+		result.WinProbability = winPoints
+		result.HasWinProb = len(winPoints) > 0
+		if len(winPoints) > 0 {
+			lastPt := winPoints[len(winPoints)-1]
+			result.CurrentHomeWinPct = int(math.Round(lastPt.HomeWinPercentage * 100))
+			result.CurrentAwayWinPct = int(math.Round(lastPt.AwayWinPercentage * 100))
+			if result.CurrentHomeWinPct == 0 && result.CurrentAwayWinPct == 0 {
+				result.CurrentHomeWinPct = 50
+				result.CurrentAwayWinPct = 50
+			}
+		}
+	}
+
+	// Parse GameInfo (Venue, Weather, Officials)
+	if espnResp.GameInfo.Venue.FullName != "" {
+		vInfo := &db.GameVenueInfo{
+			VenueName:  espnResp.GameInfo.Venue.FullName,
+			City:       espnResp.GameInfo.Venue.Address.City,
+			State:      espnResp.GameInfo.Venue.Address.State,
+			Attendance: espnResp.GameInfo.Attendance,
+		}
+		if espnResp.GameInfo.Venue.Grass {
+			vInfo.Surface = "Pasto Natural"
+		} else {
+			vInfo.Surface = "Pasto Artificial"
+		}
+		if espnResp.GameInfo.Weather != nil {
+			vInfo.WeatherTemp = espnResp.GameInfo.Weather.DisplayValue
+			if vInfo.WeatherTemp == "" && espnResp.GameInfo.Weather.Temperature > 0 {
+				vInfo.WeatherTemp = fmt.Sprintf("%d°F", espnResp.GameInfo.Weather.Temperature)
+			}
+			if espnResp.GameInfo.Weather.Gust > 0 {
+				vInfo.WeatherWind = fmt.Sprintf("%d mph", espnResp.GameInfo.Weather.Gust)
+			}
+		}
+		for _, off := range espnResp.GameInfo.Officials {
+			if strings.EqualFold(off.Position.Name, "Referee") {
+				vInfo.Referee = off.FullName
+				break
+			}
+		}
+		result.VenueInfo = vInfo
+	}
+
+	// Parse Game Leaders (Passing, Rushing, Receiving)
+	if len(espnResp.Leaders) > 0 {
+		var leaderItems []db.GameLeaderItem
+		for _, grp := range espnResp.Leaders {
+			tCode := NormalizeTeamCode(grp.Team.Abbreviation)
+			tLogo := grp.Team.Logo
+			for _, cat := range grp.Leaders {
+				catTitle := ""
+				switch strings.ToLower(cat.Name) {
+				case "passingyards":
+					catTitle = "Pase"
+				case "rushingyards":
+					catTitle = "Acarreo"
+				case "receivingyards":
+					catTitle = "Recepción"
+				}
+				if catTitle == "" {
+					continue
+				}
+				for _, lead := range cat.Leaders {
+					if lead.Athlete.FullName == "" && lead.Athlete.DisplayName == "" {
+						continue
+					}
+					name := lead.Athlete.DisplayName
+					if name == "" {
+						name = lead.Athlete.FullName
+					}
+					disp := lead.DisplayValue
+					val := lead.MainStat.Value
+					if val != "" && lead.MainStat.Label != "" {
+						val += " " + lead.MainStat.Label
+					}
+					headshot := lead.Athlete.Headshot.Href
+					if headshot == "" {
+						headshot = tLogo
+					}
+					leaderItems = append(leaderItems, db.GameLeaderItem{
+						Category:    catTitle,
+						PlayerName:  name,
+						TeamCode:    tCode,
+						TeamLogoURL: tLogo,
+						Jersey:      lead.Athlete.Jersey,
+						Position:    lead.Athlete.Position.Abbreviation,
+						HeadshotURL: headshot,
+						DisplayStat: disp,
+						Value:       val,
+					})
+					break // 1 leader per category per team
+				}
+			}
+		}
+		if len(leaderItems) > 0 {
+			result.Leaders = leaderItems
+			result.HasLeaders = true
+		}
+	}
+
 	result.StatusDetail = statusDetail
 	if isFinal {
 		result.GameStatus = "final"
@@ -600,12 +752,22 @@ func parseESPNDrive(d ESPNDrive, isCurrent bool) db.DriveItem {
 
 	plays := make([]db.DrivePlayItem, 0, len(d.Plays))
 	for _, p := range d.Plays {
+		downDist := p.End.ShortDownDistanceText
+		if downDist == "" {
+			downDist = p.End.DownDistanceText
+		}
+		if downDist == "" {
+			downDist = p.Start.DownDistanceText
+		}
 		plays = append(plays, db.DrivePlayItem{
-			Quarter:     p.Period.Number,
-			Clock:       p.Clock.DisplayValue,
-			Text:        p.Text,
-			Type:        p.Type.Text,
-			StatYardage: p.StatYardage,
+			PlayID:           p.ID,
+			Quarter:          p.Period.Number,
+			Clock:            p.Clock.DisplayValue,
+			Text:             p.Text,
+			Type:             p.Type.Text,
+			StatYardage:      p.StatYardage,
+			DownDistanceText: downDist,
+			IsScoringPlay:    p.ScoringPlay,
 		})
 	}
 

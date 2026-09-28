@@ -31,3 +31,4 @@ Thumbs.db
 # Benchmarks & Sandbox experiments
 benchmarks/
 *.pdf
+.playwright-cli/

@@ -266,6 +266,30 @@ func TestGenerateRealisticSummary(t *testing.T) {
 	}
 	if !summary.HasDrives || len(summary.Drives) == 0 {
 		t.Errorf("Expected drives to be generated")
+	} else {
+		firstDrive := summary.Drives[0]
+		if len(firstDrive.Plays) > 0 {
+			firstPlay := firstDrive.Plays[0]
+			if firstPlay.DownDistanceText == "" {
+				t.Errorf("Expected DownDistanceText on realistic fallback drive plays")
+			}
+		}
+	}
+
+	// Advanced features assertions
+	if !summary.HasWinProb || len(summary.WinProbability) < 5 {
+		t.Errorf("Expected HasWinProb and populated win probability curve, got %d points", len(summary.WinProbability))
+	}
+	if summary.CurrentHomeWinPct <= 0 || summary.CurrentHomeWinPct > 100 {
+		t.Errorf("Expected valid CurrentHomeWinPct, got %d", summary.CurrentHomeWinPct)
+	}
+
+	if !summary.HasLeaders || len(summary.Leaders) == 0 {
+		t.Errorf("Expected HasLeaders and populated spotlight leaders, got %d", len(summary.Leaders))
+	}
+
+	if summary.VenueInfo == nil || summary.VenueInfo.VenueName == "" {
+		t.Errorf("Expected VenueInfo with VenueName to be generated")
 	}
 }
 
