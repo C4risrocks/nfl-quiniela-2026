@@ -145,29 +145,35 @@
                             <span class="text-[10px] font-mono text-zinc-400 uppercase">División AFC</span>
                         </div>
 
-                        <!-- Division Teams Table -->
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-xs">
+                        <!-- Division Teams Table (Mobile Frozen First Column) -->
+                        <div class="overflow-x-auto relative no-scrollbar">
+                            <table class="w-full text-left text-xs min-w-[620px] sm:min-w-full">
                                 <thead>
                                     <tr class="text-[10px] font-mono uppercase text-zinc-500 border-b border-zinc-800/60 bg-zinc-950/40">
-                                        <th class="py-2 pl-3 pr-1 w-6">#</th>
-                                        <th class="py-2 px-2">Equipo</th>
+                                        <th class="py-2 pl-3 pr-1 w-6 sticky left-0 bg-zinc-950 z-20">#</th>
+                                        <th class="py-2 px-2 sticky left-7 bg-zinc-950 z-20 min-w-[140px]">Equipo</th>
                                         <th class="py-2 px-2 text-center">G</th>
                                         <th class="py-2 px-2 text-center">P</th>
-                                        {{if gt $.Standings.Year 0}}<th class="py-2 px-2 text-center hidden sm:table-cell">E</th>{{end}}
                                         <th class="py-2 px-2 text-center">%</th>
-                                        <th class="py-2 px-2 text-center hidden sm:table-cell">DIF</th>
-                                        <th class="py-2 px-2 text-center hidden md:table-cell">Racha</th>
-                                        <th class="py-2 pr-3 text-right">Ficha</th>
+                                        <th class="py-2 px-2 text-center">DIF</th>
+                                        <th class="py-2 px-2 text-center" title="Victorias Pitagóricas Esperadas">Wexp</th>
+                                        <th class="py-2 px-2 text-center">L5</th>
+                                        <th class="py-2 px-2 text-center">Racha</th>
+                                        <th class="py-2 pr-3 text-right">Acción</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-zinc-900/80">
                                     {{range .Teams}}
-                                        <tr class="hover:bg-zinc-900/50 transition-colors group">
-                                            <td class="py-2.5 pl-3 pr-1 font-mono text-[11px] text-zinc-500 font-bold">
+                                        <tr x-show="matchesTeam({ name: '{{.TeamCity}} {{.TeamName}}', code: '{{.TeamCode}}', city: '{{.TeamCity}}', division: '{{.Division}}', conference: '{{.Conference}}', rank: {{.Rank}}, seed: {{.ConferenceSeed}}, streak: '{{.Streak}}', pythStatus: '{{.PythagoreanStatus}}' })"
+                                            class="hover:bg-zinc-900/50 transition-colors group">
+                                            
+                                            <!-- Rank (Sticky) -->
+                                            <td class="py-2.5 pl-3 pr-1 font-mono text-[11px] text-zinc-500 font-bold sticky left-0 bg-zinc-950 group-hover:bg-zinc-900 z-10">
                                                 {{.Rank}}
                                             </td>
-                                            <td class="py-2.5 px-2">
+
+                                            <!-- Team Identity (Sticky) -->
+                                            <td class="py-2.5 px-2 sticky left-7 bg-zinc-950 group-hover:bg-zinc-900 z-10 border-r border-zinc-800/40 sm:border-r-0">
                                                 <button type="button"
                                                         hx-get="/teams/{{.TeamCode}}/modal?season={{$.SelectedSeason}}"
                                                         hx-target="#team-modal-container"
@@ -178,8 +184,8 @@
                                                         <div class="font-bold text-zinc-200 group-hover:text-white text-xs truncate flex items-center">
                                                             {{.TeamCity}} {{.TeamName}}
                                                             {{if .IsSuperBowlChampion}}
-                                                                <span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center shrink-0">
-                                                                    <i class="fa-solid fa-trophy mr-1 text-[8px]"></i> Campeón
+                                                                <span class="ml-1.5 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center shrink-0">
+                                                                    <i class="fa-solid fa-trophy mr-0.5 text-[7px]"></i>
                                                                 </span>
                                                             {{end}}
                                                         </div>
@@ -189,28 +195,70 @@
                                                     </div>
                                                 </button>
                                             </td>
+
+                                            <!-- Record & Diff -->
                                             <td class="py-2.5 px-2 text-center font-mono font-bold text-zinc-100">{{.Wins}}</td>
                                             <td class="py-2.5 px-2 text-center font-mono text-zinc-400">{{.Losses}}</td>
-                                            <td class="py-2.5 px-2 text-center font-mono text-zinc-500 hidden sm:table-cell">{{.Ties}}</td>
                                             <td class="py-2.5 px-2 text-center font-mono text-zinc-300 font-semibold">{{.WinPercentFormatted}}</td>
-                                            <td class="py-2.5 px-2 text-center font-mono text-[11px] font-semibold {{if gt .PointDiff 0}}text-emerald-400{{else if lt .PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}} hidden sm:table-cell">
+                                            <td class="py-2.5 px-2 text-center font-mono text-[11px] font-semibold {{if gt .PointDiff 0}}text-emerald-400{{else if lt .PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}}">
                                                 {{if gt .PointDiff 0}}+{{end}}{{.PointDiff}}
                                             </td>
-                                            <td class="py-2.5 px-2 text-center hidden md:table-cell">
+
+                                            <!-- Pythagorean Expected Wins -->
+                                            <td class="py-2.5 px-2 text-center font-mono text-[11px]">
+                                                <div class="flex items-center justify-center space-x-1">
+                                                    <span class="text-zinc-300 font-semibold">{{printf "%.1f" .PythagoreanWins}}</span>
+                                                    {{if eq .PythagoreanStatus "underperforming"}}
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Sleeper: Espera regresión positiva"></span>
+                                                    {{else if eq .PythagoreanStatus "overperforming"}}
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-rose-400" title="Trampa: Espera regresión negativa"></span>
+                                                    {{end}}
+                                                </div>
+                                            </td>
+
+                                            <!-- Form Guide L5 -->
+                                            <td class="py-2.5 px-2 text-center">
+                                                <div class="flex items-center justify-center space-x-0.5">
+                                                    {{range .LastFiveResults}}
+                                                        <span class="w-4 h-4 rounded text-[8.5px] font-mono font-bold flex items-center justify-center {{if eq .Result "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if eq .Result "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}" 
+                                                              title="Sem {{.WeekNumber}}: {{.Result}} {{.Score}} {{if .IsHome}}vs{{else}}@{{end}} {{.OpponentCode}}">
+                                                            {{.Result}}
+                                                        </span>
+                                                    {{else}}
+                                                        <span class="text-zinc-600 font-mono text-[10px]">-</span>
+                                                    {{end}}
+                                                </div>
+                                            </td>
+
+                                            <!-- Streak -->
+                                            <td class="py-2.5 px-2 text-center">
                                                 <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-bold {{if hasPrefix .Streak "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if hasPrefix .Streak "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}">
                                                     {{.Streak}}
                                                 </span>
                                             </td>
+
+                                            <!-- Actions: H2H + Detail -->
                                             <td class="py-2.5 pr-3 text-right">
-                                                <button type="button"
-                                                        hx-get="/teams/{{.TeamCode}}/modal?season={{$.SelectedSeason}}"
-                                                        hx-target="#team-modal-container"
-                                                        hx-swap="innerHTML"
-                                                        title="Ver Ficha Rápida"
-                                                        class="p-1 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all cursor-pointer">
-                                                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                                                </button>
+                                                <div class="flex items-center justify-end space-x-1">
+                                                    <button type="button"
+                                                            hx-get="/teams/compare?team1={{.TeamCode}}&season={{$.SelectedSeason}}"
+                                                            hx-target="#team-modal-container"
+                                                            hx-swap="innerHTML"
+                                                            title="Comparar frente a otro equipo"
+                                                            class="p-1 rounded-md text-zinc-500 hover:text-amber-400 hover:bg-zinc-800 transition-colors cursor-pointer">
+                                                        <i class="fa-solid fa-code-compare text-[10px]"></i>
+                                                    </button>
+                                                    <button type="button"
+                                                            hx-get="/teams/{{.TeamCode}}/modal?season={{$.SelectedSeason}}"
+                                                            hx-target="#team-modal-container"
+                                                            hx-swap="innerHTML"
+                                                            title="Ver Ficha Rápida"
+                                                            class="p-1 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer">
+                                                        <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                                                    </button>
+                                                </div>
                                             </td>
+
                                         </tr>
                                     {{end}}
                                 </tbody>
@@ -242,29 +290,35 @@
                             <span class="text-[10px] font-mono text-zinc-400 uppercase">División NFC</span>
                         </div>
 
-                        <!-- Division Teams Table -->
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-xs">
+                        <!-- Division Teams Table (Mobile Frozen First Column) -->
+                        <div class="overflow-x-auto relative no-scrollbar">
+                            <table class="w-full text-left text-xs min-w-[620px] sm:min-w-full">
                                 <thead>
                                     <tr class="text-[10px] font-mono uppercase text-zinc-500 border-b border-zinc-800/60 bg-zinc-950/40">
-                                        <th class="py-2 pl-3 pr-1 w-6">#</th>
-                                        <th class="py-2 px-2">Equipo</th>
+                                        <th class="py-2 pl-3 pr-1 w-6 sticky left-0 bg-zinc-950 z-20">#</th>
+                                        <th class="py-2 px-2 sticky left-7 bg-zinc-950 z-20 min-w-[140px]">Equipo</th>
                                         <th class="py-2 px-2 text-center">G</th>
                                         <th class="py-2 px-2 text-center">P</th>
-                                        {{if gt $.Standings.Year 0}}<th class="py-2 px-2 text-center hidden sm:table-cell">E</th>{{end}}
                                         <th class="py-2 px-2 text-center">%</th>
-                                        <th class="py-2 px-2 text-center hidden sm:table-cell">DIF</th>
-                                        <th class="py-2 px-2 text-center hidden md:table-cell">Racha</th>
-                                        <th class="py-2 pr-3 text-right">Ficha</th>
+                                        <th class="py-2 px-2 text-center">DIF</th>
+                                        <th class="py-2 px-2 text-center" title="Victorias Pitagóricas Esperadas">Wexp</th>
+                                        <th class="py-2 px-2 text-center">L5</th>
+                                        <th class="py-2 px-2 text-center">Racha</th>
+                                        <th class="py-2 pr-3 text-right">Acción</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-zinc-900/80">
                                     {{range .Teams}}
-                                        <tr class="hover:bg-zinc-900/50 transition-colors group">
-                                            <td class="py-2.5 pl-3 pr-1 font-mono text-[11px] text-zinc-500 font-bold">
+                                        <tr x-show="matchesTeam({ name: '{{.TeamCity}} {{.TeamName}}', code: '{{.TeamCode}}', city: '{{.TeamCity}}', division: '{{.Division}}', conference: '{{.Conference}}', rank: {{.Rank}}, seed: {{.ConferenceSeed}}, streak: '{{.Streak}}', pythStatus: '{{.PythagoreanStatus}}' })"
+                                            class="hover:bg-zinc-900/50 transition-colors group">
+                                            
+                                            <!-- Rank (Sticky) -->
+                                            <td class="py-2.5 pl-3 pr-1 font-mono text-[11px] text-zinc-500 font-bold sticky left-0 bg-zinc-950 group-hover:bg-zinc-900 z-10">
                                                 {{.Rank}}
                                             </td>
-                                            <td class="py-2.5 px-2">
+
+                                            <!-- Team Identity (Sticky) -->
+                                            <td class="py-2.5 px-2 sticky left-7 bg-zinc-950 group-hover:bg-zinc-900 z-10 border-r border-zinc-800/40 sm:border-r-0">
                                                 <button type="button"
                                                         hx-get="/teams/{{.TeamCode}}/modal?season={{$.SelectedSeason}}"
                                                         hx-target="#team-modal-container"
@@ -275,8 +329,8 @@
                                                         <div class="font-bold text-zinc-200 group-hover:text-white text-xs truncate flex items-center">
                                                             {{.TeamCity}} {{.TeamName}}
                                                             {{if .IsSuperBowlChampion}}
-                                                                <span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center shrink-0">
-                                                                    <i class="fa-solid fa-trophy mr-1 text-[8px]"></i> Campeón
+                                                                <span class="ml-1.5 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center shrink-0">
+                                                                    <i class="fa-solid fa-trophy mr-0.5 text-[7px]"></i>
                                                                 </span>
                                                             {{end}}
                                                         </div>
@@ -286,28 +340,70 @@
                                                     </div>
                                                 </button>
                                             </td>
+
+                                            <!-- Record & Diff -->
                                             <td class="py-2.5 px-2 text-center font-mono font-bold text-zinc-100">{{.Wins}}</td>
                                             <td class="py-2.5 px-2 text-center font-mono text-zinc-400">{{.Losses}}</td>
-                                            <td class="py-2.5 px-2 text-center font-mono text-zinc-500 hidden sm:table-cell">{{.Ties}}</td>
                                             <td class="py-2.5 px-2 text-center font-mono text-zinc-300 font-semibold">{{.WinPercentFormatted}}</td>
-                                            <td class="py-2.5 px-2 text-center font-mono text-[11px] font-semibold {{if gt .PointDiff 0}}text-emerald-400{{else if lt .PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}} hidden sm:table-cell">
+                                            <td class="py-2.5 px-2 text-center font-mono text-[11px] font-semibold {{if gt .PointDiff 0}}text-emerald-400{{else if lt .PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}}">
                                                 {{if gt .PointDiff 0}}+{{end}}{{.PointDiff}}
                                             </td>
-                                            <td class="py-2.5 px-2 text-center hidden md:table-cell">
+
+                                            <!-- Pythagorean Expected Wins -->
+                                            <td class="py-2.5 px-2 text-center font-mono text-[11px]">
+                                                <div class="flex items-center justify-center space-x-1">
+                                                    <span class="text-zinc-300 font-semibold">{{printf "%.1f" .PythagoreanWins}}</span>
+                                                    {{if eq .PythagoreanStatus "underperforming"}}
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Sleeper: Espera regresión positiva"></span>
+                                                    {{else if eq .PythagoreanStatus "overperforming"}}
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-rose-400" title="Trampa: Espera regresión negativa"></span>
+                                                    {{end}}
+                                                </div>
+                                            </td>
+
+                                            <!-- Form Guide L5 -->
+                                            <td class="py-2.5 px-2 text-center">
+                                                <div class="flex items-center justify-center space-x-0.5">
+                                                    {{range .LastFiveResults}}
+                                                        <span class="w-4 h-4 rounded text-[8.5px] font-mono font-bold flex items-center justify-center {{if eq .Result "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if eq .Result "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}" 
+                                                              title="Sem {{.WeekNumber}}: {{.Result}} {{.Score}} {{if .IsHome}}vs{{else}}@{{end}} {{.OpponentCode}}">
+                                                            {{.Result}}
+                                                        </span>
+                                                    {{else}}
+                                                        <span class="text-zinc-600 font-mono text-[10px]">-</span>
+                                                    {{end}}
+                                                </div>
+                                            </td>
+
+                                            <!-- Streak -->
+                                            <td class="py-2.5 px-2 text-center">
                                                 <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-bold {{if hasPrefix .Streak "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if hasPrefix .Streak "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}">
                                                     {{.Streak}}
                                                 </span>
                                             </td>
+
+                                            <!-- Actions: H2H + Detail -->
                                             <td class="py-2.5 pr-3 text-right">
-                                                <button type="button"
-                                                        hx-get="/teams/{{.TeamCode}}/modal?season={{$.SelectedSeason}}"
-                                                        hx-target="#team-modal-container"
-                                                        hx-swap="innerHTML"
-                                                        title="Ver Ficha Rápida"
-                                                        class="p-1 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all cursor-pointer">
-                                                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                                                </button>
+                                                <div class="flex items-center justify-end space-x-1">
+                                                    <button type="button"
+                                                            hx-get="/teams/compare?team1={{.TeamCode}}&season={{$.SelectedSeason}}"
+                                                            hx-target="#team-modal-container"
+                                                            hx-swap="innerHTML"
+                                                            title="Comparar frente a otro equipo"
+                                                            class="p-1 rounded-md text-zinc-500 hover:text-amber-400 hover:bg-zinc-800 transition-colors cursor-pointer">
+                                                        <i class="fa-solid fa-code-compare text-[10px]"></i>
+                                                    </button>
+                                                    <button type="button"
+                                                            hx-get="/teams/{{.TeamCode}}/modal?season={{$.SelectedSeason}}"
+                                                            hx-target="#team-modal-container"
+                                                            hx-swap="innerHTML"
+                                                            title="Ver Ficha Rápida"
+                                                            class="p-1 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer">
+                                                        <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                                                    </button>
+                                                </div>
                                             </td>
+
                                         </tr>
                                     {{end}}
                                 </tbody>
@@ -324,14 +420,139 @@
     <!-- ============================================== -->
     <!-- VIEW 2: PLAYOFF PICTURE BY CONFERENCE (AFC/NFC)-->
     <!-- ============================================== -->
-    <div class="space-y-6">
+    <div class="space-y-8">
+
+        <!-- Visual Projected Playoff Brackets & In The Hunt -->
+        {{if .Standings.PlayoffPictures}}
+        <div class="space-y-6">
+            <div class="flex items-center justify-between border-b border-zinc-800 pb-2">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-trophy text-amber-400"></i>
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-white font-mono">
+                        Cuadro Proyectado de Playoffs NFL
+                    </h2>
+                </div>
+                <span class="text-[11px] font-mono text-zinc-400">Ronda de Comodines (Wild Card)</span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {{range .Standings.PlayoffPictures}}
+                <div class="vercel-card rounded-2xl border border-zinc-800 p-5 bg-zinc-950/70 space-y-4">
+                    
+                    <!-- Conference Title -->
+                    <div class="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+                        <span class="text-xs font-bold uppercase font-mono tracking-wider flex items-center {{if eq .Conference "AFC"}}text-red-400{{else}}text-blue-400{{end}}">
+                            <span class="w-2.5 h-2.5 rounded-full mr-2 {{if eq .Conference "AFC"}}bg-red-500{{else}}bg-blue-500{{end}}"></span>
+                            {{.Name}} ({{.Conference}})
+                        </span>
+                        <span class="text-[10px] font-mono text-zinc-400">Top 7 Seeds</span>
+                    </div>
+
+                    <!-- Seed #1 Bye Hero Banner -->
+                    {{if .ByeTeam}}
+                    <div class="p-3.5 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-zinc-900 to-zinc-950 flex items-center justify-between shadow-sm">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-xl bg-zinc-900 border border-amber-500/50 p-1.5 flex items-center justify-center shrink-0">
+                                <img src="{{.ByeTeam.LogoURL}}" alt="{{.ByeTeam.TeamCode}}" class="w-full h-full object-contain">
+                            </div>
+                            <div>
+                                <div class="flex items-center space-x-1.5">
+                                    <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-400 text-black">SEED #1</span>
+                                    <span class="text-xs font-bold text-white">{{.ByeTeam.TeamCity}} {{.ByeTeam.TeamName}}</span>
+                                </div>
+                                <span class="text-[10px] font-mono text-amber-300/90 block mt-0.5">
+                                    <i class="fa-solid fa-shield-halved mr-1"></i> Descanso Sem 1 + Localía en Divisional
+                                </span>
+                            </div>
+                        </div>
+                        <div class="text-right font-mono">
+                            <div class="text-xs font-bold text-white">{{.ByeTeam.Wins}}-{{.ByeTeam.Losses}}</div>
+                            <span class="text-[10px] text-zinc-400">{{.ByeTeam.WinPercentFormatted}}</span>
+                        </div>
+                    </div>
+                    {{end}}
+
+                    <!-- Wild Card 3 Matchups -->
+                    <div class="space-y-2.5">
+                        <span class="text-[10px] font-mono uppercase text-zinc-400 tracking-wider block">
+                            Duelos de Comodines Proyectados:
+                        </span>
+
+                        {{range .Matchups}}
+                        <div class="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 transition-colors flex items-center justify-between gap-2">
+                            <!-- High Seed -->
+                            <div class="flex items-center space-x-2 min-w-0 flex-1">
+                                <span class="w-5 h-5 rounded-full bg-zinc-800 text-zinc-300 font-mono text-[10px] font-bold flex items-center justify-center shrink-0">
+                                    #{{.HighSeed.ConferenceSeed}}
+                                </span>
+                                <img src="{{.HighSeed.LogoURL}}" alt="{{.HighSeed.TeamCode}}" class="w-6 h-6 object-contain shrink-0">
+                                <div class="min-w-0">
+                                    <span class="text-xs font-bold text-white truncate block">{{.HighSeed.TeamCode}}</span>
+                                    <span class="text-[9.5px] font-mono text-zinc-400 block">{{.HighSeed.Wins}}-{{.HighSeed.Losses}}</span>
+                                </div>
+                            </div>
+
+                            <!-- VS & H2H Launcher -->
+                            <div class="flex flex-col items-center justify-center shrink-0 px-2">
+                                <button type="button"
+                                        hx-get="/teams/compare?team1={{.HighSeed.TeamCode}}&team2={{.LowSeed.TeamCode}}&season={{$.SelectedSeason}}"
+                                        hx-target="#team-modal-container"
+                                        hx-swap="innerHTML"
+                                        title="Comparar choque de comodines"
+                                        class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 transition-all cursor-pointer">
+                                    H2H <i class="fa-solid fa-code-compare ml-1 text-[8px]"></i>
+                                </button>
+                                <span class="text-[8.5px] font-mono text-zinc-500 mt-0.5">{{.Label}}</span>
+                            </div>
+
+                            <!-- Low Seed -->
+                            <div class="flex items-center justify-end space-x-2 min-w-0 flex-1 text-right">
+                                <div class="min-w-0">
+                                    <span class="text-xs font-bold text-white truncate block">{{.LowSeed.TeamCode}}</span>
+                                    <span class="text-[9.5px] font-mono text-zinc-400 block">{{.LowSeed.Wins}}-{{.LowSeed.Losses}}</span>
+                                </div>
+                                <img src="{{.LowSeed.LogoURL}}" alt="{{.LowSeed.TeamCode}}" class="w-6 h-6 object-contain shrink-0">
+                                <span class="w-5 h-5 rounded-full bg-zinc-800 text-zinc-300 font-mono text-[10px] font-bold flex items-center justify-center shrink-0">
+                                    #{{.LowSeed.ConferenceSeed}}
+                                </span>
+                            </div>
+                        </div>
+                        {{end}}
+                    </div>
+
+                    <!-- In the Hunt (Seeds 8-11 Bubble) -->
+                    {{if .InTheHunt}}
+                    <div class="pt-2 border-t border-zinc-800/80">
+                        <span class="text-[10px] font-mono uppercase text-zinc-400 tracking-wider flex items-center mb-2">
+                            <i class="fa-solid fa-crosshairs mr-1 text-cyan-400"></i> En la Burbuja (Peleando Comodín):
+                        </span>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {{range .InTheHunt}}
+                            <div class="p-2 rounded-lg bg-zinc-900/40 border border-zinc-800/60 flex items-center space-x-2">
+                                <span class="text-[10px] font-mono text-zinc-500 font-bold">#{{.ConferenceSeed}}</span>
+                                <img src="{{.LogoURL}}" alt="{{.TeamCode}}" class="w-5 h-5 object-contain shrink-0">
+                                <div class="min-w-0">
+                                    <div class="text-[11px] font-bold text-zinc-200 truncate">{{.TeamCode}}</div>
+                                    <div class="text-[9px] font-mono text-cyan-400">{{.PlayoffGB}} GB</div>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+
+                </div>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
 
         <!-- Playoff Legend Banner -->
         <div class="px-4 py-2.5 rounded-xl bg-zinc-900/60 border border-zinc-800 flex flex-wrap items-center justify-between gap-3 text-xs">
             <div class="flex items-center space-x-4">
-                <span class="text-zinc-400 font-mono text-[11px]">Criterios de Playoffs:</span>
-                <span class="inline-flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-amber-400"></span><span class="text-zinc-300 text-[11px]">Seed #1 (Descanso + Localía)</span></span>
-                <span class="inline-flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-cyan-400"></span><span class="text-zinc-300 text-[11px]">Seeds 2-4 (Campeón Divisional)</span></span>
+                <span class="text-zinc-400 font-mono text-[11px]">Criterios de Clasificación:</span>
+                <span class="inline-flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-amber-400"></span><span class="text-zinc-300 text-[11px]">Seed #1 (Descanso)</span></span>
+                <span class="inline-flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-cyan-400"></span><span class="text-zinc-300 text-[11px]">Seeds 2-4 (Líder Divisional)</span></span>
                 <span class="inline-flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-purple-400"></span><span class="text-zinc-300 text-[11px]">Seeds 5-7 (Comodín)</span></span>
             </div>
             <span class="text-[10px] font-mono text-zinc-500">7 clasificados por conferencia</span>
@@ -352,19 +573,20 @@
                         </span>
                     </div>
 
-                    <!-- 16 Teams Conference Standings Table -->
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs">
+                    <!-- 16 Teams Conference Standings Table (Mobile Frozen Columns) -->
+                    <div class="overflow-x-auto relative no-scrollbar">
+                        <table class="w-full text-left text-xs min-w-[650px] sm:min-w-full">
                             <thead>
                                 <tr class="text-[10px] font-mono uppercase text-zinc-500 border-b border-zinc-800 bg-zinc-950/40">
-                                    <th class="py-2.5 pl-3 pr-1 w-8 text-center">Seed</th>
-                                    <th class="py-2.5 px-2">Equipo</th>
+                                    <th class="py-2.5 pl-3 pr-1 w-8 text-center sticky left-0 bg-zinc-950 z-20">Seed</th>
+                                    <th class="py-2.5 px-2 sticky left-8 bg-zinc-950 z-20 min-w-[140px]">Equipo</th>
                                     <th class="py-2.5 px-2 text-center">G-P-E</th>
                                     <th class="py-2.5 px-2 text-center">%</th>
-                                    <th class="py-2.5 px-2 text-center hidden sm:table-cell">DIF</th>
+                                    <th class="py-2.5 px-2 text-center">DIF</th>
+                                    <th class="py-2.5 px-2 text-center">Wexp</th>
+                                    <th class="py-2.5 px-2 text-center">L5</th>
                                     <th class="py-2.5 px-2 text-center hidden md:table-cell">Conf</th>
-                                    <th class="py-2.5 px-2 text-center hidden md:table-cell">Racha</th>
-                                    <th class="py-2.5 pr-3 text-right">Estado</th>
+                                    <th class="py-2.5 pr-3 text-right">Acción</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-zinc-900">
@@ -374,15 +596,17 @@
                                     <!-- Playoff Cutoff Line after Seed 7 -->
                                     {{if eq $seed 8}}
                                         <tr class="bg-cyan-950/20 border-y-2 border-dashed border-cyan-500/40">
-                                            <td colspan="8" class="py-1 text-center font-mono text-[9px] text-cyan-400 font-bold uppercase tracking-widest">
+                                            <td colspan="9" class="py-1 text-center font-mono text-[9px] text-cyan-400 font-bold uppercase tracking-widest">
                                                 ▲ Línea de Clasificación a Playoffs (Top 7) ▲
                                             </td>
                                         </tr>
                                     {{end}}
 
-                                    <tr class="hover:bg-zinc-900/60 transition-colors {{if le $seed 7}}bg-zinc-900/20{{end}} group">
-                                        <!-- Seed Badge -->
-                                        <td class="py-2 pl-3 pr-1 text-center font-mono font-bold text-xs">
+                                    <tr x-show="matchesTeam({ name: '{{$team.TeamCity}} {{$team.TeamName}}', code: '{{$team.TeamCode}}', city: '{{$team.TeamCity}}', division: '{{$team.Division}}', conference: '{{$team.Conference}}', rank: {{$team.Rank}}, seed: {{$team.ConferenceSeed}}, streak: '{{$team.Streak}}', pythStatus: '{{$team.PythagoreanStatus}}' })"
+                                        class="hover:bg-zinc-900/60 transition-colors {{if le $seed 7}}bg-zinc-900/20{{end}} group">
+                                        
+                                        <!-- Seed Badge (Sticky) -->
+                                        <td class="py-2 pl-3 pr-1 text-center font-mono font-bold text-xs sticky left-0 bg-zinc-950 group-hover:bg-zinc-900 z-10">
                                             {{if eq $seed 1}}
                                                 <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px]">1</span>
                                             {{else if le $seed 4}}
@@ -394,8 +618,8 @@
                                             {{end}}
                                         </td>
 
-                                        <!-- Team Identity -->
-                                        <td class="py-2 px-2">
+                                        <!-- Team Identity (Sticky) -->
+                                        <td class="py-2 px-2 sticky left-8 bg-zinc-950 group-hover:bg-zinc-900 z-10 border-r border-zinc-800/40 sm:border-r-0">
                                             <button type="button"
                                                     hx-get="/teams/{{$team.TeamCode}}/modal?season={{$.SelectedSeason}}"
                                                     hx-target="#team-modal-container"
@@ -406,8 +630,8 @@
                                                     <div class="font-bold text-zinc-200 group-hover:text-white text-xs truncate flex items-center">
                                                         {{$team.TeamCity}} {{$team.TeamName}}
                                                         {{if $team.IsSuperBowlChampion}}
-                                                            <span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center shrink-0" title="Campeón de Super Bowl {{$team.SuperBowlTitle}}">
-                                                                <i class="fa-solid fa-trophy mr-1 text-[8px]"></i> Campeón
+                                                            <span class="ml-1.5 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center shrink-0">
+                                                                <i class="fa-solid fa-trophy mr-0.5 text-[7px]"></i>
                                                             </span>
                                                         {{end}}
                                                     </div>
@@ -429,8 +653,27 @@
                                         </td>
 
                                         <!-- Point Diff -->
-                                        <td class="py-2 px-2 text-center font-mono text-[11px] font-semibold {{if gt $team.PointDiff 0}}text-emerald-400{{else if lt $team.PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}} hidden sm:table-cell">
+                                        <td class="py-2 px-2 text-center font-mono text-[11px] font-semibold {{if gt $team.PointDiff 0}}text-emerald-400{{else if lt $team.PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}}">
                                             {{if gt $team.PointDiff 0}}+{{end}}{{$team.PointDiff}}
+                                        </td>
+
+                                        <!-- Pythagorean Wins -->
+                                        <td class="py-2.5 px-2 text-center font-mono text-[11px]">
+                                            <span class="text-zinc-300 font-semibold">{{printf "%.1f" $team.PythagoreanWins}}</span>
+                                        </td>
+
+                                        <!-- L5 Form Guide -->
+                                        <td class="py-2 px-2 text-center">
+                                            <div class="flex items-center justify-center space-x-0.5">
+                                                {{range $team.LastFiveResults}}
+                                                    <span class="w-4 h-4 rounded text-[8.5px] font-mono font-bold flex items-center justify-center {{if eq .Result "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if eq .Result "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}"
+                                                          title="Sem {{.WeekNumber}}: {{.Result}} {{.Score}} {{if .IsHome}}vs{{else}}@{{end}} {{.OpponentCode}}">
+                                                        {{.Result}}
+                                                    </span>
+                                                {{else}}
+                                                    <span class="text-zinc-600 font-mono text-[10px]">-</span>
+                                                {{end}}
+                                            </div>
                                         </td>
 
                                         <!-- Conf Record -->
@@ -438,24 +681,26 @@
                                             {{$team.ConfRecord}}
                                         </td>
 
-                                        <!-- Streak -->
-                                        <td class="py-2 px-2 text-center hidden md:table-cell">
-                                            <span class="inline-block px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold {{if hasPrefix $team.Streak "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if hasPrefix $team.Streak "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}">
-                                                {{$team.Streak}}
-                                            </span>
-                                        </td>
-
-                                        <!-- Status Badge -->
+                                        <!-- Actions -->
                                         <td class="py-2 pr-3 text-right">
-                                            {{if eq $seed 1}}
-                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase">Seed 1</span>
-                                            {{else if le $seed 4}}
-                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 uppercase">División</span>
-                                            {{else if le $seed 7}}
-                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">Wild Card</span>
-                                            {{else}}
-                                                <span class="text-zinc-600 text-[10px] font-mono">En contienda</span>
-                                            {{end}}
+                                            <div class="flex items-center justify-end space-x-1">
+                                                <button type="button"
+                                                        hx-get="/teams/compare?team1={{$team.TeamCode}}&season={{$.SelectedSeason}}"
+                                                        hx-target="#team-modal-container"
+                                                        hx-swap="innerHTML"
+                                                        title="Comparar frente a otro equipo"
+                                                        class="p-1 rounded-md text-zinc-500 hover:text-amber-400 hover:bg-zinc-800 transition-colors cursor-pointer">
+                                                    <i class="fa-solid fa-code-compare text-[10px]"></i>
+                                                </button>
+                                                <button type="button"
+                                                        hx-get="/teams/{{$team.TeamCode}}/modal?season={{$.SelectedSeason}}"
+                                                        hx-target="#team-modal-container"
+                                                        hx-swap="innerHTML"
+                                                        title="Ver Ficha Rápida"
+                                                        class="p-1 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer">
+                                                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 {{end}}
@@ -479,38 +724,43 @@
             <span class="text-xs font-bold text-white tracking-wide flex items-center">
                 <i class="fa-solid fa-list-ol mr-2 text-zinc-400"></i> Tabla General de la NFL — 32 Equipos
             </span>
-            <span class="text-[10px] font-mono text-zinc-400">Ordenado por récord global y diferencial</span>
+            <span class="text-[10px] font-mono text-zinc-400">Incluye sabermetría pitagórica y partidos de 1 posesión</span>
         </div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
+        <div class="overflow-x-auto relative no-scrollbar">
+            <table class="w-full text-left text-xs min-w-[850px] sm:min-w-full">
                 <thead>
                     <tr class="text-[10px] font-mono uppercase text-zinc-500 border-b border-zinc-800 bg-zinc-950/40">
-                        <th class="py-2.5 pl-3 pr-1 w-8 text-center">#</th>
-                        <th class="py-2.5 px-2">Equipo</th>
+                        <th class="py-2.5 pl-3 pr-1 w-8 text-center sticky left-0 bg-zinc-950 z-20">#</th>
+                        <th class="py-2.5 px-2 sticky left-8 bg-zinc-950 z-20 min-w-[150px]">Equipo</th>
                         <th class="py-2.5 px-2 text-center">Conf</th>
                         <th class="py-2.5 px-2 text-center">Div</th>
                         <th class="py-2.5 px-2 text-center">G</th>
                         <th class="py-2.5 px-2 text-center">P</th>
-                        <th class="py-2.5 px-2 text-center">E</th>
                         <th class="py-2.5 px-2 text-center">%</th>
                         <th class="py-2.5 px-2 text-center">PF</th>
                         <th class="py-2.5 px-2 text-center">PA</th>
                         <th class="py-2.5 px-2 text-center">DIF</th>
+                        <th class="py-2.5 px-2 text-center" title="Victorias Pitagóricas Esperadas">Wexp</th>
+                        <th class="py-2.5 px-2 text-center" title="Partidos definidos por ≤ 8 puntos">1-Pos</th>
+                        <th class="py-2.5 px-2 text-center">L5</th>
                         <th class="py-2.5 px-2 text-center">Racha</th>
-                        <th class="py-2.5 px-2 text-center">Local</th>
-                        <th class="py-2.5 px-2 text-center">Visita</th>
                         {{if $isCurrent}}<th class="py-2.5 px-2 text-center">Quiniela</th>{{end}}
-                        <th class="py-2.5 pr-3 text-right">Acción</th>
+                        <th class="py-2.5 pr-3 text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-zinc-900">
                     {{range $idx, $team := .Standings.League}}
-                        <tr class="hover:bg-zinc-900/60 transition-colors group">
-                            <td class="py-2.5 pl-3 pr-1 text-center font-mono text-[11px] font-bold text-zinc-500">
+                        <tr x-show="matchesTeam({ name: '{{$team.TeamCity}} {{$team.TeamName}}', code: '{{$team.TeamCode}}', city: '{{$team.TeamCity}}', division: '{{$team.Division}}', conference: '{{$team.Conference}}', rank: {{$team.Rank}}, seed: {{$team.ConferenceSeed}}, streak: '{{$team.Streak}}', pythStatus: '{{$team.PythagoreanStatus}}' })"
+                            class="hover:bg-zinc-900/60 transition-colors group">
+                            
+                            <!-- Index (Sticky) -->
+                            <td class="py-2.5 pl-3 pr-1 text-center font-mono text-[11px] font-bold text-zinc-500 sticky left-0 bg-zinc-950 group-hover:bg-zinc-900 z-10">
                                 {{add $idx 1}}
                             </td>
-                            <td class="py-2.5 px-2">
+
+                            <!-- Team Identity (Sticky) -->
+                            <td class="py-2.5 px-2 sticky left-8 bg-zinc-950 group-hover:bg-zinc-900 z-10 border-r border-zinc-800/40 sm:border-r-0">
                                 <button type="button"
                                         hx-get="/teams/{{$team.TeamCode}}/modal?season={{$.SelectedSeason}}"
                                         hx-target="#team-modal-container"
@@ -521,34 +771,72 @@
                                         {{$team.TeamCity}} {{$team.TeamName}}
                                     </span>
                                     {{if $team.IsSuperBowlChampion}}
-                                        <span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center shrink-0" title="Campeón de Super Bowl {{$team.SuperBowlTitle}}">
-                                            <i class="fa-solid fa-trophy mr-1 text-[8px]"></i> Campeón
+                                        <span class="ml-1.5 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 inline-flex items-center shrink-0">
+                                            <i class="fa-solid fa-trophy mr-0.5 text-[7px]"></i>
                                         </span>
                                     {{end}}
                                 </button>
                             </td>
+
+                            <!-- Conf & Div -->
                             <td class="py-2.5 px-2 text-center font-mono text-[11px] text-zinc-400 font-semibold">
                                 <span class="{{if eq $team.Conference "AFC"}}text-red-400{{else}}text-blue-400{{end}}">{{$team.Conference}}</span>
                             </td>
                             <td class="py-2.5 px-2 text-center font-mono text-[10px] text-zinc-500">
                                 {{$team.Division}}
                             </td>
+
+                            <!-- Record -->
                             <td class="py-2.5 px-2 text-center font-mono font-bold text-zinc-100 text-xs">{{$team.Wins}}</td>
                             <td class="py-2.5 px-2 text-center font-mono text-zinc-400 text-xs">{{$team.Losses}}</td>
-                            <td class="py-2.5 px-2 text-center font-mono text-zinc-500 text-xs">{{$team.Ties}}</td>
                             <td class="py-2.5 px-2 text-center font-mono font-semibold text-zinc-200 text-xs">{{$team.WinPercentFormatted}}</td>
+                            
+                            <!-- Points & Diff -->
                             <td class="py-2.5 px-2 text-center font-mono text-[11px] text-zinc-300">{{$team.PointsFor}}</td>
                             <td class="py-2.5 px-2 text-center font-mono text-[11px] text-zinc-400">{{$team.PointsAgainst}}</td>
                             <td class="py-2.5 px-2 text-center font-mono text-[11px] font-bold {{if gt $team.PointDiff 0}}text-emerald-400{{else if lt $team.PointDiff 0}}text-rose-400{{else}}text-zinc-500{{end}}">
                                 {{if gt $team.PointDiff 0}}+{{end}}{{$team.PointDiff}}
                             </td>
+
+                            <!-- Pythagorean Expectation -->
+                            <td class="py-2.5 px-2 text-center font-mono text-[11px]">
+                                <div class="flex items-center justify-center space-x-1">
+                                    <span class="text-zinc-300 font-semibold">{{printf "%.1f" $team.PythagoreanWins}}</span>
+                                    {{if eq $team.PythagoreanStatus "underperforming"}}
+                                        <span class="px-1 py-0.2 rounded text-[8px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" title="Sleeper">Sleeper</span>
+                                    {{else if eq $team.PythagoreanStatus "overperforming"}}
+                                        <span class="px-1 py-0.2 rounded text-[8px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30" title="Trampa">Trampa</span>
+                                    {{end}}
+                                </div>
+                            </td>
+
+                            <!-- 1-Score Record -->
+                            <td class="py-2.5 px-2 text-center font-mono text-[10px] text-zinc-400">
+                                {{$team.OneScoreRecord}}
+                            </td>
+
+                            <!-- L5 Form -->
                             <td class="py-2.5 px-2 text-center">
-                                <span class="inline-block px-1.5 py-0.2 rounded text-[10px] font-mono font-bold {{if hasPrefix $team.Streak "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if hasPrefix $team.Streak "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}">
+                                <div class="flex items-center justify-center space-x-0.5">
+                                    {{range $team.LastFiveResults}}
+                                        <span class="w-4 h-4 rounded text-[8.5px] font-mono font-bold flex items-center justify-center {{if eq .Result "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if eq .Result "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}"
+                                              title="Sem {{.WeekNumber}}: {{.Result}} {{.Score}} {{if .IsHome}}vs{{else}}@{{end}} {{.OpponentCode}}">
+                                            {{.Result}}
+                                        </span>
+                                    {{else}}
+                                        <span class="text-zinc-600 font-mono text-[10px]">-</span>
+                                    {{end}}
+                                </div>
+                            </td>
+
+                            <!-- Streak -->
+                            <td class="py-2.5 px-2 text-center">
+                                <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-bold {{if hasPrefix $team.Streak "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if hasPrefix $team.Streak "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}">
                                     {{$team.Streak}}
                                 </span>
                             </td>
-                            <td class="py-2.5 px-2 text-center font-mono text-[10px] text-zinc-400">{{$team.HomeRecord}}</td>
-                            <td class="py-2.5 px-2 text-center font-mono text-[10px] text-zinc-400">{{$team.AwayRecord}}</td>
+
+                            <!-- Quiniela -->
                             {{if $isCurrent}}
                                 <td class="py-2.5 px-2 text-center">
                                     {{if gt $team.FavoriteFansCount 0}}
@@ -560,13 +848,26 @@
                                     {{end}}
                                 </td>
                             {{end}}
+
+                            <!-- Actions -->
                             <td class="py-2.5 pr-3 text-right">
-                                <a href="/teams/{{$team.TeamCode}}?season={{$.SelectedSeason}}"
-                                   class="inline-flex items-center space-x-1 px-2 py-1 rounded-md text-[11px] font-medium bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition-colors">
-                                    <span>Ver</span>
-                                    <i class="fa-solid fa-chevron-right text-[9px] text-zinc-500"></i>
-                                </a>
+                                <div class="flex items-center justify-end space-x-1.5">
+                                    <button type="button"
+                                            hx-get="/teams/compare?team1={{$team.TeamCode}}&season={{$.SelectedSeason}}"
+                                            hx-target="#team-modal-container"
+                                            hx-swap="innerHTML"
+                                            title="Comparar frente a otro rival"
+                                            class="p-1 rounded-md text-zinc-500 hover:text-amber-400 hover:bg-zinc-800 transition-colors cursor-pointer">
+                                        <i class="fa-solid fa-code-compare text-[10px]"></i>
+                                    </button>
+                                    <a href="/teams/{{$team.TeamCode}}?season={{$.SelectedSeason}}"
+                                       class="inline-flex items-center space-x-1 px-2 py-1 rounded-md text-[11px] font-medium bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition-colors">
+                                        <span>Ver</span>
+                                        <i class="fa-solid fa-chevron-right text-[9px] text-zinc-500"></i>
+                                    </a>
+                                </div>
                             </td>
+
                         </tr>
                     {{end}}
                 </tbody>

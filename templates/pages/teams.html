@@ -3,7 +3,42 @@
 {{define "title"}}Estadísticas de Equipos - NFL Quiniela 2026{{end}}
 
 {{define "content"}}
-<div class="space-y-6" x-data="{ currentSeason: {{.SelectedSeason}}, currentView: '{{.SelectedView}}' }">
+<div class="space-y-6" 
+     x-data="{ 
+         currentSeason: {{.SelectedSeason}}, 
+         currentView: '{{.SelectedView}}', 
+         searchQuery: '', 
+         filterMode: 'all',
+         matchesTeam(team) {
+             if (this.searchQuery && this.searchQuery.trim() !== '') {
+                 const q = this.searchQuery.toLowerCase().trim();
+                 const name = (team.name || '').toLowerCase();
+                 const code = (team.code || '').toLowerCase();
+                 const city = (team.city || '').toLowerCase();
+                 const div = (team.division || '').toLowerCase();
+                 const conf = (team.conference || '').toLowerCase();
+                 if (!name.includes(q) && !code.includes(q) && !city.includes(q) && !div.includes(q) && !conf.includes(q)) {
+                     return false;
+                 }
+             }
+             if (this.filterMode === 'leaders') {
+                 return team.rank === 1 || team.seed <= 4;
+             }
+             if (this.filterMode === 'playoff') {
+                 return team.seed >= 1 && team.seed <= 7;
+             }
+             if (this.filterMode === 'streak') {
+                 const strk = team.streak || '';
+                 if (!strk.startsWith('W')) return false;
+                 const num = parseInt(strk.substring(1), 10);
+                 return num >= 2;
+             }
+             if (this.filterMode === 'surprises') {
+                 return team.pythStatus === 'overperforming' || team.pythStatus === 'underperforming';
+             }
+             return true;
+         }
+     }">
 
     <!-- Header & Dashboard Controls -->
     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 vercel-card p-5 sm:p-6 rounded-2xl shadow-sm border border-zinc-800">
@@ -21,13 +56,23 @@
                 <i class="fa-solid fa-shield-halved mr-2 text-zinc-400"></i> Estadísticas de Equipos
             </h1>
             <p class="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
-                Clasificación oficial de las 8 divisiones de la NFL, panorama de clasificación a Playoffs en AFC y NFC, y rendimiento histórico de cada franquicia.
+                Clasificación oficial de las 8 divisiones de la NFL, panorama de clasificación a Playoffs en AFC y NFC, métricas sabermétricas pitagóricas y comparador directo H2H.
             </p>
         </div>
 
         <!-- Controls: Season & View Switcher -->
         <div class="flex flex-wrap items-center gap-3">
             
+            <!-- Head-to-Head Comparator Launcher -->
+            <button type="button"
+                    hx-get="/teams/compare?season={{.SelectedSeason}}"
+                    hx-target="#team-modal-container"
+                    hx-swap="innerHTML"
+                    class="inline-flex items-center space-x-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-amber-500/15 via-amber-500/25 to-orange-500/20 hover:from-amber-500/25 hover:to-orange-500/35 text-amber-300 border border-amber-500/40 shadow-sm transition-all cursor-pointer">
+                <i class="fa-solid fa-code-compare text-amber-400"></i>
+                <span>Comparador H2H</span>
+            </button>
+
             <!-- Season Dropdown / Segmented Selector -->
             <div class="flex items-center space-x-1.5 bg-zinc-950 p-1 rounded-xl border border-zinc-800 overflow-x-auto no-scrollbar max-w-full">
                 <span class="text-[11px] font-mono uppercase text-zinc-500 px-2 shrink-0">Año:</span>
@@ -66,6 +111,58 @@
         </div>
     </div>
 
+    <!-- Search & Filter Bar -->
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-zinc-950/70 p-3 rounded-2xl border border-zinc-800/80">
+        <!-- Live Instant Search -->
+        <div class="relative flex-1">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 text-xs"></i>
+            <input type="text"
+                   x-model="searchQuery"
+                   placeholder="Buscar franquicia por nombre, ciudad, código o división (ej: Chiefs, KC, NFC, Norte)..."
+                   class="w-full bg-zinc-900 text-white placeholder-zinc-500 text-xs rounded-xl pl-9 pr-8 py-2 border border-zinc-800 focus:outline-none focus:border-cyan-500 transition-colors">
+            <button type="button"
+                    x-show="searchQuery.length > 0"
+                    @click="searchQuery = ''"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white text-xs cursor-pointer">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Filter Pills -->
+        <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-0.5">
+            <button type="button"
+                    @click="filterMode = 'all'"
+                    :class="filterMode === 'all' ? 'bg-white text-black font-bold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-3 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer whitespace-nowrap">
+                Todos
+            </button>
+            <button type="button"
+                    @click="filterMode = 'leaders'"
+                    :class="filterMode === 'leaders' ? 'bg-amber-400 text-black font-bold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-3 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer whitespace-nowrap">
+                <i class="fa-solid fa-crown mr-1"></i> Líderes
+            </button>
+            <button type="button"
+                    @click="filterMode = 'playoff'"
+                    :class="filterMode === 'playoff' ? 'bg-cyan-500 text-black font-bold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-3 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer whitespace-nowrap">
+                <i class="fa-solid fa-trophy mr-1"></i> Top 7 Playoff
+            </button>
+            <button type="button"
+                    @click="filterMode = 'streak'"
+                    :class="filterMode === 'streak' ? 'bg-emerald-500 text-black font-bold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-3 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer whitespace-nowrap">
+                <i class="fa-solid fa-bolt mr-1"></i> Racha +2W
+            </button>
+            <button type="button"
+                    @click="filterMode = 'surprises'"
+                    :class="filterMode === 'surprises' ? 'bg-purple-500 text-white font-bold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-3 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer whitespace-nowrap">
+                <i class="fa-solid fa-chart-pie mr-1"></i> Sabermetría
+            </button>
+        </div>
+    </div>
+
     <!-- Loading Indicator -->
     <div id="teams-loading-indicator" class="htmx-indicator flex items-center justify-center p-8 text-xs text-zinc-400">
         <i class="fa-solid fa-circle-notch fa-spin text-cyan-400 mr-2 text-base"></i> Cargando estadísticas y clasificación...
@@ -84,7 +181,7 @@
         {{template "teams_standings_table.html" (dict "Standings" .Standings "SelectedSeason" .SelectedSeason "SelectedView" .SelectedView "CurrentSeason" .CurrentSeason)}}
     </div>
 
-    <!-- Quick Modal Container for Team Drilldown -->
+    <!-- Quick Modal Container for Team Drilldown & H2H Comparator -->
     <div id="team-modal-container"></div>
 
 </div>

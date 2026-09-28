@@ -1,0 +1,258 @@
+{{template "base.html" .}}
+
+{{define "title"}}Comparador H2H: {{.Comparison.TeamA.TeamName}} vs {{.Comparison.TeamB.TeamName}} - NFL Quiniela 2026{{end}}
+
+{{define "content"}}
+<div class="space-y-6 max-w-5xl mx-auto" x-data="{ team1: '{{.Comparison.TeamA.TeamCode}}', team2: '{{.Comparison.TeamB.TeamCode}}' }">
+
+    <!-- Back Navigation & Breadcrumb -->
+    <div class="flex items-center justify-between">
+        <a href="/teams?season={{.SelectedSeason}}" 
+           class="inline-flex items-center space-x-2 text-xs font-mono text-zinc-400 hover:text-white transition-colors">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Volver al Dashboard de Equipos</span>
+        </a>
+        <div class="flex items-center space-x-2">
+            <span class="text-[11px] font-mono text-zinc-500 uppercase">Temporada:</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-zinc-800 text-white border border-zinc-700">
+                {{.SelectedSeason}}
+            </span>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="vercel-card rounded-3xl border border-zinc-800 bg-zinc-950 overflow-hidden shadow-2xl">
+        
+        <!-- Header Banner -->
+        <div class="relative p-6 sm:p-8 border-b border-zinc-800/80 overflow-hidden"
+             style="background: linear-gradient(90deg, {{.Comparison.TeamA.PrimaryColor}}35 0%, #09090b 50%, {{.Comparison.TeamB.PrimaryColor}}35 100%);">
+            
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
+                <!-- Team A -->
+                <div class="flex items-center space-x-4 w-full sm:w-auto">
+                    <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-zinc-900/90 border border-zinc-700/60 p-2.5 flex items-center justify-center shadow-lg shrink-0"
+                         style="border-top: 3px solid {{.Comparison.TeamA.PrimaryColor}};">
+                        <img src="{{.Comparison.TeamA.LogoURL}}" alt="{{.Comparison.TeamA.TeamCode}}" class="w-full h-full object-contain">
+                    </div>
+                    <div>
+                        <select x-model="team1"
+                                @change="window.location.href = '/teams/compare?team1=' + team1 + '&team2=' + team2 + '&season={{.SelectedSeason}}'"
+                                class="bg-zinc-900/90 text-white font-bold text-sm sm:text-base rounded-xl px-3 py-1.5 border border-zinc-700/80 focus:ring-1 focus:ring-amber-400 cursor-pointer max-w-[220px] truncate">
+                            {{range .AllTeams}}
+                                <option value="{{.Code}}" {{if eq .Code $.Comparison.TeamA.TeamCode}}selected{{end}}>
+                                    {{.City}} {{.Name}} ({{.Code}})
+                                </option>
+                            {{end}}
+                        </select>
+                        <div class="text-xs font-mono text-zinc-400 mt-1">
+                            <span class="font-bold text-white">{{.Comparison.TeamA.Wins}}-{{.Comparison.TeamA.Losses}}</span>
+                            <span> · Seed #{{.Comparison.TeamA.ConferenceSeed}} {{.Comparison.TeamA.Conference}}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Center VS -->
+                <div class="flex flex-col items-center justify-center shrink-0">
+                    <span class="px-4 py-1.5 rounded-full text-xs font-mono font-black bg-zinc-900 text-amber-400 border border-zinc-700 shadow-md">
+                        VS
+                    </span>
+                    <span class="text-[10px] font-mono text-zinc-400 mt-1.5 uppercase tracking-wider">Cara a Cara</span>
+                </div>
+
+                <!-- Team B -->
+                <div class="flex items-center space-x-4 w-full sm:w-auto sm:flex-row-reverse sm:space-x-reverse text-left sm:text-right">
+                    <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-zinc-900/90 border border-zinc-700/60 p-2.5 flex items-center justify-center shadow-lg shrink-0"
+                         style="border-top: 3px solid {{.Comparison.TeamB.PrimaryColor}};">
+                        <img src="{{.Comparison.TeamB.LogoURL}}" alt="{{.Comparison.TeamB.TeamCode}}" class="w-full h-full object-contain">
+                    </div>
+                    <div>
+                        <select x-model="team2"
+                                @change="window.location.href = '/teams/compare?team1=' + team1 + '&team2=' + team2 + '&season={{.SelectedSeason}}'"
+                                class="bg-zinc-900/90 text-white font-bold text-sm sm:text-base rounded-xl px-3 py-1.5 border border-zinc-700/80 focus:ring-1 focus:ring-amber-400 cursor-pointer max-w-[220px] truncate">
+                            {{range .AllTeams}}
+                                <option value="{{.Code}}" {{if eq .Code $.Comparison.TeamB.TeamCode}}selected{{end}}>
+                                    {{.City}} {{.Name}} ({{.Code}})
+                                </option>
+                            {{end}}
+                        </select>
+                        <div class="text-xs font-mono text-zinc-400 mt-1">
+                            <span class="font-bold text-white">{{.Comparison.TeamB.Wins}}-{{.Comparison.TeamB.Losses}}</span>
+                            <span> · Seed #{{.Comparison.TeamB.ConferenceSeed}} {{.Comparison.TeamB.Conference}}</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="p-6 sm:p-8 space-y-6">
+
+            <!-- Analytical Verdict -->
+            <div class="p-5 rounded-2xl bg-gradient-to-r from-zinc-900/90 via-zinc-900/60 to-zinc-900/90 border border-amber-500/30 shadow-md">
+                <div class="flex items-center space-x-2 mb-2">
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
+                        <i class="fa-solid fa-brain mr-1 text-amber-400"></i> Veredicto Analítico
+                    </span>
+                    <span class="text-sm font-bold text-white">{{.Comparison.VerdictHeadline}}</span>
+                </div>
+                <p class="text-xs sm:text-sm text-zinc-300 leading-relaxed mt-2">
+                    {{.Comparison.VerdictDetail}}
+                </p>
+                <div class="mt-4 pt-3 border-t border-zinc-800/80 flex items-center justify-between text-xs font-mono text-zinc-400">
+                    <span class="flex items-center">
+                        <i class="fa-solid fa-users mr-2 text-purple-400"></i> {{.Comparison.CommunityAdvantage}}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Stats Bars Section -->
+            <div class="space-y-4 bg-zinc-900/40 p-5 rounded-2xl border border-zinc-800">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-400 font-mono flex items-center justify-between">
+                    <span>Métricas Frente a Frente</span>
+                    <span class="text-[10px] text-zinc-500">Temporada {{.SelectedSeason}}</span>
+                </h3>
+
+                <!-- Win % -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs font-mono font-semibold">
+                        <span class="text-white">{{.Comparison.TeamA.Wins}}-{{.Comparison.TeamA.Losses}} ({{.Comparison.TeamA.WinPercentFormatted}})</span>
+                        <span class="text-zinc-400 text-[11px] uppercase">Récord de Victorias</span>
+                        <span class="text-white">{{.Comparison.TeamB.Wins}}-{{.Comparison.TeamB.Losses}} ({{.Comparison.TeamB.WinPercentFormatted}})</span>
+                    </div>
+                </div>
+
+                <!-- PPG Offense -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs font-mono font-semibold">
+                        <span class="text-emerald-400">{{printf "%.1f" .Comparison.TeamA.OffensivePPG}} PPG</span>
+                        <span class="text-zinc-400 text-[11px] uppercase">Ofensiva (Puntos a favor)</span>
+                        <span class="text-emerald-400">{{printf "%.1f" .Comparison.TeamB.OffensivePPG}} PPG</span>
+                    </div>
+                </div>
+
+                <!-- PPG Defense -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs font-mono font-semibold">
+                        <span class="text-cyan-400">{{printf "%.1f" .Comparison.TeamA.DefensivePPG}} PPG</span>
+                        <span class="text-zinc-400 text-[11px] uppercase">Defensiva (Puntos recibidos)</span>
+                        <span class="text-cyan-400">{{printf "%.1f" .Comparison.TeamB.DefensivePPG}} PPG</span>
+                    </div>
+                </div>
+
+                <!-- Point Diff -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs font-mono font-semibold">
+                        <span class="{{if gt .Comparison.TeamA.PointDiff 0}}text-emerald-400{{else if lt .Comparison.TeamA.PointDiff 0}}text-rose-400{{else}}text-zinc-400{{end}}">
+                            {{if gt .Comparison.TeamA.PointDiff 0}}+{{end}}{{.Comparison.TeamA.PointDiff}} pts
+                        </span>
+                        <span class="text-zinc-400 text-[11px] uppercase">Diferencial Neto</span>
+                        <span class="{{if gt .Comparison.TeamB.PointDiff 0}}text-emerald-400{{else if lt .Comparison.TeamB.PointDiff 0}}text-rose-400{{else}}text-zinc-400{{end}}">
+                            {{if gt .Comparison.TeamB.PointDiff 0}}+{{end}}{{.Comparison.TeamB.PointDiff}} pts
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Pythagorean Expectation -->
+                <div class="space-y-1 pt-2 border-t border-zinc-800/60">
+                    <div class="flex justify-between text-xs font-mono font-semibold">
+                        <span class="text-amber-400">
+                            {{printf "%.1f" .Comparison.TeamA.PythagoreanWins}} Wexp
+                            <span class="text-[10px] px-1.5 py-0.5 rounded {{if eq .Comparison.TeamA.PythagoreanStatus "underperforming"}}bg-emerald-500/20 text-emerald-300{{else if eq .Comparison.TeamA.PythagoreanStatus "overperforming"}}bg-rose-500/20 text-rose-300{{else}}bg-zinc-800 text-zinc-400{{end}}">
+                                {{if eq .Comparison.TeamA.PythagoreanStatus "underperforming"}}Sleeper{{else if eq .Comparison.TeamA.PythagoreanStatus "overperforming"}}Trampa{{else}}Par{{end}}
+                            </span>
+                        </span>
+                        <span class="text-zinc-400 text-[11px] uppercase">Expectativa Pitagórica</span>
+                        <span class="text-amber-400">
+                            {{printf "%.1f" .Comparison.TeamB.PythagoreanWins}} Wexp
+                            <span class="text-[10px] px-1.5 py-0.5 rounded {{if eq .Comparison.TeamB.PythagoreanStatus "underperforming"}}bg-emerald-500/20 text-emerald-300{{else if eq .Comparison.TeamB.PythagoreanStatus "overperforming"}}bg-rose-500/20 text-rose-300{{else}}bg-zinc-800 text-zinc-400{{end}}">
+                                {{if eq .Comparison.TeamB.PythagoreanStatus "underperforming"}}Sleeper{{else if eq .Comparison.TeamB.PythagoreanStatus "overperforming"}}Trampa{{else}}Par{{end}}
+                            </span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- One Score record -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs font-mono font-semibold">
+                        <span class="text-zinc-300">{{.Comparison.TeamA.OneScoreRecord}}</span>
+                        <span class="text-zinc-400 text-[11px] uppercase">Partidos ≤ 8 pts</span>
+                        <span class="text-zinc-300">{{.Comparison.TeamB.OneScoreRecord}}</span>
+                    </div>
+                </div>
+
+                <!-- Quiniela Pick Win Rate -->
+                <div class="space-y-1 pt-2 border-t border-zinc-800/60">
+                    <div class="flex justify-between text-xs font-mono font-semibold">
+                        <span class="text-purple-400">{{.Comparison.TeamA.QuinielaWinRate}}% efectividad ({{.Comparison.TeamA.QuinielaPickCount}} picks)</span>
+                        <span class="text-zinc-400 text-[11px] uppercase">Quiniela Comunitaria</span>
+                        <span class="text-purple-400">{{.Comparison.TeamB.QuinielaWinRate}}% efectividad ({{.Comparison.TeamB.QuinielaPickCount}} picks)</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Historical Matchups -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-white font-mono flex items-center">
+                        <i class="fa-solid fa-clock-rotate-left mr-1.5 text-zinc-400"></i> Historial Directo
+                    </h3>
+                    <div class="text-xs font-mono">
+                        <span class="text-cyan-400 font-bold">{{.Comparison.TeamA.TeamName}}: {{.Comparison.TeamAWins}}</span>
+                        <span class="text-zinc-500 mx-2">·</span>
+                        <span class="text-rose-400 font-bold">{{.Comparison.TeamB.TeamName}}: {{.Comparison.TeamBWins}}</span>
+                        {{if gt .Comparison.Ties 0}}
+                            <span class="text-zinc-500 mx-2">·</span>
+                            <span class="text-zinc-400">Empates: {{.Comparison.Ties}}</span>
+                        {{end}}
+                    </div>
+                </div>
+
+                {{if .Comparison.HistoricalMatchups}}
+                    <div class="divide-y divide-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden bg-zinc-950/60 max-h-80 overflow-y-auto">
+                        {{range .Comparison.HistoricalMatchups}}
+                            <div class="p-3.5 flex items-center justify-between hover:bg-zinc-900/50 transition-colors text-xs font-mono">
+                                <div class="flex items-center space-x-3">
+                                    <span class="text-zinc-500 text-xs w-24">{{.KickoffFormatted}}</span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold {{if eq .Result "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/40{{else if eq .Result "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/40{{else}}bg-zinc-800 text-zinc-400{{end}}">
+                                        {{if eq .Result "W"}}{{$.Comparison.TeamA.TeamCode}} W{{else if eq .Result "L"}}{{$.Comparison.TeamB.TeamCode}} W{{else}}TIE{{end}}
+                                    </span>
+                                    <span class="text-zinc-300">
+                                        {{if .IsHome}}vs{{else}}@{{end}} {{.OpponentCode}}
+                                    </span>
+                                </div>
+                                <div class="font-bold text-white text-xs">
+                                    {{if and .TeamScore .OpponentScore}}
+                                        {{.TeamScore}} - {{.OpponentScore}}
+                                    {{else}}
+                                        Pendiente
+                                    {{end}}
+                                </div>
+                            </div>
+                        {{end}}
+                    </div>
+                {{else}}
+                    <div class="p-6 rounded-2xl bg-zinc-900/40 border border-zinc-800 text-center text-xs text-zinc-500 font-mono">
+                        No hay partidos previos registrados entre ambas franquicias en esta base de datos.
+                    </div>
+                {{end}}
+            </div>
+
+            <!-- Profile Links -->
+            <div class="pt-4 border-t border-zinc-800 flex items-center justify-between">
+                <a href="/teams/{{.Comparison.TeamA.TeamCode}}?season={{.SelectedSeason}}" 
+                   class="px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-white transition-colors">
+                    Ver perfil completo de {{.Comparison.TeamA.FullName}}
+                </a>
+                <a href="/teams/{{.Comparison.TeamB.TeamCode}}?season={{.SelectedSeason}}" 
+                   class="px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-white transition-colors">
+                    Ver perfil completo de {{.Comparison.TeamB.FullName}}
+                </a>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+{{end}}

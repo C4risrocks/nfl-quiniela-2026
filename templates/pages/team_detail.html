@@ -165,6 +165,46 @@
 
     </div>
 
+    <!-- Advanced Sabermetrics & Recent Form Banner -->
+    <div class="vercel-card p-5 rounded-2xl border border-zinc-800 bg-gradient-to-r from-zinc-950 via-zinc-900/60 to-zinc-950 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        <div class="space-y-1">
+            <div class="flex items-center space-x-2">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
+                    <i class="fa-solid fa-chart-pie mr-1 text-amber-400"></i> Modelo Pitagórico & Forma
+                </span>
+                <span class="text-xs font-mono text-zinc-400">Bill James NFL (exp 2.37)</span>
+            </div>
+            <div class="text-xs text-zinc-300">
+                Expectativa de victorias: <span class="font-bold text-white">{{printf "%.1f" .Detail.Standing.PythagoreanWins}} victorias esperadas</span>
+                {{if eq .Detail.Standing.PythagoreanStatus "underperforming"}}
+                    <span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">🟢 Perfil Sleeper (Récord debería ser superior)</span>
+                {{else if eq .Detail.Standing.PythagoreanStatus "overperforming"}}
+                    <span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">🔴 Perfil Trampa (Récord inflado por partidos cerrados)</span>
+                {{else}}
+                    <span class="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-zinc-800 text-zinc-300 border border-zinc-700">⚪ Rendimiento Par / Equilibrado</span>
+                {{end}}
+            </div>
+            <div class="text-[11px] font-mono text-zinc-400">
+                Récord en partidos de una posesión (≤ 8 pts de diferencia): <span class="text-white font-bold">{{.Detail.Standing.OneScoreRecord}}</span>
+            </div>
+        </div>
+
+        <!-- Form Guide Strip -->
+        <div class="flex flex-col items-start md:items-end justify-center shrink-0">
+            <span class="text-[10px] font-mono uppercase text-zinc-400 tracking-wider mb-1.5">Últimos 5 Partidos (L5):</span>
+            <div class="flex items-center space-x-1.5">
+                {{range .Detail.Standing.LastFiveResults}}
+                    <span class="px-2 py-1 rounded text-xs font-mono font-bold flex items-center justify-center {{if eq .Result "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/40{{else if eq .Result "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/40{{else}}bg-zinc-800 text-zinc-400{{end}}"
+                          title="Semana {{.WeekNumber}}: {{.Result}} {{.Score}} {{if .IsHome}}vs{{else}}@{{end}} {{.OpponentCode}}">
+                        {{.Result}} <span class="text-[9px] ml-1 opacity-70">W{{.WeekNumber}}</span>
+                    </span>
+                {{else}}
+                    <span class="text-xs font-mono text-zinc-500">Sin partidos previos</span>
+                {{end}}
+            </div>
+        </div>
+    </div>
+
     <!-- Main Content: Schedule & Results Table -->
     <div class="vercel-card rounded-3xl border border-zinc-800 overflow-hidden bg-zinc-950/60 shadow-sm">
         

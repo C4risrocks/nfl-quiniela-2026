@@ -394,5 +394,74 @@ func TestTeamStatsHandler_SuperBowlChampionsAndPersistence(t *testing.T) {
 	}
 }
 
+func TestTeamStatsHandler_CompareTeams(t *testing.T) {
+	handler, cleanup := setupTestTeamStats(t)
+	defer cleanup()
+
+	r := chi.NewRouter()
+	r.Get("/teams/compare", handler.CompareTeams)
+
+	// 1. Full Page GET
+	reqPage := httptest.NewRequest(http.MethodGet, "/teams/compare?team1=KC&team2=BAL&season=2026", nil)
+	rrPage := httptest.NewRecorder()
+	r.ServeHTTP(rrPage, reqPage)
+
+	if rrPage.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for full compare page, got %d. Body: %s", rrPage.Code, rrPage.Body.String())
+	}
+	bodyPage := rrPage.Body.String()
+	for _, exp := range []string{"Comparador H2H", "Veredicto Analítico", "Métricas Frente a Frente", "Historial Directo"} {
+		if !strings.Contains(bodyPage, exp) {
+			t.Errorf("expected compare page to contain %q", exp)
+		}
+	}
+
+	// 2. HTMX Modal Partial GET
+	reqModal := httptest.NewRequest(http.MethodGet, "/teams/compare?team1=KC&team2=BAL&season=2026", nil)
+	reqModal.Header.Set("HX-Request", "true")
+	rrModal := httptest.NewRecorder()
+	r.ServeHTTP(rrModal, reqModal)
+
+	if rrModal.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for modal partial, got %d. Body: %s", rrModal.Code, rrModal.Body.String())
+	}
+	bodyModal := rrModal.Body.String()
+	for _, exp := range []string{"Veredicto Analítico", "Métricas Frente a Frente", "Historial Directo", "Listo"} {
+		if !strings.Contains(bodyModal, exp) {
+			t.Errorf("expected modal partial to contain %q", exp)
+		}
+	}
+}
+
+func TestTeamStatsHandler_AdvancedMetricsEnrichment(t *testing.T) {
+	handler, cleanup := setupTestTeamStats(t)
+	defer cleanup()
+
+	standings := handler.getStandingsWithFallback(2026)
+	if standings == nil || len(standings.League) == 0 {
+		t.Fatal("expected standings to be populated")
+	}
+
+	// Verify all teams have Pythagorean status
+	for _, team := range standings.League {
+		if team.PythagoreanStatus == "" {
+			t.Errorf("team %s has empty PythagoreanStatus", team.TeamCode)
+		}
+	}
+
+	// Verify conference playoff pictures
+	if len(standings.PlayoffPictures) != 2 {
+		t.Fatalf("expected 2 conference playoff pictures (AFC & NFC), got %d", len(standings.PlayoffPictures))
+	}
+	for _, pic := range standings.PlayoffPictures {
+		if pic.ByeTeam == nil {
+			t.Errorf("conference %s missing ByeTeam", pic.Conference)
+		}
+		if len(pic.Matchups) != 3 {
+			t.Errorf("conference %s expected 3 wild card matchups, got %d", pic.Conference, len(pic.Matchups))
+		}
+	}
+}
+
 
 

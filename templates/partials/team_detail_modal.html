@@ -125,6 +125,48 @@
                 </div>
             </div>
 
+            <!-- Advanced Analytics: Pythagorean & Form Guide Strip -->
+            <div class="p-3.5 bg-gradient-to-r from-zinc-900/80 via-zinc-900/40 to-zinc-900/80 rounded-2xl border border-zinc-800/80 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-mono uppercase font-bold text-amber-400 flex items-center">
+                        <i class="fa-solid fa-chart-pie mr-1.5 text-amber-400"></i> Métricas Avanzadas & Forma
+                    </span>
+                    <span class="text-[10px] font-mono text-zinc-500">Modelo Pitagórico Bill James</span>
+                </div>
+                <div class="grid grid-cols-3 gap-3 text-xs">
+                    <div class="bg-zinc-950/60 p-2.5 rounded-xl border border-zinc-800/60">
+                        <span class="text-[9.5px] font-mono text-zinc-500 block uppercase">Vic. Pitagóricas</span>
+                        <div class="font-bold text-white text-sm mt-0.5 flex items-center space-x-1.5">
+                            <span>{{printf "%.1f" .Detail.Standing.PythagoreanWins}}</span>
+                            {{if eq .Detail.Standing.PythagoreanStatus "underperforming"}}
+                                <span class="px-1 py-0.2 rounded text-[8px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Sleeper</span>
+                            {{else if eq .Detail.Standing.PythagoreanStatus "overperforming"}}
+                                <span class="px-1 py-0.2 rounded text-[8px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">Trampa</span>
+                            {{end}}
+                        </div>
+                    </div>
+                    <div class="bg-zinc-950/60 p-2.5 rounded-xl border border-zinc-800/60">
+                        <span class="text-[9.5px] font-mono text-zinc-500 block uppercase">1 Posesión (≤8 pts)</span>
+                        <div class="font-bold text-zinc-200 text-sm mt-0.5">
+                            {{.Detail.Standing.OneScoreRecord}}
+                        </div>
+                    </div>
+                    <div class="bg-zinc-950/60 p-2.5 rounded-xl border border-zinc-800/60">
+                        <span class="text-[9.5px] font-mono text-zinc-500 block uppercase mb-1">Últimos 5 (L5)</span>
+                        <div class="flex items-center space-x-1">
+                            {{range .Detail.Standing.LastFiveResults}}
+                                <span class="w-4 h-4 rounded text-[8.5px] font-mono font-bold flex items-center justify-center {{if eq .Result "W"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else if eq .Result "L"}}bg-rose-500/20 text-rose-400 border border-rose-500/30{{else}}bg-zinc-800 text-zinc-400{{end}}"
+                                      title="Sem {{.WeekNumber}}: {{.Result}} {{.Score}} {{if .IsHome}}vs{{else}}@{{end}} {{.OpponentCode}}">
+                                    {{.Result}}
+                                </span>
+                            {{else}}
+                                <span class="text-zinc-600 font-mono text-[10px]">-</span>
+                            {{end}}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Season Schedule & Results -->
             <div>
                 <div class="flex items-center justify-between mb-2.5">

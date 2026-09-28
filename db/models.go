@@ -1880,6 +1880,24 @@ type TeamStanding struct {
 	QuinielaPickCount int `json:"quiniela_pick_count"`
 	QuinielaWinCount  int `json:"quiniela_win_count"`
 	QuinielaWinRate   int `json:"quiniela_win_rate"` // e.g. 75%
+
+	// Advanced Analytics & Sabermetrics
+	PythagoreanWins   float64        `json:"pythagorean_wins"`
+	PythagoreanDiff   float64        `json:"pythagorean_diff"`
+	PythagoreanStatus string         `json:"pythagorean_status"` // "overperforming", "underperforming", "balanced"
+	OneScoreRecord    string         `json:"one_score_record"`   // e.g. "4-1"
+	LastFiveResults   []TeamFormItem `json:"last_five_results"`  // L5 form guide
+	PlayoffStatus     string         `json:"playoff_status"`     // "clinched_bye", "clinched_division", "clinched_playoff", "in_hunt", "eliminated", ""
+	PlayoffGB         string         `json:"playoff_gb"`         // Games Behind 7th seed
+}
+
+// TeamFormItem represents a single match result in a team's recent form guide
+type TeamFormItem struct {
+	Result       string `json:"result"` // "W", "L", "T"
+	Score        string `json:"score"`  // "28-24"
+	OpponentCode string `json:"opponent_code"`
+	IsHome       bool   `json:"is_home"`
+	WeekNumber   int    `json:"week_number"`
 }
 
 func (s *TeamStanding) FullName() string {
@@ -1901,6 +1919,36 @@ type ConferenceStandings struct {
 	Teams      []*TeamStanding `json:"teams"`
 }
 
+// PlayoffMatchupMockup represents a projected Wild Card playoff clash
+type PlayoffMatchupMockup struct {
+	HighSeed *TeamStanding `json:"high_seed"`
+	LowSeed  *TeamStanding `json:"low_seed"`
+	Label    string        `json:"label"` // e.g. "Duelo #2 vs #7"
+}
+
+// ConferencePlayoffPicture models seed hierarchy, bye team, wild card matchups and bubble teams
+type ConferencePlayoffPicture struct {
+	Conference string                 `json:"conference"`
+	Name       string                 `json:"name"`
+	ByeTeam    *TeamStanding          `json:"bye_team"`    // Seed #1
+	Matchups   []PlayoffMatchupMockup `json:"matchups"`    // 2v7, 3v6, 4v5
+	InTheHunt  []*TeamStanding        `json:"in_the_hunt"` // Seeds 8-11
+	Eliminated []*TeamStanding        `json:"eliminated"`  // Mathematically eliminated
+}
+
+// TeamH2HComparison holds direct comparison data between two NFL franchises
+type TeamH2HComparison struct {
+	TeamA              *TeamStanding       `json:"team_a"`
+	TeamB              *TeamStanding       `json:"team_b"`
+	HistoricalMatchups []*TeamScheduleItem `json:"historical_matchups"`
+	TeamAWins          int                 `json:"team_a_wins"`
+	TeamBWins          int                 `json:"team_b_wins"`
+	Ties               int                 `json:"ties"`
+	CommunityAdvantage string              `json:"community_advantage"`
+	VerdictHeadline    string              `json:"verdict_headline"`
+	VerdictDetail      string              `json:"verdict_detail"`
+}
+
 // SeasonDashboardSummary provides quick high-level league stats
 type SeasonDashboardSummary struct {
 	SuperBowlChampion   *TeamStanding `json:"super_bowl_champion"`
@@ -1913,12 +1961,13 @@ type SeasonDashboardSummary struct {
 
 // SeasonStandings holds full standings and groupings for a single season
 type SeasonStandings struct {
-	Year        int                     `json:"year"`
-	IsCurrent   bool                    `json:"is_current"`
-	Summary     *SeasonDashboardSummary `json:"summary"`
-	Divisions   []*DivisionStandings    `json:"divisions"`
-	Conferences []*ConferenceStandings  `json:"conferences"`
-	League      []*TeamStanding         `json:"league"` // All 32 sorted by record
+	Year            int                         `json:"year"`
+	IsCurrent       bool                        `json:"is_current"`
+	Summary         *SeasonDashboardSummary     `json:"summary"`
+	Divisions       []*DivisionStandings        `json:"divisions"`
+	Conferences     []*ConferenceStandings      `json:"conferences"`
+	League          []*TeamStanding             `json:"league"` // All 32 sorted by record
+	PlayoffPictures []*ConferencePlayoffPicture `json:"playoff_pictures,omitempty"`
 }
 
 // TeamScheduleItem represents a single matchup in a team's schedule

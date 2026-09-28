@@ -3310,6 +3310,115 @@ func (r *Repository) ListTeamGamesBySeason(teamCode string, seasonYear int) ([]*
 	return items, nil
 }
 
+// GetTeamH2HComparison retrieves all head-to-head games between two teams across seasons and returns record counts
+func (r *Repository) GetTeamH2HComparison(teamCodeA, teamCodeB string) ([]*TeamScheduleItem, int, int, int, error) {
+	teamA, errA := r.GetTeamByCode(teamCodeA)
+	teamB, errB := r.GetTeamByCode(teamCodeB)
+	if errA != nil || teamA == nil || errB != nil || teamB == nil {
+		return nil, 0, 0, 0, fmt.Errorf("uno o ambos equipos no encontrados")
+	}
+
+	query := `
+	SELECT g.id, g.kickoff_time, g.home_score, g.away_score, g.status, g.status_detail,
+	       COALESCE(g.broadcast, ''), w.week_number,
+	       ht.id, ht.code, ht.name, ht.city, ht.logo_url,
+	       at.id, at.code, at.name, at.city, at.logo_url
+	FROM games g
+	JOIN weeks w ON g.week_id = w.id
+	JOIN seasons s ON w.season_id = s.id
+	JOIN teams ht ON g.home_team_id = ht.id
+	JOIN teams at ON g.away_team_id = at.id
+	WHERE (g.home_team_id = ? AND g.away_team_id = ?) OR (g.home_team_id = ? AND g.away_team_id = ?)
+	ORDER BY g.kickoff_time DESC`
+
+	rows, err := r.db.Query(query, teamA.ID, teamB.ID, teamB.ID, teamA.ID)
+	if err != nil {
+		return nil, 0, 0, 0, err
+	}
+	defer rows.Close()
+
+	items := make([]*TeamScheduleItem, 0)
+	winsA, winsB, ties := 0, 0, 0
+
+	for rows.Next() {
+		var gID int64
+		var kickoffStr, status, statusDetail, broadcast string
+		var weekNum int
+		var hScore, aScore *int
+		var htID, atID int64
+		var htCode, htName, htCity, htLogo string
+		var atCode, atName, atCity, atLogo string
+
+		if err := rows.Scan(
+			&gID, &kickoffStr, &hScore, &aScore, &status, &statusDetail,
+			&broadcast, &weekNum,
+			&htID, &htCode, &htName, &htCity, &htLogo,
+			&atID, &atCode, &atName, &atCity, &atLogo,
+		); err != nil {
+			return nil, 0, 0, 0, err
+		}
+
+		kickoff, _ := time.Parse(time.RFC3339, kickoffStr)
+		if kickoff.IsZero() {
+			kickoff, _ = time.Parse("2006-01-02 15:04:05", kickoffStr)
+		}
+
+		isTeamAHome := (htID == teamA.ID)
+		var teamScore, oppScore *int
+		if isTeamAHome {
+			teamScore = hScore
+			oppScore = aScore
+		} else {
+			teamScore = aScore
+			oppScore = hScore
+		}
+
+		result := "scheduled"
+		if status == "final" && teamScore != nil && oppScore != nil {
+			if *teamScore > *oppScore {
+				result = "W"
+				winsA++
+			} else if *teamScore < *oppScore {
+				result = "L"
+				winsB++
+			} else {
+				result = "T"
+				ties++
+			}
+		} else if status == "in_progress" {
+			result = "in_progress"
+		}
+
+		oppCode := teamCodeB
+		oppName := teamB.Name
+		oppCity := teamB.City
+		oppLogo := teamB.LogoURL
+		if !isTeamAHome {
+			oppCode = teamB.Code
+		}
+
+		items = append(items, &TeamScheduleItem{
+			WeekNumber:       weekNum,
+			KickoffTime:      kickoff,
+			KickoffFormatted: kickoff.Format("02/01/2006"),
+			OpponentCode:     oppCode,
+			OpponentName:     oppName,
+			OpponentCity:     oppCity,
+			OpponentLogo:     oppLogo,
+			IsHome:           isTeamAHome,
+			HomeScore:        hScore,
+			AwayScore:        aScore,
+			TeamScore:        teamScore,
+			OpponentScore:    oppScore,
+			Result:           result,
+			StatusDetail:     statusDetail,
+			Broadcast:        broadcast,
+		})
+	}
+
+	return items, winsA, winsB, ties, nil
+}
+
 // ----------------------------------------------------
 // Team Season Standings & Schedules Persistence
 // ----------------------------------------------------

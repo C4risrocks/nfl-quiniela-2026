@@ -231,6 +231,7 @@ func main() {
 	r.Get("/leaderboard/table", leaderboardHandler.LeaderboardTable)
 	r.Get("/teams", teamStatsHandler.ShowTeams)
 	r.Get("/teams/table", teamStatsHandler.TeamsTablePartial)
+	r.Get("/teams/compare", teamStatsHandler.CompareTeams)
 	r.Get("/teams/{code}", teamStatsHandler.ShowTeamDetail)
 	r.Get("/teams/{code}/modal", teamStatsHandler.TeamDetailModal)
 	r.Get("/live", liveHandler.ShowLive)
