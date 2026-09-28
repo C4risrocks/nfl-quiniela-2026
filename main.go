@@ -236,6 +236,7 @@ func main() {
 	r.Get("/live", liveHandler.ShowLive)
 	r.Get("/live/content", liveHandler.LiveContent)
 	r.Get("/games/{gameId}/stats", liveHandler.GameStatsModal)
+	r.Get("/picks/community/{gameId}", picksHandler.CommunityPicks)
 	r.Get("/events/live", eventsHandler.StreamLiveEvents)
 
 	// Authenticated Player Routes
@@ -246,7 +247,6 @@ func main() {
 		player.Post("/picks/save", picksHandler.SavePick)
 		player.Post("/picks/save-score", picksHandler.SaveScore)
 		player.Post("/picks/save-all", picksHandler.SaveAll)
-		player.Get("/picks/community/{gameId}", picksHandler.CommunityPicks)
 		player.Get("/picks/compare", picksHandler.ComparePicks)
 		player.Get("/picks/matrix", picksHandler.ShowPicksMatrix)
 		player.Get("/picks/readiness", picksHandler.PicksReadinessModal)
@@ -291,11 +291,10 @@ func main() {
 
 	// 9. HTTP Server & Graceful Shutdown
 	server := &http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      r,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:              ":" + cfg.Port,
+		Handler:           r,
+		ReadHeaderTimeout: 15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	go func() {

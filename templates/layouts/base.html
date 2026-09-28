@@ -250,7 +250,7 @@
                                 class="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition-all text-xs relative cursor-pointer" 
                                 title="Centro de Notificaciones">
                             <i class="fa-regular fa-bell text-sm"></i>
-                            <span hx-get="/notifications/badge" hx-trigger="load, every 60s" hx-swap="outerHTML">
+                            <span hx-get="/notifications/badge" hx-trigger="load, every 60s" hx-swap="innerHTML">
                                 <span id="notification-badge" class="hidden"></span>
                             </span>
                         </button>
@@ -328,7 +328,7 @@
                                 class="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors text-xs relative cursor-pointer" 
                                 title="Centro de Notificaciones">
                             <i class="fa-regular fa-bell text-sm"></i>
-                            <span hx-get="/notifications/badge" hx-trigger="load, every 60s" hx-swap="outerHTML">
+                            <span hx-get="/notifications/badge" hx-trigger="load, every 60s" hx-swap="innerHTML">
                                 <span id="notification-badge" class="hidden"></span>
                             </span>
                         </button>
@@ -706,8 +706,21 @@
         (function() {
             window.__modalOpen = false;
             window.__rivalsOpen = false;
+            window.__openDrawers = window.__openDrawers || new Set();
 
-            // HTMX + Alpine 3 Integration: re-initialize Alpine tree on any dynamically swapped content
+            // Check if ANY rivals modal or drawer is open across the entire page
+            window.__hasRivalsOpen = function() {
+                if (window.__rivalsOpen) return true;
+                if (window.__openDrawers && window.__openDrawers.size > 0) return true;
+                const rivalsModal = document.getElementById('rivals-modal');
+                if (rivalsModal && rivalsModal.style.display !== 'none' && !rivalsModal.classList.contains('hidden')) return true;
+                const activeDrawers = document.querySelectorAll('[id^="live-community-"]:not(:empty)');
+                if (activeDrawers.length > 0) return true;
+                return false;
+            };
+
+            // HTMX + Alpine 3 Integration: safely initialize Alpine tree without double-init corruption
+            const initializedAlpineNodes = new WeakSet();
             function reinitAlpine(e) {
                 if (!window.Alpine) return;
                 let el = null;
@@ -716,7 +729,8 @@
                     else if (e.detail.target && document.contains(e.detail.target)) el = e.detail.target;
                     else if (e.detail.target && e.detail.target.id) el = document.getElementById(e.detail.target.id);
                 }
-                if (el) {
+                if (el && !initializedAlpineNodes.has(el)) {
+                    initializedAlpineNodes.add(el);
                     try {
                         window.Alpine.initTree(el);
                     } catch(err) {
@@ -725,7 +739,6 @@
                 }
             }
 
-            document.addEventListener('htmx:afterSwap', reinitAlpine);
             document.addEventListener('htmx:afterSettle', reinitAlpine);
 
             function isModalVisible(el) {
@@ -744,27 +757,18 @@
                     if (!document.body.classList.contains('overflow-hidden')) {
                         document.body.classList.add('overflow-hidden');
                     }
-                    if (!document.documentElement.classList.contains('overflow-hidden')) {
-                        document.documentElement.classList.add('overflow-hidden');
-                    }
                 } else {
                     if (document.body.classList.contains('overflow-hidden')) {
                         document.body.classList.remove('overflow-hidden');
-                    }
-                    if (document.documentElement.classList.contains('overflow-hidden')) {
-                        document.documentElement.classList.remove('overflow-hidden');
                     }
                 }
                 return isOpen;
             }
 
             function cleanupModalState() {
-                const rivalsModal = document.getElementById('rivals-modal');
-                const isRivalsOpen = window.__rivalsOpen || (rivalsModal && rivalsModal.style.display !== 'none' && !rivalsModal.classList.contains('hidden'));
-                const hasOpen = checkAnyModalOpen() || isRivalsOpen;
+                const hasOpen = checkAnyModalOpen() || window.__hasRivalsOpen();
                 if (!hasOpen) {
                     document.body.classList.remove('overflow-hidden');
-                    document.documentElement.classList.remove('overflow-hidden');
                     window.__modalOpen = false;
                     window.__rivalsOpen = false;
                 }
@@ -798,14 +802,16 @@
                 cleanupModalState();
             };
 
+            // Active Scroll & Swap Protection for Live Polling
+            let lastLiveScrollY = 0;
+
             document.addEventListener('htmx:beforeRequest', function(e) {
                 if (e.detail && e.detail.target && e.detail.target.id === 'game-stats-modal-container') {
                     window.__statsModalClosed = false;
                 }
                 if (e.detail && e.detail.target && e.detail.target.id === 'live-content-container') {
-                    const rivalsModal = document.getElementById('rivals-modal');
-                    const isRivalsOpen = window.__rivalsOpen || (rivalsModal && rivalsModal.style.display !== 'none' && !rivalsModal.classList.contains('hidden'));
-                    if (isRivalsOpen || window.__modalOpen || window.__whatIfOpen) {
+                    lastLiveScrollY = window.scrollY;
+                    if (window.__hasRivalsOpen() || window.__modalOpen || window.__whatIfOpen) {
                         e.preventDefault();
                     }
                 }
@@ -819,11 +825,17 @@
                     }
                 }
                 if (e.detail && e.detail.target && e.detail.target.id === 'live-content-container') {
-                    const rivalsModal = document.getElementById('rivals-modal');
-                    const isRivalsOpen = window.__rivalsOpen || (rivalsModal && rivalsModal.style.display !== 'none' && !rivalsModal.classList.contains('hidden'));
-                    if (isRivalsOpen || window.__modalOpen || window.__whatIfOpen) {
+                    if (window.__hasRivalsOpen() || window.__modalOpen || window.__whatIfOpen) {
                         e.detail.shouldSwap = false;
                         e.preventDefault();
+                    }
+                }
+            });
+
+            document.addEventListener('htmx:afterSwap', function(e) {
+                if (e.detail && e.detail.target && e.detail.target.id === 'live-content-container') {
+                    if (lastLiveScrollY > 0 && Math.abs(window.scrollY - lastLiveScrollY) > 50) {
+                        window.scrollTo({ top: lastLiveScrollY, behavior: 'instant' });
                     }
                 }
             });

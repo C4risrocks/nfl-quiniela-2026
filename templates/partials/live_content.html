@@ -1,7 +1,7 @@
 <div id="live-content-container" 
      hx-get="/live/content?week={{.SelectedWeek.WeekNumber}}{{if .FeaturedGame}}&game_id={{.FeaturedGame.ID}}{{end}}" 
-     hx-trigger="every 25s [!window.__modalOpen && !window.__whatIfOpen && !window.__rivalsOpen]" 
-     hx-swap="outerHTML"
+     hx-trigger="every 25s [!window.__modalOpen && !window.__whatIfOpen && !window.__rivalsOpen && !window.__hasRivalsOpen()]" 
+     hx-swap="outerHTML ignoreTitle:true show:none scroll:none"
      class="space-y-6"
      x-data="{ 
         activeFilter: 'all', 
@@ -1872,9 +1872,10 @@
 
                             <!-- Toggle Rivals Drawer Button -->
                             <button type="button" 
-                                    @click.prevent="openCommunity = !openCommunity; if (openCommunity && !$el.dataset.loaded) { htmx.trigger($el, 'load-community'); $el.dataset.loaded = 'true'; }"
+                                    @click.prevent="openCommunity = !openCommunity; if (openCommunity) { if (!window.__openDrawers) window.__openDrawers = new Set(); window.__openDrawers.add({{$g.ID}}); window.__rivalsOpen = true; if (!$el.dataset.loaded) { htmx.trigger($el, 'load-community'); $el.dataset.loaded = 'true'; } } else { if (window.__openDrawers) { window.__openDrawers.delete({{$g.ID}}); if (window.__openDrawers.size === 0) window.__rivalsOpen = false; } }"
                                     hx-get="/picks/community/{{$g.ID}}"
                                     hx-target="#live-community-{{$g.ID}}"
+                                    hx-swap="innerHTML"
                                     hx-trigger="load-community"
                                     class="flex-1 flex items-center justify-between px-3 py-1.5 rounded-xl bg-zinc-900/80 hover:bg-zinc-850 border border-zinc-800/80 hover:border-cyan-500/40 text-[11px] font-semibold text-zinc-300 hover:text-white transition-all cursor-pointer group">
                                 <span class="flex items-center space-x-1.5 truncate">
