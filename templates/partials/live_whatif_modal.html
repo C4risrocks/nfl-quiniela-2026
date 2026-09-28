@@ -88,6 +88,45 @@
 
         <!-- Scenario Presets Bar (Modes: Pleno por defecto, Peor escenario para ganar, Manual) -->
         <div class="p-3 bg-zinc-900/70 border-b border-zinc-800/80 space-y-2.5">
+            <!-- Scope Switcher: Jornada vs Temporada -->
+            <div class="flex items-center justify-between gap-2 pb-2 border-b border-zinc-800/60">
+                <div class="flex items-center space-x-2">
+                    <span class="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-wider">Alcance:</span>
+                    <div class="inline-flex p-0.5 rounded-xl bg-zinc-950 border border-zinc-800 text-[11px] font-bold">
+                        <button type="button"
+                                @click="setScope('week')"
+                                :class="scope === 'week' ? 'bg-purple-600 text-white shadow-sm ring-1 ring-purple-400/40' : 'text-zinc-400 hover:text-zinc-200'"
+                                class="px-2.5 py-1 rounded-lg transition-all flex items-center space-x-1 cursor-pointer">
+                            <i class="fa-solid fa-calendar-week text-[10px]"></i>
+                            <span>Jornada <span x-text="seasonInfo && seasonInfo.current_week_number ? 'Sem ' + seasonInfo.current_week_number : ''"></span></span>
+                        </button>
+                        <button type="button"
+                                @click="setScope('season')"
+                                :class="scope === 'season' ? 'bg-amber-600 text-white shadow-sm ring-1 ring-amber-400/40' : 'text-zinc-400 hover:text-zinc-200'"
+                                class="px-2.5 py-1 rounded-lg transition-all flex items-center space-x-1 cursor-pointer">
+                            <i class="fa-solid fa-trophy text-[10px]"></i>
+                            <span>Temporada Anual</span>
+                            <span class="ml-1 px-1 py-0.2 rounded text-[8px] font-mono bg-black/40 text-amber-200 font-extrabold">GLOBAL</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="text-[10px] font-mono text-zinc-400 hidden sm:flex items-center space-x-2">
+                    <template x-if="scope === 'season'">
+                        <span class="text-amber-300 font-medium">
+                            <i class="fa-solid fa-calculator text-amber-400 mr-1"></i>
+                            <span x-text="(seasonInfo && seasonInfo.remaining_season_games ? seasonInfo.remaining_season_games : 0) + ' partidos restantes en el año'"></span>
+                        </span>
+                    </template>
+                    <template x-if="scope === 'week'">
+                        <span class="text-purple-300 font-medium">
+                            <i class="fa-solid fa-football text-purple-400 mr-1"></i>
+                            <span x-text="pendingGamesCount + ' partidos pendientes en la semana'"></span>
+                        </span>
+                    </template>
+                </div>
+            </div>
+
             <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar text-xs">
                     <span class="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-wider mr-1 shrink-0">Modo:</span>
@@ -262,7 +301,7 @@
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div class="flex items-center space-x-3">
                         <div class="w-12 h-12 rounded-2xl bg-purple-600/20 border border-purple-500/40 flex flex-col items-center justify-center font-mono font-black text-white shrink-0">
-                            <span class="text-[9px] text-purple-300 uppercase leading-none">Posición</span>
+                            <span class="text-[9px] text-purple-300 uppercase leading-none" x-text="scope === 'season' ? 'Pos. Anual' : 'Posición'"></span>
                             <span class="text-xl text-purple-200 leading-none mt-0.5" x-text="'#' + spotlightUserSim.sim_rank"></span>
                         </div>
                         <div>
@@ -273,6 +312,9 @@
                                 </template>
                                 <template x-if="!spotlightUserSim.is_current">
                                     <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-purple-500/30 text-purple-200 border border-purple-400/40 font-bold">SIMULADO</span>
+                                </template>
+                                <template x-if="scope === 'season'">
+                                    <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">TEMPORADA</span>
                                 </template>
                             </div>
                             <div class="flex items-center space-x-2 mt-1 flex-wrap gap-y-1">
@@ -304,16 +346,22 @@
                     </div>
 
                     <div class="flex items-center space-x-3 sm:space-x-4 self-end sm:self-auto font-mono text-right">
+                        <template x-if="scope === 'season'">
+                            <div class="hidden sm:block">
+                                <div class="text-[10px] text-zinc-400 uppercase tracking-wider">Previos</div>
+                                <div class="text-xs sm:text-base font-bold text-zinc-400" x-text="spotlightUserSim.season_prior_points + ' pts'"></div>
+                            </div>
+                        </template>
                         <div>
-                            <div class="text-[10px] text-zinc-400 uppercase tracking-wider">Puntos Base</div>
-                            <div class="text-xs sm:text-base font-bold text-zinc-300" x-text="spotlightUserSim.base_points + ' pts'"></div>
+                            <div class="text-[10px] text-zinc-400 uppercase tracking-wider" x-text="scope === 'season' ? 'Semana' : 'Base'"></div>
+                            <div class="text-xs sm:text-base font-bold text-zinc-300" x-text="(scope === 'season' ? spotlightUserSim.week_sim_points : spotlightUserSim.base_points) + ' pts'"></div>
                         </div>
                         <div>
                             <div class="text-[10px] text-purple-400 uppercase tracking-wider font-semibold">+ Simulados</div>
                             <div class="text-xs sm:text-base font-black text-purple-300" x-text="'+' + spotlightUserSim.sim_hits + ' pts'"></div>
                         </div>
                         <div class="pl-2 border-l border-zinc-800">
-                            <div class="text-[10px] text-amber-400 uppercase tracking-wider font-bold">Proyectado</div>
+                            <div class="text-[10px] text-amber-400 uppercase tracking-wider font-bold" x-text="scope === 'season' ? 'Total Año' : 'Proyectado'"></div>
                             <div class="text-base sm:text-xl font-black text-amber-300" x-text="spotlightUserSim.sim_points + ' pts'"></div>
                         </div>
                         <div class="pl-2 border-l border-zinc-800">
@@ -325,7 +373,7 @@
             </div>
         </template>
 
-        <!-- Navigation Tabs: Games to Simulate vs Leaderboard Projection vs Win Probabilities -->
+        <!-- Navigation Tabs: Games to Simulate vs Leaderboard Projection vs Win Probabilities vs Eliminations -->
         <div class="px-4 border-b border-zinc-800 flex items-center space-x-3 text-xs font-semibold overflow-x-auto no-scrollbar">
             <button type="button"
                     @click="activeTab = 'games'"
@@ -347,8 +395,16 @@
                     :class="activeTab === 'odds' ? 'border-purple-500 text-white font-bold' : 'border-transparent text-zinc-400 hover:text-zinc-200'"
                     class="py-2.5 border-b-2 transition-all cursor-pointer flex items-center space-x-1.5 whitespace-nowrap">
                 <i class="fa-solid fa-chart-pie text-cyan-400 text-[11px]"></i>
-                <span>Probabilidades & Swing Games</span>
+                <span>Probabilidades & Swing</span>
                 <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">PRO</span>
+            </button>
+            <button type="button"
+                    @click="activeTab = 'eliminations'"
+                    :class="activeTab === 'eliminations' ? 'border-purple-500 text-white font-bold' : 'border-transparent text-zinc-400 hover:text-zinc-200'"
+                    class="py-2.5 border-b-2 transition-all cursor-pointer flex items-center space-x-1.5 whitespace-nowrap">
+                <i class="fa-solid fa-calculator text-amber-400 text-[11px]"></i>
+                <span>Eliminaciones & Números Mágicos</span>
+                <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40">MATH</span>
             </button>
         </div>
 
@@ -472,7 +528,9 @@
         <!-- Tab 2: Projected Leaderboard -->
         <div x-show="activeTab === 'leaderboard'" class="p-3 sm:p-4 max-h-[65vh] sm:max-h-[70vh] overflow-y-auto overscroll-contain modal-scrollable space-y-1.5">
             <div class="text-[11px] text-zinc-400 mb-2 font-mono flex items-center justify-between">
-                <span>Posiciones proyectadas según ganadores simulados</span>
+                <span>
+                    Posiciones proyectadas <strong class="text-zinc-200" x-text="scope === 'season' ? '(Temporada Anual)' : '(Jornada Semanal)'"></strong>
+                </span>
                 <span class="text-purple-400 font-bold" x-text="simulatedGamesCount + ' partidos configurados'"></span>
             </div>
 
@@ -520,8 +578,16 @@
                                   x-text="u.win_prob + '% victoria'">
                             </span>
                         </template>
+
+                        <template x-if="scope === 'season'">
+                            <div class="text-[10px] text-zinc-500 hidden md:block">
+                                Prev: <span class="text-zinc-400" x-text="u.season_prior_points"></span>
+                            </div>
+                        </template>
+
                         <div class="text-[10px] text-zinc-400 hidden sm:block">
-                            Base: <span class="text-zinc-300" x-text="u.base_points"></span>
+                            <span x-text="scope === 'season' ? 'Sem:' : 'Base:'"></span>
+                            <span class="text-zinc-300" x-text="scope === 'season' ? u.week_sim_points : u.base_points"></span>
                         </div>
                         <div class="text-[10px] text-purple-400">
                             +<span x-text="u.sim_hits"></span>
@@ -734,6 +800,255 @@
 
         </div>
 
+        <!-- Tab 4: Mathematical Elimination & Magic Numbers -->
+        <div x-show="activeTab === 'eliminations'" class="p-3 sm:p-4 max-h-[65vh] sm:max-h-[70vh] overflow-y-auto overscroll-contain modal-scrollable space-y-4">
+            
+            <!-- Header Explanatory Strip -->
+            <div class="p-3.5 rounded-2xl bg-gradient-to-r from-amber-950/30 via-zinc-900 to-zinc-950 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center shrink-0 shadow-inner">
+                        <i class="fa-solid fa-calculator text-sm"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="font-extrabold text-white">Eliminaciones Matemáticas & Números Mágicos</span>
+                            <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                TIEMPO REAL
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-zinc-300 mt-0.5">
+                            Cálculo determinístico de techos, pisos y combinaciones requeridas para asegurar el 1er puesto.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Scope toggle pill inside tab for direct accessibility -->
+                <div class="inline-flex p-0.5 rounded-xl bg-zinc-950 border border-zinc-800 text-[11px] font-bold shrink-0 self-start sm:self-auto">
+                    <button type="button"
+                            @click="setScope('week')"
+                            :class="scope === 'week' ? 'bg-purple-600 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+                            class="px-2.5 py-1 rounded-lg transition-all flex items-center space-x-1 cursor-pointer">
+                        <i class="fa-solid fa-calendar-week text-[10px]"></i>
+                        <span>Jornada</span>
+                    </button>
+                    <button type="button"
+                            @click="setScope('season')"
+                            :class="scope === 'season' ? 'bg-amber-600 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+                            class="px-2.5 py-1 rounded-lg transition-all flex items-center space-x-1 cursor-pointer">
+                        <i class="fa-solid fa-trophy text-[10px]"></i>
+                        <span>Temporada</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- "Ruta a la Victoria" (Clinching Scenarios) Smart Card -->
+            <template x-if="spotlightElimination">
+                <div class="p-4 rounded-2xl bg-gradient-to-br from-purple-950/40 via-zinc-900 to-zinc-950 border border-purple-500/40 shadow-lg space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800/80 pb-2.5">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                            <span class="text-xs font-mono font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-route"></i>
+                                <span>Ruta a la Victoria</span>
+                            </span>
+                            <span class="text-zinc-400 text-xs">•</span>
+                            <span class="text-xs font-bold text-white" x-text="spotlightElimination.username + (spotlightElimination.is_current ? ' (Tú)' : '')"></span>
+                        </div>
+
+                        <!-- Status Badge -->
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border self-start sm:self-auto"
+                              :class="spotlightElimination.badge.cls"
+                              x-text="spotlightElimination.badge.text">
+                        </span>
+                    </div>
+
+                    <!-- Clinching Narrative & Status Details -->
+                    <div class="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="space-y-1 min-w-0">
+                            <template x-if="spotlightElimination.is_clinched">
+                                <div class="text-xs text-emerald-300 font-semibold flex items-center space-x-1.5">
+                                    <i class="fa-solid fa-trophy text-amber-400"></i>
+                                    <span>¡Título asegurado matemáticamente! Ningún rival puede igualar o superar tu puntuación.</span>
+                                </div>
+                            </template>
+                            <template x-if="spotlightElimination.is_eliminated">
+                                <div class="text-xs text-rose-300 font-semibold flex items-center space-x-1.5">
+                                    <i class="fa-solid fa-circle-xmark text-rose-400"></i>
+                                    <span>
+                                        Matemáticamente sin opción al 1º lugar (<span x-text="scope === 'season' ? 'Temporada' : 'Jornada'"></span>).
+                                        Tu techo máximo es de <strong class="text-white" x-text="spotlightElimination.ceiling + ' pts'"></strong> frente al piso de <strong class="text-white" x-text="eliminationsData.leaderFloor + ' pts'"></strong> del líder.
+                                    </span>
+                                </div>
+                            </template>
+                            <template x-if="!spotlightElimination.is_clinched && !spotlightElimination.is_eliminated">
+                                <div class="text-xs text-zinc-200 leading-relaxed">
+                                    <template x-if="spotlightElimination.clinching">
+                                        <div>
+                                            <span class="text-amber-300 font-bold" x-text="spotlightElimination.clinching.headline"></span>
+                                            <p class="text-[11px] text-zinc-400 mt-0.5" x-text="spotlightElimination.clinching.detail"></p>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- 1-Click Action to simulate the winning combination -->
+                        <template x-if="!spotlightElimination.is_clinched && !spotlightElimination.is_eliminated && spotlightElimination.clinching && spotlightElimination.clinching.possible">
+                            <button type="button"
+                                    @click="applyClinchingPath(spotlightElimination.user_id)"
+                                    class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center space-x-1.5 shrink-0 cursor-pointer hover:scale-[1.02]">
+                                <i class="fa-solid fa-wand-magic-sparkles text-amber-300 text-xs"></i>
+                                <span>Cargar Ruta Ganadora</span>
+                            </button>
+                        </template>
+                    </div>
+
+                    <!-- Target player quick summary pills -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 font-mono text-center">
+                        <div class="p-2 rounded-xl bg-zinc-950 border border-zinc-800">
+                            <div class="text-[9px] uppercase text-zinc-500">Puntos Base</div>
+                            <div class="text-sm font-black text-zinc-300 mt-0.5" x-text="spotlightElimination.floor + ' pts'"></div>
+                        </div>
+                        <div class="p-2 rounded-xl bg-zinc-950 border border-zinc-800">
+                            <div class="text-[9px] uppercase text-purple-400">Techo Posible</div>
+                            <div class="text-sm font-black text-purple-300 mt-0.5" x-text="spotlightElimination.ceiling + ' pts'"></div>
+                        </div>
+                        <div class="p-2 rounded-xl bg-zinc-950 border border-zinc-800">
+                            <div class="text-[9px] uppercase text-amber-400">Núm. Trágico (E)</div>
+                            <div class="text-sm font-black text-amber-300 mt-0.5" x-text="spotlightElimination.tragic_number !== null ? spotlightElimination.tragic_number : '-'"></div>
+                        </div>
+                        <div class="p-2 rounded-xl bg-zinc-950 border border-zinc-800">
+                            <div class="text-[9px] uppercase text-emerald-400">Núm. Mágico (M)</div>
+                            <div class="text-sm font-black text-emerald-300 mt-0.5" x-text="spotlightElimination.magic_number !== null ? spotlightElimination.magic_number : '-'"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </template>
+
+            <!-- KPI Cards Strip -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div class="p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800">
+                    <div class="text-[10px] uppercase font-mono text-amber-400 font-bold flex items-center space-x-1">
+                        <i class="fa-solid fa-crown text-[9px]"></i>
+                        <span>Mágico del Líder (M)</span>
+                    </div>
+                    <div class="text-2xl font-black font-mono text-white mt-1" x-text="eliminationsData.leaderMagicNumber !== null ? eliminationsData.leaderMagicNumber : '-'"></div>
+                    <div class="text-[10px] text-zinc-400 mt-0.5 truncate" x-text="eliminationsData.leaderName ? 'Líder: ' + eliminationsData.leaderName : 'Sin líder definido'"></div>
+                </div>
+
+                <div class="p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800">
+                    <div class="text-[10px] uppercase font-mono text-rose-400 font-bold flex items-center space-x-1">
+                        <i class="fa-solid fa-shield-halved text-[9px]"></i>
+                        <span>En Zona de Riesgo</span>
+                    </div>
+                    <div class="text-2xl font-black font-mono text-rose-300 mt-1" x-text="eliminationsData.riskCount"></div>
+                    <div class="text-[10px] text-zinc-400 mt-0.5">A 1 o 2 fallos de quedar eliminados</div>
+                </div>
+
+                <div class="p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800">
+                    <div class="text-[10px] uppercase font-mono text-emerald-400 font-bold flex items-center space-x-1">
+                        <i class="fa-solid fa-bolt text-[9px]"></i>
+                        <span>En Contienda</span>
+                    </div>
+                    <div class="text-2xl font-black font-mono text-emerald-300 mt-1" x-text="eliminationsData.contendersCount"></div>
+                    <div class="text-[10px] text-zinc-400 mt-0.5">Con posibilidad matemática del #1</div>
+                </div>
+
+                <div class="p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800">
+                    <div class="text-[10px] uppercase font-mono text-zinc-400 font-bold flex items-center space-x-1">
+                        <i class="fa-solid fa-xmark text-[9px]"></i>
+                        <span>Eliminados</span>
+                    </div>
+                    <div class="text-2xl font-black font-mono text-zinc-400 mt-1" x-text="eliminationsData.eliminatedCount"></div>
+                    <div class="text-[10px] text-zinc-500 mt-0.5">Sin opción matemática de ganar</div>
+                </div>
+            </div>
+
+            <!-- Mathematical Leaderboard & Standing Matrix -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between px-1 text-xs font-mono uppercase tracking-wider text-zinc-400 font-bold">
+                    <span>Tabla de Eliminación Matemática (<span x-text="scope === 'season' ? 'Temporada' : 'Jornada'"></span>)</span>
+                    <span class="text-zinc-500 font-normal" x-text="eliminationsData.list.length + ' participantes'"></span>
+                </div>
+
+                <div class="divide-y divide-zinc-900 border border-zinc-800/80 rounded-2xl overflow-hidden bg-zinc-950/60">
+                    <template x-for="(u, idx) in eliminationsData.list" :key="u.user_id">
+                        <div class="p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-zinc-900/40 transition-colors"
+                             :class="u.is_current ? 'bg-purple-950/15 border-l-2 border-purple-500' : ''">
+                            
+                            <!-- Left: User Identity & Ranks -->
+                            <div class="flex items-center space-x-3 min-w-0">
+                                <div class="w-7 h-7 rounded-lg bg-zinc-800 text-zinc-300 font-mono text-xs font-bold flex items-center justify-center shrink-0 border border-zinc-700/80"
+                                     :class="idx === 0 ? 'border-amber-400 text-amber-300 bg-amber-950/40' : ''"
+                                     x-text="'#' + (idx + 1)">
+                                </div>
+                                <div class="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-xs text-white shrink-0 overflow-hidden">
+                                    <template x-if="u.avatar_url">
+                                        <img :src="u.avatar_url" class="w-full h-full object-cover">
+                                    </template>
+                                    <template x-if="!u.avatar_url">
+                                        <span x-text="u.username.slice(0, 2).toUpperCase()"></span>
+                                    </template>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="text-xs font-bold text-white flex items-center space-x-1.5 truncate">
+                                        <span x-text="u.username"></span>
+                                        <template x-if="u.is_current">
+                                            <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-white text-black font-extrabold">TÚ</span>
+                                        </template>
+                                    </div>
+                                    <div class="flex items-center space-x-2 mt-0.5 text-[10px] text-zinc-400 font-mono">
+                                        <span>Piso: <strong class="text-zinc-200" x-text="u.floor + ' pts'"></strong></span>
+                                        <span>•</span>
+                                        <span>Techo: <strong class="text-purple-300" x-text="u.ceiling + ' pts'"></strong></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Badges, Numbers & Action -->
+                            <div class="flex items-center justify-between sm:justify-end space-x-3 sm:space-x-4 shrink-0 font-mono">
+                                <!-- Magic or Tragic Number -->
+                                <div class="text-right">
+                                    <template x-if="u.is_leader">
+                                        <div>
+                                            <div class="text-[9px] uppercase text-zinc-500">Mágico (M)</div>
+                                            <div class="text-xs font-black text-amber-400" x-text="u.magic_number !== null ? u.magic_number : '-'"></div>
+                                        </div>
+                                    </template>
+                                    <template x-if="!u.is_leader">
+                                        <div>
+                                            <div class="text-[9px] uppercase text-zinc-500">Trágico (E)</div>
+                                            <div class="text-xs font-black"
+                                                 :class="u.is_eliminated ? 'text-zinc-500' : (u.is_risk ? 'text-rose-400' : 'text-zinc-300')"
+                                                 x-text="u.tragic_number !== null ? u.tragic_number : '-'"></div>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                <!-- Status Badge -->
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border shrink-0"
+                                      :class="u.badge.cls"
+                                      x-text="u.badge.text">
+                                </span>
+
+                                <!-- Quick Action: Simulate Player Ceiling or Clinching -->
+                                <button type="button"
+                                        @click="simulatePlayerBest(u.user_id); activeTab = 'leaderboard'"
+                                        title="Simular techo óptimo para este jugador"
+                                        class="px-2 py-1 rounded-lg border text-[10px] font-bold bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border-zinc-700 cursor-pointer transition-all flex items-center space-x-1">
+                                    <i class="fa-solid fa-arrow-trend-up text-[9px]"></i>
+                                    <span class="hidden sm:inline">Techo</span>
+                                </button>
+                            </div>
+
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+        </div>
+
         <!-- Banner Actions Footer -->
         <div class="p-3 sm:p-4 border-t border-zinc-800/80 bg-zinc-900/80 flex items-center justify-between gap-2">
             <button type="button"
@@ -756,7 +1071,7 @@
 
 <!-- Embedded JSON Payload for Client-Side What-If Simulation -->
 <script id="whatif-payload-data" type="application/json">
-{{if .WhatIfJSON}}{{.WhatIfJSON}}{{else}}{"games":[],"users":[],"current_user_id":0}{{end}}
+{{if .WhatIfJSON}}{{.WhatIfJSON}}{{else}}{"games":[],"users":[],"current_user_id":0,"season_info":{}}{{end}}
 </script>
 
 <script>
@@ -765,6 +1080,14 @@ function whatIfSimulator() {
         isOpen: false,
         activeTab: 'games',
         currentScenario: 'all_picks', // 'all_picks' | 'player_best' | 'worst_case_win' | 'manual' | 'live' | 'consensus' | 'underdogs'
+        scope: 'week', // 'week' | 'season'
+        seasonInfo: {
+            season_id: 0,
+            current_week_number: 1,
+            total_season_weeks: 18,
+            remaining_season_games: 0,
+            is_season_active: true
+        },
         selectedPlayerId: null,
         worstCaseKeyGameIds: [],
         worstCaseInsight: null,
@@ -797,6 +1120,10 @@ function whatIfSimulator() {
         closeModal() {
             this.closeBanner();
         },
+        setScope(s) {
+            this.scope = s;
+            this.updateOddsAndLeverage();
+        },
         init() {
             try {
                 const el = document.getElementById('whatif-payload-data');
@@ -810,6 +1137,9 @@ function whatIfSimulator() {
                         this.games = data.games || [];
                         this.users = data.users || [];
                         this.currentUserId = data.current_user_id || 0;
+                        if (data.season_info) {
+                            this.seasonInfo = Object.assign(this.seasonInfo, data.season_info);
+                        }
                         if (this.currentUserId > 0) {
                             this.selectedPlayerId = this.currentUserId;
                         }
@@ -1445,22 +1775,30 @@ function whatIfSimulator() {
             }
             return this.currentUserSim;
         },
+        get pendingGames() {
+            return (this.games || []).filter(g => g.status !== 'final');
+        },
+        get pendingGamesCount() {
+            return this.pendingGames.length;
+        },
         get simulatedLeaderboard() {
             if (!this.users || this.users.length === 0) return [];
 
+            const isSeason = (this.scope === 'season');
             const winOddsMap = this.getWinOddsMap();
 
-            // Baseline ranking (final games + live current leader)
+            // Baseline ranking (final games + live current leader in in_progress)
             const baseRankings = this.users.map(u => {
                 let curPts = u.base_points;
-                this.games.forEach(g => {
+                (this.games || []).forEach(g => {
                     if (g.status === 'in_progress' && g.current_winner_id > 0) {
                         if (u.picks && u.picks[g.id] === g.current_winner_id) {
                             curPts += 1;
                         }
                     }
                 });
-                return { user_id: u.user_id, points: curPts, username: u.username };
+                const totalBase = isSeason ? ((u.season_prior_points || 0) + curPts) : curPts;
+                return { user_id: u.user_id, points: totalBase, username: u.username };
             });
             baseRankings.sort((a, b) => b.points - a.points || a.username.localeCompare(b.username));
             const initialRankMap = {};
@@ -1470,27 +1808,32 @@ function whatIfSimulator() {
 
             // Simulated ranking based on simWinners
             const list = this.users.map(u => {
-                let simPts = u.base_points;
-                let newHits = 0;
-                this.games.forEach(g => {
+                let simWeekHits = 0;
+                (this.games || []).forEach(g => {
                     if (g.status !== 'final') {
                         const winId = this.simWinners[g.id];
                         if (winId && u.picks && u.picks[g.id] === winId) {
-                            simPts += 1;
-                            newHits += 1;
+                            simWeekHits += 1;
                         }
                     }
                 });
+                const weekSimPts = u.base_points + simWeekHits;
+                const totalSimPts = isSeason ? ((u.season_prior_points || 0) + weekSimPts) : weekSimPts;
+
                 return {
                     user_id: u.user_id,
                     username: u.username,
                     avatar_url: u.avatar_url,
                     is_current: u.is_current,
-                    base_points: u.base_points,
-                    sim_points: simPts,
-                    sim_hits: newHits,
+                    base_points: isSeason ? ((u.season_prior_points || 0) + u.base_points) : u.base_points,
+                    season_prior_points: u.season_prior_points || 0,
+                    week_base_points: u.base_points,
+                    week_sim_points: weekSimPts,
+                    sim_points: totalSimPts,
+                    sim_hits: simWeekHits,
                     win_prob: winOddsMap[u.user_id] || 0,
-                    initial_rank: initialRankMap[u.user_id] || 99
+                    initial_rank: initialRankMap[u.user_id] || 99,
+                    season_rank: u.season_rank || 99
                 };
             });
 
@@ -1508,10 +1851,251 @@ function whatIfSimulator() {
         get simulatedGamesCount() {
             return Object.keys(this.simWinners).length;
         },
+        get eliminationsData() {
+            if (!this.users || this.users.length === 0) {
+                return { list: [], leaderFloor: 0, leaderMagicNumber: null, leaderName: '', riskCount: 0, contendersCount: 0, eliminatedCount: 0 };
+            }
+            const isSeason = (this.scope === 'season');
+            const futureGames = isSeason ? (this.seasonInfo.remaining_season_games || 0) : 0;
+            const pending = this.pendingGames;
+
+            // Calculate floor and ceiling for each participant
+            const userMath = this.users.map(u => {
+                const prior = isSeason ? (u.season_prior_points || 0) : 0;
+                let pendingPicksCount = 0;
+                pending.forEach(g => {
+                    if (u.picks && u.picks[g.id]) pendingPicksCount += 1;
+                });
+                const floor = prior + u.base_points;
+                const ceiling = floor + pendingPicksCount + futureGames;
+
+                return {
+                    user_id: u.user_id,
+                    username: u.username,
+                    avatar_url: u.avatar_url,
+                    is_current: u.is_current,
+                    floor: floor,
+                    ceiling: ceiling,
+                    pending_picks_count: pendingPicksCount,
+                    season_prior_points: prior
+                };
+            });
+
+            // Sort primarily by floor (descending) and ceiling (descending)
+            userMath.sort((a, b) => b.floor - a.floor || b.ceiling - a.ceiling || a.username.localeCompare(b.username));
+
+            const leader = userMath[0];
+            const leaderFloor = leader.floor;
+            const nonLeaders = userMath.slice(1);
+            const maxNonLeaderCeiling = nonLeaders.length > 0 ? Math.max(...nonLeaders.map(x => x.ceiling)) : 0;
+
+            // Magic Number M_L = max(0, maxNonLeaderCeiling - leaderFloor + 1)
+            const leaderMagicNumber = Math.max(0, maxNonLeaderCeiling - leaderFloor + 1);
+
+            let riskCount = 0;
+            let contendersCount = 0;
+            let eliminatedCount = 0;
+
+            const list = userMath.map((u, idx) => {
+                const isLeader = (idx === 0);
+                let magicNumber = null;
+                let tragicNumber = null;
+                let isClinched = false;
+                let isEliminated = false;
+                let isRisk = false;
+                let badge = { text: '', cls: '' };
+
+                if (isLeader) {
+                    magicNumber = leaderMagicNumber;
+                    if (leaderMagicNumber === 0) {
+                        isClinched = true;
+                        badge = { text: '🏆 Campeón Asegurado', cls: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' };
+                    } else {
+                        badge = { text: '⚡ Líder en Contienda', cls: 'bg-amber-500/20 text-amber-300 border-amber-500/40' };
+                        contendersCount++;
+                    }
+                } else {
+                    // Tragic Number E_i = max(0, ceiling_i - leaderFloor + 1)
+                    tragicNumber = Math.max(0, u.ceiling - leaderFloor + 1);
+                    if (u.ceiling < leaderFloor || tragicNumber === 0) {
+                        isEliminated = true;
+                        eliminatedCount++;
+                        badge = { text: '❌ Eliminado Matemáticamente', cls: 'bg-zinc-800 text-zinc-400 border-zinc-700' };
+                    } else if (tragicNumber <= 2) {
+                        isRisk = true;
+                        riskCount++;
+                        contendersCount++;
+                        badge = { text: '⚠️ Zona de Riesgo', cls: 'bg-rose-500/20 text-rose-300 border-rose-500/40' };
+                    } else {
+                        contendersCount++;
+                        badge = { text: '⚡ En Contienda', cls: 'bg-purple-500/20 text-purple-300 border-purple-500/40' };
+                    }
+                }
+
+                return {
+                    ...u,
+                    is_leader: isLeader,
+                    magic_number: magicNumber,
+                    tragic_number: tragicNumber,
+                    is_clinched: isClinched,
+                    is_eliminated: isEliminated,
+                    is_risk: isRisk,
+                    badge: badge
+                };
+            });
+
+            return {
+                list: list,
+                leaderFloor: leaderFloor,
+                leaderMagicNumber: leaderMagicNumber,
+                leaderName: leader ? leader.username : '',
+                riskCount: riskCount,
+                contendersCount: contendersCount,
+                eliminatedCount: eliminatedCount
+            };
+        },
+        get spotlightElimination() {
+            const data = this.eliminationsData;
+            if (!data || !data.list || data.list.length === 0) return null;
+            const targetId = this.selectedPlayerId || this.currentUserId || data.list[0].user_id;
+            const target = data.list.find(u => u.user_id === targetId) || data.list[0];
+            const clinching = this.computeClinchingPath(target.user_id);
+            return {
+                ...target,
+                clinching: clinching
+            };
+        },
+        computeClinchingPath(userId) {
+            const user = this.users.find(u => u.user_id === userId);
+            if (!user) return null;
+            const isSeason = (this.scope === 'season');
+            const pending = this.pendingGames;
+
+            const elimEntry = this.eliminationsData.list.find(u => u.user_id === userId);
+            if (!elimEntry) return null;
+
+            if (elimEntry.is_clinched) {
+                return {
+                    possible: true,
+                    is_clinched: true,
+                    headline: '¡Campeonato asegurado!',
+                    detail: 'Tu puntuación garantizada supera el techo de cualquier contendiente.',
+                    winners: {}
+                };
+            }
+
+            if (elimEntry.is_eliminated) {
+                return {
+                    possible: false,
+                    is_eliminated: true,
+                    headline: 'Eliminado matemáticamente del 1er puesto',
+                    detail: `El piso del líder (${this.eliminationsData.leaderFloor} pts) supera tu techo máximo alcanzable (${elimEntry.ceiling} pts).`,
+                    winners: {}
+                };
+            }
+
+            // Target user picks all their remaining selections
+            const winners = {};
+            const targetPicks = user.picks || {};
+
+            pending.forEach(g => {
+                const p = targetPicks[g.id];
+                if (p && p > 0) {
+                    winners[g.id] = p;
+                } else if (g.current_winner_id > 0) {
+                    winners[g.id] = g.current_winner_id;
+                } else if (g.consensus_id > 0) {
+                    winners[g.id] = g.consensus_id;
+                } else {
+                    winners[g.id] = g.away_id;
+                }
+            });
+
+            // Simulate scores
+            const simScores = this.users.map(u => {
+                let pts = isSeason ? (u.season_prior_points || 0) : 0;
+                pts += u.base_points;
+                pending.forEach(g => {
+                    const w = winners[g.id];
+                    if (w && u.picks && u.picks[g.id] === w) {
+                        pts += 1;
+                    }
+                });
+                return { user_id: u.user_id, points: pts, username: u.username };
+            });
+
+            simScores.sort((a, b) => b.points - a.points || a.username.localeCompare(b.username));
+            const targetRank = simScores.findIndex(s => s.user_id === userId) + 1;
+
+            if (targetRank === 1) {
+                const neededWins = pending.filter(g => targetPicks[g.id] > 0).length;
+                return {
+                    possible: true,
+                    winners: winners,
+                    headline: `🎯 Ruta Directa al #1 en ${isSeason ? 'la Temporada' : 'la Jornada'}`,
+                    detail: `Acierta tus ${neededWins} pronósticos restantes y proyectarás el 1er lugar de la quiniela con ${simScores[0].points} puntos.`,
+                    targetRank: targetRank
+                };
+            }
+
+            // If tied or behind, see if rivals can lose on unpicked or opposite games
+            const topRival = simScores[0];
+            const rivalUser = this.users.find(u => u.user_id === topRival.user_id);
+
+            pending.forEach(g => {
+                const targetPick = targetPicks[g.id];
+                const rivalPick = rivalUser && rivalUser.picks ? rivalUser.picks[g.id] : null;
+                if (!targetPick && rivalPick) {
+                    const opposite = (rivalPick === g.away_id) ? g.home_id : g.away_id;
+                    winners[g.id] = opposite;
+                }
+            });
+
+            const simScores2 = this.users.map(u => {
+                let pts = isSeason ? (u.season_prior_points || 0) : 0;
+                pts += u.base_points;
+                pending.forEach(g => {
+                    const w = winners[g.id];
+                    if (w && u.picks && u.picks[g.id] === w) {
+                        pts += 1;
+                    }
+                });
+                return { user_id: u.user_id, points: pts, username: u.username };
+            });
+            simScores2.sort((a, b) => b.points - a.points || a.username.localeCompare(b.username));
+            const targetRank2 = simScores2.findIndex(s => s.user_id === userId) + 1;
+
+            if (targetRank2 === 1) {
+                return {
+                    possible: true,
+                    winners: winners,
+                    headline: `🎯 Combinación Ganadora (${topRival.username} debe tropezar)`,
+                    detail: `Acierta tus picks restantes y que ${topRival.username} falle sus selecciones divididas para alcanzar el 1er lugar.`,
+                    targetRank: 1
+                };
+            }
+
+            return {
+                possible: false,
+                headline: 'Requiere combinación compleja en semanas posteriores',
+                detail: 'El líder actual mantiene una ventaja que requerirá jornadas posteriores para descontar.',
+                winners: winners
+            };
+        },
+        applyClinchingPath(userId) {
+            const clinching = this.computeClinchingPath(userId);
+            if (clinching && clinching.possible && clinching.winners) {
+                this.simWinners = Object.assign({}, clinching.winners);
+                this.currentScenario = 'manual';
+                this.activeTab = 'leaderboard';
+                this.playScoreChime();
+            }
+        },
         shareScenarioWhatsApp() {
             const cur = this.currentUserSim;
             const spot = this.spotlightUserSim;
-            let text = '🔮 *Simulador NFL Quiniela 2026*\n';
+            const scopeLabel = this.scope === 'season' ? 'Temporada Anual' : 'Jornada Semanal';
+            let text = `🔮 *Simulador NFL Quiniela 2026* (${scopeLabel})\n`;
             if (this.currentScenario === 'all_picks') {
                 text += '🎯 *Escenario Pleno (Mis Picks)*\n';
                 if (cur) text += `¡Si acierto todas mis selecciones restantes proyecto alcanzar la posición #${cur.sim_rank} con ${cur.sim_points} pts! 🏆\n`;

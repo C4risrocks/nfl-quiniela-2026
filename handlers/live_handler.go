@@ -55,20 +55,32 @@ type WhatIfGame struct {
 	HomePickPercent int    `json:"home_pick_pct"`
 }
 
+type WhatIfSeasonInfo struct {
+	SeasonID             int64 `json:"season_id"`
+	CurrentWeekNumber    int   `json:"current_week_number"`
+	TotalSeasonWeeks     int   `json:"total_season_weeks"`
+	RemainingSeasonGames int   `json:"remaining_season_games"`
+	IsSeasonActive       bool  `json:"is_season_active"`
+}
+
 type WhatIfUser struct {
-	UserID        int64           `json:"user_id"`
-	Username      string          `json:"username"`
-	AvatarURL     string          `json:"avatar_url"`
-	IsCurrent     bool            `json:"is_current"`
-	BasePoints    int             `json:"base_points"`
-	CurrentPoints int             `json:"current_points"`
-	Picks         map[int64]int64 `json:"picks"`
+	UserID            int64           `json:"user_id"`
+	Username          string          `json:"username"`
+	AvatarURL         string          `json:"avatar_url"`
+	IsCurrent         bool            `json:"is_current"`
+	BasePoints        int             `json:"base_points"`
+	CurrentPoints     int             `json:"current_points"`
+	SeasonPriorPoints int             `json:"season_prior_points"`
+	SeasonTotalPoints int             `json:"season_total_points"`
+	SeasonRank        int             `json:"season_rank"`
+	Picks             map[int64]int64 `json:"picks"`
 }
 
 type WhatIfPayload struct {
-	Games         []WhatIfGame `json:"games"`
-	Users         []WhatIfUser `json:"users"`
-	CurrentUserID int64        `json:"current_user_id"`
+	Games         []WhatIfGame     `json:"games"`
+	Users         []WhatIfUser     `json:"users"`
+	CurrentUserID int64            `json:"current_user_id"`
+	SeasonInfo    WhatIfSeasonInfo `json:"season_info"`
 }
 
 type LiveViewData struct {
@@ -435,9 +447,34 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 	}
 
 	var whatIfUsers []WhatIfUser
-	if selectedWeek != nil {
+	var seasonInfo WhatIfSeasonInfo
+	if selectedWeek != nil && season != nil {
 		allUserPicks, _ := h.repo.GetAllUsersPicksForWeek(selectedWeek.ID)
 		userSeen := make(map[int64]bool)
+
+		// 1. Fetch prior season points and current season standings
+		priorSeasonPtsMap, _ := h.repo.GetUserSeasonPriorPoints(season.ID, selectedWeek.WeekNumber)
+		seasonEntries, _ := h.repo.GetSeasonLeaderboard(season.ID)
+		seasonRankMap := make(map[int64]int)
+		for _, se := range seasonEntries {
+			if se != nil && !se.IsBot {
+				seasonRankMap[se.UserID] = se.Rank
+			}
+		}
+
+		// 2. Count remaining games in future regular season weeks
+		futureGames, _ := h.repo.CountFutureSeasonGames(season.ID, selectedWeek.WeekNumber)
+		if futureGames == 0 && selectedWeek.WeekNumber < 18 {
+			futureGames = (18 - selectedWeek.WeekNumber) * 16
+		}
+
+		seasonInfo = WhatIfSeasonInfo{
+			SeasonID:             season.ID,
+			CurrentWeekNumber:    selectedWeek.WeekNumber,
+			TotalSeasonWeeks:     18,
+			RemainingSeasonGames: futureGames,
+			IsSeasonActive:       true,
+		}
 
 		for _, up := range allUserPicks {
 			userSeen[up.UserID] = true
@@ -459,26 +496,50 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 				}
 			}
 
+			priorPts := 0
+			if priorSeasonPtsMap != nil {
+				priorPts = priorSeasonPtsMap[up.UserID]
+			}
+			sRank := seasonRankMap[up.UserID]
+			if sRank <= 0 {
+				sRank = len(seasonEntries)
+			}
+
 			whatIfUsers = append(whatIfUsers, WhatIfUser{
-				UserID:        up.UserID,
-				Username:      up.Username,
-				AvatarURL:     up.AvatarURL,
-				IsCurrent:     isCurrent,
-				BasePoints:    basePts,
-				CurrentPoints: currentPts,
-				Picks:         filteredPicks,
+				UserID:            up.UserID,
+				Username:          up.Username,
+				AvatarURL:         up.AvatarURL,
+				IsCurrent:         isCurrent,
+				BasePoints:        basePts,
+				CurrentPoints:     currentPts,
+				SeasonPriorPoints: priorPts,
+				SeasonTotalPoints: priorPts + currentPts,
+				SeasonRank:        sRank,
+				Picks:             filteredPicks,
 			})
 		}
 
 		if currentUser != nil && !userSeen[currentUser.ID] {
+			priorPts := 0
+			if priorSeasonPtsMap != nil {
+				priorPts = priorSeasonPtsMap[currentUser.ID]
+			}
+			sRank := seasonRankMap[currentUser.ID]
+			if sRank <= 0 {
+				sRank = len(seasonEntries) + 1
+			}
+
 			whatIfUsers = append(whatIfUsers, WhatIfUser{
-				UserID:        currentUser.ID,
-				Username:      currentUser.Username,
-				AvatarURL:     currentUser.AvatarURL,
-				IsCurrent:     true,
-				BasePoints:    0,
-				CurrentPoints: 0,
-				Picks:         make(map[int64]int64),
+				UserID:            currentUser.ID,
+				Username:          currentUser.Username,
+				AvatarURL:         currentUser.AvatarURL,
+				IsCurrent:         true,
+				BasePoints:        0,
+				CurrentPoints:     0,
+				SeasonPriorPoints: priorPts,
+				SeasonTotalPoints: priorPts,
+				SeasonRank:        sRank,
+				Picks:             make(map[int64]int64),
 			})
 		}
 	}
@@ -487,6 +548,7 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 		Games:         whatIfGames,
 		Users:         whatIfUsers,
 		CurrentUserID: currentUserID,
+		SeasonInfo:    seasonInfo,
 	}
 
 	var whatIfJSON template.JS

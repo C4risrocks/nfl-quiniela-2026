@@ -1726,6 +1726,43 @@ func (r *Repository) GetSeasonLeaderboard(seasonID int64) ([]*LeaderboardEntry, 
 	return entries, nil
 }
 
+// GetUserSeasonPriorPoints returns points accumulated by each user in weeks strictly prior to beforeWeekNumber
+func (r *Repository) GetUserSeasonPriorPoints(seasonID int64, beforeWeekNumber int) (map[int64]int, error) {
+	query := `
+	SELECT wl.user_id, COALESCE(SUM(wl.total_points), 0)
+	FROM weekly_leaderboard wl
+	JOIN weeks w ON wl.week_id = w.id
+	WHERE w.season_id = ? AND w.week_number < ?
+	GROUP BY wl.user_id`
+	rows, err := r.db.Query(query, seasonID, beforeWeekNumber)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	res := make(map[int64]int)
+	for rows.Next() {
+		var uid int64
+		var pts int
+		if err := rows.Scan(&uid, &pts); err == nil {
+			res[uid] = pts
+		}
+	}
+	return res, nil
+}
+
+// CountFutureSeasonGames counts unfinalized games in weeks strictly after afterWeekNumber
+func (r *Repository) CountFutureSeasonGames(seasonID int64, afterWeekNumber int) (int, error) {
+	query := `
+	SELECT COUNT(*)
+	FROM games g
+	JOIN weeks w ON g.week_id = w.id
+	WHERE w.season_id = ? AND w.week_number > ? AND g.status != 'final'`
+	var count int
+	err := r.db.QueryRow(query, seasonID, afterWeekNumber).Scan(&count)
+	return count, err
+}
+
 // Helpers
 func parseTimeSafe(tStr string) time.Time {
 	formats := []string{
