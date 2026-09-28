@@ -759,7 +759,9 @@
             }
 
             function cleanupModalState() {
-                const hasOpen = checkAnyModalOpen();
+                const rivalsModal = document.getElementById('rivals-modal');
+                const isRivalsOpen = window.__rivalsOpen || (rivalsModal && rivalsModal.style.display !== 'none' && !rivalsModal.classList.contains('hidden'));
+                const hasOpen = checkAnyModalOpen() || isRivalsOpen;
                 if (!hasOpen) {
                     document.body.classList.remove('overflow-hidden');
                     document.documentElement.classList.remove('overflow-hidden');
@@ -800,11 +802,26 @@
                 if (e.detail && e.detail.target && e.detail.target.id === 'game-stats-modal-container') {
                     window.__statsModalClosed = false;
                 }
+                if (e.detail && e.detail.target && e.detail.target.id === 'live-content-container') {
+                    const rivalsModal = document.getElementById('rivals-modal');
+                    const isRivalsOpen = window.__rivalsOpen || (rivalsModal && rivalsModal.style.display !== 'none' && !rivalsModal.classList.contains('hidden'));
+                    if (isRivalsOpen || window.__modalOpen || window.__whatIfOpen) {
+                        e.preventDefault();
+                    }
+                }
             });
 
             document.addEventListener('htmx:beforeSwap', function(e) {
                 if (e.detail && e.detail.target && e.detail.target.id === 'game-stats-modal-container') {
                     if (window.__statsModalClosed) {
+                        e.detail.shouldSwap = false;
+                        e.preventDefault();
+                    }
+                }
+                if (e.detail && e.detail.target && e.detail.target.id === 'live-content-container') {
+                    const rivalsModal = document.getElementById('rivals-modal');
+                    const isRivalsOpen = window.__rivalsOpen || (rivalsModal && rivalsModal.style.display !== 'none' && !rivalsModal.classList.contains('hidden'));
+                    if (isRivalsOpen || window.__modalOpen || window.__whatIfOpen) {
                         e.detail.shouldSwap = false;
                         e.preventDefault();
                     }
