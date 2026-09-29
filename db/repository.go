@@ -3783,5 +3783,343 @@ func (r *Repository) GetTeamSchedule(teamCode string, seasonYear int) ([]*TeamSc
 	return items, nil
 }
 
+// SavePowerRankings persists weekly power rankings for teams inside a transaction
+func (r *Repository) SavePowerRankings(rankings []*TeamPowerRanking) error {
+	if len(rankings) == 0 {
+		return nil
+	}
+
+	teamMap := make(map[string]*Team)
+	if rows, err := r.db.Query("SELECT id, code, name, city, logo_url, primary_color, conference, division FROM teams"); err == nil {
+		for rows.Next() {
+			var t Team
+			if err := rows.Scan(&t.ID, &t.Code, &t.Name, &t.City, &t.LogoURL, &t.PrimaryColor, &t.Conference, &t.Division); err == nil {
+				teamMap[t.Code] = &t
+			}
+		}
+		rows.Close()
+	}
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("starting transaction to save power rankings: %w", err)
+	}
+	defer tx.Rollback()
+
+	query := `
+	INSERT INTO team_power_rankings (
+		season_year, week_number, team_id, team_code,
+		team_name, team_city, logo_url, primary_color, conference, division,
+		rank, previous_rank, rank_change, record, analysis, author, updated_at
+	) VALUES (
+		?, ?, ?, ?,
+		?, ?, ?, ?, ?, ?,
+		?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP
+	)
+	ON CONFLICT(season_year, week_number, team_code) DO UPDATE SET
+		team_id = excluded.team_id,
+		team_name = excluded.team_name,
+		team_city = excluded.team_city,
+		logo_url = excluded.logo_url,
+		primary_color = excluded.primary_color,
+		conference = excluded.conference,
+		division = excluded.division,
+		rank = excluded.rank,
+		previous_rank = excluded.previous_rank,
+		rank_change = excluded.rank_change,
+		record = excluded.record,
+		analysis = excluded.analysis,
+		author = excluded.author,
+		updated_at = CURRENT_TIMESTAMP;`
+
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		return fmt.Errorf("preparing power rankings statement: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, pr := range rankings {
+		var teamIDVal interface{}
+		tName := pr.TeamName
+		tCity := pr.TeamCity
+		tLogo := pr.LogoURL
+		tColor := pr.PrimaryColor
+		tConf := pr.Conference
+		tDiv := pr.Division
+
+		if matched, ok := teamMap[pr.TeamCode]; ok {
+			teamIDVal = matched.ID
+			if tName == "" {
+				tName = matched.Name
+			}
+			if tCity == "" {
+				tCity = matched.City
+			}
+			if tLogo == "" {
+				tLogo = matched.LogoURL
+			}
+			if tColor == "" {
+				tColor = matched.PrimaryColor
+			}
+			if tConf == "" {
+				tConf = matched.Conference
+			}
+			if tDiv == "" {
+				tDiv = matched.Division
+			}
+		} else if pr.TeamID > 0 {
+			teamIDVal = pr.TeamID
+		}
+
+		change := pr.PreviousRank - pr.Rank
+		if pr.RankChange != 0 {
+			change = pr.RankChange
+		}
+		author := pr.Author
+		if author == "" {
+			author = "ESPN"
+		}
+
+		if _, err := stmt.Exec(
+			pr.SeasonYear, pr.WeekNumber, teamIDVal, pr.TeamCode,
+			tName, tCity, tLogo, tColor, tConf, tDiv,
+			pr.Rank, pr.PreviousRank, change, pr.Record, pr.Analysis, author,
+		); err != nil {
+			return fmt.Errorf("executing power ranking insert for %s: %w", pr.TeamCode, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// GetPowerRankings retrieves power rankings for a specific season and week, ordered by rank ascending
+func (r *Repository) GetPowerRankings(seasonYear, weekNumber int) ([]*TeamPowerRanking, error) {
+	query := `
+	SELECT 
+		pr.id, pr.season_year, pr.week_number, pr.team_id, pr.team_code,
+		COALESCE(t.name, pr.team_name, ''),
+		COALESCE(t.city, pr.team_city, ''),
+		COALESCE(t.logo_url, pr.logo_url, ''),
+		COALESCE(t.primary_color, pr.primary_color, '#000000'),
+		COALESCE(t.conference, pr.conference, ''),
+		COALESCE(t.division, pr.division, ''),
+		pr.rank, pr.previous_rank, pr.rank_change, pr.record, pr.analysis, pr.author, pr.updated_at
+	FROM team_power_rankings pr
+	LEFT JOIN teams t ON (t.code = pr.team_code OR t.id = pr.team_id)
+	WHERE pr.season_year = ? AND pr.week_number = ?
+	ORDER BY pr.rank ASC;`
+
+	rows, err := r.db.Query(query, seasonYear, weekNumber)
+	if err != nil {
+		return nil, fmt.Errorf("querying power rankings: %w", err)
+	}
+	defer rows.Close()
+
+	var result []*TeamPowerRanking
+	for rows.Next() {
+		var pr TeamPowerRanking
+		var teamID sql.NullInt64
+		var updatedAt time.Time
+		if err := rows.Scan(
+			&pr.ID, &pr.SeasonYear, &pr.WeekNumber, &teamID, &pr.TeamCode,
+			&pr.TeamName, &pr.TeamCity, &pr.LogoURL, &pr.PrimaryColor, &pr.Conference, &pr.Division,
+			&pr.Rank, &pr.PreviousRank, &pr.RankChange, &pr.Record, &pr.Analysis, &pr.Author, &updatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scanning power ranking: %w", err)
+		}
+		if teamID.Valid {
+			pr.TeamID = teamID.Int64
+		}
+		pr.UpdatedAt = updatedAt
+		result = append(result, &pr)
+	}
+	return result, nil
+}
+
+// GetLatestPowerRankings finds the most recent available week of power rankings for a season
+func (r *Repository) GetLatestPowerRankings(seasonYear int) (int, []*TeamPowerRanking, error) {
+	var maxWeek int
+	err := r.db.QueryRow("SELECT COALESCE(MAX(week_number), 0) FROM team_power_rankings WHERE season_year = ?", seasonYear).Scan(&maxWeek)
+	if err != nil || maxWeek == 0 {
+		return 0, nil, err
+	}
+	rankings, err := r.GetPowerRankings(seasonYear, maxWeek)
+	return maxWeek, rankings, err
+}
+
+// SavePlayoffProbabilities persists weekly FPI playoff probabilities inside a transaction
+func (r *Repository) SavePlayoffProbabilities(probs []*TeamPlayoffProbability) error {
+	if len(probs) == 0 {
+		return nil
+	}
+
+	teamMap := make(map[string]*Team)
+	if rows, err := r.db.Query("SELECT id, code, name, city, logo_url, conference, division FROM teams"); err == nil {
+		for rows.Next() {
+			var t Team
+			if err := rows.Scan(&t.ID, &t.Code, &t.Name, &t.City, &t.LogoURL, &t.Conference, &t.Division); err == nil {
+				teamMap[t.Code] = &t
+			}
+		}
+		rows.Close()
+	}
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("starting transaction to save playoff probabilities: %w", err)
+	}
+	defer tx.Rollback()
+
+	query := `
+	INSERT INTO team_playoff_probabilities (
+		season_year, week_number, team_id, team_code,
+		team_name, team_city, logo_url, conference, division,
+		make_playoffs_pct, clinch_division_pct, clinch_first_seed_pct, wild_card_pct,
+		next_opponent_code, win_proj_pct, playoff_pct_with_win, playoff_pct_with_loss,
+		is_favorite, updated_at
+	) VALUES (
+		?, ?, ?, ?,
+		?, ?, ?, ?, ?,
+		?, ?, ?, ?,
+		?, ?, ?, ?,
+		?, CURRENT_TIMESTAMP
+	)
+	ON CONFLICT(season_year, week_number, team_code) DO UPDATE SET
+		team_id = excluded.team_id,
+		team_name = excluded.team_name,
+		team_city = excluded.team_city,
+		logo_url = excluded.logo_url,
+		conference = excluded.conference,
+		division = excluded.division,
+		make_playoffs_pct = excluded.make_playoffs_pct,
+		clinch_division_pct = excluded.clinch_division_pct,
+		clinch_first_seed_pct = excluded.clinch_first_seed_pct,
+		wild_card_pct = excluded.wild_card_pct,
+		next_opponent_code = excluded.next_opponent_code,
+		win_proj_pct = excluded.win_proj_pct,
+		playoff_pct_with_win = excluded.playoff_pct_with_win,
+		playoff_pct_with_loss = excluded.playoff_pct_with_loss,
+		is_favorite = excluded.is_favorite,
+		updated_at = CURRENT_TIMESTAMP;`
+
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		return fmt.Errorf("preparing playoff probabilities statement: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, p := range probs {
+		var teamIDVal interface{}
+		tName := p.TeamName
+		tCity := p.TeamCity
+		tLogo := p.LogoURL
+		tConf := p.Conference
+		tDiv := p.Division
+
+		if matched, ok := teamMap[p.TeamCode]; ok {
+			teamIDVal = matched.ID
+			if tName == "" {
+				tName = matched.Name
+			}
+			if tCity == "" {
+				tCity = matched.City
+			}
+			if tLogo == "" {
+				tLogo = matched.LogoURL
+			}
+			if tConf == "" {
+				tConf = matched.Conference
+			}
+			if tDiv == "" {
+				tDiv = matched.Division
+			}
+		} else if p.TeamID > 0 {
+			teamIDVal = p.TeamID
+		}
+
+		isFav := 0
+		if p.IsFavorite {
+			isFav = 1
+		}
+
+		if _, err := stmt.Exec(
+			p.SeasonYear, p.WeekNumber, teamIDVal, p.TeamCode,
+			tName, tCity, tLogo, tConf, tDiv,
+			p.MakePlayoffsPct, p.ClinchDivisionPct, p.ClinchFirstSeedPct, p.WildCardPct,
+			p.NextOpponentCode, p.WinProjPct, p.PlayoffPctWithWin, p.PlayoffPctWithLoss,
+			isFav,
+		); err != nil {
+			return fmt.Errorf("executing playoff prob insert for %s: %w", p.TeamCode, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// GetPlayoffProbabilities retrieves FPI playoff probabilities for a season and week, ordered by playoff % descending
+func (r *Repository) GetPlayoffProbabilities(seasonYear, weekNumber int) ([]*TeamPlayoffProbability, error) {
+	query := `
+	SELECT 
+		pp.id, pp.season_year, pp.week_number, pp.team_id, pp.team_code,
+		COALESCE(t.name, pp.team_name, ''),
+		COALESCE(t.city, pp.team_city, ''),
+		COALESCE(t.logo_url, pp.logo_url, ''),
+		COALESCE(t.conference, pp.conference, ''),
+		COALESCE(t.division, pp.division, ''),
+		pp.make_playoffs_pct, pp.clinch_division_pct, pp.clinch_first_seed_pct, pp.wild_card_pct,
+		pp.next_opponent_code,
+		COALESCE(opp.logo_url, ''),
+		pp.win_proj_pct, pp.playoff_pct_with_win, pp.playoff_pct_with_loss,
+		pp.is_favorite, pp.updated_at
+	FROM team_playoff_probabilities pp
+	LEFT JOIN teams t ON (t.code = pp.team_code OR t.id = pp.team_id)
+	LEFT JOIN teams opp ON opp.code = pp.next_opponent_code
+	WHERE pp.season_year = ? AND pp.week_number = ?
+	ORDER BY pp.make_playoffs_pct DESC, pp.clinch_division_pct DESC;`
+
+	rows, err := r.db.Query(query, seasonYear, weekNumber)
+	if err != nil {
+		return nil, fmt.Errorf("querying playoff probabilities: %w", err)
+	}
+	defer rows.Close()
+
+	var result []*TeamPlayoffProbability
+	for rows.Next() {
+		var p TeamPlayoffProbability
+		var teamID sql.NullInt64
+		var isFav bool
+		var updatedAt time.Time
+		if err := rows.Scan(
+			&p.ID, &p.SeasonYear, &p.WeekNumber, &teamID, &p.TeamCode,
+			&p.TeamName, &p.TeamCity, &p.LogoURL, &p.Conference, &p.Division,
+			&p.MakePlayoffsPct, &p.ClinchDivisionPct, &p.ClinchFirstSeedPct, &p.WildCardPct,
+			&p.NextOpponentCode, &p.NextOpponentLogo,
+			&p.WinProjPct, &p.PlayoffPctWithWin, &p.PlayoffPctWithLoss,
+			&isFav, &updatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scanning playoff probability: %w", err)
+		}
+		if teamID.Valid {
+			p.TeamID = teamID.Int64
+		}
+		p.IsFavorite = isFav
+		p.UpdatedAt = updatedAt
+		p.PlayoffLeverage = math.Round((p.PlayoffPctWithWin-p.PlayoffPctWithLoss)*1000) / 1000
+		result = append(result, &p)
+	}
+	return result, nil
+}
+
+// GetLatestPlayoffProbabilities finds the most recent available week of FPI playoff probabilities for a season
+func (r *Repository) GetLatestPlayoffProbabilities(seasonYear int) (int, []*TeamPlayoffProbability, error) {
+	var maxWeek int
+	err := r.db.QueryRow("SELECT COALESCE(MAX(week_number), 0) FROM team_playoff_probabilities WHERE season_year = ?", seasonYear).Scan(&maxWeek)
+	if err != nil || maxWeek == 0 {
+		return 0, nil, err
+	}
+	probs, err := r.GetPlayoffProbabilities(seasonYear, maxWeek)
+	return maxWeek, probs, err
+}
+
 
 

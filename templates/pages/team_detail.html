@@ -203,7 +203,97 @@
                 {{end}}
             </div>
         </div>
+    <!-- ESPN Power Ranking & FPI Playoff Projection Card -->
+    {{if or .Detail.PowerRanking .Detail.PlayoffProbability}}
+    <div class="p-6 rounded-3xl border border-amber-500/30 bg-gradient-to-br from-amber-950/20 via-zinc-900/60 to-zinc-950 space-y-4 shadow-sm">
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-mono uppercase font-bold text-amber-400 flex items-center">
+                <i class="fa-solid fa-bolt mr-2 text-amber-400"></i> ESPN Power Ranking & FPI Playoff Picture
+            </span>
+            <span class="text-xs font-mono text-zinc-400">Temporada {{.SelectedSeason}}</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Power Ranking Card -->
+            {{if .Detail.PowerRanking}}
+            <div class="bg-zinc-950/80 p-4 rounded-2xl border border-zinc-800/80 flex flex-col justify-between space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-mono uppercase text-zinc-500 font-bold">Ranking Oficial ESPN</span>
+                    {{if gt .Detail.PowerRanking.RankChange 0}}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            ▲ +{{.Detail.PowerRanking.RankChange}} Puestos
+                        </span>
+                    {{else if lt .Detail.PowerRanking.RankChange 0}}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                            ▼ {{.Detail.PowerRanking.RankChange}} Puestos
+                        </span>
+                    {{else}}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-zinc-800 text-zinc-400">
+                            = Mantuvo Posición
+                        </span>
+                    {{end}}
+                </div>
+                <div class="flex items-baseline space-x-2">
+                    <span class="text-3xl font-black text-amber-300 font-mono">#{{.Detail.PowerRanking.Rank}}</span>
+                    <span class="text-xs text-zinc-400 font-mono">de 32 franquicias</span>
+                    <span class="text-[11px] text-zinc-500 font-mono">(Semana {{.Detail.PowerRanking.WeekNumber}})</span>
+                </div>
+                <p class="text-xs text-zinc-300 italic border-l-2 border-amber-500/60 pl-3 leading-relaxed">
+                    "{{.Detail.PowerRanking.Analysis}}"
+                </p>
+                {{if .Detail.PowerRanking.Author}}
+                    <div class="text-[11px] font-mono text-amber-400/90 text-right">
+                        — {{.Detail.PowerRanking.Author}} (ESPN)
+                    </div>
+                {{end}}
+            </div>
+            {{end}}
+
+            <!-- Playoff Probabilities Card -->
+            {{if .Detail.PlayoffProbability}}
+            <div class="bg-zinc-950/80 p-4 rounded-2xl border border-zinc-800/80 flex flex-col justify-between space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-mono uppercase text-cyan-400 font-bold">Proyección Algorítmica FPI</span>
+                    <span class="font-mono text-sm font-black text-emerald-400">
+                        {{pctF .Detail.PlayoffProbability.MakePlayoffsPct}} Playoffs
+                    </span>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="w-full bg-zinc-900 h-2.5 rounded-full overflow-hidden border border-zinc-800">
+                    <div class="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full"
+                         style="width: {{pctRound .Detail.PlayoffProbability.MakePlayoffsPct}}%;"></div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-xs font-mono pt-1">
+                    <div class="bg-zinc-900/60 p-2 rounded-xl border border-zinc-800/60">
+                        <span class="text-zinc-500 text-[10px] block uppercase">Ganar División:</span>
+                        <span class="font-bold text-zinc-200 text-sm">{{pctF .Detail.PlayoffProbability.ClinchDivisionPct}}</span>
+                    </div>
+                    <div class="bg-zinc-900/60 p-2 rounded-xl border border-zinc-800/60">
+                        <span class="text-zinc-500 text-[10px] block uppercase">Sembrado #1 (Bye):</span>
+                        <span class="font-bold text-purple-400 text-sm">{{pctF .Detail.PlayoffProbability.ClinchFirstSeedPct}}</span>
+                    </div>
+                </div>
+
+                {{if .Detail.PlayoffProbability.NextOpponentCode}}
+                <div class="p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 text-xs font-mono space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-zinc-300 font-bold">Próximo Duelo (Semana {{.Detail.PlayoffProbability.WeekNumber}} vs {{.Detail.PlayoffProbability.NextOpponentCode}}):</span>
+                        <span class="text-cyan-300 font-bold">{{pctRound .Detail.PlayoffProbability.WinProjPct}}% Prob Victoria</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[11px]">
+                        <span class="text-emerald-400">Si Gana: {{pctRound .Detail.PlayoffProbability.PlayoffPctWithWin}}% Playoffs</span>
+                        <span class="text-rose-400">Si Pierde: {{pctRound .Detail.PlayoffProbability.PlayoffPctWithLoss}}% Playoffs</span>
+                        <span class="text-amber-400 font-bold">Δ {{pctRound .Detail.PlayoffProbability.PlayoffLeverage}}%</span>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+            {{end}}
+        </div>
     </div>
+    {{end}}
 
     <!-- Main Content: Schedule & Results Table -->
     <div class="vercel-card rounded-3xl border border-zinc-800 overflow-hidden bg-zinc-950/60 shadow-sm">

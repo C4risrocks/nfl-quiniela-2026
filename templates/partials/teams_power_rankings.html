@@ -1,0 +1,151 @@
+<!-- ESPN NFL Power Rankings View Partial -->
+<div class="space-y-6">
+
+    <!-- Hero Banner for Power Rankings -->
+    <div class="vercel-card rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-950/20 via-zinc-950/80 to-zinc-950 p-5 sm:p-6 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <div class="flex items-center space-x-2 mb-2">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                        <i class="fa-solid fa-bolt mr-1.5 text-amber-400"></i> ESPN Power Rankings · Semana {{if .Standings.LatestRankingsWeek}}{{.Standings.LatestRankingsWeek}}{{else}}3{{end}}
+                    </span>
+                    <span class="text-[10px] font-mono text-zinc-400">32 Franquicias Jerarquizadas</span>
+                </div>
+                <h2 class="text-lg sm:text-xl font-black text-white tracking-tight flex items-center">
+                    <i class="fa-solid fa-ranking-star mr-2.5 text-amber-400"></i> Power Rankings Oficiales de la NFL
+                </h2>
+                <p class="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
+                    Evaluación cualitativa y jerárquica del momento de cada equipo tras la Semana {{if .Standings.LatestRankingsWeek}}{{.Standings.LatestRankingsWeek}}{{else}}3{{end}} de la temporada regular, con el análisis editorial y firmas de los especialistas de ESPN.
+                </p>
+            </div>
+
+            <!-- Quick Legend / Movements Info -->
+            <div class="flex items-center space-x-2 bg-zinc-900/80 px-3.5 py-2 rounded-xl border border-zinc-800 shrink-0 text-[11px] font-mono">
+                <span class="text-zinc-500 mr-1">Tendencia:</span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-bold">
+                    <i class="fa-solid fa-arrow-up mr-1 text-[9px]"></i> Subió
+                </span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded bg-rose-500/15 text-rose-400 border border-rose-500/30 font-bold">
+                    <i class="fa-solid fa-arrow-down mr-1 text-[9px]"></i> Bajó
+                </span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/50 font-bold">
+                    = Igual
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Power Rankings 32-Team List -->
+    <div class="space-y-3">
+        {{range .Standings.PowerRankings}}
+            <div x-show="matchesTeam({ name: '{{.TeamCity}} {{.TeamName}}', code: '{{.TeamCode}}', city: '{{.TeamCity}}', division: '{{.Division}}', conference: '{{.Conference}}', rank: {{.Rank}}, streak: '' })"
+                 class="vercel-card rounded-2xl border transition-all duration-200 hover:border-zinc-700 p-4 sm:p-5 bg-zinc-950/70 hover:bg-zinc-950 group relative overflow-hidden"
+                 style="border-left-width: 4px; border-left-color: {{if .PrimaryColor}}{{.PrimaryColor}}{{else}}#3f3f46{{end}};">
+
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+
+                    <!-- Left: Rank Pill + Franchise Identity -->
+                    <div class="flex items-center space-x-3.5 sm:space-x-4 min-w-0">
+                        
+                        <!-- Rank Pill -->
+                        <div class="flex flex-col items-center justify-center shrink-0 w-12 sm:w-14">
+                            <span class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center font-black text-sm sm:text-base font-mono shadow-sm
+                                        {{if eq .Rank 1}}bg-amber-400 text-black border border-amber-300 shadow-amber-500/30 shadow-md{{else if eq .Rank 2}}bg-zinc-200 text-black border border-zinc-100{{else if eq .Rank 3}}bg-amber-700/80 text-white border border-amber-600{{else}}bg-zinc-900 text-zinc-200 border border-zinc-800{{end}}">
+                                #{{.Rank}}
+                            </span>
+                            
+                            <!-- Movement Delta Pill -->
+                            <div class="mt-1">
+                                {{if gt .RankChange 0}}
+                                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                                          title="Subió {{.RankChange}} posiciones respecto a la semana previa">
+                                        ▲ +{{.RankChange}}
+                                    </span>
+                                {{else if lt .RankChange 0}}
+                                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                                          title="Bajó {{absDiff 0 .RankChange}} posiciones respecto a la semana previa">
+                                        ▼ {{.RankChange}}
+                                    </span>
+                                {{else}}
+                                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-zinc-800 text-zinc-400 border border-zinc-700/50"
+                                          title="Mantuvo su posición de la semana previa">
+                                        — =
+                                    </span>
+                                {{end}}
+                            </div>
+                        </div>
+
+                        <!-- Team Logo & Name -->
+                        <div class="flex items-center space-x-3 min-w-0">
+                            <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-zinc-900 border border-zinc-800 p-1.5 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                <img src="{{.LogoURL}}" alt="{{.TeamCode}}" class="w-full h-full object-contain">
+                            </div>
+                            <div class="min-w-0">
+                                <div class="flex items-center space-x-2">
+                                    <h3 class="text-sm sm:text-base font-bold text-white tracking-tight truncate group-hover:text-amber-300 transition-colors">
+                                        {{.TeamCity}} {{.TeamName}}
+                                    </h3>
+                                    <span class="text-xs font-mono font-bold px-1.5 py-0.2 rounded bg-zinc-900 text-zinc-400 border border-zinc-800 shrink-0">
+                                        {{.TeamCode}}
+                                    </span>
+                                </div>
+                                <div class="flex items-center space-x-2 mt-0.5 text-[11px] font-mono">
+                                    <span class="font-bold text-emerald-400">{{.Record}}</span>
+                                    <span class="text-zinc-600">·</span>
+                                    <span class="text-zinc-400">{{.Conference}} {{.Division}}</span>
+                                    <span class="text-zinc-600">·</span>
+                                    <span class="text-zinc-500">Ant: #{{.PreviousRank}}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Middle: ESPN Editorial Analysis Spotlight -->
+                    <div class="flex-1 lg:px-4 mt-2 lg:mt-0">
+                        <div class="bg-zinc-900/60 rounded-xl p-3 border border-zinc-800/80 text-xs text-zinc-300 leading-relaxed relative">
+                            <i class="fa-solid fa-quote-left text-zinc-600 mr-1.5 text-xs"></i>
+                            <span>{{.Analysis}}</span>
+                            {{if .Author}}
+                                <div class="mt-2 flex items-center justify-end space-x-1.5 text-[10.5px] font-mono text-amber-400/90 font-medium">
+                                    <i class="fa-solid fa-pen-nib text-[9px]"></i>
+                                    <span>{{.Author}}</span>
+                                    <span class="text-zinc-500 font-normal">/ ESPN</span>
+                                </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <!-- Right: Quick Actions -->
+                    <div class="flex items-center space-x-2 shrink-0 self-end lg:self-center">
+                        <button type="button"
+                                hx-get="/teams/compare?team1={{.TeamCode}}&season={{$.SelectedSeason}}"
+                                hx-target="#team-modal-container"
+                                hx-swap="innerHTML"
+                                title="Comparar frente a otro rival"
+                                class="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-amber-300 border border-zinc-800 transition-colors cursor-pointer">
+                            <i class="fa-solid fa-code-compare text-[10px]"></i>
+                            <span class="hidden sm:inline">H2H</span>
+                        </button>
+                        <button type="button"
+                                hx-get="/teams/{{.TeamCode}}/modal?season={{$.SelectedSeason}}"
+                                hx-target="#team-modal-container"
+                                hx-swap="innerHTML"
+                                title="Ver Ficha Rápida del Equipo"
+                                class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 transition-colors cursor-pointer shadow-sm">
+                            <span>Ficha</span>
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[9px] text-zinc-400"></i>
+                        </button>
+                    </div>
+
+                </div>
+
+            </div>
+        {{else}}
+            <div class="p-8 text-center text-zinc-500 text-xs rounded-2xl border border-zinc-800 bg-zinc-950/40">
+                No hay registros de Power Rankings para la temporada seleccionada.
+            </div>
+        {{end}}
+    </div>
+
+</div>

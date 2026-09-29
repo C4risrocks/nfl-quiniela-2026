@@ -292,6 +292,71 @@ func (d *DB) migrate() error {
 		_, _ = d.Exec(query, f.key, f.name, f.description, f.accessLevel, f.isBeta)
 	}
 
+	// Create team_power_rankings table if not exists
+	createPowerRankingsTable := `
+	CREATE TABLE IF NOT EXISTS team_power_rankings (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		season_year INTEGER NOT NULL DEFAULT 2026,
+		week_number INTEGER NOT NULL,
+		team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
+		team_code TEXT NOT NULL,
+		team_name TEXT NOT NULL DEFAULT '',
+		team_city TEXT NOT NULL DEFAULT '',
+		logo_url TEXT NOT NULL DEFAULT '',
+		primary_color TEXT NOT NULL DEFAULT '',
+		conference TEXT NOT NULL DEFAULT '',
+		division TEXT NOT NULL DEFAULT '',
+		rank INTEGER NOT NULL,
+		previous_rank INTEGER NOT NULL,
+		rank_change INTEGER NOT NULL DEFAULT 0,
+		record TEXT NOT NULL DEFAULT '',
+		analysis TEXT NOT NULL DEFAULT '',
+		author TEXT NOT NULL DEFAULT 'ESPN',
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(season_year, week_number, team_code)
+	);`
+	if d.DriverName == "pgx" {
+		createPowerRankingsTable = strings.ReplaceAll(createPowerRankingsTable, "INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+	}
+	if _, err := d.Exec(createPowerRankingsTable); err != nil {
+		log.Printf("[DB] Warning creating team_power_rankings table: %v", err)
+	}
+	_, _ = d.Exec(`CREATE INDEX IF NOT EXISTS idx_power_rankings_lookup ON team_power_rankings(season_year, week_number, rank)`)
+
+	// Create team_playoff_probabilities table if not exists
+	createPlayoffProbsTable := `
+	CREATE TABLE IF NOT EXISTS team_playoff_probabilities (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		season_year INTEGER NOT NULL DEFAULT 2026,
+		week_number INTEGER NOT NULL,
+		team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
+		team_code TEXT NOT NULL,
+		team_name TEXT NOT NULL DEFAULT '',
+		team_city TEXT NOT NULL DEFAULT '',
+		logo_url TEXT NOT NULL DEFAULT '',
+		conference TEXT NOT NULL DEFAULT '',
+		division TEXT NOT NULL DEFAULT '',
+		make_playoffs_pct REAL NOT NULL DEFAULT 0.0,
+		clinch_division_pct REAL NOT NULL DEFAULT 0.0,
+		clinch_first_seed_pct REAL NOT NULL DEFAULT 0.0,
+		wild_card_pct REAL NOT NULL DEFAULT 0.0,
+		next_opponent_code TEXT NOT NULL DEFAULT '',
+		win_proj_pct REAL NOT NULL DEFAULT 0.0,
+		playoff_pct_with_win REAL NOT NULL DEFAULT 0.0,
+		playoff_pct_with_loss REAL NOT NULL DEFAULT 0.0,
+		is_favorite BOOLEAN NOT NULL DEFAULT 0,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(season_year, week_number, team_code)
+	);`
+	if d.DriverName == "pgx" {
+		createPlayoffProbsTable = strings.ReplaceAll(createPlayoffProbsTable, "INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+		createPlayoffProbsTable = strings.ReplaceAll(createPlayoffProbsTable, "BOOLEAN NOT NULL DEFAULT 0", "BOOLEAN NOT NULL DEFAULT FALSE")
+	}
+	if _, err := d.Exec(createPlayoffProbsTable); err != nil {
+		log.Printf("[DB] Warning creating team_playoff_probabilities table: %v", err)
+	}
+	_, _ = d.Exec(`CREATE INDEX IF NOT EXISTS idx_playoff_probs_lookup ON team_playoff_probabilities(season_year, week_number, conference)`)
+
 	return nil
 }
 

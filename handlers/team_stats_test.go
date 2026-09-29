@@ -463,5 +463,92 @@ func TestTeamStatsHandler_AdvancedMetricsEnrichment(t *testing.T) {
 	}
 }
 
+func TestTeamStatsHandler_PowerRankingsAndFPIViews(t *testing.T) {
+	handler, cleanup := setupTestTeamStats(t)
+	defer cleanup()
+
+	r := chi.NewRouter()
+	r.Get("/teams", handler.ShowTeams)
+	r.Get("/teams/table", handler.TeamsTablePartial)
+	r.Get("/teams/{code}", handler.ShowTeamDetail)
+	r.Get("/teams/{code}/modal", handler.TeamDetailModal)
+
+	// 1. Full page: Power Rankings
+	reqPR := httptest.NewRequest(http.MethodGet, "/teams?season=2026&view=power-rankings", nil)
+	rrPR := httptest.NewRecorder()
+	r.ServeHTTP(rrPR, reqPR)
+	if rrPR.Code != http.StatusOK {
+		t.Fatalf("expected 200 for power-rankings page, got %d. Body: %s", rrPR.Code, rrPR.Body.String())
+	}
+	bodyPR := rrPR.Body.String()
+	for _, exp := range []string{"Power Rankings Oficiales de la NFL", "ESPN Power Rankings", "Chiefs", "Rank"} {
+		if !strings.Contains(bodyPR, exp) {
+			t.Errorf("power-rankings full page: expected body to contain %q", exp)
+		}
+	}
+
+	// 2. Partial: Power Rankings
+	reqPRPartial := httptest.NewRequest(http.MethodGet, "/teams/table?season=2026&view=power-rankings", nil)
+	rrPRPartial := httptest.NewRecorder()
+	r.ServeHTTP(rrPRPartial, reqPRPartial)
+	if rrPRPartial.Code != http.StatusOK {
+		t.Fatalf("expected 200 for power-rankings partial, got %d. Body: %s", rrPRPartial.Code, rrPRPartial.Body.String())
+	}
+	bodyPRPartial := rrPRPartial.Body.String()
+	if !strings.Contains(bodyPRPartial, "Power Rankings Oficiales de la NFL") {
+		t.Errorf("power-rankings partial: expected body to contain %q", "Power Rankings Oficiales de la NFL")
+	}
+
+	// 3. Full page: Playoffs FPI
+	reqFPI := httptest.NewRequest(http.MethodGet, "/teams?season=2026&view=playoffs-fpi", nil)
+	rrFPI := httptest.NewRecorder()
+	r.ServeHTTP(rrFPI, reqFPI)
+	if rrFPI.Code != http.StatusOK {
+		t.Fatalf("expected 200 for playoffs-fpi page, got %d. Body: %s", rrFPI.Code, rrFPI.Body.String())
+	}
+	bodyFPI := rrFPI.Body.String()
+	for _, exp := range []string{"ESPN Football Power Index (FPI)", "Matriz de Probabilidades FPI", "Playoffs"} {
+		if !strings.Contains(bodyFPI, exp) {
+			t.Errorf("playoffs-fpi full page: expected body to contain %q", exp)
+		}
+	}
+
+	// 4. Partial: Playoffs FPI
+	reqFPIPartial := httptest.NewRequest(http.MethodGet, "/teams/table?season=2026&view=playoffs-fpi", nil)
+	rrFPIPartial := httptest.NewRecorder()
+	r.ServeHTTP(rrFPIPartial, reqFPIPartial)
+	if rrFPIPartial.Code != http.StatusOK {
+		t.Fatalf("expected 200 for playoffs-fpi partial, got %d. Body: %s", rrFPIPartial.Code, rrFPIPartial.Body.String())
+	}
+	bodyFPIPartial := rrFPIPartial.Body.String()
+	if !strings.Contains(bodyFPIPartial, "Matriz de Probabilidades FPI") {
+		t.Errorf("playoffs-fpi partial: expected body to contain %q", "Matriz de Probabilidades FPI")
+	}
+
+	// 5. Team detail & modal with Power Rankings & FPI cards
+	reqDetail := httptest.NewRequest(http.MethodGet, "/teams/KC?season=2026", nil)
+	rrDetail := httptest.NewRecorder()
+	r.ServeHTTP(rrDetail, reqDetail)
+	if rrDetail.Code != http.StatusOK {
+		t.Fatalf("expected 200 for KC detail, got %d", rrDetail.Code)
+	}
+	bodyDetail := rrDetail.Body.String()
+	if !strings.Contains(bodyDetail, "ESPN Power Ranking & FPI Playoff Picture") {
+		t.Errorf("KC detail: expected body to contain %q", "ESPN Power Ranking & FPI Playoff Picture")
+	}
+
+	reqModal := httptest.NewRequest(http.MethodGet, "/teams/KC/modal?season=2026", nil)
+	rrModal := httptest.NewRecorder()
+	r.ServeHTTP(rrModal, reqModal)
+	if rrModal.Code != http.StatusOK {
+		t.Fatalf("expected 200 for KC modal, got %d", rrModal.Code)
+	}
+	bodyModal := rrModal.Body.String()
+	if !strings.Contains(bodyModal, "ESPN Power Ranking & FPI Playoff Picture") {
+		t.Errorf("KC modal: expected body to contain %q", "ESPN Power Ranking & FPI Playoff Picture")
+	}
+}
+
+
 
 

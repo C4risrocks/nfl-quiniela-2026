@@ -712,7 +712,17 @@
             {{end}}
         </div>
 
-    </div>
+{{else if eq .SelectedView "power-rankings"}}
+    <!-- ============================================== -->
+    <!-- VIEW 4: ESPN POWER RANKINGS (32 FRANCHISES)   -->
+    <!-- ============================================== -->
+    {{template "teams_power_rankings.html" .}}
+
+{{else if eq .SelectedView "playoffs-fpi"}}
+    <!-- ============================================== -->
+    <!-- VIEW 5: FPI PLAYOFF PROBABILITIES & LEVERAGE   -->
+    <!-- ============================================== -->
+    {{template "teams_fpi_playoffs.html" .}}
 
 {{else}}
     <!-- ========================================== -->

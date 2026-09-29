@@ -74,6 +74,25 @@ func (r *Renderer) FuncMap() template.FuncMap {
 		"mathRoundPct": func(v float64) int {
 			return int(math.Round(v * 100))
 		},
+		"pctF": func(v float64) string {
+			return fmt.Sprintf("%.1f%%", v*100)
+		},
+		"pctRound": func(v float64) int {
+			return int(math.Round(v * 100))
+		},
+		"absDiff": func(a, b int) int {
+			diff := a - b
+			if diff < 0 {
+				return -diff
+			}
+			return diff
+		},
+		"absDiffF": func(a, b float64) float64 {
+			return math.Abs(a - b)
+		},
+		"mulF": func(a, b float64) float64 {
+			return a * b
+		},
 		"mul": func(a, b int) int {
 			return a * b
 		},

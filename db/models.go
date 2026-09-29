@@ -1889,6 +1889,20 @@ type TeamStanding struct {
 	LastFiveResults   []TeamFormItem `json:"last_five_results"`  // L5 form guide
 	PlayoffStatus     string         `json:"playoff_status"`     // "clinched_bye", "clinched_division", "clinched_playoff", "in_hunt", "eliminated", ""
 	PlayoffGB         string         `json:"playoff_gb"`         // Games Behind 7th seed
+
+	// ESPN Power Rankings & FPI Playoff Picture
+	PowerRank           int     `json:"power_rank"`            // e.g. 1-32
+	PowerRankPrev       int     `json:"power_rank_prev"`       // e.g. 4
+	PowerRankChange     int     `json:"power_rank_change"`     // e.g. +3
+	PowerRankBlurb      string  `json:"power_rank_blurb"`      // Editorial analysis from ESPN
+	FPIPlayoffPct       float64 `json:"fpi_playoff_pct"`       // e.g. 0.967
+	FPIDivisionPct      float64 `json:"fpi_division_pct"`      // e.g. 0.898
+	FPIFirstSeedPct     float64 `json:"fpi_first_seed_pct"`    // e.g. 0.331
+	FPIWildCardPct      float64 `json:"fpi_wild_card_pct"`     // e.g. 0.069
+	FPIWinProjPct       float64 `json:"fpi_win_proj_pct"`      // Next game win prob e.g. 0.55
+	FPIPlayoffWithWin   float64 `json:"fpi_playoff_with_win"`  // e.g. 0.43
+	FPIPlayoffWithLoss  float64 `json:"fpi_playoff_with_loss"` // e.g. 0.22
+	FPINextOpponentCode string  `json:"fpi_next_opponent_code"`
 }
 
 // TeamFormItem represents a single match result in a team's recent form guide
@@ -1966,8 +1980,84 @@ type SeasonStandings struct {
 	Summary         *SeasonDashboardSummary     `json:"summary"`
 	Divisions       []*DivisionStandings        `json:"divisions"`
 	Conferences     []*ConferenceStandings      `json:"conferences"`
-	League          []*TeamStanding             `json:"league"` // All 32 sorted by record
-	PlayoffPictures []*ConferencePlayoffPicture `json:"playoff_pictures,omitempty"`
+	League               []*TeamStanding             `json:"league"` // All 32 sorted by record
+	PlayoffPictures      []*ConferencePlayoffPicture `json:"playoff_pictures,omitempty"`
+	PowerRankings        []*TeamPowerRanking         `json:"power_rankings,omitempty"`
+	PlayoffProbabilities []*TeamPlayoffProbability   `json:"playoff_probabilities,omitempty"`
+	MatchupImpacts       []*PlayoffMatchupImpact     `json:"matchup_impacts,omitempty"`
+	LatestRankingsWeek   int                         `json:"latest_rankings_week,omitempty"`
+	LatestFPIWeek        int                         `json:"latest_fpi_week,omitempty"`
+}
+
+// TeamPowerRanking represents a single franchise's placement in ESPN's weekly Power Rankings
+type TeamPowerRanking struct {
+	ID           int64     `json:"id"`
+	SeasonYear   int       `json:"season_year"`
+	WeekNumber   int       `json:"week_number"`
+	TeamID       int64     `json:"team_id"`
+	TeamCode     string    `json:"team_code"`
+	TeamName     string    `json:"team_name"`
+	TeamCity     string    `json:"team_city"`
+	LogoURL      string    `json:"logo_url"`
+	PrimaryColor string    `json:"primary_color"`
+	Conference   string    `json:"conference"`
+	Division     string    `json:"division"`
+	Rank         int       `json:"rank"`
+	PreviousRank int       `json:"previous_rank"`
+	RankChange   int       `json:"rank_change"` // PreviousRank - Rank: +3 climbed, -2 dropped, 0 unchanged
+	Record       string    `json:"record"`      // e.g. "3-0"
+	Analysis     string    `json:"analysis"`    // Editorial text by ESPN analyst
+	Author       string    `json:"author"`      // e.g. "Eric Gómez", "Fernando Villa"
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+// TeamPlayoffProbability represents ESPN FPI projections and next-matchup leverage
+type TeamPlayoffProbability struct {
+	ID                 int64     `json:"id"`
+	SeasonYear         int       `json:"season_year"`
+	WeekNumber         int       `json:"week_number"`
+	TeamID             int64     `json:"team_id"`
+	TeamCode           string    `json:"team_code"`
+	TeamName           string    `json:"team_name"`
+	TeamCity           string    `json:"team_city"`
+	LogoURL            string    `json:"logo_url"`
+	Conference         string    `json:"conference"` // "AFC" or "NFC"
+	Division           string    `json:"division"`
+	MakePlayoffsPct    float64   `json:"make_playoffs_pct"`    // 0.0 - 1.0 (e.g. 0.967 = 96.7%)
+	ClinchDivisionPct  float64   `json:"clinch_division_pct"`  // 0.0 - 1.0 (e.g. 0.898 = 89.8%)
+	ClinchFirstSeedPct float64   `json:"clinch_first_seed_pct"`// 0.0 - 1.0 (e.g. 0.331 = 33.1%)
+	WildCardPct        float64   `json:"wild_card_pct"`        // 0.0 - 1.0 (e.g. 0.069 = 6.9%)
+	NextOpponentCode   string    `json:"next_opponent_code"`
+	NextOpponentLogo   string    `json:"next_opponent_logo"`
+	WinProjPct         float64   `json:"win_proj_pct"`         // Probability to win next game
+	PlayoffPctWithWin  float64   `json:"playoff_pct_with_win"`
+	PlayoffPctWithLoss float64   `json:"playoff_pct_with_loss"`
+	PlayoffLeverage    float64   `json:"playoff_leverage"`     // PlayoffPctWithWin - PlayoffPctWithLoss (volatility/stakes)
+	IsFavorite         bool      `json:"is_favorite"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+// PlayoffMatchupImpact represents one of the weekly games with FPI win probabilities and playoff stakes for both sides
+type PlayoffMatchupImpact struct {
+	WeekNumber      int       `json:"week_number"`
+	GameDateTime    string    `json:"game_datetime"`
+	AwayTeamCode    string    `json:"away_team_code"`
+	AwayTeamName    string    `json:"away_team_name"`
+	AwayLogoURL     string    `json:"away_logo_url"`
+	AwayWinProb     float64   `json:"away_win_prob"`
+	AwayPlayoffCur  float64   `json:"away_playoff_cur"`
+	AwayPlayoffWin  float64   `json:"away_playoff_win"`
+	AwayPlayoffLoss float64   `json:"away_playoff_loss"`
+	AwayIsFavorite  bool      `json:"away_is_favorite"`
+	HomeTeamCode    string    `json:"home_team_code"`
+	HomeTeamName    string    `json:"home_team_name"`
+	HomeLogoURL     string    `json:"home_logo_url"`
+	HomeWinProb     float64   `json:"home_win_prob"`
+	HomePlayoffCur  float64   `json:"home_playoff_cur"`
+	HomePlayoffWin  float64   `json:"home_playoff_win"`
+	HomePlayoffLoss float64   `json:"home_playoff_loss"`
+	HomeIsFavorite  bool      `json:"home_is_favorite"`
+	StakesLevel     string    `json:"stakes_level"` // "critical", "high", "moderate"
 }
 
 // TeamScheduleItem represents a single matchup in a team's schedule

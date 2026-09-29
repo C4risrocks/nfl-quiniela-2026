@@ -165,7 +165,97 @@
                         </div>
                     </div>
                 </div>
+            <!-- ESPN Power Ranking & FPI Playoff Projection Card -->
+            {{if or .Detail.PowerRanking .Detail.PlayoffProbability}}
+            <div class="p-4 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-950/20 via-zinc-900/60 to-zinc-950 space-y-3.5 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-mono uppercase font-bold text-amber-400 flex items-center">
+                        <i class="fa-solid fa-bolt mr-1.5 text-amber-400"></i> ESPN Power Ranking & FPI Playoff Picture
+                    </span>
+                    <span class="text-[10px] font-mono text-zinc-500">Temporada {{.SelectedSeason}}</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <!-- Power Ranking Card -->
+                    {{if .Detail.PowerRanking}}
+                    <div class="bg-zinc-950/70 p-3 rounded-xl border border-zinc-800/80 flex flex-col justify-between space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-mono uppercase text-zinc-500">Ranking Oficial</span>
+                            {{if gt .Detail.PowerRanking.RankChange 0}}
+                                <span class="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                    ▲ +{{.Detail.PowerRanking.RankChange}}
+                                </span>
+                            {{else if lt .Detail.PowerRanking.RankChange 0}}
+                                <span class="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                    ▼ {{.Detail.PowerRanking.RankChange}}
+                                </span>
+                            {{else}}
+                                <span class="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-zinc-800 text-zinc-400">
+                                    = Igual
+                                </span>
+                            {{end}}
+                        </div>
+                        <div class="flex items-baseline space-x-2">
+                            <span class="text-2xl font-black text-amber-300 font-mono">#{{.Detail.PowerRanking.Rank}}</span>
+                            <span class="text-xs text-zinc-400 font-mono">de 32</span>
+                            <span class="text-[10px] text-zinc-500 font-mono">(Semana {{.Detail.PowerRanking.WeekNumber}})</span>
+                        </div>
+                        <p class="text-xs text-zinc-300 italic border-l-2 border-amber-500/60 pl-2 leading-relaxed">
+                            "{{.Detail.PowerRanking.Analysis}}"
+                        </p>
+                        {{if .Detail.PowerRanking.Author}}
+                            <div class="text-[10px] font-mono text-amber-400/90 text-right">
+                                — {{.Detail.PowerRanking.Author}} (ESPN)
+                            </div>
+                        {{end}}
+                    </div>
+                    {{end}}
+
+                    <!-- Playoff Probabilities Card -->
+                    {{if .Detail.PlayoffProbability}}
+                    <div class="bg-zinc-950/70 p-3 rounded-xl border border-zinc-800/80 flex flex-col justify-between space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-mono uppercase text-cyan-400">Probabilidad FPI</span>
+                            <span class="font-mono text-xs font-black text-emerald-400">
+                                {{pctF .Detail.PlayoffProbability.MakePlayoffsPct}} Playoffs
+                            </span>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div class="w-full bg-zinc-900 h-2 rounded-full overflow-hidden border border-zinc-800">
+                            <div class="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full"
+                                 style="width: {{pctRound .Detail.PlayoffProbability.MakePlayoffsPct}}%;"></div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-1.5 text-[10px] font-mono pt-1">
+                            <div class="bg-zinc-900/60 p-1.5 rounded border border-zinc-800/60">
+                                <span class="text-zinc-500 block">Ganar División:</span>
+                                <span class="font-bold text-zinc-200">{{pctF .Detail.PlayoffProbability.ClinchDivisionPct}}</span>
+                            </div>
+                            <div class="bg-zinc-900/60 p-1.5 rounded border border-zinc-800/60">
+                                <span class="text-zinc-500 block">Sembrado #1:</span>
+                                <span class="font-bold text-purple-400">{{pctF .Detail.PlayoffProbability.ClinchFirstSeedPct}}</span>
+                            </div>
+                        </div>
+
+                        {{if .Detail.PlayoffProbability.NextOpponentCode}}
+                        <div class="p-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-[10px] font-mono space-y-1">
+                            <div class="flex items-center justify-between">
+                                <span class="text-zinc-400 font-bold">Semana {{.Detail.PlayoffProbability.WeekNumber}} vs {{.Detail.PlayoffProbability.NextOpponentCode}}:</span>
+                                <span class="text-cyan-300 font-bold">{{pctRound .Detail.PlayoffProbability.WinProjPct}}% Win Prob</span>
+                            </div>
+                            <div class="flex items-center justify-between text-[9px]">
+                                <span class="text-emerald-400">Si Gana: {{pctRound .Detail.PlayoffProbability.PlayoffPctWithWin}}% PO</span>
+                                <span class="text-rose-400">Si Pierde: {{pctRound .Detail.PlayoffProbability.PlayoffPctWithLoss}}% PO</span>
+                                <span class="text-amber-400 font-bold">Δ {{pctRound .Detail.PlayoffProbability.PlayoffLeverage}}%</span>
+                            </div>
+                        </div>
+                        {{end}}
+                    </div>
+                    {{end}}
+                </div>
             </div>
+            {{end}}
 
             <!-- Season Schedule & Results -->
             <div>

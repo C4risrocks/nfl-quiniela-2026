@@ -56,7 +56,7 @@
                 <i class="fa-solid fa-shield-halved mr-2 text-zinc-400"></i> Estadísticas de Equipos
             </h1>
             <p class="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
-                Clasificación oficial de las 8 divisiones de la NFL, panorama de clasificación a Playoffs en AFC y NFC, métricas sabermétricas pitagóricas y comparador directo H2H.
+                Clasificación oficial de las 8 divisiones de la NFL, panorama de Playoffs en AFC y NFC, Power Rankings oficiales de ESPN, matriz FPI de probabilidades de postemporada y comparador H2H.
             </p>
         </div>
 
@@ -86,7 +86,7 @@
                 {{end}}
             </div>
 
-            <!-- View Modes: Division, Conference, League -->
+            <!-- View Modes: Division, Conference, League, Power Rankings, FPI Probabilities -->
             <div class="bg-zinc-950 p-1 rounded-xl border border-zinc-800 flex items-center space-x-1 overflow-x-auto no-scrollbar max-w-full">
                 <button type="button"
                         @click="currentView = 'division'; $dispatch('update-teams-table', { season: currentSeason, view: 'division' })"
@@ -105,6 +105,18 @@
                         :class="currentView === 'league' ? 'bg-zinc-800 text-white font-semibold shadow-sm border border-zinc-700/60' : 'text-zinc-400 hover:text-white'"
                         class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap shrink-0">
                     <i class="fa-solid fa-list-ol mr-1.5 text-zinc-400"></i> Tabla General
+                </button>
+                <button type="button"
+                        @click="currentView = 'power-rankings'; $dispatch('update-teams-table', { season: currentSeason, view: 'power-rankings' })"
+                        :class="currentView === 'power-rankings' ? 'bg-amber-500/20 text-amber-300 font-semibold shadow-sm border border-amber-500/40' : 'text-zinc-400 hover:text-white'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap shrink-0">
+                    <i class="fa-solid fa-bolt mr-1.5 text-amber-400"></i> Power Rankings
+                </button>
+                <button type="button"
+                        @click="currentView = 'playoffs-fpi'; $dispatch('update-teams-table', { season: currentSeason, view: 'playoffs-fpi' })"
+                        :class="currentView === 'playoffs-fpi' ? 'bg-cyan-500/20 text-cyan-300 font-semibold shadow-sm border border-cyan-500/40' : 'text-zinc-400 hover:text-white'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap shrink-0">
+                    <i class="fa-solid fa-chart-pie mr-1.5 text-cyan-400"></i> Probabilidades FPI
                 </button>
             </div>
 

@@ -1,0 +1,366 @@
+<!-- ESPN FPI Playoff Picture & Matchup Leverage View Partial -->
+<div class="space-y-8" x-data="{ fpiConf: 'all' }">
+
+    <!-- Hero Banner for FPI Projections -->
+    <div class="vercel-card rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/20 via-zinc-950/80 to-zinc-950 p-5 sm:p-6 shadow-sm">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+                <div class="flex items-center space-x-2 mb-2">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                        <i class="fa-solid fa-chart-pie mr-1.5 text-cyan-400"></i> ESPN Football Power Index (FPI) · Semana {{if .Standings.LatestFPIWeek}}{{.Standings.LatestFPIWeek}}{{else}}4{{end}}
+                    </span>
+                    <span class="text-[10px] font-mono text-zinc-400">Simulaciones Resto de Temporada</span>
+                </div>
+                <h2 class="text-lg sm:text-xl font-black text-white tracking-tight flex items-center">
+                    <i class="fa-solid fa-trophy mr-2.5 text-amber-400"></i> Probabilidades de Playoffs & Apalancamiento de Jornada
+                </h2>
+                <p class="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
+                    Proyección algorítmica del panorama de postemporada para las 32 franquicias. Evalúa las probabilidades de clasificar, coronarse en su división o amarrar el sembrado #1, junto al impacto decisivo que tendrá una victoria o derrota en la Semana {{if .Standings.LatestFPIWeek}}{{.Standings.LatestFPIWeek}}{{else}}4{{end}}.
+                </p>
+            </div>
+
+            <!-- Heatmap Color Scale Legend -->
+            <div class="flex flex-wrap items-center gap-2 bg-zinc-900/80 p-3 rounded-xl border border-zinc-800 text-[10px] font-mono shrink-0">
+                <span class="text-zinc-500 mr-1 uppercase">Probabilidad:</span>
+                <span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    <span>≥ 80% Alta</span>
+                </span>
+                <span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-bold">
+                    <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                    <span>50-79% Media</span>
+                </span>
+                <span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                    <span>20-49% Burbuja</span>
+                </span>
+                <span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold">
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                    <span>&lt; 20% Riesgo</span>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 1: Heatmap Matrix Table -->
+    <div class="vercel-card rounded-2xl border border-zinc-800 overflow-hidden bg-zinc-950/60 shadow-sm space-y-0">
+        
+        <!-- Controls: Conference Filter Sub-Tabs -->
+        <div class="px-4 py-3 bg-zinc-900/90 border-b border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-table-cells text-cyan-400 text-xs"></i>
+                <span class="text-xs font-bold text-white tracking-wide">
+                    Matriz de Probabilidades FPI — 32 Equipos
+                </span>
+            </div>
+
+            <!-- Conference Filter Tabs -->
+            <div class="flex items-center space-x-1.5 bg-zinc-950 p-1 rounded-xl border border-zinc-800">
+                <button type="button"
+                        @click="fpiConf = 'all'"
+                        :class="fpiConf === 'all' ? 'bg-white text-black font-bold' : 'text-zinc-400 hover:text-white'"
+                        class="px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer">
+                    Todas (32)
+                </button>
+                <button type="button"
+                        @click="fpiConf = 'AFC'"
+                        :class="fpiConf === 'AFC' ? 'bg-red-500 text-white font-bold' : 'text-zinc-400 hover:text-white'"
+                        class="px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer">
+                    AFC (16)
+                </button>
+                <button type="button"
+                        @click="fpiConf = 'NFC'"
+                        :class="fpiConf === 'NFC' ? 'bg-blue-500 text-white font-bold' : 'text-zinc-400 hover:text-white'"
+                        class="px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer">
+                    NFC (16)
+                </button>
+            </div>
+        </div>
+
+        <!-- Heatmap Table Container -->
+        <div class="overflow-x-auto relative no-scrollbar">
+            <table class="w-full text-left text-xs min-w-[850px] sm:min-w-full">
+                <thead>
+                    <tr class="text-[10px] font-mono uppercase text-zinc-500 border-b border-zinc-800 bg-zinc-950/40">
+                        <th class="py-2.5 pl-3 pr-1 w-6 sticky left-0 bg-zinc-950 z-20">#</th>
+                        <th class="py-2.5 px-2 sticky left-6 bg-zinc-950 z-20 min-w-[150px]">Equipo</th>
+                        <th class="py-2.5 px-3 text-center min-w-[130px]">
+                            <span class="flex items-center justify-center space-x-1">
+                                <i class="fa-solid fa-trophy text-amber-400 text-[9px]"></i>
+                                <span>% Playoffs</span>
+                            </span>
+                        </th>
+                        <th class="py-2.5 px-3 text-center min-w-[120px]">
+                            <span class="flex items-center justify-center space-x-1">
+                                <i class="fa-solid fa-crown text-cyan-400 text-[9px]"></i>
+                                <span>% División</span>
+                            </span>
+                        </th>
+                        <th class="py-2.5 px-3 text-center min-w-[120px]">
+                            <span class="flex items-center justify-center space-x-1">
+                                <i class="fa-solid fa-star text-purple-400 text-[9px]"></i>
+                                <span>% Sembrado #1</span>
+                            </span>
+                        </th>
+                        <th class="py-2.5 px-3 text-center min-w-[110px]">
+                            <span>% Comodín</span>
+                        </th>
+                        <th class="py-2.5 px-3 text-center min-w-[190px]">
+                            <span class="flex items-center justify-center space-x-1">
+                                <i class="fa-solid fa-scale-balanced text-amber-400 text-[9px]"></i>
+                                <span>Impacto Sem {{if .Standings.LatestFPIWeek}}{{.Standings.LatestFPIWeek}}{{else}}4{{end}}</span>
+                            </span>
+                        </th>
+                        <th class="py-2.5 pr-3 text-right">Ficha</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-900/80">
+                    {{range $idx, $team := .Standings.PlayoffProbabilities}}
+                        <tr x-show="(fpiConf === 'all' || fpiConf === '{{$team.Conference}}') && matchesTeam({ name: '{{$team.TeamCity}} {{$team.TeamName}}', code: '{{$team.TeamCode}}', city: '{{$team.TeamCity}}', division: '{{$team.Division}}', conference: '{{$team.Conference}}', streak: '' })"
+                            class="hover:bg-zinc-900/50 transition-colors group">
+                            
+                            <!-- Index / Rank -->
+                            <td class="py-2.5 pl-3 pr-1 font-mono text-[11px] text-zinc-500 font-bold sticky left-0 bg-zinc-950 group-hover:bg-zinc-900 z-10">
+                                {{add $idx 1}}
+                            </td>
+
+                            <!-- Franchise Identity (Sticky) -->
+                            <td class="py-2.5 px-2 sticky left-6 bg-zinc-950 group-hover:bg-zinc-900 z-10 border-r border-zinc-800/40 sm:border-r-0">
+                                <button type="button"
+                                        hx-get="/teams/{{$team.TeamCode}}/modal?season={{$.SelectedSeason}}"
+                                        hx-target="#team-modal-container"
+                                        hx-swap="innerHTML"
+                                        class="flex items-center space-x-2 text-left group-hover:text-white transition-colors cursor-pointer">
+                                    <img src="{{$team.LogoURL}}" alt="{{$team.TeamCode}}" class="w-6 h-6 object-contain shrink-0 group-hover:scale-110 transition-transform">
+                                    <div class="min-w-0">
+                                        <div class="font-bold text-zinc-200 group-hover:text-cyan-300 text-xs truncate flex items-center">
+                                            {{$team.TeamCity}} {{$team.TeamName}}
+                                        </div>
+                                        <div class="text-[9.5px] font-mono text-zinc-500">
+                                            {{$team.Conference}} {{if $team.Division}}· {{$team.Division}}{{end}}
+                                        </div>
+                                    </div>
+                                </button>
+                            </td>
+
+                            <!-- 1. Make Playoffs % -->
+                            <td class="py-2.5 px-3 text-center">
+                                <div class="flex flex-col items-center">
+                                    <span class="font-mono text-xs font-black
+                                        {{if ge $team.MakePlayoffsPct 0.80}}text-emerald-400{{else if ge $team.MakePlayoffsPct 0.50}}text-cyan-400{{else if ge $team.MakePlayoffsPct 0.20}}text-amber-400{{else}}text-rose-400{{end}}">
+                                        {{pctF $team.MakePlayoffsPct}}
+                                    </span>
+                                    <div class="w-20 bg-zinc-900 h-1.5 rounded-full overflow-hidden mt-1 border border-zinc-800">
+                                        <div class="h-full rounded-full transition-all duration-300
+                                                    {{if ge $team.MakePlayoffsPct 0.80}}bg-emerald-500{{else if ge $team.MakePlayoffsPct 0.50}}bg-cyan-500{{else if ge $team.MakePlayoffsPct 0.20}}bg-amber-500{{else}}bg-rose-500{{end}}"
+                                             style="width: {{pctRound $team.MakePlayoffsPct}}%;"></div>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- 2. Clinch Division % -->
+                            <td class="py-2.5 px-3 text-center">
+                                <div class="flex flex-col items-center">
+                                    <span class="font-mono text-[11px] font-bold text-zinc-200">
+                                        {{pctF $team.ClinchDivisionPct}}
+                                    </span>
+                                    <div class="w-16 bg-zinc-900 h-1 rounded-full overflow-hidden mt-1 border border-zinc-800/80">
+                                        <div class="h-full bg-cyan-400 rounded-full" style="width: {{pctRound $team.ClinchDivisionPct}}%;"></div>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- 3. Clinch No. 1 Seed % -->
+                            <td class="py-2.5 px-3 text-center">
+                                <div class="flex flex-col items-center">
+                                    <span class="font-mono text-[11px] font-semibold {{if gt $team.ClinchFirstSeedPct 0.10}}text-purple-400 font-bold{{else}}text-zinc-400{{end}}">
+                                        {{pctF $team.ClinchFirstSeedPct}}
+                                    </span>
+                                    <div class="w-16 bg-zinc-900 h-1 rounded-full overflow-hidden mt-1 border border-zinc-800/80">
+                                        <div class="h-full bg-purple-500 rounded-full" style="width: {{pctRound $team.ClinchFirstSeedPct}}%;"></div>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- 4. Wild Card % -->
+                            <td class="py-2.5 px-3 text-center font-mono text-[11px] text-zinc-400">
+                                {{pctF $team.WildCardPct}}
+                            </td>
+
+                            <!-- 5. Next Matchup Leverage (Week 4) -->
+                            <td class="py-2.5 px-3 text-center">
+                                {{if $team.NextOpponentCode}}
+                                    <div class="flex flex-col items-center space-y-1">
+                                        <!-- Opponent & Win Prob -->
+                                        <div class="flex items-center space-x-1.5 text-[10.5px] font-mono">
+                                            <span class="text-zinc-500">vs</span>
+                                            {{if $team.NextOpponentLogo}}
+                                                <img src="{{$team.NextOpponentLogo}}" alt="{{$team.NextOpponentCode}}" class="w-3.5 h-3.5 object-contain">
+                                            {{end}}
+                                            <span class="font-bold text-zinc-300">{{$team.NextOpponentCode}}</span>
+                                            <span class="px-1 py-0.2 rounded text-[9.5px] font-bold {{if $team.IsFavorite}}bg-emerald-500/20 text-emerald-400{{else}}bg-zinc-800 text-zinc-400{{end}}">
+                                                {{pctRound $team.WinProjPct}}% Prob
+                                            </span>
+                                        </div>
+
+                                        <!-- With Win vs With Loss -->
+                                        <div class="flex items-center space-x-1.5 text-[9.5px] font-mono">
+                                            <span class="text-emerald-400 font-bold" title="Probabilidad de Playoffs con Victoria">
+                                                W: {{pctRound $team.PlayoffPctWithWin}}%
+                                            </span>
+                                            <span class="text-zinc-600">|</span>
+                                            <span class="text-rose-400 font-bold" title="Probabilidad de Playoffs con Derrota">
+                                                L: {{pctRound $team.PlayoffPctWithLoss}}%
+                                            </span>
+                                            {{if ge $team.PlayoffLeverage 0.15}}
+                                                <span class="px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-[8.5px]"
+                                                      title="Alto Apalancamiento: El partido altera más de 15% las opciones de playoffs">
+                                                    Δ {{pctRound $team.PlayoffLeverage}}%
+                                                </span>
+                                            {{end}}
+                                        </div>
+                                    </div>
+                                {{else}}
+                                    <span class="text-zinc-600 font-mono text-[10px]">-</span>
+                                {{end}}
+                            </td>
+
+                            <!-- Action -->
+                            <td class="py-2.5 pr-3 text-right">
+                                <button type="button"
+                                        hx-get="/teams/{{$team.TeamCode}}/modal?season={{$.SelectedSeason}}"
+                                        hx-target="#team-modal-container"
+                                        hx-swap="innerHTML"
+                                        title="Ver Ficha Rápida"
+                                        class="p-1 rounded-md text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer">
+                                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                                </button>
+                            </td>
+
+                        </tr>
+                    {{else}}
+                        <tr>
+                            <td colspan="8" class="p-8 text-center text-zinc-500 text-xs">
+                                No hay datos de probabilidades FPI disponibles.
+                            </td>
+                        </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Section 2: Matchup Leverage & Stakes Grid (Week 4 Games) -->
+    {{if .Standings.MatchupImpacts}}
+    <div class="space-y-4">
+        
+        <!-- Header -->
+        <div class="flex items-center justify-between border-b border-zinc-800 pb-2">
+            <div>
+                <h3 class="text-sm font-bold uppercase tracking-wider text-white font-mono flex items-center">
+                    <i class="fa-solid fa-scale-balanced mr-2 text-amber-400"></i> Duelos de la Semana {{if .Standings.LatestFPIWeek}}{{.Standings.LatestFPIWeek}}{{else}}4{{end}}: Impacto en Playoffs
+                </h3>
+                <p class="text-[11px] text-zinc-400 mt-0.5">
+                    Enfrentamientos analizados con el balance de victoria proyectada y el apalancamiento directo en playoffs de cada equipo.
+                </p>
+            </div>
+            <span class="text-[10px] font-mono text-zinc-500 shrink-0">16 Enfrentamientos FPI</span>
+        </div>
+
+        <!-- 16 Matchups Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {{range .Standings.MatchupImpacts}}
+            <div class="vercel-card rounded-xl border border-zinc-800/80 hover:border-zinc-700 bg-zinc-950/70 p-3.5 flex flex-col justify-between transition-colors">
+                
+                <!-- Matchup Header: Datetime + Stakes Badge -->
+                <div class="flex items-center justify-between pb-2 border-b border-zinc-900 text-[10.5px] font-mono">
+                    <span class="text-zinc-400">
+                        {{.GameDateTime}}
+                    </span>
+                    {{if eq .StakesLevel "critical"}}
+                        <span class="px-2 py-0.5 rounded font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center">
+                            <i class="fa-solid fa-fire mr-1 text-[9px]"></i> IMPACTO CRÍTICO
+                        </span>
+                    {{else if eq .StakesLevel "high"}}
+                        <span class="px-2 py-0.5 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center">
+                            <i class="fa-solid fa-triangle-exclamation mr-1 text-[9px]"></i> ALTO APALANCAMIENTO
+                        </span>
+                    {{else}}
+                        <span class="px-1.5 py-0.2 rounded font-medium bg-zinc-900 text-zinc-400 border border-zinc-800">
+                            MODERADO
+                        </span>
+                    {{end}}
+                </div>
+
+                <!-- Teams Probability Clash Bar -->
+                <div class="my-3 space-y-1.5">
+                    <div class="flex items-center justify-between text-xs">
+                        <!-- Away Team -->
+                        <div class="flex items-center space-x-2">
+                            <img src="{{.AwayLogoURL}}" alt="{{.AwayTeamCode}}" class="w-5 h-5 object-contain">
+                            <span class="font-bold text-white {{if .AwayIsFavorite}}text-cyan-300{{end}}">
+                                {{.AwayTeamCode}}
+                            </span>
+                            <span class="text-[11px] font-mono font-bold {{if .AwayIsFavorite}}text-emerald-400{{else}}text-zinc-400{{end}}">
+                                {{pctRound .AwayWinProb}}%
+                            </span>
+                        </div>
+
+                        <span class="text-[10px] font-mono text-zinc-600 font-bold">@</span>
+
+                        <!-- Home Team -->
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[11px] font-mono font-bold {{if .HomeIsFavorite}}text-emerald-400{{else}}text-zinc-400{{end}}">
+                                {{pctRound .HomeWinProb}}%
+                            </span>
+                            <span class="font-bold text-white {{if .HomeIsFavorite}}text-cyan-300{{end}}">
+                                {{.HomeTeamCode}}
+                            </span>
+                            <img src="{{.HomeLogoURL}}" alt="{{.HomeTeamCode}}" class="w-5 h-5 object-contain">
+                        </div>
+                    </div>
+
+                    <!-- Visual Split Bar -->
+                    <div class="w-full bg-zinc-900 h-2 rounded-full overflow-hidden flex border border-zinc-800">
+                        <div class="{{if .AwayIsFavorite}}bg-cyan-500{{else}}bg-zinc-600{{end}} h-full transition-all duration-300"
+                             style="width: {{pctRound .AwayWinProb}}%;"></div>
+                        <div class="{{if .HomeIsFavorite}}bg-emerald-500{{else}}bg-zinc-700{{end}} h-full transition-all duration-300"
+                             style="width: {{pctRound .HomeWinProb}}%;"></div>
+                    </div>
+                </div>
+
+                <!-- Stakes Details for both teams -->
+                <div class="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-900 text-[10px] font-mono">
+                    <!-- Away Team Stakes -->
+                    <div class="bg-zinc-900/60 p-2 rounded-lg border border-zinc-800/60">
+                        <div class="font-bold text-zinc-300 mb-1 flex items-center justify-between">
+                            <span>{{.AwayTeamCode}}</span>
+                            <span class="text-zinc-500 font-normal">Hoy: {{pctRound .AwayPlayoffCur}}%</span>
+                        </div>
+                        <div class="flex items-center justify-between text-[9px]">
+                            <span class="text-emerald-400">Si Gana: {{pctRound .AwayPlayoffWin}}%</span>
+                            <span class="text-rose-400">Si Pierde: {{pctRound .AwayPlayoffLoss}}%</span>
+                        </div>
+                    </div>
+
+                    <!-- Home Team Stakes -->
+                    <div class="bg-zinc-900/60 p-2 rounded-lg border border-zinc-800/60">
+                        <div class="font-bold text-zinc-300 mb-1 flex items-center justify-between">
+                            <span>{{.HomeTeamCode}}</span>
+                            <span class="text-zinc-500 font-normal">Hoy: {{pctRound .HomePlayoffCur}}%</span>
+                        </div>
+                        <div class="flex items-center justify-between text-[9px]">
+                            <span class="text-emerald-400">Si Gana: {{pctRound .HomePlayoffWin}}%</span>
+                            <span class="text-rose-400">Si Pierde: {{pctRound .HomePlayoffLoss}}%</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            {{end}}
+        </div>
+
+    </div>
+    {{end}}
+
+</div>

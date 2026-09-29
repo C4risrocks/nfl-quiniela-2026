@@ -177,7 +177,7 @@ func (h *TeamStatsHandler) parseSeasonParam(r *http.Request) int {
 func (h *TeamStatsHandler) parseViewParam(r *http.Request) string {
 	view := r.URL.Query().Get("view")
 	switch view {
-	case "conference", "league":
+	case "conference", "league", "power-rankings", "playoffs-fpi":
 		return view
 	default:
 		return "division"
@@ -276,20 +276,25 @@ func (h *TeamStatsHandler) getStandingsWithFallback(seasonYear int) *db.SeasonSt
 	// Enrich standings with Pythagorean wins, L5 form, one-score records and Playoff pictures
 	h.enrichStandingsWithAdvancedMetrics(standings, seasonYear)
 
+	// Enrich standings with ESPN Power Rankings and FPI Playoff Probabilities
+	h.enrichStandingsWithPowerRankingsAndFPI(standings, seasonYear)
+
 	return standings
 }
 
 type TeamDetailPayload struct {
-	Standing       *db.TeamStanding
-	Schedule       []*db.TeamScheduleItem
-	CommunityStats *db.TeamCommunityStats
-	CompletedGames int
-	UpcomingGames  int
-	HomeWins       int
-	HomeLosses     int
-	AwayWins       int
-	AwayLosses     int
-	HasPlayoffs    bool
+	Standing           *db.TeamStanding
+	Schedule           []*db.TeamScheduleItem
+	CommunityStats     *db.TeamCommunityStats
+	CompletedGames     int
+	UpcomingGames      int
+	HomeWins           int
+	HomeLosses         int
+	AwayWins           int
+	AwayLosses         int
+	HasPlayoffs        bool
+	PowerRanking       *db.TeamPowerRanking
+	PlayoffProbability *db.TeamPlayoffProbability
 }
 
 func (h *TeamStatsHandler) buildTeamDetailData(team *db.Team, seasonYear int) *TeamDetailPayload {
@@ -356,13 +361,31 @@ func (h *TeamStatsHandler) buildTeamDetailData(team *db.Team, seasonYear int) *T
 		commStats, _ = h.repo.GetTeamCommunityStats(team.ID, h.seasonYear)
 	}
 
+	var matchedRank *db.TeamPowerRanking
+	for _, pr := range standings.PowerRankings {
+		if pr.TeamCode == team.Code {
+			matchedRank = pr
+			break
+		}
+	}
+
+	var matchedProb *db.TeamPlayoffProbability
+	for _, p := range standings.PlayoffProbabilities {
+		if p.TeamCode == team.Code {
+			matchedProb = p
+			break
+		}
+	}
+
 	return &TeamDetailPayload{
-		Standing:       teamStanding,
-		Schedule:       schedule,
-		CommunityStats: commStats,
-		CompletedGames: completedCount,
-		UpcomingGames:  upcomingCount,
-		HasPlayoffs:    teamStanding.ConferenceSeed >= 1 && teamStanding.ConferenceSeed <= 7,
+		Standing:           teamStanding,
+		Schedule:           schedule,
+		CommunityStats:     commStats,
+		CompletedGames:     completedCount,
+		UpcomingGames:      upcomingCount,
+		HasPlayoffs:        teamStanding.ConferenceSeed >= 1 && teamStanding.ConferenceSeed <= 7,
+		PowerRanking:       matchedRank,
+		PlayoffProbability: matchedProb,
 	}
 }
 
@@ -643,5 +666,84 @@ func (h *TeamStatsHandler) buildTeamH2HComparison(teamCodeA, teamCodeB string, s
 		CommunityAdvantage: commAdv,
 		VerdictHeadline:    headline,
 		VerdictDetail:      detail,
+	}
+}
+
+func (h *TeamStatsHandler) enrichStandingsWithPowerRankingsAndFPI(standings *db.SeasonStandings, seasonYear int) {
+	if standings == nil || seasonYear != h.seasonYear {
+		return
+	}
+
+	teamMap := h.getTeamCodeMap()
+
+	// 1. Power Rankings
+	var rankings []*db.TeamPowerRanking
+	rankWeek := 0
+	if h.repo != nil {
+		rankWeek, rankings, _ = h.repo.GetLatestPowerRankings(seasonYear)
+	}
+	if len(rankings) == 0 && h.espnClient != nil {
+		rankings, _ = h.espnClient.FetchPowerRankings(seasonYear, 3, teamMap)
+		if len(rankings) > 0 && h.repo != nil {
+			_ = h.repo.SavePowerRankings(rankings)
+			rankWeek = 3
+		}
+	}
+
+	// 2. Playoff Probabilities & Matchup Impacts
+	var probs []*db.TeamPlayoffProbability
+	var matchupImpacts []*db.PlayoffMatchupImpact
+	fpiWeek := 0
+	if h.repo != nil {
+		fpiWeek, probs, _ = h.repo.GetLatestPlayoffProbabilities(seasonYear)
+	}
+	if len(probs) == 0 && h.espnClient != nil {
+		probs, matchupImpacts, _ = h.espnClient.FetchFPIPlayoffProbabilities(seasonYear, 4, teamMap)
+		if len(probs) > 0 && h.repo != nil {
+			_ = h.repo.SavePlayoffProbabilities(probs)
+			fpiWeek = 4
+		}
+	} else if len(probs) > 0 && h.espnClient != nil {
+		_, matchupImpacts, _ = h.espnClient.FetchFPIPlayoffProbabilities(seasonYear, fpiWeek, teamMap)
+	}
+
+	standings.PowerRankings = rankings
+	standings.LatestRankingsWeek = rankWeek
+	standings.PlayoffProbabilities = probs
+	standings.LatestFPIWeek = fpiWeek
+	standings.MatchupImpacts = matchupImpacts
+
+	// Build lookup maps
+	rankMap := make(map[string]*db.TeamPowerRanking, len(rankings))
+	for _, pr := range rankings {
+		rankMap[pr.TeamCode] = pr
+	}
+
+	probMap := make(map[string]*db.TeamPlayoffProbability, len(probs))
+	for _, p := range probs {
+		probMap[p.TeamCode] = p
+	}
+
+	enrichItem := func(ts *db.TeamStanding) {
+		if pr, ok := rankMap[ts.TeamCode]; ok {
+			ts.PowerRank = pr.Rank
+			ts.PowerRankPrev = pr.PreviousRank
+			ts.PowerRankChange = pr.RankChange
+			ts.PowerRankBlurb = pr.Analysis
+		}
+		if p, ok := probMap[ts.TeamCode]; ok {
+			ts.FPIPlayoffPct = p.MakePlayoffsPct
+			ts.FPIDivisionPct = p.ClinchDivisionPct
+			ts.FPIFirstSeedPct = p.ClinchFirstSeedPct
+			ts.FPIWildCardPct = p.WildCardPct
+			ts.FPIWinProjPct = p.WinProjPct
+			ts.FPIPlayoffWithWin = p.PlayoffPctWithWin
+			ts.FPIPlayoffWithLoss = p.PlayoffPctWithLoss
+			ts.FPINextOpponentCode = p.NextOpponentCode
+		}
+	}
+
+	for _, ts := range standings.League {
+		enrichItem(ts)
 	}
 }
