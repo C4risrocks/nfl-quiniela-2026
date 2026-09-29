@@ -1,0 +1,339 @@
+<!-- Picks Advisor Content Partial (Supports HTMX swaps on preset or week toggle) -->
+<div x-data="{
+        activePreset: '{{.Overview.ActivePresetID}}',
+        quadrantFilter: 'all',
+        confirmModalOpen: false,
+        matchesQuadrant(q) {
+            if (this.quadrantFilter === 'all') return true;
+            return this.quadrantFilter === q;
+        }
+     }"
+     class="space-y-6">
+
+    <!-- 1. Strategy Presets Selector Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+        {{range .Overview.AllPresets}}
+        <button type="button"
+                @click="
+                    activePreset = '{{.ID}}';
+                    htmx.ajax('GET', '/picks/advisor?week={{$.SelectedWeek.WeekNumber}}&preset={{.ID}}', {
+                        target: '#advisor-content-container',
+                        swap: 'innerHTML'
+                    })
+                "
+                class="vercel-card text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group {{if eq .ID $.Overview.ActivePresetID}}border-purple-500/80 bg-gradient-to-b from-purple-950/30 via-zinc-950 to-zinc-950 shadow-lg ring-1 ring-purple-500/40{{else}}border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 hover:bg-zinc-900/40{{end}}">
+            
+            {{if eq .ID $.Overview.ActivePresetID}}
+            <div class="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl -mr-8 -mt-8 pointer-events-none"></div>
+            {{end}}
+
+            <div class="flex items-center justify-between mb-2">
+                <span class="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-lg text-xs font-mono font-bold {{.BadgeColor}} border">
+                    <i class="{{.Icon}} text-xs mr-1"></i> {{.Name}}
+                </span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full {{.RiskBadgeClass}}">
+                    Riesgo {{.RiskLevel}}
+                </span>
+            </div>
+
+            <p class="text-xs text-zinc-300 leading-relaxed min-h-[36px]">
+                {{.Description}}
+            </p>
+
+            <div class="mt-3.5 pt-3 border-t border-zinc-800/80 flex items-center justify-between text-xs font-mono">
+                <div>
+                    <span class="text-[10px] text-zinc-500 block uppercase">Puntos Proyectados</span>
+                    <span class="text-sm font-black text-white">{{printf "%.1f" .ProjectedPoints}} pts</span>
+                </div>
+                <div class="text-right">
+                    <span class="text-[10px] text-zinc-500 block uppercase">Divergencia vs Masa</span>
+                    <span class="text-sm font-black {{if gt .DivergenceCount 0}}text-purple-400{{else}}text-zinc-400{{end}}">
+                        {{.DivergenceCount}} juegos
+                    </span>
+                </div>
+            </div>
+        </button>
+        {{end}}
+    </div>
+
+    <!-- 2. Active Strategy Overview & Action Bar -->
+    <div class="vercel-card p-5 sm:p-6 rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-950/20 via-zinc-900/60 to-indigo-950/20 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 shadow-sm">
+        
+        <div class="space-y-1.5">
+            <div class="flex items-center space-x-2">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 uppercase">
+                    Estrategia Activa: {{.Overview.ActivePreset.Name}}
+                </span>
+                <span class="text-xs font-mono text-zinc-400">Jornada {{.SelectedWeek.WeekNumber}}</span>
+            </div>
+            <div class="text-xs text-zinc-300 max-w-2xl leading-relaxed">
+                <i class="fa-solid fa-bullseye text-purple-400 mr-1.5"></i>
+                <span class="text-white font-semibold">Objetivo táctico:</span> {{.Overview.ActivePreset.TargetAudience}}
+            </div>
+            <div class="flex flex-wrap items-center gap-4 text-xs font-mono text-zinc-400 pt-1">
+                <span>
+                    <strong class="text-white">{{.Overview.TotalGames}}</strong> partidos totales
+                </span>
+                <span>·</span>
+                <span class="text-emerald-400">
+                    <strong class="text-white">{{.Overview.OpenGamesCount}}</strong> disponibles para pronosticar
+                </span>
+                {{if gt .Overview.LockedGamesCount 0}}
+                <span>·</span>
+                <span class="text-zinc-500">
+                    <strong>{{.Overview.LockedGamesCount}}</strong> bloqueados (Fair Play)
+                </span>
+                {{end}}
+                <span>·</span>
+                <span>
+                    Prob. Promedio: <strong class="text-white">{{.Overview.ActivePreset.AverageWinProb}}%</strong>
+                </span>
+            </div>
+        </div>
+
+        <!-- 1-Click Apply Action Button -->
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
+            {{if gt .Overview.OpenGamesCount 0}}
+            <button type="button"
+                    @click="confirmModalOpen = true"
+                    class="px-5 py-2.5 rounded-xl font-extrabold text-xs bg-white text-black hover:bg-zinc-200 transition-all shadow-md flex items-center justify-center space-x-2 cursor-pointer group">
+                <i class="fa-solid fa-bolt text-amber-500 group-hover:scale-110 transition-transform"></i>
+                <span>Aplicar a Mis Pronósticos</span>
+            </button>
+            {{else}}
+            <button disabled 
+                    class="px-5 py-2.5 rounded-xl font-bold text-xs bg-zinc-800 text-zinc-500 cursor-not-allowed flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-lock"></i>
+                <span>Jornada Bloqueada</span>
+            </button>
+            {{end}}
+        </div>
+
+    </div>
+
+    <!-- 3. Quadrant Filter Pills -->
+    <div class="flex items-center justify-between gap-3 overflow-x-auto no-scrollbar pb-1">
+        <div class="flex items-center space-x-1.5 shrink-0">
+            <span class="text-[11px] font-mono text-zinc-500 uppercase px-1 whitespace-nowrap shrink-0">Filtrar por Cuadrante:</span>
+            <button type="button"
+                    @click="quadrantFilter = 'all'"
+                    :class="quadrantFilter === 'all' ? 'bg-white text-black font-bold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-3 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer whitespace-nowrap">
+                Todos ({{.Overview.TotalGames}})
+            </button>
+            <button type="button"
+                    @click="quadrantFilter = 'anchor'"
+                    :class="quadrantFilter === 'anchor' ? 'bg-emerald-500 text-black font-bold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-3 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer whitespace-nowrap">
+                <i class="fa-solid fa-anchor mr-1 text-[10px]"></i> Anclas ({{.Overview.AnchorsCount}})
+            </button>
+            <button type="button"
+                    @click="quadrantFilter = 'value_gem'"
+                    :class="quadrantFilter === 'value_gem' ? 'bg-cyan-500 text-black font-bold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-3 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer whitespace-nowrap">
+                <i class="fa-solid fa-gem mr-1 text-[10px]"></i> Gemas +EV ({{.Overview.GemsCount}})
+            </button>
+            <button type="button"
+                    @click="quadrantFilter = 'upset_alert'"
+                    :class="quadrantFilter === 'upset_alert' ? 'bg-amber-500 text-black font-bold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-3 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer whitespace-nowrap">
+                <i class="fa-solid fa-triangle-exclamation mr-1 text-[10px]"></i> Sorpresas ({{.Overview.UpsetsCount}})
+            </button>
+            <button type="button"
+                    @click="quadrantFilter = 'coin_toss'"
+                    :class="quadrantFilter === 'coin_toss' ? 'bg-purple-500 text-white font-bold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                    class="px-3 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer whitespace-nowrap">
+                <i class="fa-solid fa-dice mr-1 text-[10px]"></i> Monedas al Aire ({{.Overview.CoinTossesCount}})
+            </button>
+        </div>
+    </div>
+
+    <!-- 4. Matchup Recommendations Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {{range .Overview.ActivePreset.Recommendations}}
+        <div x-show="matchesQuadrant('{{.Quadrant}}')"
+             class="vercel-card rounded-2xl border border-zinc-800 p-4 sm:p-5 bg-zinc-950/70 hover:border-zinc-700/80 transition-all flex flex-col justify-between space-y-4 shadow-sm">
+            
+            <!-- Matchup Header Bar -->
+            <div class="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase {{.QuadrantBadgeClass}}">
+                    {{.QuadrantLabel}}
+                </span>
+
+                <div class="flex items-center space-x-2">
+                    {{if .IsLocked}}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-800 text-zinc-400 flex items-center">
+                            <i class="fa-solid fa-lock text-[9px] mr-1"></i> Bloqueado
+                        </span>
+                    {{else}}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center">
+                            <i class="fa-solid fa-lock-open text-[9px] mr-1"></i> Abierto
+                        </span>
+                    {{end}}
+
+                    {{if .MatchesUserPick}}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" title="Tu quiniela ya tiene seleccionado este equipo">
+                            ✓ Tu Pick
+                        </span>
+                    {{else if .UserCurrentPickID}}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40" title="Tu pick actual difiere de esta sugerencia">
+                            ⟳ Difiere
+                        </span>
+                    {{else}}
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono text-zinc-500 bg-zinc-900 border border-zinc-800">
+                            Pendiente
+                        </span>
+                    {{end}}
+                </div>
+            </div>
+
+            <!-- Teams Faceoff & Selection Highlight -->
+            <div class="grid grid-cols-2 gap-3 items-center">
+                
+                <!-- Away Team -->
+                <div class="p-3 rounded-xl border transition-all {{if eq .RecommendedWinner.ID .Game.AwayTeam.ID}}border-purple-500/70 bg-purple-950/20 shadow-sm{{else}}border-zinc-800/80 bg-zinc-900/30{{end}}">
+                    <div class="flex items-center space-x-2.5">
+                        <img src="{{.Game.AwayTeam.LogoURL}}" alt="{{.Game.AwayTeam.Code}}" class="w-8 h-8 object-contain">
+                        <div class="min-w-0">
+                            <span class="text-xs font-bold text-white block truncate">{{.Game.AwayTeam.Name}}</span>
+                            <span class="text-[10px] font-mono text-zinc-400">@ {{.Game.AwayTeam.Code}}</span>
+                        </div>
+                    </div>
+
+                    <!-- Mini Stat row -->
+                    <div class="mt-2.5 pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[11px] font-mono">
+                        <span class="text-zinc-400">Prob: <strong class="text-white">{{if eq .RecommendedWinner.ID .Game.AwayTeam.ID}}{{.WinProbability}}{{else}}{{.OpponentWinProb}}{{end}}%</strong></span>
+                        <span class="text-zinc-500">Masa: {{if eq .RecommendedWinner.ID .Game.AwayTeam.ID}}{{.CommunityPickPct}}{{else}}{{.OpponentPickPct}}{{end}}%</span>
+                    </div>
+                </div>
+
+                <!-- Home Team -->
+                <div class="p-3 rounded-xl border transition-all {{if eq .RecommendedWinner.ID .Game.HomeTeam.ID}}border-purple-500/70 bg-purple-950/20 shadow-sm{{else}}border-zinc-800/80 bg-zinc-900/30{{end}}">
+                    <div class="flex items-center space-x-2.5">
+                        <img src="{{.Game.HomeTeam.LogoURL}}" alt="{{.Game.HomeTeam.Code}}" class="w-8 h-8 object-contain">
+                        <div class="min-w-0">
+                            <span class="text-xs font-bold text-white block truncate">{{.Game.HomeTeam.Name}}</span>
+                            <span class="text-[10px] font-mono text-zinc-400">vs {{.Game.HomeTeam.Code}}</span>
+                        </div>
+                    </div>
+
+                    <!-- Mini Stat row -->
+                    <div class="mt-2.5 pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[11px] font-mono">
+                        <span class="text-zinc-400">Prob: <strong class="text-white">{{if eq .RecommendedWinner.ID .Game.HomeTeam.ID}}{{.WinProbability}}{{else}}{{.OpponentWinProb}}{{end}}%</strong></span>
+                        <span class="text-zinc-500">Masa: {{if eq .RecommendedWinner.ID .Game.HomeTeam.ID}}{{.CommunityPickPct}}{{else}}{{.OpponentPickPct}}{{end}}%</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Dual Comparative Bar: AI Probability vs Community Consensus -->
+            <div class="space-y-1.5 bg-zinc-900/40 p-3 rounded-xl border border-zinc-800/60 text-[11px] font-mono">
+                <div class="flex justify-between text-zinc-400 text-[10px]">
+                    <span>{{.Game.AwayTeam.Code}}</span>
+                    <span class="uppercase text-zinc-500 font-semibold">Comparativa: IA vs Quiniela</span>
+                    <span>{{.Game.HomeTeam.Code}}</span>
+                </div>
+                
+                <!-- Win Prob Bar -->
+                <div class="space-y-0.5">
+                    <div class="flex justify-between text-[10px]">
+                        <span class="text-cyan-400 font-bold">IA: {{if eq .RecommendedWinner.ID .Game.AwayTeam.ID}}{{.WinProbability}}{{else}}{{.OpponentWinProb}}{{end}}%</span>
+                        <span class="text-cyan-400 font-bold">IA: {{if eq .RecommendedWinner.ID .Game.HomeTeam.ID}}{{.WinProbability}}{{else}}{{.OpponentWinProb}}{{end}}%</span>
+                    </div>
+                    <div class="flex h-1.5 rounded-full overflow-hidden bg-zinc-800">
+                        {{$awayP := (ternary (eq .RecommendedWinner.ID .Game.AwayTeam.ID) .WinProbability .OpponentWinProb)}}
+                        {{$homeP := (ternary (eq .RecommendedWinner.ID .Game.HomeTeam.ID) .WinProbability .OpponentWinProb)}}
+                        <div class="h-full bg-cyan-500" style="width: {{$awayP}}%;"></div>
+                        <div class="h-full bg-indigo-500" style="width: {{$homeP}}%;"></div>
+                    </div>
+                </div>
+
+                <!-- Community Bar -->
+                <div class="space-y-0.5 pt-1">
+                    <div class="flex justify-between text-[10px]">
+                        <span class="text-purple-400">Masa: {{if eq .RecommendedWinner.ID .Game.AwayTeam.ID}}{{.CommunityPickPct}}{{else}}{{.OpponentPickPct}}{{end}}%</span>
+                        <span class="text-purple-400">Masa: {{if eq .RecommendedWinner.ID .Game.HomeTeam.ID}}{{.CommunityPickPct}}{{else}}{{.OpponentPickPct}}{{end}}%</span>
+                    </div>
+                    <div class="flex h-1.5 rounded-full overflow-hidden bg-zinc-800">
+                        {{$awayC := (ternary (eq .RecommendedWinner.ID .Game.AwayTeam.ID) .CommunityPickPct .OpponentPickPct)}}
+                        {{$homeC := (ternary (eq .RecommendedWinner.ID .Game.HomeTeam.ID) .CommunityPickPct .OpponentPickPct)}}
+                        <div class="h-full bg-purple-500" style="width: {{$awayC}}%;"></div>
+                        <div class="h-full bg-pink-500" style="width: {{$homeC}}%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tactical Reasoning & Score Projection -->
+            <div class="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-1.5">
+                <div class="flex items-center justify-between text-xs">
+                    <span class="font-bold text-white flex items-center">
+                        <i class="fa-solid fa-lightbulb text-amber-400 mr-1.5 text-xs"></i>
+                        Pick Recomendado: {{.RecommendedWinner.Name}}
+                    </span>
+                    <span class="font-mono text-zinc-300 text-[11px] bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700/60">
+                        {{.RecommendedAwayScore}} - {{.RecommendedHomeScore}}
+                    </span>
+                </div>
+                <p class="text-xs text-zinc-400 leading-relaxed">
+                    {{.TacticalReasoning}}
+                </p>
+            </div>
+
+        </div>
+        {{end}}
+    </div>
+
+    <!-- 5. Confirmation Modal for 1-Click Apply -->
+    <div x-show="confirmModalOpen"
+         x-cloak
+         @keydown.escape.window="confirmModalOpen = false"
+         class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+        <div @click.outside="confirmModalOpen = false"
+             class="relative w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-4">
+            
+            <div class="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/40 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+
+            <div class="text-center space-y-1">
+                <h3 class="text-lg font-bold text-white">¿Aplicar Estrategia {{.Overview.ActivePreset.Name}}?</h3>
+                <p class="text-xs text-zinc-400 leading-relaxed">
+                    Esta acción guardará automáticamente los pronósticos y marcadores sugeridos en tus partidos abiertos de la Jornada {{.SelectedWeek.WeekNumber}}.
+                </p>
+            </div>
+
+            <div class="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800 text-xs font-mono text-zinc-300 space-y-1">
+                <div class="flex justify-between">
+                    <span class="text-zinc-500">Partidos a actualizar:</span>
+                    <span class="font-bold text-white">{{.Overview.OpenGamesCount}} juegos</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-zinc-500">Puntos proyectados:</span>
+                    <span class="font-bold text-emerald-400">{{printf "%.1f" .Overview.ActivePreset.ProjectedPoints}} pts</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-zinc-500">Divergencias con la masa:</span>
+                    <span class="font-bold text-purple-400">{{.Overview.ActivePreset.DivergenceCount}} picks</span>
+                </div>
+            </div>
+
+            <form action="/picks/advisor/apply" method="POST" class="flex items-center space-x-2 pt-2">
+                <input type="hidden" name="week_id" value="{{.SelectedWeek.ID}}">
+                <input type="hidden" name="preset" value="{{.Overview.ActivePresetID}}">
+                
+                <button type="button"
+                        @click="confirmModalOpen = false"
+                        class="w-1/2 py-2.5 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-xs font-semibold text-zinc-300 transition-colors cursor-pointer">
+                    Cancelar
+                </button>
+
+                <button type="submit"
+                        class="w-1/2 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold transition-colors cursor-pointer shadow-md">
+                    Confirmar y Guardar
+                </button>
+            </form>
+
+        </div>
+    </div>
+
+</div>

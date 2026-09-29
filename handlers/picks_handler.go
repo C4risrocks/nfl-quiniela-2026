@@ -12,12 +12,14 @@ import (
 	"nfl-quiniela-2026/db"
 	"nfl-quiniela-2026/services/auth"
 	"nfl-quiniela-2026/services/espn"
+	"nfl-quiniela-2026/services/forecasting"
 )
 
 type PicksHandler struct {
 	repo       *db.Repository
 	renderer   *Renderer
 	syncer     *espn.Syncer
+	advisor    *forecasting.AdvisorEngine
 	seasonYear int
 }
 
@@ -26,6 +28,7 @@ func NewPicksHandler(repo *db.Repository, renderer *Renderer, syncer *espn.Synce
 		repo:       repo,
 		renderer:   renderer,
 		syncer:     syncer,
+		advisor:    forecasting.NewAdvisorEngine(),
 		seasonYear: seasonYear,
 	}
 }
@@ -782,3 +785,208 @@ func (h *PicksHandler) PicksReadinessModal(w http.ResponseWriter, r *http.Reques
 		"ReadyPercent":    readyPercent,
 	})
 }
+
+// ShowPicksAdvisor displays the AI Picks Advisor & Risk Matrix dashboard for Beta Users
+func (h *PicksHandler) ShowPicksAdvisor(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromContext(r.Context())
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	// Feature flag access control (Exclusive to Beta Testers & Admins)
+	if !h.repo.IsFeatureAccessible("picks_advisor", user) {
+		h.renderer.RenderPage(w, "beta_locked.html", map[string]interface{}{
+			"ActiveNav":   "picks",
+			"User":        user,
+			"FeatureName": "Asistente Inteligente & Matriz de Riesgo",
+			"FeatureDesc": "Herramienta analítica de optimización de pronósticos basada en valor esperado (+EV), arbitraje frente al consenso de la comunidad y simulador de escenarios para maximizar tu puntaje en la quiniela.",
+		})
+		return
+	}
+
+	season, err := h.repo.GetActiveSeason(h.seasonYear)
+	if err != nil {
+		http.Error(w, "Season not found", http.StatusInternalServerError)
+		return
+	}
+
+	weeks, err := h.repo.ListWeeks(season.ID)
+	if err != nil || len(weeks) == 0 {
+		http.Error(w, "No weeks found", http.StatusNotFound)
+		return
+	}
+
+	selectedWeekNum := 1
+	if activeWeek, _ := h.repo.GetActiveWeek(season.ID); activeWeek != nil {
+		selectedWeekNum = activeWeek.WeekNumber
+	}
+	if weekParam := r.URL.Query().Get("week"); weekParam != "" {
+		if wNum, err := strconv.Atoi(weekParam); err == nil && wNum >= 1 && wNum <= len(weeks) {
+			selectedWeekNum = wNum
+		}
+	}
+
+	var selectedWeek *db.Week
+	for _, wk := range weeks {
+		if wk.WeekNumber == selectedWeekNum {
+			selectedWeek = wk
+			break
+		}
+	}
+	if selectedWeek == nil {
+		selectedWeek = weeks[0]
+	}
+
+	games, _ := h.repo.ListGamesByWeek(selectedWeek.ID)
+	if len(games) == 0 && h.syncer != nil {
+		if count, _ := h.syncer.SyncWeek(selectedWeek.WeekNumber); count > 0 {
+			games, _ = h.repo.ListGamesByWeek(selectedWeek.ID)
+		}
+	}
+
+	forecasts, _ := h.repo.GetWeekForecasts(selectedWeek.ID)
+	if forecasts == nil {
+		forecasts = make(map[int64]*db.GameForecast)
+	}
+
+	commStats := make(map[int64]*db.GameCommunityStats, len(games))
+	for _, g := range games {
+		if cs, _ := h.repo.GetGameCommunityStats(g.ID); cs != nil {
+			commStats[g.ID] = cs
+		}
+	}
+
+	userPicks, _ := h.repo.GetUserPicksForWeek(user.ID, selectedWeek.ID)
+	scoringCfg, _ := h.repo.GetScoringConfig()
+	firstKickoff := findFirstKickoff(games)
+	now := time.Now()
+
+	presetID := r.URL.Query().Get("preset")
+	if presetID == "" {
+		presetID = "balanced"
+	}
+
+	overview := h.advisor.BuildWeeklyAdvisor(
+		selectedWeek,
+		weeks,
+		games,
+		forecasts,
+		commStats,
+		userPicks,
+		scoringCfg,
+		presetID,
+		firstKickoff,
+		now,
+	)
+
+	featureFlags, _ := h.repo.GetFeatureFlagsMap()
+
+	data := map[string]interface{}{
+		"ActiveNav":    "picks",
+		"User":         user,
+		"Overview":     overview,
+		"SelectedWeek": selectedWeek,
+		"Weeks":        weeks,
+		"FeatureFlags": featureFlags,
+		"AppliedToast": r.URL.Query().Get("applied") == "1",
+	}
+
+	if r.Header.Get("HX-Request") == "true" && r.URL.Query().Get("full") != "1" {
+		h.renderer.RenderPartial(w, "picks_advisor_content.html", data)
+		return
+	}
+
+	h.renderer.RenderPage(w, "picks_advisor.html", data)
+}
+
+// ApplyAdvisorPicks saves the recommendations of a selected strategy to the user's unstarted picks
+func (h *PicksHandler) ApplyAdvisorPicks(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromContext(r.Context())
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if !h.repo.IsFeatureAccessible("picks_advisor", user) {
+		http.Error(w, "Feature restricted to Beta Testers", http.StatusForbidden)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	weekIDStr := r.FormValue("week_id")
+	weekID, err := strconv.ParseInt(weekIDStr, 10, 64)
+	if err != nil || weekID <= 0 {
+		http.Error(w, "Invalid week_id", http.StatusBadRequest)
+		return
+	}
+
+	week, err := h.repo.GetWeekByID(weekID)
+	if err != nil || week == nil {
+		http.Error(w, "Week not found", http.StatusNotFound)
+		return
+	}
+
+	presetID := r.FormValue("preset")
+	if presetID == "" {
+		presetID = "balanced"
+	}
+
+	games, _ := h.repo.ListGamesByWeek(week.ID)
+	forecasts, _ := h.repo.GetWeekForecasts(week.ID)
+	commStats := make(map[int64]*db.GameCommunityStats, len(games))
+	for _, g := range games {
+		if cs, _ := h.repo.GetGameCommunityStats(g.ID); cs != nil {
+			commStats[g.ID] = cs
+		}
+	}
+	userPicks, _ := h.repo.GetUserPicksForWeek(user.ID, week.ID)
+	scoringCfg, _ := h.repo.GetScoringConfig()
+	firstKickoff := findFirstKickoff(games)
+	now := time.Now()
+
+	overview := h.advisor.BuildWeeklyAdvisor(
+		week,
+		[]*db.Week{week},
+		games,
+		forecasts,
+		commStats,
+		userPicks,
+		scoringCfg,
+		presetID,
+		firstKickoff,
+		now,
+	)
+
+	appliedCount := 0
+	if overview != nil && overview.ActivePreset != nil {
+		for _, rec := range overview.ActivePreset.Recommendations {
+			// Fair play check: only save for games that are NOT locked
+			if rec.IsLocked || rec.Game == nil || rec.RecommendedWinner == nil {
+				continue
+			}
+
+			winnerID := rec.RecommendedWinner.ID
+			hScore := &rec.RecommendedHomeScore
+			aScore := &rec.RecommendedAwayScore
+
+			// Save pick in database
+			if _, err := h.repo.SavePick(user.ID, rec.Game.ID, &winnerID, hScore, aScore); err == nil {
+				appliedCount++
+			}
+		}
+	}
+
+	redirectURL := fmt.Sprintf("/picks/advisor?week=%d&preset=%s&applied=1&count=%d", week.WeekNumber, presetID, appliedCount)
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", redirectURL)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+

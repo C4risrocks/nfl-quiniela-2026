@@ -146,6 +146,12 @@ func (r *Renderer) FuncMap() template.FuncMap {
 			}
 			return false
 		},
+		"ternary": func(cond bool, a, b interface{}) interface{} {
+			if cond {
+				return a
+			}
+			return b
+		},
 		"hasFeatureAccess": func(u *db.User, flags map[string]*db.FeatureFlag, key string) bool {
 			if flags == nil {
 				return true

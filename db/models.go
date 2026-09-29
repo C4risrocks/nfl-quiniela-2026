@@ -1999,4 +1999,71 @@ type TeamCommunityStats struct {
 	PickWinRate    int     `json:"pick_win_rate"`
 }
 
+// ----------------------------------------------------
+// AI Picks Advisor & Risk Matrix Models
+// ----------------------------------------------------
+
+type TacticalQuadrant string
+
+const (
+	QuadrantAnchor   TacticalQuadrant = "anchor"     // Ancla de Seguridad (High prob, High consensus)
+	QuadrantValueGem TacticalQuadrant = "value_gem"  // Gema de Valor +EV (Viable prob, Low/Mid community pick)
+	QuadrantUpset    TacticalQuadrant = "upset_alert"// Alerta de Sorpresa (Viable underdog, Heavy favorite bias)
+	QuadrantCoinToss TacticalQuadrant = "coin_toss"  // Moneda al Aire (50-50 high variance)
+)
+
+type AdvisorMatchupRecommendation struct {
+	Game                 *Game               `json:"game"`
+	Forecast             *GameForecast       `json:"forecast"`
+	CommunityStats       *GameCommunityStats `json:"community_stats"`
+	RecommendedWinner    *Team               `json:"recommended_winner"`
+	RecommendedHomeScore int                 `json:"recommended_home_score"`
+	RecommendedAwayScore int                 `json:"recommended_away_score"`
+	WinProbability       int                 `json:"win_probability"` // 0-100%
+	OpponentWinProb      int                 `json:"opponent_win_prob"`
+	CommunityPickPct     int                 `json:"community_pick_pct"` // % on recommended team
+	OpponentPickPct      int                 `json:"opponent_pick_pct"`
+	ExpectedValueScore   float64             `json:"expected_value_score"`
+	ConfidenceScore      int                 `json:"confidence_score"` // 1-100
+	Quadrant             TacticalQuadrant    `json:"quadrant"`
+	QuadrantLabel        string              `json:"quadrant_label"`
+	QuadrantBadgeClass   string              `json:"quadrant_badge_class"`
+	TacticalHeadline     string              `json:"tactical_headline"`
+	TacticalReasoning    string              `json:"tactical_reasoning"`
+	UserCurrentPickID    *int64              `json:"user_current_pick_id"`
+	MatchesUserPick      bool                `json:"matches_user_pick"`
+	IsLocked             bool                `json:"is_locked"`
+}
+
+type AdvisorStrategyPreset struct {
+	ID              string                          `json:"id"` // "conservative", "balanced", "aggressive"
+	Name            string                          `json:"name"`
+	Icon            string                          `json:"icon"`
+	BadgeColor      string                          `json:"badge_color"`
+	Description     string                          `json:"description"`
+	TargetAudience  string                          `json:"target_audience"`
+	ProjectedPoints float64                         `json:"projected_points"`
+	DivergenceCount int                             `json:"divergence_count"`
+	AverageWinProb  int                             `json:"average_win_prob"`
+	RiskLevel       string                          `json:"risk_level"` // "Bajo", "Moderado", "Alto"
+	RiskBadgeClass  string                          `json:"risk_badge_class"`
+	Recommendations []*AdvisorMatchupRecommendation `json:"recommendations"`
+}
+
+type AdvisorWeeklyOverview struct {
+	Week             *Week                    `json:"week"`
+	Weeks            []*Week                  `json:"weeks"`
+	ActivePresetID   string                   `json:"active_preset_id"`
+	ActivePreset     *AdvisorStrategyPreset   `json:"active_preset"`
+	AllPresets       []*AdvisorStrategyPreset `json:"all_presets"`
+	TotalGames       int                      `json:"total_games"`
+	OpenGamesCount   int                      `json:"open_games_count"`
+	LockedGamesCount int                      `json:"locked_games_count"`
+	AnchorsCount     int                      `json:"anchors_count"`
+	GemsCount        int                      `json:"gems_count"`
+	UpsetsCount      int                      `json:"upsets_count"`
+	CoinTossesCount  int                      `json:"coin_tosses_count"`
+}
+
+
 

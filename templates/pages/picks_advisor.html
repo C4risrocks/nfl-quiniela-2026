@@ -1,0 +1,87 @@
+{{template "base.html" .}}
+
+{{define "title"}}Asistente Inteligente de Picks & Matriz de Riesgo - NFL Quiniela 2026{{end}}
+
+{{define "content"}}
+<div class="space-y-6 pb-24 md:pb-12">
+
+    <!-- Applied Notification Toast -->
+    {{if .AppliedToast}}
+    <div x-data="{ show: true }" 
+         x-show="show" 
+         x-init="setTimeout(() => show = false, 6000)"
+         class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 flex items-center justify-between shadow-lg animate-fade-in">
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-bolt text-sm"></i>
+            </div>
+            <div>
+                <p class="text-xs font-bold text-white">¡Estrategia aplicada con éxito!</p>
+                <p class="text-[11px] text-emerald-400/80">Se han actualizado los pronósticos y marcadores recomendados en tus partidos desbloqueados de la Jornada {{.SelectedWeek.WeekNumber}}.</p>
+            </div>
+        </div>
+        <button type="button" @click="show = false" class="text-emerald-400/60 hover:text-emerald-300 text-xs px-2 py-1">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+    {{end}}
+
+    <!-- Header Navigation & Title Card -->
+    <div class="vercel-card p-5 sm:p-6 rounded-3xl border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-purple-950/20 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            
+            <div class="space-y-1.5">
+                <div class="flex flex-wrap items-center gap-2">
+                    <a href="/picks?week={{.SelectedWeek.WeekNumber}}" 
+                       class="inline-flex items-center text-xs font-mono text-zinc-400 hover:text-white transition-colors">
+                        <i class="fa-solid fa-arrow-left mr-1.5 text-[10px]"></i> Mis Pronósticos
+                    </a>
+                    <span class="text-zinc-600">/</span>
+                    <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase tracking-wider">
+                        <i class="fa-solid fa-wand-magic-sparkles text-[9px] mr-1"></i> Beta Tester VIP
+                    </span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700/60">
+                        Jornada {{.SelectedWeek.WeekNumber}}
+                    </span>
+                </div>
+
+                <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center">
+                    Asistente de Picks & Matriz de Riesgo
+                </h1>
+
+                <p class="text-xs text-zinc-400 max-w-2xl leading-relaxed">
+                    Recomendaciones estadísticas basadas en Elo, simulaciones de valor esperado (+EV) y detección táctica de oportunidades frente al sesgo mayoritario de la quiniela.
+                </p>
+            </div>
+
+            <!-- Week Switcher & Action Toolbar -->
+            <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs font-mono text-zinc-400 uppercase tracking-wider">Jornada:</span>
+                    <select id="advisor-week-select" 
+                            onchange="window.location.href = '/picks/advisor?week=' + this.value + '&preset={{.Overview.ActivePresetID}}'"
+                            class="bg-zinc-900 border border-zinc-700/80 text-white text-xs font-semibold rounded-xl px-3 py-2 focus:ring-1 focus:ring-white focus:border-white transition-all shadow-inner">
+                        {{range .Weeks}}
+                            <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
+                                {{.Name}} {{if eq .Status "active"}}⚡{{end}}
+                            </option>
+                        {{end}}
+                    </select>
+                </div>
+
+                <a href="/picks?week={{.SelectedWeek.WeekNumber}}" 
+                   class="inline-flex items-center px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-zinc-500 text-white font-semibold text-xs transition-colors shadow-sm">
+                    <i class="fa-solid fa-football mr-1.5 text-zinc-400"></i> Ver Mis Picks
+                </a>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Main Advisor Dynamic Container (Target for HTMX Swaps) -->
+    <div id="advisor-content-container">
+        {{template "picks_advisor_content.html" .}}
+    </div>
+
+</div>
+{{end}}

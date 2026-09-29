@@ -282,6 +282,7 @@ func (d *DB) migrate() error {
 		{"community_picks", "Tendencias Comunitarias", "Porcentaje de selección comunitaria de cada equipo por partido.", "all", 0},
 		{"live_whatif", "Simulador What-If", "Simulador interactivo de escenarios y proyección de tabla de posiciones en tiempo real.", "all", 1},
 		{"ai_autofill", "Llenado Asistido por IA", "Autocompletar partidos y marcadores proyectados con un solo clic usando el modelo predictivo oficial.", "beta", 1},
+		{"picks_advisor", "Asistente Inteligente & Matriz de Riesgo", "Recomendador táctico de pronósticos basado en valor esperado (+EV), apalancamiento vs consenso de la comunidad y simulador de puntos.", "beta", 1},
 	}
 	for _, f := range seedFeatures {
 		query := `INSERT OR IGNORE INTO feature_flags (key, name, description, access_level, is_beta) VALUES (?, ?, ?, ?, ?)`

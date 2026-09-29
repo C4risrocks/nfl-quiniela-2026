@@ -248,6 +248,8 @@ func main() {
 		player.Post("/picks/save", picksHandler.SavePick)
 		player.Post("/picks/save-score", picksHandler.SaveScore)
 		player.Post("/picks/save-all", picksHandler.SaveAll)
+		player.Get("/picks/advisor", picksHandler.ShowPicksAdvisor)
+		player.Post("/picks/advisor/apply", picksHandler.ApplyAdvisorPicks)
 		player.Get("/picks/compare", picksHandler.ComparePicks)
 		player.Get("/picks/matrix", picksHandler.ShowPicksMatrix)
 		player.Get("/picks/readiness", picksHandler.PicksReadinessModal)

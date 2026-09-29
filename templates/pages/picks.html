@@ -269,6 +269,14 @@
                         <span class="ml-1.5 px-1 py-0.2 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase tracking-wider">Beta</span>
                     {{end}}
                 </a>
+                <a href="/picks/advisor?week={{.SelectedWeek.WeekNumber}}" 
+                    title="Asistente Inteligente de Picks y Matriz de Riesgo"
+                    class="inline-flex items-center px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-purple-500/50 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer shrink-0">
+                    <i class="fa-solid fa-wand-magic-sparkles mr-1 sm:mr-1.5 text-purple-400"></i> Asistente IA
+                    {{if isFeatureBeta .FeatureFlags "picks_advisor"}}
+                        <span class="ml-1.5 px-1 py-0.2 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase tracking-wider">Beta</span>
+                    {{end}}
+                </a>
                 {{if .Games}}
                     <button type="button" 
                             @click="summaryModalOpen = true"
