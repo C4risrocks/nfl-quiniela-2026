@@ -30,7 +30,7 @@ import (
 //go:embed templates/* templates/layouts/* templates/pages/* templates/partials/*
 var templatesFS embed.FS
 
-//go:embed static/* static/css/* static/js/*
+//go:embed static/* static/css/* static/js/* static/images/* static/icons/*
 var staticFS embed.FS
 
 func main() {
@@ -172,6 +172,17 @@ func main() {
 		log.Fatalf("Fatal: Failed to load static filesystem: %v", err)
 	}
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(subStaticFS))))
+
+	// Favicon and Robots.txt for Browsers and Search Engine Crawlers
+	r.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		http.ServeFileFS(w, r, subStaticFS, "favicon.ico")
+	})
+	r.Get("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		http.ServeFileFS(w, r, subStaticFS, "robots.txt")
+	})
 
 	// Uploaded User Media (/uploads/*)
 	avatarsDir := filepath.Join(cfg.UploadDir, "avatars")

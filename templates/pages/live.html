@@ -1,6 +1,32 @@
 {{template "base.html" .}}
 
-{{define "title"}}Game Center en Vivo - NFL Quiniela 2026{{end}}
+{{define "title"}}🔴 Game Center en Vivo - NFL Quiniela 2026{{end}}
+
+{{define "meta_description"}}Sigue los partidos de la NFL minuto a minuto en tiempo real: marcadores en vivo vía ESPN, probabilidades de victoria, líderes del partido y canales de transmisión en México.{{end}}
+
+{{define "og_title"}}🔴 NFL Game Center en Vivo | Marcadores & Probabilidades{{end}}
+
+{{define "og_description"}}Sigue la acción de la NFL en tiempo real: marcadores al instante vía ESPN, win probability en directo, líderes de yardas y guía de TV en México (Canal 5, ESPN, Fox Sports, ViX).{{end}}
+
+{{define "og_url"}}https://quiniela.cmoreno.org/live{{end}}
+{{define "canonical_url"}}https://quiniela.cmoreno.org/live{{end}}
+
+{{define "jsonld"}}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SportsEvent",
+  "name": "NFL 2026 Game Center en Vivo",
+  "sport": "American Football",
+  "url": "https://quiniela.cmoreno.org/live",
+  "description": "Marcadores y jugadas en vivo de la temporada regular NFL 2026",
+  "organizer": {
+    "@type": "SportsOrganization",
+    "name": "NFL"
+  }
+}
+</script>
+{{end}}
 
 {{define "content"}}
 <div class="space-y-6">

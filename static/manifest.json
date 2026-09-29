@@ -1,19 +1,38 @@
 {
   "name": "NFL Quiniela 2026",
-  "short_name": "Quiniela",
-  "description": "Plataforma de pronósticos deportivos NFL 2026 en tiempo real",
+  "short_name": "NFL Quiniela",
+  "description": "Plataforma oficial de pronósticos NFL 2026 en tiempo real con marcadores en vivo, Game Center y estadísticas ESPN.",
   "start_url": "/picks",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#000000",
   "theme_color": "#000000",
+  "lang": "es-MX",
+  "categories": ["sports", "games", "entertainment"],
   "icons": [
     {
       "src": "/static/icons/icon.svg",
       "sizes": "192x192 512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
     }
   ]
 }

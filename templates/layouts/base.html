@@ -5,33 +5,73 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{{block "title" .}}NFL Quiniela 2026{{end}}</title>
     
-    <!-- PWA & Mobile Capabilities -->
+    <!-- SEO & Indexing Meta Tags -->
+    <meta name="description" content="{{block "meta_description" .}}Compite en la quiniela oficial de la NFL 2026. Registra tus pronósticos, sigue marcadores en vivo vía ESPN y consulta opciones de transmisión en México.{{end}}">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+    <link rel="canonical" href="{{block "canonical_url" .}}https://quiniela.cmoreno.org{{end}}">
+
+    <!-- PWA, Mobile & Favicon Capabilities -->
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="NFL Quiniela">
     <link rel="manifest" href="/static/manifest.json">
-    <link rel="icon" type="image/svg+xml" href="/static/icons/icon.svg">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png">
     
-    <!-- Social Share & OpenGraph Meta Tags (WhatsApp, Telegram, Twitter, Facebook) -->
-    <meta name="description" content="NFL Quiniela 2026: Pronósticos semanales, marcadores en vivo vía ESPN y canales de transmisión en México (Canal 5, ESPN, Disney+, Fox Sports, ViX, Prime Video).">
-    <meta property="og:type" content="website">
+    <!-- Open Graph Meta Tags (WhatsApp, Facebook, LinkedIn, Telegram) -->
+    <meta property="og:type" content="{{block "og_type" .}}website{{end}}">
     <meta property="og:site_name" content="NFL Quiniela 2026">
-    <meta property="og:title" content="NFL Quiniela 2026 | Pronósticos y Game Center en Vivo">
-    <meta property="og:description" content="Compite en la quiniela oficial de la NFL 2026. Registra tus pronósticos, sigue marcadores en vivo y consulta las opciones de transmisión en México.">
-    <meta property="og:image" content="https://quiniela.cmoreno.org/static/images/og-preview.png">
-    <meta property="og:image:secure_url" content="https://quiniela.cmoreno.org/static/images/og-preview.png">
-    <meta property="og:image:type" content="image/png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="NFL Quiniela 2026">
-    <meta property="og:url" content="https://quiniela.cmoreno.org">
+    <meta property="og:locale" content="es_MX">
+    <meta property="og:locale:alternate" content="es_LA">
+    <meta property="og:title" content="{{block "og_title" .}}🏈 NFL Quiniela 2026 | Pronósticos y Game Center en Vivo{{end}}">
+    <meta property="og:description" content="{{block "og_description" .}}Pronósticos semanales, marcadores minuto a minuto vía ESPN, canales de TV en México y estadísticas avanzadas de los 32 equipos.{{end}}">
+    <meta property="og:url" content="{{block "og_url" .}}https://quiniela.cmoreno.org{{end}}">
+    <meta property="og:image" content="{{block "og_image" .}}https://quiniela.cmoreno.org/static/images/og-preview.jpg{{end}}">
+    <meta property="og:image:secure_url" content="{{template "og_image" .}}">
+    <meta property="og:image:type" content="{{block "og_image_type" .}}image/jpeg{{end}}">
+    <meta property="og:image:width" content="{{block "og_image_width" .}}1200{{end}}">
+    <meta property="og:image:height" content="{{block "og_image_height" .}}630{{end}}">
+    <meta property="og:image:alt" content="{{block "og_image_alt" .}}NFL Quiniela 2026 - Pronósticos y Game Center en Vivo{{end}}">
+    <link rel="image_src" href="{{template "og_image" .}}">
 
-    <!-- Twitter Card Tags -->
+    <!-- Secondary Square Open Graph for WhatsApp Chat List Previews -->
+    <meta property="og:image" content="https://quiniela.cmoreno.org/static/images/og-preview-square.jpg">
+    <meta property="og:image:secure_url" content="https://quiniela.cmoreno.org/static/images/og-preview-square.jpg">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="600">
+    <meta property="og:image:height" content="600">
+
+    <!-- Twitter / X Card Tags -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="NFL Quiniela 2026 | Pronósticos y Game Center en Vivo">
-    <meta name="twitter:description" content="Compite en la quiniela oficial de la NFL 2026. Registra tus pronósticos, sigue marcadores en vivo y consulta las opciones de transmisión en México.">
-    <meta name="twitter:image" content="https://quiniela.cmoreno.org/static/images/og-preview.png">
+    <meta name="twitter:title" content="{{template "og_title" .}}">
+    <meta name="twitter:description" content="{{template "og_description" .}}">
+    <meta name="twitter:image" content="{{template "og_image" .}}">
+
+    <!-- Schema.org JSON-LD (Google Search & Discover) -->
+    {{block "jsonld" .}}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "NFL Quiniela 2026",
+      "alternateName": "Quiniela NFL",
+      "url": "https://quiniela.cmoreno.org",
+      "applicationCategory": "SportsApplication",
+      "operatingSystem": "All",
+      "inLanguage": "es-MX",
+      "description": "Plataforma de pronósticos de la NFL 2026 en tiempo real con marcadores en vivo vía ESPN, canales de transmisión en México y estadísticas avanzadas.",
+      "image": "https://quiniela.cmoreno.org/static/images/og-preview.jpg",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+    {{end}}
     
     <!-- Geist Font CDN -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -1,6 +1,36 @@
 {{template "base.html" .}}
 
-{{define "title"}}{{.Team.City}} {{.Team.Name}} - Estadísticas NFL {{.SelectedSeason}}{{end}}
+{{define "title"}}{{.Team.City}} {{.Team.Name}} ({{.Detail.Standing.Wins}}-{{.Detail.Standing.Losses}}) - Estadísticas NFL {{.SelectedSeason}}{{end}}
+
+{{define "meta_description"}}Estadísticas oficiales, Power Ranking{{if .Detail.PowerRanking}} #{{.Detail.PowerRanking.Rank}}{{end}}, proyecciones de playoffs FPI y calendario de los {{.Team.City}} {{.Team.Name}} ({{.Detail.Standing.Wins}}-{{.Detail.Standing.Losses}}) en la temporada {{.SelectedSeason}}.{{end}}
+
+{{define "og_title"}}🏈 {{.Team.City}} {{.Team.Name}} ({{.Detail.Standing.Wins}}-{{.Detail.Standing.Losses}}) | NFL Quiniela 2026{{end}}
+
+{{define "og_description"}}Ficha técnica completa de los {{.Team.Name}}: Power Ranking ESPN{{if .Detail.PowerRanking}} #{{.Detail.PowerRanking.Rank}}{{end}}, proyecciones de playoffs FPI, desglose de récord y calendario oficial.{{end}}
+
+{{define "og_image"}}{{if .Team.LogoURL}}{{.Team.LogoURL}}{{else}}https://quiniela.cmoreno.org/static/images/og-preview.jpg{{end}}{{end}}
+{{define "og_image_type"}}image/png{{end}}
+{{define "og_image_width"}}500{{end}}
+{{define "og_image_height"}}500{{end}}
+{{define "og_url"}}https://quiniela.cmoreno.org/teams/{{.Team.Code}}?season={{.SelectedSeason}}{{end}}
+{{define "canonical_url"}}https://quiniela.cmoreno.org/teams/{{.Team.Code}}{{end}}
+
+{{define "jsonld"}}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SportsTeam",
+  "name": "{{.Team.City}} {{.Team.Name}}",
+  "sport": "American Football",
+  "logo": "{{.Team.LogoURL}}",
+  "memberOf": {
+    "@type": "SportsOrganization",
+    "name": "NFL {{.Team.Conference}} {{.Team.Division}}"
+  },
+  "url": "https://quiniela.cmoreno.org/teams/{{.Team.Code}}"
+}
+</script>
+{{end}}
 
 {{define "content"}}
 <div class="space-y-6">

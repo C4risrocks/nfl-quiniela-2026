@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Allow: /teams
+Allow: /leaderboard
+Allow: /live
+Allow: /rules
+Disallow: /admin
+Disallow: /admin/
+Disallow: /profile
+Disallow: /notifications
+
+Sitemap: https://quiniela.cmoreno.org/sitemap.xml
