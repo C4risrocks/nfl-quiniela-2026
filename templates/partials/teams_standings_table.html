@@ -724,6 +724,12 @@
     <!-- ============================================== -->
     {{template "teams_fpi_playoffs.html" .}}
 
+{{else if eq .SelectedView "injuries"}}
+    <!-- ============================================== -->
+    <!-- VIEW 6: NFL INJURIES REPORT & LEAGUE RADAR     -->
+    <!-- ============================================== -->
+    {{template "teams_injuries.html" .}}
+
 {{else}}
     <!-- ========================================== -->
     <!-- VIEW 3: FULL LEAGUE TABLE (32 TEAMS)       -->

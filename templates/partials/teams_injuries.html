@@ -1,0 +1,202 @@
+<!-- NFL League Injuries Report Partial -->
+<div class="space-y-6" x-data="{
+    statusFilter: 'all',
+    posFilter: 'all',
+    matchesInjury(inj) {
+        // Status filter
+        if (this.statusFilter !== 'all') {
+            if (this.statusFilter === 'out' && inj.status !== 'Out') return false;
+            if (this.statusFilter === 'ques' && inj.status !== 'Questionable') return false;
+            if (this.statusFilter === 'ir' && inj.status !== 'Injured Reserve') return false;
+            if (this.statusFilter === 'doubt' && inj.status !== 'Doubtful') return false;
+        }
+
+        // Position filter
+        if (this.posFilter !== 'all') {
+            if (this.posFilter === 'qb' && inj.position !== 'QB') return false;
+            if (this.posFilter === 'skill' && !['WR', 'RB', 'TE'].includes(inj.position)) return false;
+            if (this.posFilter === 'line' && !['T', 'G', 'C', 'OT', 'OG', 'DE', 'DT', 'DL', 'OL'].includes(inj.position)) return false;
+            if (this.posFilter === 'def' && !['CB', 'S', 'FS', 'SS', 'LB', 'ILB', 'OLB', 'MLB'].includes(inj.position)) return false;
+        }
+
+        // Global search filter
+        if (this.searchQuery && this.searchQuery.trim() !== '') {
+            const q = this.searchQuery.toLowerCase().trim();
+            const name = (inj.name || '').toLowerCase();
+            const team = (inj.team || '').toLowerCase();
+            const pos = (inj.position || '').toLowerCase();
+            const comment = (inj.comment || '').toLowerCase();
+            if (!name.includes(q) && !team.includes(q) && !pos.includes(q) && !comment.includes(q)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}">
+
+    <!-- Hero Banner for Injuries -->
+    <div class="vercel-card rounded-2xl border border-rose-500/30 bg-gradient-to-br from-rose-950/20 via-zinc-950/80 to-zinc-950 p-5 sm:p-6 shadow-sm">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+                <div class="flex items-center space-x-2 mb-2">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                        <i class="fa-solid fa-hospital mr-1.5 text-rose-400"></i> ESPN Official Injury Report · Temporada {{.SelectedSeason}}
+                    </span>
+                    <span class="text-[10px] font-mono text-zinc-400">Monitor Médico de 32 Franquicias</span>
+                </div>
+                <h2 class="text-lg sm:text-xl font-black text-white tracking-tight flex items-center">
+                    <i class="fa-solid fa-user-injured mr-2.5 text-rose-400"></i> Radar de Lesiones & Bajas de la NFL
+                </h2>
+                <p class="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
+                    Estado oficial de jugadores reportados en las listas de inactivos, lesionados de gravedad y reservas. Conoce quiénes juegan y quiénes están en duda antes de guardar tus pronósticos.
+                </p>
+            </div>
+
+            <!-- Status Quick Legend / Counters -->
+            <div class="flex flex-wrap items-center gap-2 bg-zinc-900/80 p-3 rounded-xl border border-zinc-800 text-[10.5px] font-mono shrink-0">
+                <span class="text-zinc-500 mr-1 uppercase">Estado:</span>
+                <button type="button" 
+                        @click="statusFilter = (statusFilter === 'out' ? 'all' : 'out')"
+                        :class="statusFilter === 'out' ? 'bg-rose-500 text-white font-bold' : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'"
+                        class="px-2 py-0.5 rounded transition-colors cursor-pointer">
+                    🔴 Fuera (Out)
+                </button>
+                <button type="button" 
+                        @click="statusFilter = (statusFilter === 'ques' ? 'all' : 'ques')"
+                        :class="statusFilter === 'ques' ? 'bg-amber-500 text-black font-bold' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'"
+                        class="px-2 py-0.5 rounded transition-colors cursor-pointer">
+                    🟡 Cuestionable
+                </button>
+                <button type="button" 
+                        @click="statusFilter = (statusFilter === 'ir' ? 'all' : 'ir')"
+                        :class="statusFilter === 'ir' ? 'bg-purple-500 text-white font-bold' : 'bg-purple-500/15 text-purple-300 border border-purple-500/30'"
+                        class="px-2 py-0.5 rounded transition-colors cursor-pointer">
+                    🟣 Reserva IR
+                </button>
+                <button type="button" 
+                        @click="statusFilter = (statusFilter === 'doubt' ? 'all' : 'doubt')"
+                        :class="statusFilter === 'doubt' ? 'bg-orange-500 text-white font-bold' : 'bg-orange-500/15 text-orange-400 border border-orange-500/30'"
+                        class="px-2 py-0.5 rounded transition-colors cursor-pointer">
+                    🟠 Dudoso
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Pills by Position Group -->
+    <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-1">
+        <span class="text-[11px] font-mono uppercase text-zinc-500 px-2 shrink-0">Posición:</span>
+        <button type="button" @click="posFilter = 'all'"
+                :class="posFilter === 'all' ? 'bg-zinc-800 text-white font-bold' : 'text-zinc-400 hover:text-white bg-zinc-950 border border-zinc-800'"
+                class="px-3 py-1 rounded-lg text-xs font-mono transition-colors cursor-pointer shrink-0">
+            Todas
+        </button>
+        <button type="button" @click="posFilter = 'qb'"
+                :class="posFilter === 'qb' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold' : 'text-zinc-400 hover:text-white bg-zinc-950 border border-zinc-800'"
+                class="px-3 py-1 rounded-lg text-xs font-mono transition-colors cursor-pointer shrink-0">
+            🎯 Quarterbacks (QB)
+        </button>
+        <button type="button" @click="posFilter = 'skill'"
+                :class="posFilter === 'skill' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold' : 'text-zinc-400 hover:text-white bg-zinc-950 border border-zinc-800'"
+                class="px-3 py-1 rounded-lg text-xs font-mono transition-colors cursor-pointer shrink-0">
+            🏃 Habilidad (WR, RB, TE)
+        </button>
+        <button type="button" @click="posFilter = 'line'"
+                :class="posFilter === 'line' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold' : 'text-zinc-400 hover:text-white bg-zinc-950 border border-zinc-800'"
+                class="px-3 py-1 rounded-lg text-xs font-mono transition-colors cursor-pointer shrink-0">
+            🛡️ Línea (OL / DL)
+        </button>
+        <button type="button" @click="posFilter = 'def'"
+                :class="posFilter === 'def' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold' : 'text-zinc-400 hover:text-white bg-zinc-950 border border-zinc-800'"
+                class="px-3 py-1 rounded-lg text-xs font-mono transition-colors cursor-pointer shrink-0">
+            🔒 Secundaria & LB
+        </button>
+    </div>
+
+    <!-- Injury Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        {{range .Standings.AllInjuries}}
+        <div x-show="matchesInjury({ name: '{{.AthleteName}}', team: '{{.TeamCode}}', position: '{{.Position}}', status: '{{.Status}}', comment: '{{.Comment}}' })"
+             class="vercel-card rounded-2xl border border-zinc-800 hover:border-zinc-700 p-4 bg-zinc-950/70 hover:bg-zinc-950 transition-all flex flex-col justify-between group">
+            
+            <div>
+                <!-- Top Row: Team + Status Badge -->
+                <div class="flex items-center justify-between pb-3 border-b border-zinc-900">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold font-mono text-xs text-white">
+                            {{.TeamCode}}
+                        </span>
+                        <span class="text-xs font-mono font-bold text-zinc-400">{{.Position}}</span>
+                        {{if .Jersey}}
+                            <span class="text-[10px] font-mono text-zinc-500">#{{.Jersey}}</span>
+                        {{end}}
+                    </div>
+
+                    <!-- Severity Badge -->
+                    {{if eq .Status "Out"}}
+                        <span class="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                            🔴 FUERA (OUT)
+                        </span>
+                    {{else if eq .Status "Questionable"}}
+                        <span class="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            🟡 CUESTIONABLE
+                        </span>
+                    {{else if eq .Status "Injured Reserve"}}
+                        <span class="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                            🟣 RESERVA IR
+                        </span>
+                    {{else if eq .Status "Doubtful"}}
+                        <span class="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-orange-500/20 text-orange-400 border border-orange-500/40">
+                            🟠 DUDOSO
+                        </span>
+                    {{else}}
+                        <span class="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-zinc-800 text-zinc-300">
+                            {{.Status}}
+                        </span>
+                    {{end}}
+                </div>
+
+                <!-- Player Info Row -->
+                <div class="flex items-center space-x-3.5 my-3">
+                    <div class="w-11 h-11 rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+                        {{if .HeadshotURL}}
+                            <img src="{{.HeadshotURL}}" alt="{{.AthleteName}}" class="w-full h-full object-cover">
+                        {{else}}
+                            <i class="fa-solid fa-user text-zinc-600 text-sm"></i>
+                        {{end}}
+                    </div>
+                    <div class="min-w-0">
+                        <h4 class="text-sm font-bold text-white truncate group-hover:text-amber-300 transition-colors">
+                            {{.AthleteName}}
+                        </h4>
+                        <p class="text-[11px] text-zinc-400 leading-snug line-clamp-2 mt-0.5 italic">
+                            "{{if .Comment}}{{.Comment}}{{else}}Reporte médico en evaluación continua.{{end}}"
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer: Quick Modal Action & Date -->
+            <div class="pt-2 border-t border-zinc-900/80 flex items-center justify-between text-[10px] font-mono text-zinc-500">
+                <span>{{if .InjuryDate}}{{.InjuryDate}}{{else}}ESPN NFL Official{{end}}</span>
+                <button type="button"
+                        hx-get="/teams/{{.TeamCode}}/modal?season={{$.SelectedSeason}}"
+                        hx-target="#team-modal-container"
+                        hx-swap="innerHTML"
+                        class="text-zinc-400 hover:text-white inline-flex items-center space-x-1 cursor-pointer">
+                    <span>Ver Franquicia</span>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                </button>
+            </div>
+
+        </div>
+        {{else}}
+        <div class="col-span-full vercel-card rounded-2xl p-8 text-center text-zinc-500 text-xs">
+            <i class="fa-solid fa-notes-medical text-2xl text-zinc-600 mb-2 block"></i>
+            No se encontraron jugadores reportados con lesiones para los filtros seleccionados.
+        </div>
+        {{end}}
+    </div>
+
+</div>

@@ -325,6 +325,271 @@
     </div>
     {{end}}
 
+    <!-- Official Depth Chart Section (Ofensiva / Defensiva / Equipos Especiales) -->
+    {{if .Detail.DepthChart}}
+    <div class="vercel-card rounded-3xl border border-zinc-800 overflow-hidden bg-zinc-950/60 shadow-sm"
+         x-data="{ activeUnit: 'Ofensiva' }">
+        
+        <!-- Header & Unit Tabs -->
+        <div class="px-6 py-4 bg-zinc-900 border-b border-zinc-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+                <h2 class="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center">
+                    <i class="fa-solid fa-users-gear mr-2 text-cyan-400"></i> Alineación Oficial & Depth Chart — {{.Team.Name}}
+                </h2>
+                <p class="text-xs text-zinc-400 mt-0.5">
+                    Profundidad de plantilla oficial de ESPN con estado físico y alertas de lesión para titulares.
+                </p>
+            </div>
+
+            <!-- Unit Tab Pills -->
+            <div class="flex items-center space-x-1.5 bg-zinc-950 p-1 rounded-xl border border-zinc-800 shrink-0 self-start sm:self-auto overflow-x-auto no-scrollbar max-w-full">
+                {{range .Detail.DepthChart}}
+                    <button type="button"
+                            @click="activeUnit = '{{.GroupName}}'"
+                            :class="activeUnit === '{{.GroupName}}' ? 'bg-white text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                            class="px-3 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer shrink-0">
+                        {{.GroupName}}
+                    </button>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Formation Content Panels -->
+        <div class="p-5 sm:p-6">
+            {{range .Detail.DepthChart}}
+            <div x-show="activeUnit === '{{.GroupName}}'" x-cloak class="space-y-4">
+                
+                <div class="flex items-center justify-between text-xs font-mono text-zinc-400 pb-2 border-b border-zinc-900">
+                    <span class="uppercase tracking-wider">Unidad: <strong class="text-white">{{.GroupName}}</strong></span>
+                    <span>{{len .Positions}} Posiciones registradas</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                    {{range .Positions}}
+                    <div class="vercel-card rounded-2xl border border-zinc-800/80 bg-zinc-900/50 p-3.5 flex flex-col justify-between hover:border-zinc-700 transition-all">
+                        
+                        <!-- Position Header -->
+                        <div class="flex items-center justify-between pb-2.5 border-b border-zinc-800/70">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-0.5 rounded font-mono font-bold text-xs bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                    {{.PositionCode}}
+                                </span>
+                                <span class="text-xs font-bold text-zinc-200">{{.PositionName}}</span>
+                            </div>
+                            <span class="text-[10px] font-mono text-zinc-500">
+                                {{len .Starters}} Titular{{if gt (len .Starters) 1}}es{{end}}
+                            </span>
+                        </div>
+
+                        <!-- Starters (Rank 1) -->
+                        <div class="py-2.5 space-y-2">
+                            {{range .Starters}}
+                            <div class="flex items-center space-x-2.5 p-2 rounded-xl bg-zinc-950/80 border border-zinc-800/80">
+                                <div class="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+                                    {{if .HeadshotURL}}
+                                        <img src="{{.HeadshotURL}}" alt="{{.AthleteName}}" class="w-full h-full object-cover">
+                                    {{else}}
+                                        <i class="fa-solid fa-user text-zinc-600 text-xs"></i>
+                                    {{end}}
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center space-x-1.5">
+                                        <span class="text-xs font-bold text-white truncate">{{.AthleteName}}</span>
+                                        {{if .Jersey}}
+                                            <span class="text-[10px] font-mono text-zinc-400">#{{.Jersey}}</span>
+                                        {{end}}
+                                    </div>
+                                    <div class="flex items-center space-x-1.5 mt-0.5">
+                                        <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                            ⭐ Titular
+                                        </span>
+                                        {{if .InjuryStatus}}
+                                            {{if eq .InjuryStatus.Status "Out"}}
+                                                <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40" title="{{.InjuryStatus.Comment}}">
+                                                    🔴 OUT
+                                                </span>
+                                            {{else if eq .InjuryStatus.Status "Questionable"}}
+                                                <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40" title="{{.InjuryStatus.Comment}}">
+                                                    🟡 QUES
+                                                </span>
+                                            {{else if eq .InjuryStatus.Status "Injured Reserve"}}
+                                                <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40" title="{{.InjuryStatus.Comment}}">
+                                                    🟣 IR
+                                                </span>
+                                            {{else if eq .InjuryStatus.Status "Doubtful"}}
+                                                <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-orange-500/20 text-orange-400 border border-orange-500/40" title="{{.InjuryStatus.Comment}}">
+                                                    🟠 DUD
+                                                </span>
+                                            {{else}}
+                                                <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-zinc-800 text-zinc-300">
+                                                    {{.InjuryStatus.Status}}
+                                                </span>
+                                            {{end}}
+                                        {{end}}
+                                    </div>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+
+                        <!-- Backups (Rank 2+) -->
+                        {{if .Backups}}
+                        <div class="pt-2 border-t border-zinc-800/60">
+                            <span class="text-[9.5px] font-mono text-zinc-500 block uppercase mb-1">Suplentes:</span>
+                            <div class="space-y-1">
+                                {{range .Backups}}
+                                <div class="flex items-center justify-between text-[11px] font-mono py-0.5 px-1.5 rounded hover:bg-zinc-800/40 transition-colors">
+                                    <div class="flex items-center space-x-1.5 truncate">
+                                        <span class="text-zinc-500 text-[10px]">#{{.DepthRank}}</span>
+                                        <span class="text-zinc-300 truncate">{{.AthleteName}}</span>
+                                        {{if .Jersey}}<span class="text-zinc-600 text-[10px]">({{.Jersey}})</span>{{end}}
+                                    </div>
+                                    {{if .InjuryStatus}}
+                                        {{if eq .InjuryStatus.Status "Out"}}
+                                            <span class="text-[9px] text-rose-400 font-bold shrink-0">🔴 Out</span>
+                                        {{else if eq .InjuryStatus.Status "Questionable"}}
+                                            <span class="text-[9px] text-amber-400 font-bold shrink-0">🟡 Ques</span>
+                                        {{else if eq .InjuryStatus.Status "Injured Reserve"}}
+                                            <span class="text-[9px] text-purple-400 font-bold shrink-0">🟣 IR</span>
+                                        {{else if eq .InjuryStatus.Status "Doubtful"}}
+                                            <span class="text-[9px] text-orange-400 font-bold shrink-0">🟠 Doubt</span>
+                                        {{end}}
+                                    {{end}}
+                                </div>
+                                {{end}}
+                            </div>
+                        </div>
+                        {{end}}
+
+                    </div>
+                    {{end}}
+                </div>
+
+            </div>
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+
+    <!-- Official Franchise Injuries Report -->
+    <div class="vercel-card rounded-3xl border border-zinc-800 overflow-hidden bg-zinc-950/60 shadow-sm">
+        
+        <div class="px-6 py-4 bg-zinc-900 border-b border-zinc-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+                <h2 class="text-sm font-bold text-white uppercase tracking-wider font-mono flex items-center">
+                    <i class="fa-solid fa-hospital-user mr-2 text-rose-400"></i> Reporte Oficial de Lesiones & Bajas
+                </h2>
+                <p class="text-xs text-zinc-400 mt-0.5">
+                    Estado físico actualizado de jugadores notificados a la liga (ESPN NFL).
+                </p>
+            </div>
+
+            <!-- Severity Counters Strip -->
+            <div class="flex flex-wrap items-center gap-1.5 text-xs font-mono">
+                {{if gt .Detail.InjuryCounts.Out 0}}
+                    <span class="px-2 py-0.5 rounded font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                        🔴 {{.Detail.InjuryCounts.Out}} Out
+                    </span>
+                {{end}}
+                {{if gt .Detail.InjuryCounts.Doubtful 0}}
+                    <span class="px-2 py-0.5 rounded font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                        🟠 {{.Detail.InjuryCounts.Doubtful}} Duda
+                    </span>
+                {{end}}
+                {{if gt .Detail.InjuryCounts.Questionable 0}}
+                    <span class="px-2 py-0.5 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        🟡 {{.Detail.InjuryCounts.Questionable}} Cuestionable
+                    </span>
+                {{end}}
+                {{if gt .Detail.InjuryCounts.IR 0}}
+                    <span class="px-2 py-0.5 rounded font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                        🟣 {{.Detail.InjuryCounts.IR}} IR
+                    </span>
+                {{end}}
+                {{if eq .Detail.InjuryCounts.Total 0}}
+                    <span class="px-2.5 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        🟢 Plantilla sin bajas reportadas
+                    </span>
+                {{end}}
+            </div>
+        </div>
+
+        {{if .Detail.Injuries}}
+            <div class="p-5 sm:p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {{range .Detail.Injuries}}
+                <div class="vercel-card rounded-2xl border border-zinc-800 hover:border-zinc-700 p-4 bg-zinc-900/50 hover:bg-zinc-900/80 transition-all flex flex-col justify-between group">
+                    <div>
+                        <!-- Header: Position + Status -->
+                        <div class="flex items-center justify-between pb-2.5 border-b border-zinc-800/80">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-0.5 rounded font-mono font-bold text-xs bg-zinc-800 text-zinc-300 border border-zinc-700">
+                                    {{.Position}}
+                                </span>
+                                {{if .Jersey}}
+                                    <span class="text-xs font-mono text-zinc-500">#{{.Jersey}}</span>
+                                {{end}}
+                            </div>
+
+                            {{if eq .Status "Out"}}
+                                <span class="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                                    🔴 FUERA (OUT)
+                                </span>
+                            {{else if eq .Status "Questionable"}}
+                                <span class="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                    🟡 CUESTIONABLE
+                                </span>
+                            {{else if eq .Status "Injured Reserve"}}
+                                <span class="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                                    🟣 RESERVA IR
+                                </span>
+                            {{else if eq .Status "Doubtful"}}
+                                <span class="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-orange-500/20 text-orange-400 border border-orange-500/40">
+                                    🟠 DUDOSO
+                                </span>
+                            {{else}}
+                                <span class="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-zinc-800 text-zinc-300">
+                                    {{.Status}}
+                                </span>
+                            {{end}}
+                        </div>
+
+                        <!-- Player Identity -->
+                        <div class="flex items-center space-x-3 my-3">
+                            <div class="w-12 h-12 rounded-xl bg-zinc-950 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+                                {{if .HeadshotURL}}
+                                    <img src="{{.HeadshotURL}}" alt="{{.AthleteName}}" class="w-full h-full object-cover">
+                                {{else}}
+                                    <i class="fa-solid fa-user text-zinc-600 text-sm"></i>
+                                {{end}}
+                            </div>
+                            <div class="min-w-0">
+                                <h3 class="text-sm font-bold text-white group-hover:text-amber-300 transition-colors truncate">
+                                    {{.AthleteName}}
+                                </h3>
+                                <p class="text-xs text-zinc-400 mt-0.5 italic line-clamp-2 leading-snug">
+                                    "{{if .Comment}}{{.Comment}}{{else}}Evaluación médica en curso.{{end}}"
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer: Date -->
+                    <div class="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[10px] font-mono text-zinc-500">
+                        <span>Reporte médico</span>
+                        <span>{{if .InjuryDate}}{{.InjuryDate}}{{else}}ESPN NFL{{end}}</span>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+        {{else}}
+            <div class="p-8 text-center text-xs text-zinc-500">
+                <i class="fa-solid fa-circle-check text-2xl text-emerald-500/60 mb-2 block"></i>
+                No se registran jugadores lesionados ni en reserva para {{.Team.City}} {{.Team.Name}} en esta fecha.
+            </div>
+        {{end}}
+
+    </div>
+
     <!-- Main Content: Schedule & Results Table -->
     <div class="vercel-card rounded-3xl border border-zinc-800 overflow-hidden bg-zinc-950/60 shadow-sm">
         

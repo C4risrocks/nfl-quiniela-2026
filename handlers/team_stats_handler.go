@@ -177,7 +177,7 @@ func (h *TeamStatsHandler) parseSeasonParam(r *http.Request) int {
 func (h *TeamStatsHandler) parseViewParam(r *http.Request) string {
 	view := r.URL.Query().Get("view")
 	switch view {
-	case "conference", "league", "power-rankings", "playoffs-fpi":
+	case "conference", "league", "power-rankings", "playoffs-fpi", "injuries":
 		return view
 	default:
 		return "division"
@@ -279,6 +279,9 @@ func (h *TeamStatsHandler) getStandingsWithFallback(seasonYear int) *db.SeasonSt
 	// Enrich standings with ESPN Power Rankings and FPI Playoff Probabilities
 	h.enrichStandingsWithPowerRankingsAndFPI(standings, seasonYear)
 
+	// Enrich standings with NFL Injuries
+	h.enrichStandingsWithInjuries(standings)
+
 	return standings
 }
 
@@ -295,6 +298,9 @@ type TeamDetailPayload struct {
 	HasPlayoffs        bool
 	PowerRanking       *db.TeamPowerRanking
 	PlayoffProbability *db.TeamPlayoffProbability
+	Injuries           []*db.TeamInjury
+	DepthChart         []*db.TeamDepthChartFormation
+	InjuryCounts       map[string]int
 }
 
 func (h *TeamStatsHandler) buildTeamDetailData(team *db.Team, seasonYear int) *TeamDetailPayload {
@@ -377,6 +383,65 @@ func (h *TeamStatsHandler) buildTeamDetailData(team *db.Team, seasonYear int) *T
 		}
 	}
 
+	// Load Injuries for this team
+	var injuries []*db.TeamInjury
+	if h.repo != nil {
+		injuries, _ = h.repo.GetTeamInjuries(team.Code)
+	}
+	if len(injuries) == 0 && h.espnClient != nil {
+		injMap, _ := h.espnClient.FetchAllNFLInjuries()
+		if list, ok := injMap[team.Code]; ok && len(list) > 0 {
+			injuries = list
+			if h.repo != nil {
+				_ = h.repo.SaveTeamInjuries(team.Code, list)
+			}
+		}
+	}
+
+	injuryCounts := map[string]int{
+		"Out":          0,
+		"Doubtful":     0,
+		"Questionable": 0,
+		"IR":           0,
+		"Total":        len(injuries),
+	}
+	injuryMap := make(map[string]*db.TeamInjury)
+	for _, inj := range injuries {
+		switch inj.Status {
+		case "Out":
+			injuryCounts["Out"]++
+		case "Doubtful":
+			injuryCounts["Doubtful"]++
+		case "Questionable":
+			injuryCounts["Questionable"]++
+		case "Injured Reserve":
+			injuryCounts["IR"]++
+		}
+		injuryMap[strings.ToLower(strings.TrimSpace(inj.AthleteName))] = inj
+	}
+
+	// Load Depth Chart for this team
+	var depthSlots []*db.TeamDepthChartSlot
+	if h.repo != nil {
+		depthSlots, _ = h.repo.GetTeamDepthChart(team.Code)
+	}
+	if len(depthSlots) == 0 && h.espnClient != nil {
+		depthSlots, _ = h.espnClient.FetchTeamDepthChart(team.Code)
+		if len(depthSlots) > 0 && h.repo != nil {
+			_ = h.repo.SaveTeamDepthChart(team.Code, depthSlots)
+		}
+	}
+
+	// Cross-reference injuries on depth chart slots
+	for _, slot := range depthSlots {
+		cleanName := strings.ToLower(strings.TrimSpace(slot.AthleteName))
+		if inj, found := injuryMap[cleanName]; found {
+			slot.InjuryStatus = inj
+		}
+	}
+
+	depthFormations := espn.GroupDepthChartByFormation(depthSlots)
+
 	return &TeamDetailPayload{
 		Standing:           teamStanding,
 		Schedule:           schedule,
@@ -386,7 +451,33 @@ func (h *TeamStatsHandler) buildTeamDetailData(team *db.Team, seasonYear int) *T
 		HasPlayoffs:        teamStanding.ConferenceSeed >= 1 && teamStanding.ConferenceSeed <= 7,
 		PowerRanking:       matchedRank,
 		PlayoffProbability: matchedProb,
+		Injuries:           injuries,
+		DepthChart:         depthFormations,
+		InjuryCounts:       injuryCounts,
 	}
+}
+
+func (h *TeamStatsHandler) enrichStandingsWithInjuries(standings *db.SeasonStandings) {
+	if standings == nil {
+		return
+	}
+
+	var allInjuries []*db.TeamInjury
+	if h.repo != nil {
+		allInjuries, _ = h.repo.GetAllInjuries()
+	}
+
+	if len(allInjuries) == 0 && h.espnClient != nil {
+		injMap, _ := h.espnClient.FetchAllNFLInjuries()
+		if len(injMap) > 0 && h.repo != nil {
+			for tCode, injs := range injMap {
+				_ = h.repo.SaveTeamInjuries(tCode, injs)
+				allInjuries = append(allInjuries, injs...)
+			}
+		}
+	}
+
+	standings.AllInjuries = allInjuries
 }
 
 func (h *TeamStatsHandler) enrichStandingsWithAdvancedMetrics(standings *db.SeasonStandings, seasonYear int) {

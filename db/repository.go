@@ -4121,5 +4121,210 @@ func (r *Repository) GetLatestPlayoffProbabilities(seasonYear int) (int, []*Team
 	return maxWeek, probs, err
 }
 
+// SaveTeamInjuries persists or updates player injuries for a team inside a transaction
+func (r *Repository) SaveTeamInjuries(teamCode string, injuries []*TeamInjury) error {
+	if len(injuries) == 0 {
+		return nil
+	}
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("starting transaction to save injuries for %s: %w", teamCode, err)
+	}
+	defer tx.Rollback()
+
+	query := `
+	INSERT INTO team_injuries (
+		team_code, athlete_espn_id, athlete_name, position, jersey,
+		headshot_url, status, comment, injury_date, updated_at
+	) VALUES (
+		?, ?, ?, ?, ?,
+		?, ?, ?, ?, CURRENT_TIMESTAMP
+	)
+	ON CONFLICT(team_code, athlete_name) DO UPDATE SET
+		athlete_espn_id = excluded.athlete_espn_id,
+		position = excluded.position,
+		jersey = excluded.jersey,
+		headshot_url = excluded.headshot_url,
+		status = excluded.status,
+		comment = excluded.comment,
+		injury_date = excluded.injury_date,
+		updated_at = CURRENT_TIMESTAMP;`
+
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		return fmt.Errorf("preparing injuries upsert query: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, inj := range injuries {
+		if _, err := stmt.Exec(
+			teamCode, inj.AthleteESPNID, inj.AthleteName, inj.Position, inj.Jersey,
+			inj.HeadshotURL, inj.Status, inj.Comment, inj.InjuryDate,
+		); err != nil {
+			return fmt.Errorf("executing injury upsert for %s (%s): %w", inj.AthleteName, teamCode, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// GetTeamInjuries retrieves the injury report for a single franchise
+func (r *Repository) GetTeamInjuries(teamCode string) ([]*TeamInjury, error) {
+	query := `
+	SELECT id, team_code, athlete_espn_id, athlete_name, position, jersey,
+	       headshot_url, status, comment, injury_date, updated_at
+	FROM team_injuries
+	WHERE team_code = ?
+	ORDER BY 
+		CASE status 
+			WHEN 'Out' THEN 1 
+			WHEN 'Doubtful' THEN 2 
+			WHEN 'Questionable' THEN 3 
+			WHEN 'Injured Reserve' THEN 4 
+			ELSE 5 
+		END, 
+		athlete_name ASC`
+
+	rows, err := r.db.Query(query, teamCode)
+	if err != nil {
+		return nil, fmt.Errorf("querying team injuries for %s: %w", teamCode, err)
+	}
+	defer rows.Close()
+
+	var result []*TeamInjury
+	for rows.Next() {
+		var inj TeamInjury
+		if err := rows.Scan(
+			&inj.ID, &inj.TeamCode, &inj.AthleteESPNID, &inj.AthleteName, &inj.Position, &inj.Jersey,
+			&inj.HeadshotURL, &inj.Status, &inj.Comment, &inj.InjuryDate, &inj.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scanning injury row: %w", err)
+		}
+		result = append(result, &inj)
+	}
+	return result, nil
+}
+
+// GetAllInjuries returns the complete injury report across all 32 franchises
+func (r *Repository) GetAllInjuries() ([]*TeamInjury, error) {
+	query := `
+	SELECT id, team_code, athlete_espn_id, athlete_name, position, jersey,
+	       headshot_url, status, comment, injury_date, updated_at
+	FROM team_injuries
+	ORDER BY 
+		CASE status 
+			WHEN 'Out' THEN 1 
+			WHEN 'Doubtful' THEN 2 
+			WHEN 'Questionable' THEN 3 
+			WHEN 'Injured Reserve' THEN 4 
+			ELSE 5 
+		END,
+		team_code ASC, athlete_name ASC`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("querying all injuries: %w", err)
+	}
+	defer rows.Close()
+
+	var result []*TeamInjury
+	for rows.Next() {
+		var inj TeamInjury
+		if err := rows.Scan(
+			&inj.ID, &inj.TeamCode, &inj.AthleteESPNID, &inj.AthleteName, &inj.Position, &inj.Jersey,
+			&inj.HeadshotURL, &inj.Status, &inj.Comment, &inj.InjuryDate, &inj.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scanning injury row: %w", err)
+		}
+		result = append(result, &inj)
+	}
+	return result, nil
+}
+
+// SaveTeamDepthChart persists depth chart positions and player rankings for a franchise
+func (r *Repository) SaveTeamDepthChart(teamCode string, slots []*TeamDepthChartSlot) error {
+	if len(slots) == 0 {
+		return nil
+	}
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("starting transaction to save depth chart for %s: %w", teamCode, err)
+	}
+	defer tx.Rollback()
+
+	query := `
+	INSERT INTO team_depth_charts (
+		team_code, formation_group, position_code, position_name,
+		depth_rank, athlete_espn_id, athlete_name, jersey, headshot_url, updated_at
+	) VALUES (
+		?, ?, ?, ?,
+		?, ?, ?, ?, ?, CURRENT_TIMESTAMP
+	)
+	ON CONFLICT(team_code, position_code, depth_rank) DO UPDATE SET
+		formation_group = excluded.formation_group,
+		position_name = excluded.position_name,
+		athlete_espn_id = excluded.athlete_espn_id,
+		athlete_name = excluded.athlete_name,
+		jersey = excluded.jersey,
+		headshot_url = excluded.headshot_url,
+		updated_at = CURRENT_TIMESTAMP;`
+
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		return fmt.Errorf("preparing depth chart statement: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, slot := range slots {
+		if _, err := stmt.Exec(
+			teamCode, slot.FormationGroup, slot.PositionCode, slot.PositionName,
+			slot.DepthRank, slot.AthleteESPNID, slot.AthleteName, slot.Jersey, slot.HeadshotURL,
+		); err != nil {
+			return fmt.Errorf("executing depth chart upsert for %s (%s rank %d): %w", teamCode, slot.PositionCode, slot.DepthRank, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// GetTeamDepthChart retrieves all depth chart slots for a team ordered by group, position, and rank
+func (r *Repository) GetTeamDepthChart(teamCode string) ([]*TeamDepthChartSlot, error) {
+	query := `
+	SELECT id, team_code, formation_group, position_code, position_name,
+	       depth_rank, athlete_espn_id, athlete_name, jersey, headshot_url, updated_at
+	FROM team_depth_charts
+	WHERE team_code = ?
+	ORDER BY 
+		CASE formation_group 
+			WHEN 'Ofensiva' THEN 1 
+			WHEN 'Defensiva' THEN 2 
+			ELSE 3 
+		END,
+		position_code ASC, depth_rank ASC`
+
+	rows, err := r.db.Query(query, teamCode)
+	if err != nil {
+		return nil, fmt.Errorf("querying depth chart for %s: %w", teamCode, err)
+	}
+	defer rows.Close()
+
+	var result []*TeamDepthChartSlot
+	for rows.Next() {
+		var slot TeamDepthChartSlot
+		if err := rows.Scan(
+			&slot.ID, &slot.TeamCode, &slot.FormationGroup, &slot.PositionCode, &slot.PositionName,
+			&slot.DepthRank, &slot.AthleteESPNID, &slot.AthleteName, &slot.Jersey, &slot.HeadshotURL,
+			&slot.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scanning depth chart slot: %w", err)
+		}
+		result = append(result, &slot)
+	}
+	return result, nil
+}
+
+
 
 

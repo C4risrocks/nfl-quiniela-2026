@@ -257,6 +257,85 @@
             </div>
             {{end}}
 
+            <!-- Compact Injuries Status Strip -->
+            {{if .Detail.Injuries}}
+            <div class="p-3.5 bg-zinc-900/60 rounded-2xl border border-rose-500/20 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-mono uppercase font-bold text-rose-400 flex items-center">
+                        <i class="fa-solid fa-hospital-user mr-1.5 text-rose-400"></i> Reporte Médico ({{len .Detail.Injuries}} Bajas)
+                    </span>
+                    <div class="flex items-center space-x-1.5 text-[9px] font-mono">
+                        {{if gt .Detail.InjuryCounts.Out 0}}<span class="text-rose-400 font-bold">🔴 {{.Detail.InjuryCounts.Out}} Out</span>{{end}}
+                        {{if gt .Detail.InjuryCounts.Doubtful 0}}<span class="text-orange-400 font-bold">🟠 {{.Detail.InjuryCounts.Doubtful}} Duda</span>{{end}}
+                        {{if gt .Detail.InjuryCounts.Questionable 0}}<span class="text-amber-400 font-bold">🟡 {{.Detail.InjuryCounts.Questionable}} Ques</span>{{end}}
+                        {{if gt .Detail.InjuryCounts.IR 0}}<span class="text-purple-400 font-bold">🟣 {{.Detail.InjuryCounts.IR}} IR</span>{{end}}
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1">
+                    {{range .Detail.Injuries}}
+                    <div class="flex items-center space-x-2 px-2.5 py-1.5 rounded-xl bg-zinc-950 border border-zinc-800 shrink-0 text-xs max-w-[200px]"
+                         title="{{if .Comment}}{{.Comment}}{{else}}{{.Status}}{{end}}">
+                        <div class="w-6 h-6 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center">
+                            {{if .HeadshotURL}}
+                                <img src="{{.HeadshotURL}}" alt="{{.AthleteName}}" class="w-full h-full object-cover">
+                            {{else}}
+                                <i class="fa-solid fa-user text-zinc-600 text-[10px]"></i>
+                            {{end}}
+                        </div>
+                        <div class="min-w-0">
+                            <div class="flex items-center space-x-1">
+                                <span class="font-bold text-zinc-200 text-xs truncate">{{.AthleteName}}</span>
+                                <span class="text-[10px] font-mono text-zinc-500 shrink-0">{{.Position}}</span>
+                            </div>
+                            <div class="text-[9px] font-mono truncate {{if eq .Status "Out"}}text-rose-400{{else if eq .Status "Questionable"}}text-amber-400{{else if eq .Status "Injured Reserve"}}text-purple-400{{else if eq .Status "Doubtful"}}text-orange-400{{else}}text-zinc-400{{end}}">
+                                {{.Status}}
+                            </div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+            {{end}}
+
+            <!-- Compact Depth Chart Key Starters Preview -->
+            {{if .Detail.DepthChart}}
+            <div class="p-3.5 bg-zinc-900/60 rounded-2xl border border-cyan-500/20 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-mono uppercase font-bold text-cyan-400 flex items-center">
+                        <i class="fa-solid fa-users-gear mr-1.5 text-cyan-400"></i> Alineación & Depth Chart Oficial
+                    </span>
+                    <a href="/teams/{{.Team.Code}}?season={{.SelectedSeason}}" 
+                       class="text-[10px] font-mono text-cyan-400 hover:text-cyan-300 transition-colors inline-flex items-center space-x-1">
+                        <span>Ver Roster Completo</span>
+                        <i class="fa-solid fa-chevron-right text-[8px]"></i>
+                    </a>
+                </div>
+                
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {{range .Detail.DepthChart}}
+                        {{range .Positions}}
+                            {{if and (or (eq .PositionCode "QB") (eq .PositionCode "RB") (eq .PositionCode "WR") (eq .PositionCode "TE") (eq .PositionCode "DE") (eq .PositionCode "CB") (eq .PositionCode "MLB") (eq .PositionCode "PK")) .Starters}}
+                                {{range .Starters}}
+                                <div class="p-2 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center space-x-2">
+                                    <span class="text-[10px] font-mono font-bold text-cyan-400 w-7 shrink-0">{{.PositionCode}}</span>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="text-xs font-bold text-zinc-200 truncate">{{.AthleteName}}</div>
+                                        {{if .InjuryStatus}}
+                                            <span class="text-[9px] font-mono font-bold text-rose-400">🔴 {{.InjuryStatus.Status}}</span>
+                                        {{else}}
+                                            <span class="text-[9px] font-mono text-emerald-400">🟢 Disponible</span>
+                                        {{end}}
+                                    </div>
+                                </div>
+                                {{end}}
+                            {{end}}
+                        {{end}}
+                    {{end}}
+                </div>
+            </div>
+            {{end}}
+
             <!-- Season Schedule & Results -->
             <div>
                 <div class="flex items-center justify-between mb-2.5">

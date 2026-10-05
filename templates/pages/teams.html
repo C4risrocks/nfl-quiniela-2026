@@ -127,6 +127,12 @@
                         class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap shrink-0">
                     <i class="fa-solid fa-chart-pie mr-1.5 text-cyan-400"></i> Probabilidades FPI
                 </button>
+                <button type="button"
+                        @click="currentView = 'injuries'; $dispatch('update-teams-table', { season: currentSeason, view: 'injuries' })"
+                        :class="currentView === 'injuries' ? 'bg-rose-500/20 text-rose-300 font-semibold shadow-sm border border-rose-500/40' : 'text-zinc-400 hover:text-white'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap shrink-0">
+                    <i class="fa-solid fa-user-injured mr-1.5 text-rose-400"></i> Reporte de Lesiones
+                </button>
             </div>
 
         </div>

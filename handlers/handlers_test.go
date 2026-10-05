@@ -1508,7 +1508,7 @@ func TestWeek2LiveHandling(t *testing.T) {
 	awayScore := 7
 	game := &db.Game{
 		WeekID:       2,
-		ESPNGameID:   "401872932",
+		ESPNGameID:   "test-live-401872932",
 		HomeTeamID:   6,
 		AwayTeamID:   5,
 		KickoffTime:  time.Now(),

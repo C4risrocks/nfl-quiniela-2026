@@ -549,6 +549,88 @@ func TestTeamStatsHandler_PowerRankingsAndFPIViews(t *testing.T) {
 	}
 }
 
+func TestTeamStatsHandler_InjuriesAndDepthChart(t *testing.T) {
+	handler, cleanup := setupTestTeamStats(t)
+	defer cleanup()
 
+	r := chi.NewRouter()
+	r.Get("/teams", handler.ShowTeams)
+	r.Get("/teams/table", handler.TeamsTablePartial)
+	r.Get("/teams/{code}", handler.ShowTeamDetail)
+	r.Get("/teams/{code}/modal", handler.TeamDetailModal)
 
+	// 1. Full page: view=injuries
+	reqInj := httptest.NewRequest(http.MethodGet, "/teams?season=2026&view=injuries", nil)
+	rrInj := httptest.NewRecorder()
+	r.ServeHTTP(rrInj, reqInj)
+	if rrInj.Code != http.StatusOK {
+		t.Fatalf("expected 200 for injuries full page, got %d. Body: %s", rrInj.Code, rrInj.Body.String())
+	}
+	bodyInj := rrInj.Body.String()
+	for _, exp := range []string{
+		"Radar de Lesiones & Bajas de la NFL",
+		"ESPN Official Injury Report",
+		"Fuera (Out)",
+		"Cuestionable",
+		"Reserva IR",
+	} {
+		if !strings.Contains(bodyInj, exp) {
+			t.Errorf("injuries full page: expected body to contain %q", exp)
+		}
+	}
 
+	// 2. Partial table: view=injuries
+	reqInjPartial := httptest.NewRequest(http.MethodGet, "/teams/table?season=2026&view=injuries", nil)
+	rrInjPartial := httptest.NewRecorder()
+	r.ServeHTTP(rrInjPartial, reqInjPartial)
+	if rrInjPartial.Code != http.StatusOK {
+		t.Fatalf("expected 200 for injuries partial, got %d. Body: %s", rrInjPartial.Code, rrInjPartial.Body.String())
+	}
+	bodyInjPartial := rrInjPartial.Body.String()
+	for _, exp := range []string{
+		"Radar de Lesiones & Bajas de la NFL",
+		"Quarterbacks (QB)",
+		"Habilidad (WR, RB, TE)",
+	} {
+		if !strings.Contains(bodyInjPartial, exp) {
+			t.Errorf("injuries partial: expected body to contain %q", exp)
+		}
+	}
+
+	// 3. Team Detail Page (KC)
+	reqDetail := httptest.NewRequest(http.MethodGet, "/teams/KC?season=2026", nil)
+	rrDetail := httptest.NewRecorder()
+	r.ServeHTTP(rrDetail, reqDetail)
+	if rrDetail.Code != http.StatusOK {
+		t.Fatalf("expected 200 for KC detail, got %d. Body: %s", rrDetail.Code, rrDetail.Body.String())
+	}
+	bodyDetail := rrDetail.Body.String()
+	for _, exp := range []string{
+		"Alineación Oficial & Depth Chart",
+		"Reporte Oficial de Lesiones & Bajas",
+		"Ofensiva",
+		"Defensiva",
+		"Equipos Especiales",
+	} {
+		if !strings.Contains(bodyDetail, exp) {
+			t.Errorf("KC detail: expected body to contain %q", exp)
+		}
+	}
+
+	// 4. Team Detail Modal (KC)
+	reqModal := httptest.NewRequest(http.MethodGet, "/teams/KC/modal?season=2026", nil)
+	rrModal := httptest.NewRecorder()
+	r.ServeHTTP(rrModal, reqModal)
+	if rrModal.Code != http.StatusOK {
+		t.Fatalf("expected 200 for KC modal, got %d. Body: %s", rrModal.Code, rrModal.Body.String())
+	}
+	bodyModal := rrModal.Body.String()
+	for _, exp := range []string{
+		"Reporte Médico",
+		"Alineación & Depth Chart Oficial",
+	} {
+		if !strings.Contains(bodyModal, exp) {
+			t.Errorf("KC modal: expected body to contain %q", exp)
+		}
+	}
+}

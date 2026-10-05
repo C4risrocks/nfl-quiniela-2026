@@ -1987,6 +1987,52 @@ type SeasonStandings struct {
 	MatchupImpacts       []*PlayoffMatchupImpact     `json:"matchup_impacts,omitempty"`
 	LatestRankingsWeek   int                         `json:"latest_rankings_week,omitempty"`
 	LatestFPIWeek        int                         `json:"latest_fpi_week,omitempty"`
+	AllInjuries          []*TeamInjury               `json:"all_injuries,omitempty"`
+}
+
+// TeamInjury represents an official player injury report item from ESPN
+type TeamInjury struct {
+	ID            int64     `json:"id"`
+	TeamCode      string    `json:"team_code"`
+	AthleteESPNID string    `json:"athlete_espn_id"`
+	AthleteName   string    `json:"athlete_name"`
+	Position      string    `json:"position"`
+	Jersey        string    `json:"jersey"`
+	HeadshotURL   string    `json:"headshot_url"`
+	Status        string    `json:"status"` // "Out", "Questionable", "Doubtful", "Injured Reserve", "Active"
+	Comment       string    `json:"comment"`
+	InjuryDate    string    `json:"injury_date"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+// TeamDepthChartSlot represents a single player in a team's depth chart position
+type TeamDepthChartSlot struct {
+	ID             int64       `json:"id"`
+	TeamCode       string      `json:"team_code"`
+	FormationGroup string      `json:"formation_group"` // "Ofensiva", "Defensiva", "Equipos Especiales"
+	PositionCode   string      `json:"position_code"`   // "QB", "RB", "WR", "LT", "LDE", "PK", etc.
+	PositionName   string      `json:"position_name"`   // "Quarterback", "Running Back", etc.
+	DepthRank      int         `json:"depth_rank"`      // 1 (Starter), 2 (Backup), 3 (Reserve)
+	AthleteESPNID  string      `json:"athlete_espn_id"`
+	AthleteName    string      `json:"athlete_name"`
+	Jersey         string      `json:"jersey"`
+	HeadshotURL    string      `json:"headshot_url"`
+	InjuryStatus   *TeamInjury `json:"injury_status,omitempty"` // Cross-referenced injury
+	UpdatedAt      time.Time   `json:"updated_at"`
+}
+
+// TeamDepthChartPosition consolidates all depth slots for a specific position (e.g. QB, RB)
+type TeamDepthChartPosition struct {
+	PositionCode string                `json:"position_code"`
+	PositionName string                `json:"position_name"`
+	Starters     []*TeamDepthChartSlot `json:"starters"`
+	Backups      []*TeamDepthChartSlot `json:"backups"`
+}
+
+// TeamDepthChartFormation groups positions by unit (Ofensiva, Defensiva, Equipos Especiales)
+type TeamDepthChartFormation struct {
+	GroupName string                    `json:"group_name"` // "Ofensiva", "Defensiva", "Equipos Especiales"
+	Positions []*TeamDepthChartPosition `json:"positions"`
 }
 
 // TeamPowerRanking represents a single franchise's placement in ESPN's weekly Power Rankings

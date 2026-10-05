@@ -357,6 +357,54 @@ func (d *DB) migrate() error {
 	}
 	_, _ = d.Exec(`CREATE INDEX IF NOT EXISTS idx_playoff_probs_lookup ON team_playoff_probabilities(season_year, week_number, conference)`)
 
+	// Create team_injuries table if not exists
+	createTeamInjuriesTable := `
+	CREATE TABLE IF NOT EXISTS team_injuries (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		team_code TEXT NOT NULL,
+		athlete_espn_id TEXT NOT NULL DEFAULT '',
+		athlete_name TEXT NOT NULL,
+		position TEXT NOT NULL DEFAULT '',
+		jersey TEXT NOT NULL DEFAULT '',
+		headshot_url TEXT NOT NULL DEFAULT '',
+		status TEXT NOT NULL,
+		comment TEXT NOT NULL DEFAULT '',
+		injury_date TEXT NOT NULL DEFAULT '',
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(team_code, athlete_name)
+	);`
+	if d.DriverName == "pgx" {
+		createTeamInjuriesTable = strings.ReplaceAll(createTeamInjuriesTable, "INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+	}
+	if _, err := d.Exec(createTeamInjuriesTable); err != nil {
+		log.Printf("[DB] Warning creating team_injuries table: %v", err)
+	}
+	_, _ = d.Exec(`CREATE INDEX IF NOT EXISTS idx_team_injuries_lookup ON team_injuries(team_code, status)`)
+
+	// Create team_depth_charts table if not exists
+	createTeamDepthChartsTable := `
+	CREATE TABLE IF NOT EXISTS team_depth_charts (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		team_code TEXT NOT NULL,
+		formation_group TEXT NOT NULL,
+		position_code TEXT NOT NULL,
+		position_name TEXT NOT NULL,
+		depth_rank INTEGER NOT NULL DEFAULT 1,
+		athlete_espn_id TEXT NOT NULL DEFAULT '',
+		athlete_name TEXT NOT NULL,
+		jersey TEXT NOT NULL DEFAULT '',
+		headshot_url TEXT NOT NULL DEFAULT '',
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(team_code, position_code, depth_rank)
+	);`
+	if d.DriverName == "pgx" {
+		createTeamDepthChartsTable = strings.ReplaceAll(createTeamDepthChartsTable, "INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+	}
+	if _, err := d.Exec(createTeamDepthChartsTable); err != nil {
+		log.Printf("[DB] Warning creating team_depth_charts table: %v", err)
+	}
+	_, _ = d.Exec(`CREATE INDEX IF NOT EXISTS idx_team_depth_lookup ON team_depth_charts(team_code, formation_group, position_code, depth_rank)`)
+
 	return nil
 }
 
