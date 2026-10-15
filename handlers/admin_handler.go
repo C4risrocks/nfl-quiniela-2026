@@ -100,10 +100,11 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 		"ScoringConfig":      scoringCfg,
 		"PendingUsers":       pendingUsers,
 		"PendingCount":       len(pendingUsers),
-		"SyncStatus":         syncStatus,
-		"FeatureFlags":       featureFlags,
-		"IsWeek1GraceActive": selectedWeek.WeekNumber == 1 && time.Now().Before(db.Week1GraceDeadline),
-		"Week1GraceDeadline": db.Week1GraceDeadline,
+		"SyncStatus":          syncStatus,
+		"FeatureFlags":        featureFlags,
+		"RegistrationEnabled": h.repo.IsRegistrationEnabled(),
+		"IsWeek1GraceActive":  selectedWeek.WeekNumber == 1 && time.Now().Before(db.Week1GraceDeadline),
+		"Week1GraceDeadline":  db.Week1GraceDeadline,
 	})
 }
 
@@ -843,6 +844,51 @@ func (h *AdminHandler) SaveFeatureFlags(w http.ResponseWriter, r *http.Request) 
 	fmt.Fprintf(w, `<div class="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs flex items-center space-x-2"><i class="fa-solid fa-flask text-purple-400"></i><span>¡Control de características actualizado! Se aplicaron los niveles de acceso y etiquetas Beta en tiempo real.</span></div>`)
 }
 
+func (h *AdminHandler) ToggleRegistration(w http.ResponseWriter, r *http.Request) {
+	currentState := h.repo.IsRegistrationEnabled()
+	newState := !currentState
+
+	if err := h.repo.SetRegistrationEnabled(newState); err != nil {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Error al actualizar estado de registros", "type": "error"}}`)
+		http.Error(w, "Error saving registration state", http.StatusInternalServerError)
+		return
+	}
+
+	statusMsg := "Registros de nuevos usuarios bloqueados"
+	toastType := "warning"
+	if newState {
+		statusMsg = "Registros de nuevos usuarios permitidos"
+		toastType = "success"
+	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "%s", "type": "%s"}}`, statusMsg, toastType))
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+
+	if newState {
+		fmt.Fprint(w, `<div id="registration-toggle-control" class="inline-flex items-center space-x-2 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 shadow-sm">
+    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+    <span class="text-xs font-semibold text-emerald-400">Registros Abiertos</span>
+    <button hx-post="/admin/settings/toggle-registration"
+            hx-target="#registration-toggle-control"
+            hx-swap="outerHTML"
+            class="ml-1 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[11px] font-semibold transition-all cursor-pointer">
+        <i class="fa-solid fa-lock mr-1 text-[10px]"></i> Bloquear
+    </button>
+</div>`)
+	} else {
+		fmt.Fprint(w, `<div id="registration-toggle-control" class="inline-flex items-center space-x-2 bg-zinc-900 border border-rose-900/50 rounded-xl px-3 py-1.5 shadow-sm">
+    <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+    <span class="text-xs font-semibold text-rose-400">Registros Bloqueados</span>
+    <button hx-post="/admin/settings/toggle-registration"
+            hx-target="#registration-toggle-control"
+            hx-swap="outerHTML"
+            class="ml-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold transition-all cursor-pointer">
+        <i class="fa-solid fa-lock-open mr-1 text-[10px]"></i> Permitir
+    </button>
+</div>`)
+	}
+}
 
 func (h *AdminHandler) ExportWeekPicksCSV(w http.ResponseWriter, r *http.Request) {
 	season, err := h.repo.GetActiveSeason(h.seasonYear)

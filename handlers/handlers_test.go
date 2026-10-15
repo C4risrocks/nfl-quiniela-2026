@@ -2173,6 +2173,105 @@ func TestUnverifiedPlayerPicksGatingAndAdminVerification(t *testing.T) {
 	}
 }
 
+func TestRegistrationLockFlow(t *testing.T) {
+	repo, authService, renderer, calculator, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	adminHandler := NewAdminHandler(repo, renderer, nil, calculator, nil, nil, 2026)
+	authHandler := NewAuthHandler(authService, repo, nil, renderer)
+
+	// 1. Initial State: registration is enabled by default
+	if !repo.IsRegistrationEnabled() {
+		t.Fatalf("Expected registration to be enabled by default")
+	}
+
+	// 2. Admin toggles registration lock -> should now be blocked
+	reqToggle := httptest.NewRequest(http.MethodPost, "/admin/settings/toggle-registration", nil)
+	rrToggle := httptest.NewRecorder()
+	adminHandler.ToggleRegistration(rrToggle, reqToggle)
+
+	if rrToggle.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK from ToggleRegistration, got %d", rrToggle.Code)
+	}
+	toggleBody := rrToggle.Body.String()
+	if !strings.Contains(toggleBody, "Registros Bloqueados") {
+		t.Errorf("Expected body to show 'Registros Bloqueados', got %s", toggleBody)
+	}
+	if repo.IsRegistrationEnabled() {
+		t.Errorf("Expected registration to be disabled in repository after toggle")
+	}
+
+	// 3. ShowRegister when blocked
+	reqShowReg := httptest.NewRequest(http.MethodGet, "/register", nil)
+	rrShowReg := httptest.NewRecorder()
+	authHandler.ShowRegister(rrShowReg, reqShowReg)
+
+	if rrShowReg.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK for ShowRegister when blocked, got %d", rrShowReg.Code)
+	}
+	showRegBody := rrShowReg.Body.String()
+	if !strings.Contains(showRegBody, "Registros Temporalmente Cerrados") {
+		t.Errorf("Expected ShowRegister to render blocked notice, got: %s", showRegBody)
+	}
+
+	// 4. HandleRegister when blocked -> Must be rejected, user NOT created
+	initialUsers, _ := repo.ListUsers()
+	initialCount := len(initialUsers)
+
+	form := url.Values{}
+	form.Set("username", "blocked_user")
+	form.Set("email", "blocked@example.com")
+	form.Set("password", "password123")
+
+	reqRegPost := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
+	reqRegPost.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rrRegPost := httptest.NewRecorder()
+	authHandler.HandleRegister(rrRegPost, reqRegPost)
+
+	if rrRegPost.Code == http.StatusSeeOther {
+		t.Errorf("Expected registration to NOT redirect (303) when blocked, got %d", rrRegPost.Code)
+	}
+	regPostBody := rrRegPost.Body.String()
+	if !strings.Contains(regPostBody, "cerrado por la administración") {
+		t.Errorf("Expected rejection notice in response, got: %s", regPostBody)
+	}
+
+	currentUsers, _ := repo.ListUsers()
+	if len(currentUsers) != initialCount {
+		t.Errorf("Expected user count to remain %d, but got %d", initialCount, len(currentUsers))
+	}
+
+	// 5. Admin toggles registration lock back -> should now be allowed
+	rrToggle2 := httptest.NewRecorder()
+	adminHandler.ToggleRegistration(rrToggle2, reqToggle)
+
+	if rrToggle2.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK from ToggleRegistration, got %d", rrToggle2.Code)
+	}
+	toggleBody2 := rrToggle2.Body.String()
+	if !strings.Contains(toggleBody2, "Registros Abiertos") {
+		t.Errorf("Expected body to show 'Registros Abiertos', got %s", toggleBody2)
+	}
+	if !repo.IsRegistrationEnabled() {
+		t.Errorf("Expected registration to be enabled in repository after 2nd toggle")
+	}
+
+	// 6. HandleRegister now succeeds
+	rrRegPostSuccess := httptest.NewRecorder()
+	reqRegPostSuccess := httptest.NewRequest(http.MethodPost, "/register", strings.NewReader(form.Encode()))
+	reqRegPostSuccess.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	authHandler.HandleRegister(rrRegPostSuccess, reqRegPostSuccess)
+
+	if rrRegPostSuccess.Code != http.StatusSeeOther {
+		t.Errorf("Expected 303 SeeOther when registration open, got %d", rrRegPostSuccess.Code)
+	}
+
+	afterUsers, _ := repo.ListUsers()
+	if len(afterUsers) != initialCount+1 {
+		t.Errorf("Expected user count to be %d, got %d", initialCount+1, len(afterUsers))
+	}
+}
+
 
 
 

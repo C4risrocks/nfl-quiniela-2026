@@ -447,7 +447,25 @@
                     </p>
                 </div>
 
-                <div class="flex items-center space-x-2.5">
+                <div class="flex items-center flex-wrap gap-2.5">
+                    <!-- Registration Lock Control -->
+                    <div id="registration-toggle-control" class="inline-flex items-center space-x-2 bg-zinc-900 border {{if .RegistrationEnabled}}border-zinc-800{{else}}border-rose-900/50{{end}} rounded-xl px-3 py-1.5 shadow-sm">
+                        <span class="w-2 h-2 rounded-full {{if .RegistrationEnabled}}bg-emerald-400 animate-pulse{{else}}bg-rose-500{{end}}"></span>
+                        <span class="text-xs font-semibold {{if .RegistrationEnabled}}text-emerald-400{{else}}text-rose-400{{end}}">
+                            {{if .RegistrationEnabled}}Registros Abiertos{{else}}Registros Bloqueados{{end}}
+                        </span>
+                        <button hx-post="/admin/settings/toggle-registration"
+                                hx-target="#registration-toggle-control"
+                                hx-swap="outerHTML"
+                                class="ml-1 px-2.5 py-1 rounded-lg {{if .RegistrationEnabled}}bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30{{else}}bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30{{end}} text-[11px] font-semibold transition-all cursor-pointer">
+                            {{if .RegistrationEnabled}}
+                                <i class="fa-solid fa-lock mr-1 text-[10px]"></i> Bloquear
+                            {{else}}
+                                <i class="fa-solid fa-lock-open mr-1 text-[10px]"></i> Permitir
+                            {{end}}
+                        </button>
+                    </div>
+
                     <select onchange="window.location.href = '/admin?week=' + this.value"
                             class="bg-zinc-900 border border-zinc-700 text-white text-xs font-semibold rounded-xl px-3 py-1.5 focus:ring-1 focus:ring-white">
                         {{range .Weeks}}

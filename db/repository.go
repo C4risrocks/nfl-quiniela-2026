@@ -51,6 +51,22 @@ func (r *Repository) SetSetting(key, value string) error {
 	return err
 }
 
+func (r *Repository) IsRegistrationEnabled() bool {
+	val, err := r.GetSetting("registration_enabled", "true")
+	if err != nil {
+		return true
+	}
+	return val == "true" || val == "1"
+}
+
+func (r *Repository) SetRegistrationEnabled(enabled bool) error {
+	val := "false"
+	if enabled {
+		val = "true"
+	}
+	return r.SetSetting("registration_enabled", val)
+}
+
 func (r *Repository) GetScoringConfig() (*ScoringConfig, error) {
 	mode, _ := r.GetSetting("scoring_mode", "weighted")
 	winnerPtsStr, _ := r.GetSetting("winner_points", "10")

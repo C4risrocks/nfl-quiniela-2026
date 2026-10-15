@@ -84,12 +84,30 @@ func (h *AuthHandler) ShowRegister(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/picks", http.StatusSeeOther)
 		return
 	}
+
+	if !h.repo.IsRegistrationEnabled() {
+		h.renderer.RenderPage(w, "register.html", map[string]interface{}{
+			"ActiveNav":           "register",
+			"RegistrationBlocked": true,
+		})
+		return
+	}
+
 	h.renderer.RenderPage(w, "register.html", map[string]interface{}{
 		"ActiveNav": "register",
 	})
 }
 
 func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
+	if !h.repo.IsRegistrationEnabled() {
+		h.renderer.RenderPage(w, "register.html", map[string]interface{}{
+			"ActiveNav":           "register",
+			"RegistrationBlocked": true,
+			"Error":               "El registro de nuevos jugadores se encuentra temporalmente cerrado por la administración.",
+		})
+		return
+	}
+
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Error parsing form", http.StatusBadRequest)
 		return

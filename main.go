@@ -287,6 +287,7 @@ func main() {
 
 		admin.Get("/admin", adminHandler.ShowAdmin)
 		admin.Post("/admin/settings/save", adminHandler.SaveSettings)
+		admin.Post("/admin/settings/toggle-registration", adminHandler.ToggleRegistration)
 		admin.Post("/admin/sync-espn", adminHandler.SyncESPN)
 		admin.Post("/admin/sync/teams", adminHandler.SyncTeams)
 		admin.Post("/admin/sync/injuries", adminHandler.SyncInjuries)
