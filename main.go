@@ -301,6 +301,9 @@ func main() {
 		// User Management & Pick Override
 		admin.Get("/admin/users/{userId}/picks", adminHandler.ShowUserPicks)
 		admin.Post("/admin/users/{userId}/picks/save", adminHandler.SaveUserPicks)
+		admin.Get("/admin/users/{userId}/edit", adminHandler.ShowEditUserModal)
+		admin.Post("/admin/users/{userId}/edit", adminHandler.UpdateUser)
+		admin.Post("/admin/users/{userId}/delete", adminHandler.DeleteUser)
 		admin.Post("/admin/users/{userId}/verify-email", adminHandler.VerifyUserEmail)
 		admin.Post("/admin/users/{userId}/toggle-verify", adminHandler.ToggleUserVerification)
 		admin.Post("/admin/users/{userId}/resend-verification", adminHandler.AdminResendVerificationEmail)

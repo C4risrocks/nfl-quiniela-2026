@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"golang.org/x/crypto/bcrypt"
 
 	"nfl-quiniela-2026/db"
 	"nfl-quiniela-2026/services/auth"
@@ -842,6 +843,166 @@ func (h *AdminHandler) SaveFeatureFlags(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, `<div class="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs flex items-center space-x-2"><i class="fa-solid fa-flask text-purple-400"></i><span>¡Control de características actualizado! Se aplicaron los niveles de acceso y etiquetas Beta en tiempo real.</span></div>`)
+}
+
+func (h *AdminHandler) ShowEditUserModal(w http.ResponseWriter, r *http.Request) {
+	targetUserID, err := strconv.ParseInt(chi.URLParam(r, "userId"), 10, 64)
+	if err != nil {
+		http.Error(w, "ID de usuario inválido", http.StatusBadRequest)
+		return
+	}
+
+	targetUser, err := h.repo.GetUserByID(targetUserID)
+	if err != nil || targetUser == nil {
+		http.Error(w, "Usuario no encontrado", http.StatusNotFound)
+		return
+	}
+
+	teams, _ := h.repo.ListTeams()
+	currentUser := auth.GetUserFromContext(r.Context())
+	isSelf := currentUser != nil && currentUser.ID == targetUserID
+
+	var selectedTeamID int64
+	if targetUser.FavoriteTeamID != nil {
+		selectedTeamID = *targetUser.FavoriteTeamID
+	}
+
+	h.renderer.RenderPartial(w, "admin_user_edit_modal.html", map[string]interface{}{
+		"TargetUser":     targetUser,
+		"Teams":          teams,
+		"IsSelf":         isSelf,
+		"SelectedTeamID": selectedTeamID,
+	})
+}
+
+func (h *AdminHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	targetUserID, err := strconv.ParseInt(chi.URLParam(r, "userId"), 10, 64)
+	if err != nil {
+		http.Error(w, "ID de usuario inválido", http.StatusBadRequest)
+		return
+	}
+
+	currentUser := auth.GetUserFromContext(r.Context())
+	isSelf := currentUser != nil && currentUser.ID == targetUserID
+
+	targetUser, err := h.repo.GetUserByID(targetUserID)
+	if err != nil || targetUser == nil {
+		http.Error(w, "Usuario no encontrado", http.StatusNotFound)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Datos de formulario inválidos", "type": "error"}}`)
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	username := strings.TrimSpace(r.FormValue("username"))
+	email := strings.TrimSpace(r.FormValue("email"))
+	role := strings.TrimSpace(r.FormValue("role"))
+	if role != "admin" && role != "player" {
+		role = targetUser.Role
+	}
+	// Prevent self-demotion from admin to player
+	if isSelf && role != "admin" {
+		role = "admin"
+	}
+
+	emailVerified := r.FormValue("email_verified") == "1" || r.FormValue("email_verified") == "on" || r.FormValue("email_verified") == "true"
+	isBeta := r.FormValue("is_beta_tester") == "1" || r.FormValue("is_beta_tester") == "on" || r.FormValue("is_beta_tester") == "true"
+	bio := strings.TrimSpace(r.FormValue("bio"))
+
+	var favTeamID *int64
+	if ftStr := strings.TrimSpace(r.FormValue("favorite_team_id")); ftStr != "" && ftStr != "0" {
+		if id, err := strconv.ParseInt(ftStr, 10, 64); err == nil && id > 0 {
+			favTeamID = &id
+		}
+	}
+
+	if username == "" || email == "" {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "El nombre de usuario y correo son obligatorios", "type": "error"}}`)
+		http.Error(w, "Username and email required", http.StatusBadRequest)
+		return
+	}
+
+	newPassword := strings.TrimSpace(r.FormValue("new_password"))
+	var newPasswordHash string
+	if newPassword != "" {
+		if len(newPassword) < 6 {
+			w.Header().Set("HX-Trigger", `{"show-toast": {"message": "La nueva contraseña debe tener al menos 6 caracteres", "type": "error"}}`)
+			http.Error(w, "Password too short", http.StatusBadRequest)
+			return
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+		if err != nil {
+			w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Error al procesar la contraseña", "type": "error"}}`)
+			http.Error(w, "Error hashing password", http.StatusInternalServerError)
+			return
+		}
+		newPasswordHash = string(hash)
+	}
+
+	if err := h.repo.AdminUpdateUser(targetUserID, username, email, role, emailVerified, isBeta, favTeamID, bio, newPasswordHash); err != nil {
+		w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Error al actualizar: %s", "type": "error"}}`, err.Error()))
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// If verification status changed, recalculate leaderboards
+	if emailVerified != targetUser.EmailVerified {
+		_ = h.calculator.RecalculateAllWeeks(h.seasonYear)
+		if h.broker != nil {
+			h.broker.BroadcastLeaderboardUpdate()
+		}
+	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Cuenta de %s actualizada exitosamente", "type": "success"}, "close-admin-modal": true}`, username))
+	w.Header().Set("HX-Refresh", "true")
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *AdminHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	targetUserID, err := strconv.ParseInt(chi.URLParam(r, "userId"), 10, 64)
+	if err != nil {
+		http.Error(w, "ID de usuario inválido", http.StatusBadRequest)
+		return
+	}
+
+	currentUser := auth.GetUserFromContext(r.Context())
+	if currentUser != nil && currentUser.ID == targetUserID {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "No puedes eliminar tu propia cuenta de administrador", "type": "error"}}`)
+		http.Error(w, "No puedes eliminar tu propia cuenta", http.StatusBadRequest)
+		return
+	}
+
+	targetUser, err := h.repo.GetUserByID(targetUserID)
+	if err != nil || targetUser == nil {
+		http.Error(w, "Usuario no encontrado", http.StatusNotFound)
+		return
+	}
+
+	if targetUser.Username == "ia_quiniela" {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "No se puede eliminar la cuenta del bot del sistema", "type": "error"}}`)
+		http.Error(w, "No se puede eliminar la cuenta de bot", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.repo.AdminDeleteUser(targetUserID); err != nil {
+		w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Error al eliminar usuario: %s", "type": "error"}}`, err.Error()))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Recalculate leaderboards across all weeks
+	_ = h.calculator.RecalculateAllWeeks(h.seasonYear)
+	if h.broker != nil {
+		h.broker.BroadcastLeaderboardUpdate()
+	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Cuenta de %s eliminada permanentemente", "type": "success"}}`, targetUser.Username))
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, "")
 }
 
 func (h *AdminHandler) ToggleRegistration(w http.ResponseWriter, r *http.Request) {

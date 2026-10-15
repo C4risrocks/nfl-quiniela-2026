@@ -2089,6 +2089,66 @@ func (r *Repository) SetUserBetaTester(userID int64, isBeta bool) error {
 	return err
 }
 
+func (r *Repository) AdminUpdateUser(userID int64, username, email, role string, emailVerified, isBetaTester bool, favoriteTeamID *int64, bio string, newPasswordHash string) error {
+	if role != "admin" && role != "player" {
+		return fmt.Errorf("rol inválido: %s", role)
+	}
+
+	// Check if username or email is already taken by another account
+	var count int
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM users WHERE (username = ? OR email = ?) AND id != ?`, username, email, userID).Scan(&count)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return fmt.Errorf("el nombre de usuario o correo electrónico ya está en uso por otra cuenta")
+	}
+
+	verifVal := 0
+	if emailVerified {
+		verifVal = 1
+	}
+	betaVal := 0
+	if isBetaTester {
+		betaVal = 1
+	}
+
+	if newPasswordHash != "" {
+		query := `UPDATE users SET username = ?, email = ?, role = ?, email_verified = ?, is_beta_tester = ?, favorite_team_id = ?, bio = ?, password_hash = ? WHERE id = ?`
+		_, err = r.db.Exec(query, username, email, role, verifVal, betaVal, favoriteTeamID, bio, newPasswordHash, userID)
+	} else {
+		query := `UPDATE users SET username = ?, email = ?, role = ?, email_verified = ?, is_beta_tester = ?, favorite_team_id = ?, bio = ? WHERE id = ?`
+		_, err = r.db.Exec(query, username, email, role, verifVal, betaVal, favoriteTeamID, bio, userID)
+	}
+	return err
+}
+
+func (r *Repository) AdminDeleteUser(userID int64) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Safe transactional cascaded deletion across all user-related tables
+	cleanupQueries := []string{
+		`DELETE FROM in_app_notifications WHERE user_id = ?`,
+		`DELETE FROM notification_logs WHERE user_id = ?`,
+		`DELETE FROM user_achievements WHERE user_id = ?`,
+		`DELETE FROM weekly_leaderboard WHERE user_id = ?`,
+		`DELETE FROM picks WHERE user_id = ?`,
+		`DELETE FROM users WHERE id = ?`,
+	}
+
+	for _, q := range cleanupQueries {
+		if _, err := tx.Exec(q, userID); err != nil {
+			return fmt.Errorf("executing %s: %w", q, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
 func (r *Repository) GetUserWeeklySummaries(weekID int64) ([]*UserWeeklySummary, error) {
 	users, err := r.ListUsers()
 	if err != nil {

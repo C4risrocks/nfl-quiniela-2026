@@ -2272,6 +2272,196 @@ func TestRegistrationLockFlow(t *testing.T) {
 	}
 }
 
+func TestAdminUserManagementEditAndDelete(t *testing.T) {
+	repo, authService, renderer, calculator, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	adminHandler := NewAdminHandler(repo, renderer, nil, calculator, nil, nil, 2026)
+
+	// Fetch admin user
+	adminUser, err := repo.GetUserByUsername("admin")
+	if err != nil || adminUser == nil {
+		t.Fatalf("Admin user not found: %v", err)
+	}
+
+	// Create test players
+	p1, err := repo.CreateUser("player_one", "player_one@test.com", "hash1", "player")
+	if err != nil {
+		t.Fatalf("Failed to create player1: %v", err)
+	}
+	p2, err := repo.CreateUser("player_two", "player_two@test.com", "hash2", "player")
+	if err != nil {
+		t.Fatalf("Failed to create player2: %v", err)
+	}
+
+	// 1. ShowEditUserModal
+	reqModal := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/admin/users/%d/edit", p1.ID), nil)
+	reqModal = reqModal.WithContext(injectUser(reqModal.Context(), adminUser))
+	rctxModal := chi.NewRouteContext()
+	rctxModal.URLParams.Add("userId", strconv.FormatInt(p1.ID, 10))
+	reqModal = reqModal.WithContext(context.WithValue(reqModal.Context(), chi.RouteCtxKey, rctxModal))
+	rrModal := httptest.NewRecorder()
+
+	adminHandler.ShowEditUserModal(rrModal, reqModal)
+	if rrModal.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK for ShowEditUserModal, got %d", rrModal.Code)
+	}
+	modalBody := rrModal.Body.String()
+	if !strings.Contains(modalBody, "Editar Cuenta: player_one") {
+		t.Errorf("Expected modal to contain user name, got %s", modalBody)
+	}
+
+	// 2. UpdateUser - Success flow (change username, email, verify, beta, set password)
+	formEdit := url.Values{}
+	formEdit.Set("username", "player_one_mod")
+	formEdit.Set("email", "player_one_mod@test.com")
+	formEdit.Set("role", "player")
+	formEdit.Set("email_verified", "1")
+	formEdit.Set("is_beta_tester", "1")
+	formEdit.Set("new_password", "supersecret999")
+	formEdit.Set("bio", "Super fan de los Chiefs")
+
+	reqEdit := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/admin/users/%d/edit", p1.ID), strings.NewReader(formEdit.Encode()))
+	reqEdit.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqEdit = reqEdit.WithContext(injectUser(reqEdit.Context(), adminUser))
+	rctxEdit := chi.NewRouteContext()
+	rctxEdit.URLParams.Add("userId", strconv.FormatInt(p1.ID, 10))
+	reqEdit = reqEdit.WithContext(context.WithValue(reqEdit.Context(), chi.RouteCtxKey, rctxEdit))
+	rrEdit := httptest.NewRecorder()
+
+	adminHandler.UpdateUser(rrEdit, reqEdit)
+	if rrEdit.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK from UpdateUser, got %d", rrEdit.Code)
+	}
+
+	// Verify updated DB fields
+	updatedP1, err := repo.GetUserByID(p1.ID)
+	if err != nil || updatedP1 == nil {
+		t.Fatalf("Failed to fetch updated player1: %v", err)
+	}
+	if updatedP1.Username != "player_one_mod" || updatedP1.Email != "player_one_mod@test.com" {
+		t.Errorf("Username or Email not updated correctly: got %s / %s", updatedP1.Username, updatedP1.Email)
+	}
+	if !updatedP1.EmailVerified {
+		t.Errorf("Expected player1 to be verified")
+	}
+	if !updatedP1.IsBetaTester {
+		t.Errorf("Expected player1 to be beta tester")
+	}
+	if updatedP1.Bio != "Super fan de los Chiefs" {
+		t.Errorf("Expected updated bio, got %s", updatedP1.Bio)
+	}
+
+	// Verify authentication works with the new password
+	authP1, err := authService.Authenticate("player_one_mod", "supersecret999")
+	if err != nil || authP1 == nil {
+		t.Errorf("Failed to authenticate user with new password: %v", err)
+	}
+
+	// 3. UpdateUser - Duplicate email collision test
+	formCollision := url.Values{}
+	formCollision.Set("username", "player_two")
+	formCollision.Set("email", "player_one_mod@test.com") // Already used by p1
+	formCollision.Set("role", "player")
+
+	reqCollision := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/admin/users/%d/edit", p2.ID), strings.NewReader(formCollision.Encode()))
+	reqCollision.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqCollision = reqCollision.WithContext(injectUser(reqCollision.Context(), adminUser))
+	rctxCol := chi.NewRouteContext()
+	rctxCol.URLParams.Add("userId", strconv.FormatInt(p2.ID, 10))
+	reqCollision = reqCollision.WithContext(context.WithValue(reqCollision.Context(), chi.RouteCtxKey, rctxCol))
+	rrCollision := httptest.NewRecorder()
+
+	adminHandler.UpdateUser(rrCollision, reqCollision)
+	if rrCollision.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request on collision, got %d", rrCollision.Code)
+	}
+
+	// 4. UpdateUser - Self-demotion prevention test
+	formDemoteSelf := url.Values{}
+	formDemoteSelf.Set("username", "admin")
+	formDemoteSelf.Set("email", adminUser.Email)
+	formDemoteSelf.Set("role", "player") // Admin tries to make themselves a player
+
+	reqDemote := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/admin/users/%d/edit", adminUser.ID), strings.NewReader(formDemoteSelf.Encode()))
+	reqDemote.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqDemote = reqDemote.WithContext(injectUser(reqDemote.Context(), adminUser))
+	rctxDemote := chi.NewRouteContext()
+	rctxDemote.URLParams.Add("userId", strconv.FormatInt(adminUser.ID, 10))
+	reqDemote = reqDemote.WithContext(context.WithValue(reqDemote.Context(), chi.RouteCtxKey, rctxDemote))
+	rrDemote := httptest.NewRecorder()
+
+	adminHandler.UpdateUser(rrDemote, reqDemote)
+	refreshedAdmin, _ := repo.GetUserByID(adminUser.ID)
+	if refreshedAdmin.Role != "admin" {
+		t.Errorf("Expected admin role to be protected against self-demotion, got %s", refreshedAdmin.Role)
+	}
+
+	// 5. DeleteUser - Self deletion prevention
+	reqDelSelf := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/admin/users/%d/delete", adminUser.ID), nil)
+	reqDelSelf = reqDelSelf.WithContext(injectUser(reqDelSelf.Context(), adminUser))
+	rctxDelSelf := chi.NewRouteContext()
+	rctxDelSelf.URLParams.Add("userId", strconv.FormatInt(adminUser.ID, 10))
+	reqDelSelf = reqDelSelf.WithContext(context.WithValue(reqDelSelf.Context(), chi.RouteCtxKey, rctxDelSelf))
+	rrDelSelf := httptest.NewRecorder()
+
+	adminHandler.DeleteUser(rrDelSelf, reqDelSelf)
+	if rrDelSelf.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request for self-delete, got %d", rrDelSelf.Code)
+	}
+
+	// 6. DeleteUser - Bot deletion prevention
+	botUser, err := repo.GetUserByUsername("ia_quiniela")
+	if err == nil && botUser != nil {
+		reqDelBot := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/admin/users/%d/delete", botUser.ID), nil)
+		reqDelBot = reqDelBot.WithContext(injectUser(reqDelBot.Context(), adminUser))
+		rctxDelBot := chi.NewRouteContext()
+		rctxDelBot.URLParams.Add("userId", strconv.FormatInt(botUser.ID, 10))
+		reqDelBot = reqDelBot.WithContext(context.WithValue(reqDelBot.Context(), chi.RouteCtxKey, rctxDelBot))
+		rrDelBot := httptest.NewRecorder()
+
+		adminHandler.DeleteUser(rrDelBot, reqDelBot)
+		if rrDelBot.Code != http.StatusBadRequest {
+			t.Errorf("Expected 400 Bad Request for bot delete, got %d", rrDelBot.Code)
+		}
+	}
+
+	// 7. DeleteUser - Successful deletion of player2
+	// Add a pick for player2 first to ensure cascade clean up works
+	season, _ := repo.GetActiveSeason(2026)
+	week1, _ := repo.GetWeekByNumber(season.ID, 1)
+	games, _ := repo.ListGamesByWeek(week1.ID)
+	if len(games) > 0 {
+		_, _ = repo.SavePick(p2.ID, games[0].ID, &games[0].HomeTeamID, nil, nil)
+	}
+
+	reqDelP2 := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/admin/users/%d/delete", p2.ID), nil)
+	reqDelP2 = reqDelP2.WithContext(injectUser(reqDelP2.Context(), adminUser))
+	rctxDelP2 := chi.NewRouteContext()
+	rctxDelP2.URLParams.Add("userId", strconv.FormatInt(p2.ID, 10))
+	reqDelP2 = reqDelP2.WithContext(context.WithValue(reqDelP2.Context(), chi.RouteCtxKey, rctxDelP2))
+	rrDelP2 := httptest.NewRecorder()
+
+	adminHandler.DeleteUser(rrDelP2, reqDelP2)
+	if rrDelP2.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK from DeleteUser, got %d", rrDelP2.Code)
+	}
+
+	// Ensure p2 is completely gone from DB
+	deletedP2, _ := repo.GetUserByID(p2.ID)
+	if deletedP2 != nil {
+		t.Errorf("Expected player2 to be deleted from database, but found: %+v", deletedP2)
+	}
+
+	// Ensure picks are gone
+	if len(games) > 0 {
+		pick, _ := repo.GetUserPickForGame(p2.ID, games[0].ID)
+		if pick != nil {
+			t.Errorf("Expected player2 pick to be cascade deleted, but found pick: %+v", pick)
+		}
+	}
+}
+
 
 
 

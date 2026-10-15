@@ -531,7 +531,8 @@
             <div class="md:hidden space-y-3">
                 {{if .UserSummaries}}
                     {{range .UserSummaries}}
-                        <div x-show="matchesUser({ username: '{{.User.Username}}', email: '{{.User.Email}}', verified: {{.User.EmailVerified}}, role: '{{.User.Role}}', beta: {{.User.IsBetaTester}} })" 
+                        <div id="user-card-{{.User.ID}}"
+                             x-show="matchesUser({ username: '{{.User.Username}}', email: '{{.User.Email}}', verified: {{.User.EmailVerified}}, role: '{{.User.Role}}', beta: {{.User.IsBetaTester}} })" 
                              class="p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800 space-y-2.5" 
                              {{if .User.FavoriteTeam}}style="border-left: 3px solid {{.User.FavoriteTeam.PrimaryColor}};"{{end}}>
                             <div class="flex items-center justify-between">
@@ -630,9 +631,27 @@
                                     <button hx-get="/admin/users/{{.User.ID}}/picks?week_id={{$.SelectedWeek.ID}}" 
                                             hx-target="#admin-modal-container" 
                                             hx-swap="innerHTML"
-                                            class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold border border-zinc-700 transition-colors">
+                                            class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold border border-zinc-700 transition-colors"
+                                            title="Editar pronósticos">
                                         <i class="fa-solid fa-user-pen mr-1 text-zinc-400"></i> Picks
                                     </button>
+                                    <button hx-get="/admin/users/{{.User.ID}}/edit" 
+                                            hx-target="#admin-modal-container" 
+                                            hx-swap="innerHTML"
+                                            class="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer"
+                                            title="Editar cuenta de jugador">
+                                        <i class="fa-solid fa-pen-to-square text-zinc-300"></i>
+                                    </button>
+                                    {{if and (ne .User.ID $.User.ID) (ne .User.Username "ia_quiniela")}}
+                                        <button hx-post="/admin/users/{{.User.ID}}/delete" 
+                                                hx-confirm="¿Estás seguro de que deseas eliminar permanentemente la cuenta de {{.User.Username}}? Se borrarán todos sus pronósticos y puntuaciones."
+                                                hx-target="#user-card-{{.User.ID}}"
+                                                hx-swap="outerHTML"
+                                                class="px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors cursor-pointer"
+                                                title="Eliminar jugador">
+                                            <i class="fa-solid fa-trash-can text-rose-400"></i>
+                                        </button>
+                                    {{end}}
                                 </div>
                             </div>
                         </div>
@@ -656,7 +675,8 @@
                     <tbody class="divide-y divide-[#1a1a1a] text-zinc-300">
                         {{if .UserSummaries}}
                             {{range .UserSummaries}}
-                                <tr x-show="matchesUser({ username: '{{.User.Username}}', email: '{{.User.Email}}', verified: {{.User.EmailVerified}}, role: '{{.User.Role}}', beta: {{.User.IsBetaTester}} })"
+                                <tr id="user-row-{{.User.ID}}"
+                                    x-show="matchesUser({ username: '{{.User.Username}}', email: '{{.User.Email}}', verified: {{.User.EmailVerified}}, role: '{{.User.Role}}', beta: {{.User.IsBetaTester}} })"
                                     class="hover:bg-zinc-900/30">
                                     <td class="py-2.5 px-3">
                                         <div class="flex items-center space-x-2.5">
@@ -762,18 +782,39 @@
                                         {{end}}
                                     </td>
                                     <td class="py-2.5 px-3 text-right">
-                                        <button hx-get="/admin/users/{{.User.ID}}/picks?week_id={{$.SelectedWeek.ID}}" 
-                                                hx-target="#admin-modal-container" 
-                                                hx-swap="innerHTML"
-                                                class="inline-flex items-center px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold border border-zinc-700 hover:border-zinc-500 transition-colors shadow-sm">
-                                            <i class="fa-solid fa-user-pen mr-1.5 text-zinc-400"></i> Pronósticos
-                                        </button>
+                                        <div class="inline-flex items-center space-x-1.5 justify-end">
+                                            <button hx-get="/admin/users/{{.User.ID}}/picks?week_id={{$.SelectedWeek.ID}}" 
+                                                    hx-target="#admin-modal-container" 
+                                                    hx-swap="innerHTML"
+                                                    class="inline-flex items-center px-2 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold border border-zinc-700 hover:border-zinc-500 transition-colors shadow-sm cursor-pointer"
+                                                    title="Editar pronósticos">
+                                                <i class="fa-solid fa-user-pen mr-1 text-zinc-400"></i> Picks
+                                            </button>
+                                            <button hx-get="/admin/users/{{.User.ID}}/edit" 
+                                                    hx-target="#admin-modal-container" 
+                                                    hx-swap="innerHTML"
+                                                    class="inline-flex items-center px-2 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-semibold border border-zinc-700 hover:border-zinc-500 transition-colors shadow-sm cursor-pointer"
+                                                    title="Editar cuenta de usuario">
+                                                <i class="fa-solid fa-pen-to-square mr-1 text-zinc-400"></i> Editar
+                                            </button>
+                                            {{if and (ne .User.ID $.User.ID) (ne .User.Username "ia_quiniela")}}
+                                                <button hx-post="/admin/users/{{.User.ID}}/delete" 
+                                                        hx-confirm="¿Estás seguro de que deseas eliminar permanentemente la cuenta de {{.User.Username}}? Se borrarán todos sus pronósticos y puntuaciones."
+                                                        hx-target="#user-row-{{.User.ID}}"
+                                                        hx-swap="outerHTML"
+                                                        class="inline-flex items-center p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 text-xs font-semibold border border-rose-500/30 hover:border-rose-500/50 transition-colors shadow-sm cursor-pointer"
+                                                        title="Eliminar usuario">
+                                                    <i class="fa-solid fa-trash-can text-rose-400"></i>
+                                                </button>
+                                            {{end}}
+                                        </div>
                                     </td>
                                 </tr>
                             {{end}}
                         {{else}}
                             {{range .Users}}
-                                <tr x-show="matchesUser({ username: '{{.Username}}', email: '{{.Email}}', verified: {{.EmailVerified}}, role: '{{.Role}}', beta: {{.IsBetaTester}} })"
+                                <tr id="user-row-{{.ID}}"
+                                    x-show="matchesUser({ username: '{{.Username}}', email: '{{.Email}}', verified: {{.EmailVerified}}, role: '{{.Role}}', beta: {{.IsBetaTester}} })"
                                     class="hover:bg-zinc-900/30">
                                     <td class="py-2.5 px-3 font-semibold text-white">{{.Username}}</td>
                                     <td class="py-2.5 px-3 text-zinc-400">{{.Email}}</td>
@@ -785,12 +826,32 @@
                                     <td class="py-2.5 px-3 text-center text-zinc-500">--</td>
                                     <td class="py-2.5 px-3 text-center font-mono">--</td>
                                     <td class="py-2.5 px-3 text-right">
-                                        <button hx-get="/admin/users/{{.ID}}/picks?week_id={{$.SelectedWeek.ID}}" 
-                                                hx-target="#admin-modal-container" 
-                                                hx-swap="innerHTML"
-                                                class="inline-flex items-center px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold border border-zinc-700 transition-colors shadow-sm">
-                                            <i class="fa-solid fa-user-pen mr-1.5 text-zinc-400"></i> Pronósticos
-                                        </button>
+                                        <div class="inline-flex items-center space-x-1.5 justify-end">
+                                            <button hx-get="/admin/users/{{.ID}}/picks?week_id={{$.SelectedWeek.ID}}" 
+                                                    hx-target="#admin-modal-container" 
+                                                    hx-swap="innerHTML"
+                                                    class="inline-flex items-center px-2 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold border border-zinc-700 hover:border-zinc-500 transition-colors shadow-sm cursor-pointer"
+                                                    title="Editar pronósticos">
+                                                <i class="fa-solid fa-user-pen mr-1 text-zinc-400"></i> Picks
+                                            </button>
+                                            <button hx-get="/admin/users/{{.ID}}/edit" 
+                                                    hx-target="#admin-modal-container" 
+                                                    hx-swap="innerHTML"
+                                                    class="inline-flex items-center px-2 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-semibold border border-zinc-700 hover:border-zinc-500 transition-colors shadow-sm cursor-pointer"
+                                                    title="Editar cuenta de usuario">
+                                                <i class="fa-solid fa-pen-to-square mr-1 text-zinc-400"></i> Editar
+                                            </button>
+                                            {{if and (ne .ID $.User.ID) (ne .Username "ia_quiniela")}}
+                                                <button hx-post="/admin/users/{{.ID}}/delete" 
+                                                        hx-confirm="¿Estás seguro de que deseas eliminar permanentemente la cuenta de {{.Username}}? Se borrarán todos sus pronósticos y puntuaciones."
+                                                        hx-target="#user-row-{{.ID}}"
+                                                        hx-swap="outerHTML"
+                                                        class="inline-flex items-center p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 text-xs font-semibold border border-rose-500/30 hover:border-rose-500/50 transition-colors shadow-sm cursor-pointer"
+                                                        title="Eliminar usuario">
+                                                    <i class="fa-solid fa-trash-can text-rose-400"></i>
+                                                </button>
+                                            {{end}}
+                                        </div>
                                     </td>
                                 </tr>
                             {{end}}

@@ -1,0 +1,194 @@
+<div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto overscroll-contain"
+     data-close-modal="backdrop"
+     @click.self="window.closeAdminModal()"
+     x-data="{}"
+     @keydown.escape.window="window.closeAdminModal()">
+    
+    <div class="vercel-card rounded-2xl w-full max-w-xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[92dvh] my-auto bg-zinc-950" @click.stop>
+        
+        <!-- Modal Header -->
+        <div class="p-4 sm:p-5 border-b border-[#222222] flex items-center justify-between bg-zinc-900/60 shrink-0">
+            <div class="min-w-0">
+                <div class="flex items-center space-x-2">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shrink-0">
+                        Administración de Usuario
+                    </span>
+                    <span class="text-xs text-zinc-400 font-mono">ID #{{.TargetUser.ID}}</span>
+                </div>
+                <h2 class="text-base sm:text-lg font-bold text-white mt-1 flex items-center truncate">
+                    <i class="fa-solid fa-user-gear mr-2 text-zinc-400 shrink-0"></i>
+                    <span class="truncate">Editar Cuenta: {{.TargetUser.Username}}</span>
+                </h2>
+            </div>
+            
+            <button type="button" 
+                    onclick="window.closeAdminModal()"
+                    data-close-modal="true"
+                    title="Cerrar (Esc)"
+                    class="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer min-w-[40px] min-h-[40px] flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-xmark text-base"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body: Edit Form -->
+        <form hx-post="/admin/users/{{.TargetUser.ID}}/edit"
+              hx-swap="none"
+              hx-indicator="#admin-edit-user-spinner"
+              class="flex flex-col flex-1 min-h-0 overflow-hidden">
+            
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 min-h-0 overscroll-contain modal-scrollable">
+                
+                <!-- Username & Email -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                        <label class="block text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-1.5 font-semibold">
+                            Nombre de Usuario <span class="text-rose-400">*</span>
+                        </label>
+                        <input type="text" 
+                               name="username" 
+                               value="{{.TargetUser.Username}}" 
+                               required 
+                               class="w-full px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-xs focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-1.5 font-semibold">
+                            Correo Electrónico <span class="text-rose-400">*</span>
+                        </label>
+                        <input type="email" 
+                               name="email" 
+                               value="{{.TargetUser.Email}}" 
+                               required 
+                               class="w-full px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-xs focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all">
+                    </div>
+                </div>
+
+                <!-- Role & Favorite Team -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                        <label class="block text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-1.5 font-semibold">
+                            Rol del Usuario
+                        </label>
+                        <select name="role" 
+                                {{if .IsSelf}}disabled{{end}}
+                                class="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-xs focus:outline-none focus:border-white transition-all">
+                            <option value="player" {{if eq .TargetUser.Role "player"}}selected{{end}}>Jugador (Player)</option>
+                            <option value="admin" {{if eq .TargetUser.Role "admin"}}selected{{end}}>Administrador (Admin)</option>
+                        </select>
+                        {{if .IsSelf}}
+                            <input type="hidden" name="role" value="admin">
+                            <p class="text-[10px] text-amber-400/80 mt-1"><i class="fa-solid fa-lock mr-1 text-[9px]"></i>No puedes auto-degradar tu cuenta de admin.</p>
+                        {{end}}
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-1.5 font-semibold">
+                            Equipo Favorito (NFL)
+                        </label>
+                        <select name="favorite_team_id" 
+                                class="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-xs focus:outline-none focus:border-white transition-all">
+                            <option value="0">-- Ninguno / Sin Equipo --</option>
+                            {{range .Teams}}
+                                <option value="{{.ID}}" {{if eq $.SelectedTeamID .ID}}selected{{end}}>
+                                    {{.City}} {{.Name}} ({{.Code}})
+                                </option>
+                            {{end}}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Checkboxes: Verification & Beta Status -->
+                <div class="bg-zinc-900/50 p-3.5 rounded-xl border border-zinc-800/80 space-y-3">
+                    <label class="flex items-start space-x-3 cursor-pointer">
+                        <input type="checkbox" 
+                               name="email_verified" 
+                               value="1" 
+                               {{if .TargetUser.EmailVerified}}checked{{end}}
+                               class="mt-0.5 rounded bg-zinc-950 border-zinc-700 text-emerald-500 focus:ring-emerald-500">
+                        <div>
+                            <div class="text-xs font-bold text-white flex items-center">
+                                <span>Correo Electrónico Verificado</span>
+                                <span class="ml-2 text-[9px] font-mono px-1.5 py-0.2 rounded-full {{if .TargetUser.EmailVerified}}bg-emerald-500/20 text-emerald-300 border border-emerald-500/30{{else}}bg-amber-500/20 text-amber-300 border border-amber-500/30{{end}}">
+                                    {{if .TargetUser.EmailVerified}}Activo{{else}}Pendiente{{end}}
+                                </span>
+                            </div>
+                            <p class="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">
+                                Habilita al jugador para guardar pronósticos y figurar en la tabla general de posiciones.
+                            </p>
+                        </div>
+                    </label>
+
+                    <div class="border-t border-zinc-800/60 pt-2.5">
+                        <label class="flex items-start space-x-3 cursor-pointer">
+                            <input type="checkbox" 
+                                   name="is_beta_tester" 
+                                   value="1" 
+                                   {{if .TargetUser.IsBetaTester}}checked{{end}}
+                                   class="mt-0.5 rounded bg-zinc-950 border-zinc-700 text-purple-500 focus:ring-purple-500">
+                            <div>
+                                <div class="text-xs font-bold text-white flex items-center">
+                                    <span>Acceso Beta Tester</span>
+                                    <span class="ml-2 text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                        <i class="fa-solid fa-flask text-[8px] mr-1"></i>Experimental
+                                    </span>
+                                </div>
+                                <p class="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">
+                                    Otorga acceso temprano a funciones marcadas como Beta en la plataforma.
+                                </p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Reset Password (Optional) -->
+                <div>
+                    <label class="block text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-1.5 font-semibold">
+                        Nueva Contraseña (Opcional)
+                    </label>
+                    <input type="password" 
+                           name="new_password" 
+                           minlength="6"
+                           placeholder="Ingresa nueva contraseña para cambiarla..." 
+                           class="w-full px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-xs focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all placeholder:text-zinc-600">
+                    <p class="text-[10px] text-zinc-500 mt-1">
+                        <i class="fa-solid fa-circle-info mr-1 text-[9px]"></i>Dejar en blanco para conservar la contraseña actual del usuario.
+                    </p>
+                </div>
+
+                <!-- Bio -->
+                <div>
+                    <label class="block text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-1.5 font-semibold">
+                        Biografía / Nota
+                    </label>
+                    <input type="text" 
+                           name="bio" 
+                           value="{{.TargetUser.Bio}}" 
+                           placeholder="Frase o descripción del perfil..." 
+                           class="w-full px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white text-xs focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all placeholder:text-zinc-600">
+                </div>
+
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-3.5 sm:p-5 border-t border-[#222222] bg-zinc-900/60 flex items-center justify-between shrink-0">
+                <div id="admin-edit-user-spinner" class="htmx-indicator text-xs text-zinc-400 flex items-center space-x-2">
+                    <i class="fa-solid fa-circle-notch fa-spin text-white"></i>
+                    <span>Guardando cambios...</span>
+                </div>
+                
+                <div class="flex items-center space-x-2 ml-auto">
+                    <button type="button" 
+                            onclick="window.closeAdminModal()"
+                            class="px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-semibold border border-zinc-700 transition-colors cursor-pointer">
+                        Cancelar
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold transition-all shadow-sm flex items-center cursor-pointer">
+                        <i class="fa-solid fa-floppy-disk mr-1.5"></i> Guardar Cambios
+                    </button>
+                </div>
+            </div>
+
+        </form>
+
+    </div>
+</div>
