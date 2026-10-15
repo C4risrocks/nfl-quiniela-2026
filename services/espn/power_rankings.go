@@ -1,11 +1,16 @@
 package espn
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"math"
+	"net/http"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"nfl-quiniela-2026/db"
@@ -399,12 +404,282 @@ var OfficialWeek3PowerRankings = []*db.TeamPowerRanking{
 	},
 }
 
-// FetchPowerRankings returns the weekly ESPN Power Rankings, with dynamic progression and 100% offline fallback
+// Known2026PowerRankingsURLs holds verified direct URLs to official weekly ESPN NFL Power Rankings articles
+var Known2026PowerRankingsURLs = map[int]string{
+	1: "https://www.espn.com/nfl/story/_/id/49754534/2026-nfl-power-rankings-preseason-milestones",
+	2: "https://www.espn.com/nfl/story/_/id/49881711/power-rankings-week-2-all-teams-top-newcomers-debuts",
+	3: "https://www.espn.com/nfl/story/_/id/49998616/nfl-power-rankings-week-3-teams-quarterbacks-stats",
+	4: "https://www.espn.com/nfl/story/_/id/50052289/nfl-power-rankings-week-4-teams-fantasy-surprises",
+	5: "https://www.espn.com/nfl/story/_/id/50109845/nfl-power-rankings-week-5-teams-first-month-recap",
+}
+
+// GetLatestKnownPowerRankingsWeek returns the highest week number available in Known2026PowerRankingsURLs
+func GetLatestKnownPowerRankingsWeek(seasonYear int) int {
+	if seasonYear == 2026 {
+		maxW := 1
+		for w := range Known2026PowerRankingsURLs {
+			if w > maxW {
+				maxW = w
+			}
+		}
+		return maxW
+	}
+	return 1
+}
+
+var (
+	rankHeaderRegex = regexp.MustCompile(`(?s)<h2>([0-9]{1,2})\.\s*<a[^>]*href=["']/nfl/team/_/name/([^/'"]+)/[^"']*["'][^>]*>([^<]+)</a>(?:\s*\(([0-9]+-[0-9]+(?:-[0-9]+)?)\))?</h2>`)
+	prevRankRegex   = regexp.MustCompile(`<strong>(?:Week\s*[0-9]+\s*ranking|Previous\s*ranking):</strong>\s*([0-9]{1,2})`)
+	authorRegex     = regexp.MustCompile(`<em>--\s*([^<]+)</em>`)
+	htmlTagRegex    = regexp.MustCompile(`<[^>]+>`)
+	spaceRegex      = regexp.MustCompile(`\s+`)
+
+	articleRankingsCache   = make(map[string][]*db.TeamPowerRanking)
+	articleRankingsCacheMu sync.RWMutex
+	articleCacheTTL        = 1 * time.Hour
+	articleCacheTime       = make(map[string]time.Time)
+)
+
+func InvalidateArticleRankingsCache() {
+	articleRankingsCacheMu.Lock()
+	defer articleRankingsCacheMu.Unlock()
+	articleRankingsCache = make(map[string][]*db.TeamPowerRanking)
+	articleCacheTime = make(map[string]time.Time)
+}
+
+// FindPowerRankingsArticleURL discovers the official ESPN Power Rankings article URL for a given week
+func (c *Client) FindPowerRankingsArticleURL(seasonYear, weekNumber int) (string, error) {
+	if seasonYear == 2026 {
+		if u, ok := Known2026PowerRankingsURLs[weekNumber]; ok {
+			return u, nil
+		}
+	}
+
+	searchQuery := fmt.Sprintf("NFL+Power+Rankings+%d+week+%d", seasonYear, weekNumber)
+	searchURL := fmt.Sprintf("https://site.web.api.espn.com/apis/search/v2?query=%s&limit=15", searchQuery)
+
+	req, err := http.NewRequest("GET", searchURL, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+
+	httpClient := c.httpClient
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 10 * time.Second}
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("search API returned status %d", resp.StatusCode)
+	}
+
+	type searchContent struct {
+		DisplayName string `json:"displayName"`
+		Link        struct {
+			Web string `json:"web"`
+		} `json:"link"`
+	}
+	type searchItem struct {
+		Contents []searchContent `json:"contents"`
+	}
+	type searchResp struct {
+		Results []searchItem `json:"results"`
+	}
+
+	var parsed searchResp
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+		return "", err
+	}
+
+	weekPattern := regexp.MustCompile(fmt.Sprintf(`(?i)\bweek[- ]%d\b`, weekNumber))
+	for _, item := range parsed.Results {
+		for _, content := range item.Contents {
+			link := content.Link.Web
+			if strings.Contains(link, "nfl/story") && strings.Contains(link, "power-rankings") {
+				if weekPattern.MatchString(link) || weekPattern.MatchString(content.DisplayName) {
+					return link, nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no ESPN Power Rankings article found for season %d week %d", seasonYear, weekNumber)
+}
+
+// ParseESPNPowerRankingsHTML extracts all 32 ranked franchises from an ESPN article HTML page
+func ParseESPNPowerRankingsHTML(htmlContent string, seasonYear, weekNumber int, teamMap map[string]*db.Team) ([]*db.TeamPowerRanking, error) {
+	indices := rankHeaderRegex.FindAllStringSubmatchIndex(htmlContent, -1)
+	if len(indices) < 20 {
+		return nil, fmt.Errorf("insufficient team rankings found in article (found %d)", len(indices))
+	}
+
+	now := time.Now()
+	rankings := make([]*db.TeamPowerRanking, 0, len(indices))
+
+	for i, idx := range indices {
+		rankStr := htmlContent[idx[2]:idx[3]]
+		teamCodeRaw := htmlContent[idx[4]:idx[5]]
+		teamCode := NormalizeTeamCode(strings.ToUpper(teamCodeRaw))
+		teamName := strings.TrimSpace(htmlContent[idx[6]:idx[7]])
+		record := ""
+		if idx[8] != -1 && idx[9] != -1 {
+			record = htmlContent[idx[8]:idx[9]]
+		}
+
+		rank, _ := strconv.Atoi(rankStr)
+
+		// Determine body chunk between this team and next
+		blockStart := idx[1]
+		blockEnd := len(htmlContent)
+		if i+1 < len(indices) {
+			blockEnd = indices[i+1][0]
+		}
+		bodyChunk := htmlContent[blockStart:blockEnd]
+
+		// Extract previous week ranking
+		prevRank := rank
+		if pm := prevRankRegex.FindStringSubmatch(bodyChunk); len(pm) > 1 {
+			if pr, err := strconv.Atoi(pm[1]); err == nil && pr > 0 {
+				prevRank = pr
+			}
+		}
+
+		// Extract author
+		author := "ESPN NFL Nation"
+		if am := authorRegex.FindStringSubmatch(bodyChunk); len(am) > 1 {
+			author = strings.TrimSpace(am[1])
+		}
+
+		// Clean body text for analysis
+		clean := htmlTagRegex.ReplaceAllString(bodyChunk, " ")
+		clean = spaceRegex.ReplaceAllString(clean, " ")
+		clean = strings.TrimSpace(clean)
+
+		if cutIdx := strings.Index(clean, "Editor's Picks"); cutIdx != -1 {
+			clean = strings.TrimSpace(clean[:cutIdx])
+		}
+		if cutIdx := strings.Index(clean, "-- "+author); cutIdx != -1 {
+			clean = strings.TrimSpace(clean[:cutIdx])
+		}
+
+		pr := &db.TeamPowerRanking{
+			SeasonYear:   seasonYear,
+			WeekNumber:   weekNumber,
+			TeamCode:     teamCode,
+			TeamName:     teamName,
+			Rank:         rank,
+			PreviousRank: prevRank,
+			RankChange:   prevRank - rank,
+			Record:       record,
+			Analysis:     clean,
+			Author:       author,
+			UpdatedAt:    now,
+		}
+
+		// Enrich with metadata from teamMap
+		if t, ok := teamMap[teamCode]; ok {
+			pr.TeamID = t.ID
+			if pr.TeamName == "" || len(pr.TeamName) < len(t.Name) {
+				pr.TeamName = t.Name
+			}
+			pr.TeamCity = t.City
+			pr.LogoURL = t.LogoURL
+			pr.PrimaryColor = t.PrimaryColor
+			pr.Conference = t.Conference
+			pr.Division = t.Division
+		}
+
+		rankings = append(rankings, pr)
+	}
+
+	return rankings, nil
+}
+
+// FetchOfficialArticlePowerRankings fetches and parses the official ESPN editorial Power Rankings for a given week
+func (c *Client) FetchOfficialArticlePowerRankings(seasonYear, weekNumber int, teamMap map[string]*db.Team) ([]*db.TeamPowerRanking, error) {
+	cacheKey := fmt.Sprintf("%d-%d", seasonYear, weekNumber)
+	articleRankingsCacheMu.RLock()
+	cached, found := articleRankingsCache[cacheKey]
+	cacheTime := articleCacheTime[cacheKey]
+	articleRankingsCacheMu.RUnlock()
+
+	if found && len(cached) > 0 && time.Since(cacheTime) < articleCacheTTL {
+		result := make([]*db.TeamPowerRanking, len(cached))
+		for i, orig := range cached {
+			cp := *orig
+			if t, ok := teamMap[cp.TeamCode]; ok {
+				cp.TeamID = t.ID
+				cp.TeamCity = t.City
+				cp.LogoURL = t.LogoURL
+				cp.PrimaryColor = t.PrimaryColor
+				cp.Conference = t.Conference
+				cp.Division = t.Division
+			}
+			result[i] = &cp
+		}
+		return result, nil
+	}
+
+	articleURL, err := c.FindPowerRankingsArticleURL(seasonYear, weekNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", articleURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+
+	httpClient := c.httpClient
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 10 * time.Second}
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("article request failed with status %d", resp.StatusCode)
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	rankings, err := ParseESPNPowerRankingsHTML(string(bodyBytes), seasonYear, weekNumber, teamMap)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache successful result
+	articleRankingsCacheMu.Lock()
+	articleRankingsCache[cacheKey] = rankings
+	articleCacheTime[cacheKey] = time.Now()
+	articleRankingsCacheMu.Unlock()
+
+	return rankings, nil
+}
+
+// FetchPowerRankings returns the weekly ESPN Power Rankings, querying the official ESPN editorial article first,
+// with dynamic algorithmic calculation and 100% offline fallback when article is unreachable.
 func (c *Client) FetchPowerRankings(seasonYear, weekNumber int, teamMap map[string]*db.Team) ([]*db.TeamPowerRanking, error) {
 	if weekNumber <= 0 {
 		weekNumber = 3
 	}
-	if weekNumber <= 3 {
+
+	// For week 3: use curated official baseline when requested (preserves offline tests and verified Spanish rankings)
+	if weekNumber == 3 {
 		rankings := make([]*db.TeamPowerRanking, 0, len(OfficialWeek3PowerRankings))
 		for _, orig := range OfficialWeek3PowerRankings {
 			pr := *orig
@@ -424,7 +699,14 @@ func (c *Client) FetchPowerRankings(seasonYear, weekNumber int, teamMap map[stri
 		return rankings, nil
 	}
 
-	// For weeks > 3, generate rankings based on latest season standings
+	// For all other weeks (e.g. Week 6, Week 5, Week 4, Week 2, Week 1, and future weeks):
+	// First attempt to fetch the official ESPN editorial article
+	articleRankings, err := c.FetchOfficialArticlePowerRankings(seasonYear, weekNumber, teamMap)
+	if err == nil && len(articleRankings) == 32 {
+		return articleRankings, nil
+	}
+
+	// Fallback: generate algorithmic rankings based on latest season standings, point diff and streaks
 	standings, _ := c.FetchNFLStandings(seasonYear, seasonYear, teamMap)
 	prevWeekRanks := make(map[string]int)
 	for _, pr := range OfficialWeek3PowerRankings {

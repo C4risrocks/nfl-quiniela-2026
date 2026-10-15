@@ -132,6 +132,16 @@ func (r *Renderer) FuncMap() template.FuncMap {
 			}
 			return s[start:end]
 		},
+		"seq": func(start, end int) []int {
+			if end < start {
+				return []int{}
+			}
+			res := make([]int, end-start+1)
+			for i := range res {
+				res[i] = start + i
+			}
+			return res
+		},
 		"hasPrefix": strings.HasPrefix,
 		"formatDate": func(t time.Time) string {
 			if t.IsZero() {

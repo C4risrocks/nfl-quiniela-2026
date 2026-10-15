@@ -7,7 +7,7 @@
             <div>
                 <div class="flex items-center space-x-2 mb-2">
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                        <i class="fa-solid fa-bolt mr-1.5 text-amber-400"></i> ESPN Power Rankings · Semana {{if .Standings.LatestRankingsWeek}}{{.Standings.LatestRankingsWeek}}{{else}}3{{end}}
+                        <i class="fa-solid fa-bolt mr-1.5 text-amber-400"></i> ESPN Power Rankings · Semana {{if .SelectedWeek}}{{.SelectedWeek}}{{else if .Standings.LatestRankingsWeek}}{{.Standings.LatestRankingsWeek}}{{else}}6{{end}}
                     </span>
                     <span class="text-[10px] font-mono text-zinc-400">32 Franquicias Jerarquizadas</span>
                 </div>
@@ -15,7 +15,7 @@
                     <i class="fa-solid fa-ranking-star mr-2.5 text-amber-400"></i> Power Rankings Oficiales de la NFL
                 </h2>
                 <p class="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
-                    Evaluación cualitativa y jerárquica del momento de cada equipo tras la Semana {{if .Standings.LatestRankingsWeek}}{{.Standings.LatestRankingsWeek}}{{else}}3{{end}} de la temporada regular, con el análisis editorial y firmas de los especialistas de ESPN.
+                    Evaluación cualitativa y jerárquica del momento de cada equipo tras la Semana {{if .SelectedWeek}}{{.SelectedWeek}}{{else if .Standings.LatestRankingsWeek}}{{.Standings.LatestRankingsWeek}}{{else}}6{{end}} de la temporada regular, con el análisis editorial y firmas de los especialistas de ESPN.
                 </p>
             </div>
 
@@ -31,6 +31,33 @@
                 <span class="inline-flex items-center px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/50 font-bold">
                     = Igual
                 </span>
+            </div>
+        </div>
+
+        <!-- Week Navigation Selector Bar -->
+        <div class="mt-4 pt-4 border-t border-zinc-800/80 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center space-x-2">
+                <span class="text-[11px] font-mono font-semibold text-zinc-400 flex items-center">
+                    <i class="fa-regular fa-calendar-days mr-1.5 text-amber-400"></i> Elegir Semana:
+                </span>
+                <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-0.5">
+                    {{$activeWeek := or $.SelectedWeek $.Standings.LatestRankingsWeek 6}}
+                    {{$maxWk := max 6 (or $.Standings.LatestRankingsWeek 6)}}
+                    {{range $wk := seq 1 $maxWk}}
+                        <button type="button"
+                                hx-get="/teams/table?season={{$.SelectedSeason}}&view=power-rankings&week={{$wk}}"
+                                hx-target="#teams-table-container"
+                                hx-swap="innerHTML"
+                                hx-indicator="#teams-loading-indicator"
+                                class="px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer whitespace-nowrap {{if eq $wk $activeWeek}}bg-amber-400 text-black shadow-sm shadow-amber-500/20 border border-amber-300{{else}}bg-zinc-900/90 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800{{end}}">
+                            Semana {{$wk}}
+                        </button>
+                    {{end}}
+                </div>
+            </div>
+            <div class="text-[10px] font-mono text-zinc-500 flex items-center space-x-1.5">
+                <i class="fa-solid fa-newspaper text-amber-400/80"></i>
+                <span>Artículos Editoriales ESPN NFL Nation</span>
             </div>
         </div>
     </div>

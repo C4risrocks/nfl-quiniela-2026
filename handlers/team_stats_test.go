@@ -499,6 +499,30 @@ func TestTeamStatsHandler_PowerRankingsAndFPIViews(t *testing.T) {
 		t.Errorf("power-rankings partial: expected body to contain %q", "Power Rankings Oficiales de la NFL")
 	}
 
+	// 2a. Partial: Power Rankings Week 6 (Official Article Discovery)
+	reqPRWeek6 := httptest.NewRequest(http.MethodGet, "/teams/table?season=2026&view=power-rankings&week=6", nil)
+	rrPRWeek6 := httptest.NewRecorder()
+	r.ServeHTTP(rrPRWeek6, reqPRWeek6)
+	if rrPRWeek6.Code != http.StatusOK {
+		t.Fatalf("expected 200 for power-rankings week 6, got %d", rrPRWeek6.Code)
+	}
+	bodyWeek6 := rrPRWeek6.Body.String()
+	if !strings.Contains(bodyWeek6, "Semana 6") {
+		t.Errorf("expected body to contain 'Semana 6', got: %s", bodyWeek6)
+	}
+
+	// 2b. Partial: Power Rankings Week 3 (Curated Official Baseline)
+	reqPRWeek3 := httptest.NewRequest(http.MethodGet, "/teams/table?season=2026&view=power-rankings&week=3", nil)
+	rrPRWeek3 := httptest.NewRecorder()
+	r.ServeHTTP(rrPRWeek3, reqPRWeek3)
+	if rrPRWeek3.Code != http.StatusOK {
+		t.Fatalf("expected 200 for power-rankings week 3, got %d", rrPRWeek3.Code)
+	}
+	bodyWeek3 := rrPRWeek3.Body.String()
+	if !strings.Contains(bodyWeek3, "Semana 3") {
+		t.Errorf("expected body to contain 'Semana 3', got: %s", bodyWeek3)
+	}
+
 	// 3. Full page: Playoffs FPI
 	reqFPI := httptest.NewRequest(http.MethodGet, "/teams?season=2026&view=playoffs-fpi", nil)
 	rrFPI := httptest.NewRecorder()

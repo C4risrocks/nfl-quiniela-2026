@@ -39,8 +39,9 @@ func (h *TeamStatsHandler) ShowTeams(w http.ResponseWriter, r *http.Request) {
 
 	seasonYear := h.parseSeasonParam(r)
 	viewMode := h.parseViewParam(r)
+	weekNum := h.parseWeekParam(r)
 
-	standings := h.getStandingsWithFallback(seasonYear)
+	standings := h.getStandingsWithFallback(seasonYear, weekNum)
 	allTeams, _ := h.repo.ListTeams()
 
 	h.renderer.RenderPage(w, "teams.html", map[string]interface{}{
@@ -50,6 +51,7 @@ func (h *TeamStatsHandler) ShowTeams(w http.ResponseWriter, r *http.Request) {
 		"AllTeams":         allTeams,
 		"SelectedSeason":   seasonYear,
 		"SelectedView":     viewMode,
+		"SelectedWeek":     weekNum,
 		"AvailableSeasons": defaultAvailableSeasons,
 		"CurrentSeason":    h.seasonYear,
 	})
@@ -104,13 +106,15 @@ func (h *TeamStatsHandler) CompareTeams(w http.ResponseWriter, r *http.Request) 
 func (h *TeamStatsHandler) TeamsTablePartial(w http.ResponseWriter, r *http.Request) {
 	seasonYear := h.parseSeasonParam(r)
 	viewMode := h.parseViewParam(r)
+	weekNum := h.parseWeekParam(r)
 
-	standings := h.getStandingsWithFallback(seasonYear)
+	standings := h.getStandingsWithFallback(seasonYear, weekNum)
 
 	h.renderer.RenderPartial(w, "teams_standings_table.html", map[string]interface{}{
 		"Standings":      standings,
 		"SelectedSeason": seasonYear,
 		"SelectedView":   viewMode,
+		"SelectedWeek":   weekNum,
 		"CurrentSeason":  h.seasonYear,
 	})
 }
@@ -185,6 +189,23 @@ func (h *TeamStatsHandler) parseViewParam(r *http.Request) string {
 	}
 }
 
+func (h *TeamStatsHandler) parseWeekParam(r *http.Request) int {
+	if wStr := r.URL.Query().Get("week"); wStr != "" {
+		if w, err := strconv.Atoi(wStr); err == nil && w >= 1 && w <= 18 {
+			return w
+		}
+	}
+	if h.repo != nil {
+		if latestWk, _, err := h.repo.GetLatestPowerRankings(h.seasonYear); err == nil && latestWk > 0 {
+			return latestWk
+		}
+	}
+	if kw := espn.GetLatestKnownPowerRankingsWeek(h.seasonYear); kw > 0 {
+		return kw
+	}
+	return h.getActiveWeekNumber()
+}
+
 func (h *TeamStatsHandler) getTeamCodeMap() map[string]*db.Team {
 	teams, err := h.repo.ListTeams()
 	if err != nil {
@@ -212,7 +233,12 @@ func (h *TeamStatsHandler) getActiveWeekNumber() int {
 	return activeWeek.WeekNumber
 }
 
-func (h *TeamStatsHandler) getStandingsWithFallback(seasonYear int) *db.SeasonStandings {
+func (h *TeamStatsHandler) getStandingsWithFallback(seasonYear int, optWeek ...int) *db.SeasonStandings {
+	targetWeek := h.getActiveWeekNumber()
+	if len(optWeek) > 0 && optWeek[0] > 0 {
+		targetWeek = optWeek[0]
+	}
+
 	teamMap := h.getTeamCodeMap()
 
 	var standings *db.SeasonStandings
@@ -293,7 +319,7 @@ func (h *TeamStatsHandler) getStandingsWithFallback(seasonYear int) *db.SeasonSt
 	h.enrichStandingsWithAdvancedMetrics(standings, seasonYear)
 
 	// Enrich standings with ESPN Power Rankings and FPI Playoff Probabilities
-	h.enrichStandingsWithPowerRankingsAndFPI(standings, seasonYear)
+	h.enrichStandingsWithPowerRankingsAndFPI(standings, seasonYear, targetWeek)
 
 	// Enrich standings with NFL Injuries
 	h.enrichStandingsWithInjuries(standings)
@@ -795,49 +821,70 @@ func (h *TeamStatsHandler) buildTeamH2HComparison(teamCodeA, teamCodeB string, s
 	}
 }
 
-func (h *TeamStatsHandler) enrichStandingsWithPowerRankingsAndFPI(standings *db.SeasonStandings, seasonYear int) {
+func (h *TeamStatsHandler) enrichStandingsWithPowerRankingsAndFPI(standings *db.SeasonStandings, seasonYear int, optWeek ...int) {
 	if standings == nil || seasonYear != h.seasonYear {
 		return
 	}
 
 	teamMap := h.getTeamCodeMap()
 	targetWeek := h.getActiveWeekNumber()
-
-	// 1. Power Rankings
-	var rankings []*db.TeamPowerRanking
-	rankWeek := 0
-	if h.repo != nil {
-		rankWeek, rankings, _ = h.repo.GetLatestPowerRankings(seasonYear)
+	if len(optWeek) > 0 && optWeek[0] > 0 {
+		targetWeek = optWeek[0]
 	}
-	if (len(rankings) == 0 || rankWeek < targetWeek) && h.espnClient != nil {
+
+	// 1. Power Rankings: check DB first for the specific targetWeek
+	var rankings []*db.TeamPowerRanking
+	rankWeek := targetWeek
+	if h.repo != nil {
+		dbRankings, err := h.repo.GetPowerRankings(seasonYear, targetWeek)
+		if err == nil && len(dbRankings) > 0 {
+			rankings = dbRankings
+		}
+	}
+
+	// If not in DB for targetWeek, fetch from ESPN client and persist
+	if len(rankings) == 0 && h.espnClient != nil {
 		freshRankings, err := h.espnClient.FetchPowerRankings(seasonYear, targetWeek, teamMap)
 		if err == nil && len(freshRankings) > 0 {
 			rankings = freshRankings
-			rankWeek = targetWeek
 			if h.repo != nil {
 				_ = h.repo.SavePowerRankings(rankings)
 			}
 		}
 	}
 
-	// 2. Playoff Probabilities & Matchup Impacts
+	// If still empty (e.g. offline and target week has no rankings yet), fallback to latest available in DB
+	if len(rankings) == 0 && h.repo != nil {
+		rankWeek, rankings, _ = h.repo.GetLatestPowerRankings(seasonYear)
+	}
+
+	// 2. Playoff Probabilities & Matchup Impacts: check DB first for targetWeek
 	var probs []*db.TeamPlayoffProbability
 	var matchupImpacts []*db.PlayoffMatchupImpact
-	fpiWeek := 0
+	fpiWeek := targetWeek
 	if h.repo != nil {
-		fpiWeek, probs, _ = h.repo.GetLatestPlayoffProbabilities(seasonYear)
+		dbProbs, err := h.repo.GetPlayoffProbabilities(seasonYear, targetWeek)
+		if err == nil && len(dbProbs) > 0 {
+			probs = dbProbs
+		}
 	}
-	if (len(probs) == 0 || fpiWeek < targetWeek) && h.espnClient != nil {
+
+	if len(probs) == 0 && h.espnClient != nil {
 		freshProbs, impacts, err := h.espnClient.FetchFPIPlayoffProbabilities(seasonYear, targetWeek, teamMap)
 		if err == nil && len(freshProbs) > 0 {
 			probs = freshProbs
 			matchupImpacts = impacts
-			fpiWeek = targetWeek
 			if h.repo != nil {
 				_ = h.repo.SavePlayoffProbabilities(probs)
 			}
 		}
-	} else if len(probs) > 0 && h.espnClient != nil {
+	}
+
+	if len(probs) == 0 && h.repo != nil {
+		fpiWeek, probs, _ = h.repo.GetLatestPlayoffProbabilities(seasonYear)
+	}
+
+	if len(probs) > 0 && len(matchupImpacts) == 0 && h.espnClient != nil {
 		_, matchupImpacts, _ = h.espnClient.FetchFPIPlayoffProbabilities(seasonYear, fpiWeek, teamMap)
 	}
 

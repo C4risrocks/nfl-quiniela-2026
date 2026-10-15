@@ -40,6 +40,59 @@ func TestFetchPowerRankings_OfflineFallback(t *testing.T) {
 	}
 }
 
+func TestFetchPowerRankings_Week6Article(t *testing.T) {
+	client := NewClient()
+
+	mockTeams := map[string]*db.Team{
+		"SF":  {ID: 1, Code: "SF", Name: "49ers", City: "San Francisco", Conference: "NFC", Division: "West"},
+		"KC":  {ID: 2, Code: "KC", Name: "Chiefs", City: "Kansas City", Conference: "AFC", Division: "West"},
+		"BUF": {ID: 3, Code: "BUF", Name: "Bills", City: "Buffalo", Conference: "AFC", Division: "East"},
+		"SEA": {ID: 4, Code: "SEA", Name: "Seahawks", City: "Seattle", Conference: "NFC", Division: "West"},
+		"MIA": {ID: 5, Code: "MIA", Name: "Dolphins", City: "Miami", Conference: "AFC", Division: "East"},
+	}
+
+	articleRankings, errArticle := client.FetchOfficialArticlePowerRankings(2026, 6, mockTeams)
+	if errArticle != nil {
+		t.Fatalf("FetchOfficialArticlePowerRankings returned error: %v", errArticle)
+	}
+	_ = articleRankings
+	rankings, err := client.FetchPowerRankings(2026, 6, mockTeams)
+	if err != nil {
+		t.Fatalf("FetchPowerRankings for Week 6 returned error: %v", err)
+	}
+
+	if len(rankings) != 32 {
+		t.Fatalf("expected 32 teams in Week 6 Power Rankings, got %d", len(rankings))
+	}
+
+	// Verify #1 is SF (5-0)
+	if rankings[0].TeamCode != "SF" || rankings[0].Rank != 1 {
+		t.Errorf("expected #1 to be SF, got %+v", rankings[0])
+	}
+	if rankings[0].Record != "5-0" {
+		t.Errorf("expected SF record to be 5-0, got %s", rankings[0].Record)
+	}
+	if rankings[0].Author != "Nick Wagoner" {
+		t.Errorf("expected author Nick Wagoner, got %s", rankings[0].Author)
+	}
+
+	// Verify #2 is KC (4-0)
+	if rankings[1].TeamCode != "KC" || rankings[1].Rank != 2 {
+		t.Errorf("expected #2 to be KC, got %+v", rankings[1])
+	}
+
+	// Verify #3 is BUF (4-1)
+	if rankings[2].TeamCode != "BUF" || rankings[2].Rank != 3 {
+		t.Errorf("expected #3 to be BUF, got %+v", rankings[2])
+	}
+
+	// Verify #32 is MIA (0-5)
+	last := rankings[31]
+	if last.TeamCode != "MIA" || last.Rank != 32 {
+		t.Errorf("expected #32 to be MIA, got %+v", last)
+	}
+}
+
 func TestFetchFPIPlayoffProbabilities_OfflineFallback(t *testing.T) {
 	// Create client with dummy URLs that force fallback
 	client := NewClientWithCustomURL("http://localhost:59999/standings", "http://localhost:59999/schedule")
