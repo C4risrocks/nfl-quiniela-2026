@@ -66,15 +66,20 @@ func (b *BotWorker) EnsureBotPicksForWeek(weekID int64) error {
 	return nil
 }
 
-// SeedHistoricalWeeks ensures @ia_quiniela has picks and rankings for already played weeks.
+// SeedHistoricalWeeks ensures @ia_quiniela has picks and rankings for already played weeks or current active week.
 func (b *BotWorker) SeedHistoricalWeeks(seasonID int64) {
 	weeks, err := b.repo.ListWeeks(seasonID)
 	if err != nil {
 		return
 	}
 
+	activeWkNum := 2
+	if activeWk, err := b.repo.GetActiveWeek(seasonID); err == nil && activeWk != nil {
+		activeWkNum = activeWk.WeekNumber
+	}
+
 	for _, w := range weeks {
-		if w.WeekNumber <= 2 {
+		if w.WeekNumber <= activeWkNum || w.Status == "completed" || w.Status == "active" {
 			_ = b.EnsureBotPicksForWeek(w.ID)
 		}
 	}

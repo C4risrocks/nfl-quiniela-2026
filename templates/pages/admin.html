@@ -258,40 +258,102 @@
         </div>
 
         <!-- ESPN Sync Card -->
-        <div class="vercel-card p-6 rounded-2xl">
-            <h2 class="text-base font-bold text-white mb-1 flex items-center">
-                <i class="fa-solid fa-cloud-arrow-down text-zinc-400 mr-2"></i>
-                Sincronización con ESPN
-            </h2>
-            <p class="text-xs text-zinc-400 mb-4">
-                Descarga el calendario oficial, horarios, estados y marcadores en vivo desde la API de ESPN.
-            </p>
+        <div class="vercel-card p-6 rounded-2xl space-y-5">
+            <div>
+                <h2 class="text-base font-bold text-white mb-1 flex items-center">
+                    <i class="fa-solid fa-cloud-arrow-down text-zinc-400 mr-2"></i>
+                    Sincronización con ESPN & NFL Data
+                </h2>
+                <p class="text-xs text-zinc-400">
+                    Descarga el calendario oficial, marcadores en vivo, standings de equipos, power rankings y reportes médicos de lesiones.
+                </p>
+            </div>
 
-            <form hx-post="/admin/sync-espn" 
-                  hx-target="#sync-result"
-                  hx-swap="innerHTML"
-                  class="flex flex-wrap items-center gap-3">
-                
-                <div class="flex items-center space-x-2">
-                    <label class="text-xs font-mono text-zinc-400 uppercase">Jornada:</label>
-                    <select name="week" class="bg-zinc-900 border border-zinc-700 text-white text-xs font-semibold rounded-xl px-3 py-2 focus:ring-1 focus:ring-white">
-                        {{range .Weeks}}
-                            <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
-                                {{.Name}}
-                            </option>
-                        {{end}}
-                    </select>
+            <!-- Sync Partidos de Jornada -->
+            <div class="p-4 rounded-xl bg-zinc-900/50 border border-zinc-800/80">
+                <div class="text-xs font-semibold text-white mb-2 flex items-center gap-1.5">
+                    <i class="fa-solid fa-football text-amber-400"></i>
+                    <span>Partidos & Marcadores en Vivo</span>
+                </div>
+                <form hx-post="/admin/sync-espn" 
+                      hx-target="#sync-result"
+                      hx-swap="innerHTML"
+                      class="flex flex-wrap items-center gap-3">
+                    
+                    <div class="flex items-center space-x-2">
+                        <label class="text-xs font-mono text-zinc-400 uppercase">Jornada:</label>
+                        <select name="week" class="bg-zinc-900 border border-zinc-700 text-white text-xs font-semibold rounded-xl px-3 py-2 focus:ring-1 focus:ring-white">
+                            {{range .Weeks}}
+                                <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
+                                    {{.Name}}
+                                </option>
+                            {{end}}
+                        </select>
+                    </div>
+
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-all shadow-sm flex items-center cursor-pointer">
+                        <i class="fa-solid fa-rotate mr-1.5 htmx-request-hide"></i>
+                        <i class="fa-solid fa-circle-notch fa-spin mr-1.5 htmx-indicator"></i>
+                        <span class="htmx-request-hide">Sincronizar Jornada</span>
+                        <span class="htmx-indicator">Sincronizando...</span>
+                    </button>
+
+                    <div id="sync-result" class="text-xs text-zinc-300 font-medium ml-2"></div>
+                </form>
+            </div>
+
+            <!-- Sync Standings, Rankings & Lesiones -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <!-- Sync Equipos & Standings -->
+                <div class="p-4 rounded-xl bg-zinc-900/50 border border-zinc-800/80 flex flex-col justify-between gap-3">
+                    <div>
+                        <div class="text-xs font-semibold text-white flex items-center gap-1.5">
+                            <i class="fa-solid fa-ranking-star text-blue-400"></i>
+                            <span>Equipos, Standings & FPI</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-400 mt-1">
+                            Actualiza la tabla de posiciones, Power Rankings y probabilidades de playoffs calculadas.
+                        </p>
+                    </div>
+                    <form hx-post="/admin/sync/teams"
+                          hx-target="#sync-teams-result"
+                          hx-swap="innerHTML"
+                          class="flex items-center gap-2">
+                        <button type="submit" class="px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-medium text-xs border border-zinc-700/80 transition-all flex items-center cursor-pointer">
+                            <i class="fa-solid fa-arrows-rotate mr-1.5 htmx-request-hide"></i>
+                            <i class="fa-solid fa-circle-notch fa-spin mr-1.5 htmx-indicator"></i>
+                            <span class="htmx-request-hide">Sincronizar Equipos</span>
+                            <span class="htmx-indicator">Actualizando...</span>
+                        </button>
+                        <div id="sync-teams-result" class="text-xs text-zinc-300"></div>
+                    </form>
                 </div>
 
-                <button type="submit" class="px-4 py-2 rounded-xl bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-all shadow-sm flex items-center cursor-pointer">
-                    <i class="fa-solid fa-rotate mr-1.5 htmx-request-hide"></i>
-                    <i class="fa-solid fa-circle-notch fa-spin mr-1.5 htmx-indicator"></i>
-                    <span class="htmx-request-hide">Sincronizar Ahora</span>
-                    <span class="htmx-indicator">Sincronizando con ESPN...</span>
-                </button>
-
-                <div id="sync-result" class="text-xs text-zinc-300 font-medium ml-2"></div>
-            </form>
+                <!-- Sync Lesiones NFL -->
+                <div class="p-4 rounded-xl bg-zinc-900/50 border border-zinc-800/80 flex flex-col justify-between gap-3">
+                    <div>
+                        <div class="text-xs font-semibold text-white flex items-center gap-1.5">
+                            <i class="fa-solid fa-user-injured text-rose-400"></i>
+                            <span>Reporte Oficial de Lesiones</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-400 mt-1">
+                            Purga jugadores recuperados y descarga las listas actualizadas de Out, Questionable e IR.
+                        </p>
+                    </div>
+                    <form hx-post="/admin/sync/injuries"
+                          hx-target="#sync-injuries-result"
+                          hx-swap="innerHTML"
+                          class="flex items-center gap-2">
+                        <button type="submit" class="px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-medium text-xs border border-zinc-700/80 transition-all flex items-center cursor-pointer">
+                            <i class="fa-solid fa-heart-pulse mr-1.5 htmx-request-hide"></i>
+                            <i class="fa-solid fa-circle-notch fa-spin mr-1.5 htmx-indicator"></i>
+                            <span class="htmx-request-hide">Sincronizar Lesiones</span>
+                            <span class="htmx-indicator">Actualizando...</span>
+                        </button>
+                        <div id="sync-injuries-result" class="text-xs text-zinc-300"></div>
+                    </form>
+                </div>
+            </div>
         </div>
 
         <!-- Manual Game List for Selected Week -->

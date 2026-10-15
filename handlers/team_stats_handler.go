@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -196,6 +197,21 @@ func (h *TeamStatsHandler) getTeamCodeMap() map[string]*db.Team {
 	return m
 }
 
+func (h *TeamStatsHandler) getActiveWeekNumber() int {
+	if h.repo == nil {
+		return 1
+	}
+	season, err := h.repo.GetActiveSeason(h.seasonYear)
+	if err != nil || season == nil {
+		return 1
+	}
+	activeWeek, err := h.repo.GetActiveWeek(season.ID)
+	if err != nil || activeWeek == nil {
+		return 1
+	}
+	return activeWeek.WeekNumber
+}
+
 func (h *TeamStatsHandler) getStandingsWithFallback(seasonYear int) *db.SeasonStandings {
 	teamMap := h.getTeamCodeMap()
 
@@ -383,17 +399,23 @@ func (h *TeamStatsHandler) buildTeamDetailData(team *db.Team, seasonYear int) *T
 		}
 	}
 
-	// Load Injuries for this team
+	// Load Injuries for this team with freshness check (4 hours)
 	var injuries []*db.TeamInjury
+	var injLastUpdated time.Time
 	if h.repo != nil {
+		injLastUpdated, _ = h.repo.GetInjuriesLastUpdated()
 		injuries, _ = h.repo.GetTeamInjuries(team.Code)
 	}
-	if len(injuries) == 0 && h.espnClient != nil {
-		injMap, _ := h.espnClient.FetchAllNFLInjuries()
-		if list, ok := injMap[team.Code]; ok && len(list) > 0 {
-			injuries = list
+	if (len(injuries) == 0 || injLastUpdated.IsZero() || time.Since(injLastUpdated) > 4*time.Hour) && h.espnClient != nil {
+		injMap, err := h.espnClient.FetchAllNFLInjuries()
+		if err == nil && len(injMap) > 0 {
+			if list, ok := injMap[team.Code]; ok {
+				injuries = list
+			}
 			if h.repo != nil {
-				_ = h.repo.SaveTeamInjuries(team.Code, list)
+				for tCode, injs := range injMap {
+					_ = h.repo.SaveTeamInjuries(tCode, injs)
+				}
 			}
 		}
 	}
@@ -420,15 +442,20 @@ func (h *TeamStatsHandler) buildTeamDetailData(team *db.Team, seasonYear int) *T
 		injuryMap[strings.ToLower(strings.TrimSpace(inj.AthleteName))] = inj
 	}
 
-	// Load Depth Chart for this team
+	// Load Depth Chart for this team with freshness check (24 hours)
 	var depthSlots []*db.TeamDepthChartSlot
+	var depthLastUpdated time.Time
 	if h.repo != nil {
+		depthLastUpdated, _ = h.repo.GetDepthChartLastUpdated(team.Code)
 		depthSlots, _ = h.repo.GetTeamDepthChart(team.Code)
 	}
-	if len(depthSlots) == 0 && h.espnClient != nil {
-		depthSlots, _ = h.espnClient.FetchTeamDepthChart(team.Code)
-		if len(depthSlots) > 0 && h.repo != nil {
-			_ = h.repo.SaveTeamDepthChart(team.Code, depthSlots)
+	if (len(depthSlots) == 0 || depthLastUpdated.IsZero() || time.Since(depthLastUpdated) > 24*time.Hour) && h.espnClient != nil {
+		freshSlots, err := h.espnClient.FetchTeamDepthChart(team.Code)
+		if err == nil && len(freshSlots) > 0 {
+			depthSlots = freshSlots
+			if h.repo != nil {
+				_ = h.repo.SaveTeamDepthChart(team.Code, freshSlots)
+			}
 		}
 	}
 
@@ -463,16 +490,24 @@ func (h *TeamStatsHandler) enrichStandingsWithInjuries(standings *db.SeasonStand
 	}
 
 	var allInjuries []*db.TeamInjury
+	var lastUpdated time.Time
 	if h.repo != nil {
+		lastUpdated, _ = h.repo.GetInjuriesLastUpdated()
 		allInjuries, _ = h.repo.GetAllInjuries()
 	}
 
-	if len(allInjuries) == 0 && h.espnClient != nil {
-		injMap, _ := h.espnClient.FetchAllNFLInjuries()
-		if len(injMap) > 0 && h.repo != nil {
+	if (len(allInjuries) == 0 || lastUpdated.IsZero() || time.Since(lastUpdated) > 4*time.Hour) && h.espnClient != nil {
+		injMap, err := h.espnClient.FetchAllNFLInjuries()
+		if err == nil && len(injMap) > 0 {
+			freshInjuries := make([]*db.TeamInjury, 0)
 			for tCode, injs := range injMap {
-				_ = h.repo.SaveTeamInjuries(tCode, injs)
-				allInjuries = append(allInjuries, injs...)
+				if h.repo != nil {
+					_ = h.repo.SaveTeamInjuries(tCode, injs)
+				}
+				freshInjuries = append(freshInjuries, injs...)
+			}
+			if len(freshInjuries) > 0 {
+				allInjuries = freshInjuries
 			}
 		}
 	}
@@ -766,6 +801,7 @@ func (h *TeamStatsHandler) enrichStandingsWithPowerRankingsAndFPI(standings *db.
 	}
 
 	teamMap := h.getTeamCodeMap()
+	targetWeek := h.getActiveWeekNumber()
 
 	// 1. Power Rankings
 	var rankings []*db.TeamPowerRanking
@@ -773,11 +809,14 @@ func (h *TeamStatsHandler) enrichStandingsWithPowerRankingsAndFPI(standings *db.
 	if h.repo != nil {
 		rankWeek, rankings, _ = h.repo.GetLatestPowerRankings(seasonYear)
 	}
-	if len(rankings) == 0 && h.espnClient != nil {
-		rankings, _ = h.espnClient.FetchPowerRankings(seasonYear, 3, teamMap)
-		if len(rankings) > 0 && h.repo != nil {
-			_ = h.repo.SavePowerRankings(rankings)
-			rankWeek = 3
+	if (len(rankings) == 0 || rankWeek < targetWeek) && h.espnClient != nil {
+		freshRankings, err := h.espnClient.FetchPowerRankings(seasonYear, targetWeek, teamMap)
+		if err == nil && len(freshRankings) > 0 {
+			rankings = freshRankings
+			rankWeek = targetWeek
+			if h.repo != nil {
+				_ = h.repo.SavePowerRankings(rankings)
+			}
 		}
 	}
 
@@ -788,11 +827,15 @@ func (h *TeamStatsHandler) enrichStandingsWithPowerRankingsAndFPI(standings *db.
 	if h.repo != nil {
 		fpiWeek, probs, _ = h.repo.GetLatestPlayoffProbabilities(seasonYear)
 	}
-	if len(probs) == 0 && h.espnClient != nil {
-		probs, matchupImpacts, _ = h.espnClient.FetchFPIPlayoffProbabilities(seasonYear, 4, teamMap)
-		if len(probs) > 0 && h.repo != nil {
-			_ = h.repo.SavePlayoffProbabilities(probs)
-			fpiWeek = 4
+	if (len(probs) == 0 || fpiWeek < targetWeek) && h.espnClient != nil {
+		freshProbs, impacts, err := h.espnClient.FetchFPIPlayoffProbabilities(seasonYear, targetWeek, teamMap)
+		if err == nil && len(freshProbs) > 0 {
+			probs = freshProbs
+			matchupImpacts = impacts
+			fpiWeek = targetWeek
+			if h.repo != nil {
+				_ = h.repo.SavePlayoffProbabilities(probs)
+			}
 		}
 	} else if len(probs) > 0 && h.espnClient != nil {
 		_, matchupImpacts, _ = h.espnClient.FetchFPIPlayoffProbabilities(seasonYear, fpiWeek, teamMap)

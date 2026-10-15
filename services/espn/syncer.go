@@ -133,6 +133,7 @@ func (s *Syncer) SyncWeek(weekNum int) (count int, err error) {
 	}
 
 	var syncedGames []*db.Game
+	hasNewlyFinishedGames := false
 	for _, ev := range sb.Events {
 		event := ev
 		game, err := MapESPNEventToGame(&event, week.ID, teamMap)
@@ -203,6 +204,7 @@ func (s *Syncer) SyncWeek(weekNum int) (count int, err error) {
 
 			// 2. Game Final
 			if oldG.Status != "final" && game.Status == "final" {
+				hasNewlyFinishedGames = true
 				awayS, homeS := 0, 0
 				if game.AwayScore != nil {
 					awayS = *game.AwayScore
@@ -413,6 +415,13 @@ func (s *Syncer) SyncWeek(weekNum int) (count int, err error) {
 		s.broker.BroadcastLeaderboardUpdate()
 	}
 
+	if hasNewlyFinishedGames {
+		go func() {
+			_, _ = s.SyncTeamsStandings(s.seasonYear)
+			_ = s.SyncPowerRankingsAndFPI(s.seasonYear, weekNum)
+		}()
+	}
+
 	log.Printf("[Syncer] Successfully synced %d games for Week %d (status: %s).", len(syncedGames), weekNum, week.Status)
 	return len(syncedGames), nil
 }
@@ -432,9 +441,14 @@ func (s *Syncer) FetchCurrentWeekNumber() int {
 }
 
 // StartBackgroundSync periodically syncs the current active week with adaptive frequency (60s during live games)
+// and autonomously updates Standings, Injuries, and Power Rankings.
 func (s *Syncer) StartBackgroundSync(ctx context.Context, defaultInterval time.Duration) {
 	currentInterval := defaultInterval
 	ticker := time.NewTicker(currentInterval)
+	var lastInjuriesSync time.Time
+	var lastStandingsSync time.Time
+	var lastRankingsSync time.Time
+
 	go func() {
 		log.Printf("[Syncer] Background sync started with default interval %v (adaptive to 60s during live games).", defaultInterval)
 		for {
@@ -482,7 +496,31 @@ func (s *Syncer) StartBackgroundSync(ctx context.Context, defaultInterval time.D
 					_, _ = s.SyncWeek(wNum)
 				}
 
-				// 3. Check if any games are currently live or imminent to adjust polling interval
+				// 3. Periodic refresh of NFL Injuries (every 4 hours)
+				if lastInjuriesSync.IsZero() || time.Since(lastInjuriesSync) >= 4*time.Hour {
+					go func() {
+						_, _ = s.SyncAllInjuries()
+					}()
+					lastInjuriesSync = time.Now()
+				}
+
+				// 4. Periodic refresh of NFL Standings (every 6 hours)
+				if lastStandingsSync.IsZero() || time.Since(lastStandingsSync) >= 6*time.Hour {
+					go func() {
+						_, _ = s.SyncTeamsStandings(s.seasonYear)
+					}()
+					lastStandingsSync = time.Now()
+				}
+
+				// 5. Periodic refresh of Power Rankings & FPI (every 12 hours)
+				if lastRankingsSync.IsZero() || time.Since(lastRankingsSync) >= 12*time.Hour {
+					go func(wk int) {
+						_ = s.SyncPowerRankingsAndFPI(s.seasonYear, wk)
+					}(currentWeekNum)
+					lastRankingsSync = time.Now()
+				}
+
+				// 6. Check if any games are currently live or imminent to adjust polling interval
 				hasActiveGames := false
 				now := time.Now()
 				for _, w := range weeks {
@@ -517,6 +555,114 @@ func (s *Syncer) StartBackgroundSync(ctx context.Context, defaultInterval time.D
 			}
 		}
 	}()
+}
+
+// SyncTeamsStandings syncs NFL standings for the given season year from ESPN (or calculates locally if offline)
+func (s *Syncer) SyncTeamsStandings(seasonYear int) (*db.SeasonStandings, error) {
+	teams, err := s.repo.ListTeams()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list teams: %w", err)
+	}
+	teamMap := make(map[string]*db.Team, len(teams))
+	for _, t := range teams {
+		teamMap[t.Code] = t
+	}
+
+	var standings *db.SeasonStandings
+	var fetchErr error
+
+	if s.client != nil {
+		standings, fetchErr = s.client.FetchNFLStandings(seasonYear, s.seasonYear, teamMap)
+	}
+
+	if (standings == nil || fetchErr != nil || len(standings.League) == 0) && seasonYear == s.seasonYear {
+		log.Printf("[Syncer] ESPN standings fetch failed or unavailable (%v), calculating local standings...", fetchErr)
+		standings, err = s.repo.CalculateLocalStandings(s.seasonYear)
+		if err != nil {
+			return nil, fmt.Errorf("failed to calculate local standings: %w", err)
+		}
+	}
+
+	if standings != nil && len(standings.League) > 0 {
+		if err := s.repo.SaveSeasonStandings(standings); err != nil {
+			return nil, fmt.Errorf("failed to save season standings: %w", err)
+		}
+		if s.broker != nil {
+			s.broker.Broadcast("standings-updated", fmt.Sprintf(`{"season": %d}`, seasonYear))
+		}
+		log.Printf("[Syncer] Successfully synced standings for season %d (%d teams).", seasonYear, len(standings.League))
+		return standings, nil
+	}
+
+	return nil, fmt.Errorf("no standings data available for season %d", seasonYear)
+}
+
+// SyncAllInjuries fetches all NFL injuries from ESPN and updates the database, clearing healed players
+func (s *Syncer) SyncAllInjuries() (int, error) {
+	if s.client == nil {
+		return 0, fmt.Errorf("espn client not initialized")
+	}
+
+	injMap, err := s.client.FetchAllNFLInjuries()
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch injuries from ESPN: %w", err)
+	}
+
+	totalSaved := 0
+	for teamCode, injuries := range injMap {
+		if err := s.repo.SaveTeamInjuries(teamCode, injuries); err != nil {
+			log.Printf("[Syncer] Failed to save injuries for %s: %v", teamCode, err)
+			continue
+		}
+		totalSaved += len(injuries)
+	}
+
+	if s.broker != nil {
+		s.broker.Broadcast("injuries-updated", fmt.Sprintf(`{"count": %d}`, totalSaved))
+	}
+	log.Printf("[Syncer] Successfully synced NFL injuries across %d teams (%d total active records).", len(injMap), totalSaved)
+	return totalSaved, nil
+}
+
+// SyncPowerRankingsAndFPI refreshes ESPN Power Rankings and FPI Playoff Probabilities for the given week
+func (s *Syncer) SyncPowerRankingsAndFPI(seasonYear, weekNum int) error {
+	if s.client == nil {
+		return fmt.Errorf("espn client not initialized")
+	}
+
+	teams, err := s.repo.ListTeams()
+	if err != nil {
+		return fmt.Errorf("failed to list teams: %w", err)
+	}
+	teamMap := make(map[string]*db.Team, len(teams))
+	for _, t := range teams {
+		teamMap[t.Code] = t
+	}
+
+	// 1. Power Rankings
+	rankings, err := s.client.FetchPowerRankings(seasonYear, weekNum, teamMap)
+	if err == nil && len(rankings) > 0 {
+		if err := s.repo.SavePowerRankings(rankings); err != nil {
+			log.Printf("[Syncer] Error saving power rankings for week %d: %v", weekNum, err)
+		} else {
+			log.Printf("[Syncer] Saved %d power rankings for week %d.", len(rankings), weekNum)
+		}
+	}
+
+	// 2. Playoff Probabilities
+	probs, _, err := s.client.FetchFPIPlayoffProbabilities(seasonYear, weekNum, teamMap)
+	if err == nil && len(probs) > 0 {
+		if err := s.repo.SavePlayoffProbabilities(probs); err != nil {
+			log.Printf("[Syncer] Error saving playoff probabilities for week %d: %v", weekNum, err)
+		} else {
+			log.Printf("[Syncer] Saved %d playoff probabilities for week %d.", len(probs), weekNum)
+		}
+	}
+
+	if s.broker != nil {
+		s.broker.Broadcast("rankings-updated", fmt.Sprintf(`{"week": %d}`, weekNum))
+	}
+	return nil
 }
 
 func (s *Syncer) broadcastAlert(alert LiveAlert) {

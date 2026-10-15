@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"nfl-quiniela-2026/db"
@@ -183,8 +184,55 @@ type espnDepthChartResponse struct {
 	} `json:"depthchart"`
 }
 
-// FetchAllNFLInjuries retrieves the injury report for all 32 NFL teams from ESPN
+var (
+	injuriesCacheMu   sync.Mutex
+	injuriesCache     map[string][]*db.TeamInjury
+	injuriesCacheExp  time.Time
+
+	depthChartCacheMu  sync.Mutex
+	depthChartCache    = make(map[string][]*db.TeamDepthChartSlot)
+	depthChartCacheExp = make(map[string]time.Time)
+)
+
+// InvalidateInjuriesCache clears the in-memory injuries cache
+func InvalidateInjuriesCache() {
+	injuriesCacheMu.Lock()
+	injuriesCache = nil
+	injuriesCacheExp = time.Time{}
+	injuriesCacheMu.Unlock()
+}
+
+// InvalidateDepthChartCache clears the in-memory depth chart cache
+func InvalidateDepthChartCache(teamCodes ...string) {
+	depthChartCacheMu.Lock()
+	if len(teamCodes) == 0 {
+		depthChartCache = make(map[string][]*db.TeamDepthChartSlot)
+		depthChartCacheExp = make(map[string]time.Time)
+	} else {
+		for _, tc := range teamCodes {
+			norm := NormalizeTeamCode(tc)
+			delete(depthChartCache, norm)
+			delete(depthChartCacheExp, norm)
+		}
+	}
+	depthChartCacheMu.Unlock()
+}
+
+// FetchAllNFLInjuries retrieves the injury report for all 32 NFL teams from ESPN (with 15m memory cache)
 func (c *Client) FetchAllNFLInjuries() (map[string][]*db.TeamInjury, error) {
+	isOfflineTest := c.standingsURL != "" && strings.Contains(c.standingsURL, "localhost")
+
+	injuriesCacheMu.Lock()
+	if !isOfflineTest && injuriesCache != nil && time.Now().Before(injuriesCacheExp) {
+		resCopy := make(map[string][]*db.TeamInjury, len(injuriesCache))
+		for k, v := range injuriesCache {
+			resCopy[k] = v
+		}
+		injuriesCacheMu.Unlock()
+		return resCopy, nil
+	}
+	injuriesCacheMu.Unlock()
+
 	url := "https://site.api.espn.com/apis/site/v2/sports/football/nfl/injuries"
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
@@ -269,12 +317,28 @@ func (c *Client) FetchAllNFLInjuries() (map[string][]*db.TeamInjury, error) {
 		return c.getFallbackAllInjuries(), nil
 	}
 
+	injuriesCacheMu.Lock()
+	injuriesCache = result
+	injuriesCacheExp = time.Now().Add(15 * time.Minute)
+	injuriesCacheMu.Unlock()
+
 	return result, nil
 }
 
-// FetchTeamDepthChart retrieves official depth chart slots for a specific team code
+// FetchTeamDepthChart retrieves official depth chart slots for a specific team code (with 15m memory cache)
 func (c *Client) FetchTeamDepthChart(teamCode string) ([]*db.TeamDepthChartSlot, error) {
 	normCode := NormalizeTeamCode(teamCode)
+	isOfflineTest := c.standingsURL != "" && strings.Contains(c.standingsURL, "localhost")
+
+	depthChartCacheMu.Lock()
+	if !isOfflineTest {
+		if slots, ok := depthChartCache[normCode]; ok && time.Now().Before(depthChartCacheExp[normCode]) {
+			depthChartCacheMu.Unlock()
+			return slots, nil
+		}
+	}
+	depthChartCacheMu.Unlock()
+
 	espnID := GetESPNTeamID(normCode)
 	if espnID == "" {
 		return c.getFallbackDepthChart(normCode), nil
@@ -352,6 +416,11 @@ func (c *Client) FetchTeamDepthChart(teamCode string) ([]*db.TeamDepthChartSlot,
 	if len(slots) == 0 {
 		return c.getFallbackDepthChart(normCode), nil
 	}
+
+	depthChartCacheMu.Lock()
+	depthChartCache[normCode] = slots
+	depthChartCacheExp[normCode] = time.Now().Add(15 * time.Minute)
+	depthChartCacheMu.Unlock()
 
 	return slots, nil
 }

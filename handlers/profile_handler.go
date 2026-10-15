@@ -21,17 +21,23 @@ type ProfileHandler struct {
 	authService *auth.AuthService
 	renderer    *Renderer
 	uploadDir   string
+	seasonYear  int
 }
 
-func NewProfileHandler(repo *db.Repository, authService *auth.AuthService, renderer *Renderer, uploadDir string) *ProfileHandler {
+func NewProfileHandler(repo *db.Repository, authService *auth.AuthService, renderer *Renderer, uploadDir string, optSeasonYear ...int) *ProfileHandler {
 	if uploadDir == "" {
 		uploadDir = "uploads"
+	}
+	sYear := 2026
+	if len(optSeasonYear) > 0 && optSeasonYear[0] > 0 {
+		sYear = optSeasonYear[0]
 	}
 	return &ProfileHandler{
 		repo:        repo,
 		authService: authService,
 		renderer:    renderer,
 		uploadDir:   uploadDir,
+		seasonYear:  sYear,
 	}
 }
 
@@ -65,7 +71,7 @@ func (h *ProfileHandler) ShowProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	teams, _ := h.repo.ListTeams()
 
-	season, _ := h.repo.GetActiveSeason(2026)
+	season, _ := h.repo.GetActiveSeason(h.seasonYear)
 	var seasonID int64
 	if season != nil {
 		seasonID = season.ID

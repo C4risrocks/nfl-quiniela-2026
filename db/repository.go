@@ -4121,17 +4121,22 @@ func (r *Repository) GetLatestPlayoffProbabilities(seasonYear int) (int, []*Team
 	return maxWeek, probs, err
 }
 
-// SaveTeamInjuries persists or updates player injuries for a team inside a transaction
+// SaveTeamInjuries persists or updates player injuries for a team inside a transaction.
+// It purges previously stored injuries for the franchise to cleanly remove healed players.
 func (r *Repository) SaveTeamInjuries(teamCode string, injuries []*TeamInjury) error {
-	if len(injuries) == 0 {
-		return nil
-	}
-
 	tx, err := r.db.Begin()
 	if err != nil {
 		return fmt.Errorf("starting transaction to save injuries for %s: %w", teamCode, err)
 	}
 	defer tx.Rollback()
+
+	if _, err := tx.Exec("DELETE FROM team_injuries WHERE team_code = ?", teamCode); err != nil {
+		return fmt.Errorf("purging previous injuries for %s: %w", teamCode, err)
+	}
+
+	if len(injuries) == 0 {
+		return tx.Commit()
+	}
 
 	query := `
 	INSERT INTO team_injuries (
@@ -4242,17 +4247,22 @@ func (r *Repository) GetAllInjuries() ([]*TeamInjury, error) {
 	return result, nil
 }
 
-// SaveTeamDepthChart persists depth chart positions and player rankings for a franchise
+// SaveTeamDepthChart persists depth chart positions and player rankings for a franchise.
+// It purges previous depth chart entries for the franchise to cleanly remove orphaned records.
 func (r *Repository) SaveTeamDepthChart(teamCode string, slots []*TeamDepthChartSlot) error {
-	if len(slots) == 0 {
-		return nil
-	}
-
 	tx, err := r.db.Begin()
 	if err != nil {
 		return fmt.Errorf("starting transaction to save depth chart for %s: %w", teamCode, err)
 	}
 	defer tx.Rollback()
+
+	if _, err := tx.Exec("DELETE FROM team_depth_charts WHERE team_code = ?", teamCode); err != nil {
+		return fmt.Errorf("purging previous depth chart for %s: %w", teamCode, err)
+	}
+
+	if len(slots) == 0 {
+		return tx.Commit()
+	}
 
 	query := `
 	INSERT INTO team_depth_charts (
@@ -4323,6 +4333,55 @@ func (r *Repository) GetTeamDepthChart(teamCode string) ([]*TeamDepthChartSlot, 
 		result = append(result, &slot)
 	}
 	return result, nil
+}
+
+// GetInjuriesLastUpdated returns the timestamp of the most recent injury report update
+func (r *Repository) GetInjuriesLastUpdated() (time.Time, error) {
+	var maxUpdated sql.NullString
+	query := `SELECT MAX(updated_at) FROM team_injuries`
+	err := r.db.QueryRow(query).Scan(&maxUpdated)
+	if err != nil || !maxUpdated.Valid || maxUpdated.String == "" {
+		return time.Time{}, err
+	}
+	return parseFlexibleTime(maxUpdated.String), nil
+}
+
+// GetDepthChartLastUpdated returns the timestamp of the depth chart update for a team
+func (r *Repository) GetDepthChartLastUpdated(teamCode string) (time.Time, error) {
+	var maxUpdated sql.NullString
+	query := `SELECT MAX(updated_at) FROM team_depth_charts WHERE team_code = ?`
+	err := r.db.QueryRow(query, teamCode).Scan(&maxUpdated)
+	if err != nil || !maxUpdated.Valid || maxUpdated.String == "" {
+		return time.Time{}, err
+	}
+	return parseFlexibleTime(maxUpdated.String), nil
+}
+
+// GetStandingsLastUpdated returns the timestamp of the standings update for a season
+func (r *Repository) GetStandingsLastUpdated(seasonYear int) (time.Time, error) {
+	var maxUpdated sql.NullString
+	query := `SELECT MAX(updated_at) FROM team_season_standings WHERE season_year = ?`
+	err := r.db.QueryRow(query, seasonYear).Scan(&maxUpdated)
+	if err != nil || !maxUpdated.Valid || maxUpdated.String == "" {
+		return time.Time{}, err
+	}
+	return parseFlexibleTime(maxUpdated.String), nil
+}
+
+func parseFlexibleTime(s string) time.Time {
+	formats := []string{
+		time.RFC3339,
+		"2006-01-02 15:04:05",
+		"2006-01-02T15:04:05Z",
+		"2006-01-02T15:04:05.999999999Z07:00",
+		"2006-01-02 15:04:05.999999999-07:00",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, s); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
 }
 
 

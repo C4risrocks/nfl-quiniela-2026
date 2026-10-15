@@ -145,7 +145,7 @@ func main() {
 
 	// 7. HTTP Handlers
 	authHandler := handlers.NewAuthHandler(authService, repo, emailSender, renderer)
-	profileHandler := handlers.NewProfileHandler(repo, authService, renderer, cfg.UploadDir)
+	profileHandler := handlers.NewProfileHandler(repo, authService, renderer, cfg.UploadDir, cfg.CurrentSeasonYear)
 	picksHandler := handlers.NewPicksHandler(repo, renderer, syncer, cfg.CurrentSeasonYear)
 	leaderboardHandler := handlers.NewLeaderboardHandler(repo, renderer, cfg.CurrentSeasonYear)
 	rulesHandler := handlers.NewRulesHandler(repo, renderer)
@@ -286,6 +286,8 @@ func main() {
 		admin.Get("/admin", adminHandler.ShowAdmin)
 		admin.Post("/admin/settings/save", adminHandler.SaveSettings)
 		admin.Post("/admin/sync-espn", adminHandler.SyncESPN)
+		admin.Post("/admin/sync/teams", adminHandler.SyncTeams)
+		admin.Post("/admin/sync/injuries", adminHandler.SyncInjuries)
 		admin.Post("/admin/recalculate", adminHandler.RecalculateScores)
 		admin.Post("/admin/games/save-score", adminHandler.SaveGameScore)
 		admin.Post("/admin/games/toggle-lock", adminHandler.ToggleGameLock)

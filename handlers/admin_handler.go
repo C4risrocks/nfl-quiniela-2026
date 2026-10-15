@@ -197,6 +197,54 @@ func (h *AdminHandler) SyncESPN(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf(`<span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i> ¡Éxito! %d partidos sincronizados con ESPN</span>`, count)))
 }
 
+// SyncTeams syncs standings, power rankings, and playoff probabilities for the current season
+func (h *AdminHandler) SyncTeams(w http.ResponseWriter, r *http.Request) {
+	if h.syncer == nil {
+		http.Error(w, "Syncer unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	standings, err := h.syncer.SyncTeamsStandings(h.seasonYear)
+	if err != nil {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Error al sincronizar standings de equipos", "type": "error"}}`)
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(fmt.Sprintf(`<span class="text-rose-400 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Error: %v</span>`, err)))
+		return
+	}
+
+	currentWk := h.syncer.FetchCurrentWeekNumber()
+	_ = h.syncer.SyncPowerRankingsAndFPI(h.seasonYear, currentWk)
+
+	count := 0
+	if standings != nil {
+		count = len(standings.League)
+	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "¡Éxito! Standings de %d equipos y Power Rankings sincronizados", "type": "success"}}`, count))
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(fmt.Sprintf(`<span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i> ¡Éxito! %d equipos sincronizados (`+time.Now().Format("15:04:05")+`)</span>`, count)))
+}
+
+// SyncInjuries syncs NFL injury reports from ESPN and clears healed players
+func (h *AdminHandler) SyncInjuries(w http.ResponseWriter, r *http.Request) {
+	if h.syncer == nil {
+		http.Error(w, "Syncer unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	count, err := h.syncer.SyncAllInjuries()
+	if err != nil {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Error al sincronizar lesiones", "type": "error"}}`)
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(fmt.Sprintf(`<span class="text-rose-400 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Error: %v</span>`, err)))
+		return
+	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "¡Éxito! %d reportes de lesiones sincronizados", "type": "success"}}`, count))
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(fmt.Sprintf(`<span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i> ¡Éxito! %d lesiones actualizadas (`+time.Now().Format("15:04:05")+`)</span>`, count)))
+}
+
 func (h *AdminHandler) RecalculateScores(w http.ResponseWriter, r *http.Request) {
 	if err := h.calculator.RecalculateAllWeeks(h.seasonYear); err != nil {
 		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Error al recalcular puntuaciones", "type": "error"}}`)

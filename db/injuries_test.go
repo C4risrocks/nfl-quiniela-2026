@@ -165,4 +165,78 @@ func TestInjuriesAndDepthChartPersistence(t *testing.T) {
 	if kcDepthQueried[0].AthleteName != "Patrick Mahomes" || kcDepthQueried[0].DepthRank != 1 {
 		t.Errorf("expected starter QB Patrick Mahomes, got %s rank %d", kcDepthQueried[0].AthleteName, kcDepthQueried[0].DepthRank)
 	}
+
+	// 6. Test Injury Purging (Kenneth Walker healed, now only Clyde Edwards-Helaire)
+	kcUpdatedInjuries := []*TeamInjury{
+		{
+			TeamCode:      "KC",
+			AthleteESPNID: "4241457",
+			AthleteName:   "Clyde Edwards-Helaire",
+			Position:      "RB",
+			Jersey:        "25",
+			HeadshotURL:   "https://a.espncdn.com/i/headshots/nfl/players/full/4241457.png",
+			Status:        "Injured Reserve",
+			Comment:       "knee injury, out for regular season",
+			InjuryDate:    "2026-10-02T10:00Z",
+		},
+	}
+	if err := repo.SaveTeamInjuries("KC", kcUpdatedInjuries); err != nil {
+		t.Fatalf("SaveTeamInjuries updated KC failed: %v", err)
+	}
+	kcPurged, err := repo.GetTeamInjuries("KC")
+	if err != nil {
+		t.Fatalf("GetTeamInjuries failed after purge: %v", err)
+	}
+	if len(kcPurged) != 1 {
+		t.Fatalf("expected exactly 1 injury for KC after healed player purge, got %d", len(kcPurged))
+	}
+	if kcPurged[0].AthleteName != "Clyde Edwards-Helaire" {
+		t.Errorf("expected remaining injury to be Clyde Edwards-Helaire, got %s", kcPurged[0].AthleteName)
+	}
+
+	// 7. Test Depth Chart Purging (Justin Fields traded/released, only Mahomes & Jones remaining)
+	kcUpdatedDepth := []*TeamDepthChartSlot{
+		{
+			TeamCode:       "KC",
+			FormationGroup: "Ofensiva",
+			PositionCode:   "QB",
+			PositionName:   "Quarterback",
+			DepthRank:      1,
+			AthleteESPNID:  "3139477",
+			AthleteName:    "Patrick Mahomes",
+			Jersey:         "15",
+			HeadshotURL:    "https://a.espncdn.com/i/headshots/nfl/players/full/3139477.png",
+		},
+		{
+			TeamCode:       "KC",
+			FormationGroup: "Defensiva",
+			PositionCode:   "LDT",
+			PositionName:   "Left Defensive Tackle",
+			DepthRank:      1,
+			AthleteESPNID:  "3045353",
+			AthleteName:    "Chris Jones",
+			Jersey:         "95",
+			HeadshotURL:    "https://a.espncdn.com/i/headshots/nfl/players/full/3045353.png",
+		},
+	}
+	if err := repo.SaveTeamDepthChart("KC", kcUpdatedDepth); err != nil {
+		t.Fatalf("SaveTeamDepthChart updated failed: %v", err)
+	}
+	kcDepthPurged, err := repo.GetTeamDepthChart("KC")
+	if err != nil {
+		t.Fatalf("GetTeamDepthChart failed after purge: %v", err)
+	}
+	if len(kcDepthPurged) != 2 {
+		t.Fatalf("expected 2 depth chart slots after purge, got %d", len(kcDepthPurged))
+	}
+
+	// 8. Test Freshness Query Methods
+	injUpdated, err := repo.GetInjuriesLastUpdated()
+	if err != nil || injUpdated.IsZero() {
+		t.Fatalf("GetInjuriesLastUpdated returned zero time or error: %v", err)
+	}
+	depthUpdated, err := repo.GetDepthChartLastUpdated("KC")
+	if err != nil || depthUpdated.IsZero() {
+		t.Fatalf("GetDepthChartLastUpdated returned zero time or error: %v", err)
+	}
 }

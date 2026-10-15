@@ -1,6 +1,11 @@
 package espn
 
 import (
+	"fmt"
+	"math"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"nfl-quiniela-2026/db"
@@ -394,22 +399,171 @@ var OfficialWeek3PowerRankings = []*db.TeamPowerRanking{
 	},
 }
 
-// FetchPowerRankings returns the weekly ESPN Power Rankings, with 100% offline fallback
+// FetchPowerRankings returns the weekly ESPN Power Rankings, with dynamic progression and 100% offline fallback
 func (c *Client) FetchPowerRankings(seasonYear, weekNumber int, teamMap map[string]*db.Team) ([]*db.TeamPowerRanking, error) {
-	// For Season 2026 Week 3 (or latest default), return official rankings enriched with team metadata
-	rankings := make([]*db.TeamPowerRanking, 0, len(OfficialWeek3PowerRankings))
-	for _, orig := range OfficialWeek3PowerRankings {
-		pr := *orig
-		if t, ok := teamMap[pr.TeamCode]; ok {
-			pr.TeamID = t.ID
-			pr.TeamName = t.Name
-			pr.TeamCity = t.City
-			pr.LogoURL = t.LogoURL
-			pr.PrimaryColor = t.PrimaryColor
-			pr.Conference = t.Conference
-			pr.Division = t.Division
-		}
-		rankings = append(rankings, &pr)
+	if weekNumber <= 0 {
+		weekNumber = 3
 	}
-	return rankings, nil
+	if weekNumber <= 3 {
+		rankings := make([]*db.TeamPowerRanking, 0, len(OfficialWeek3PowerRankings))
+		for _, orig := range OfficialWeek3PowerRankings {
+			pr := *orig
+			pr.SeasonYear = seasonYear
+			pr.WeekNumber = weekNumber
+			if t, ok := teamMap[pr.TeamCode]; ok {
+				pr.TeamID = t.ID
+				pr.TeamName = t.Name
+				pr.TeamCity = t.City
+				pr.LogoURL = t.LogoURL
+				pr.PrimaryColor = t.PrimaryColor
+				pr.Conference = t.Conference
+				pr.Division = t.Division
+			}
+			rankings = append(rankings, &pr)
+		}
+		return rankings, nil
+	}
+
+	// For weeks > 3, generate rankings based on latest season standings
+	standings, _ := c.FetchNFLStandings(seasonYear, seasonYear, teamMap)
+	prevWeekRanks := make(map[string]int)
+	for _, pr := range OfficialWeek3PowerRankings {
+		prevWeekRanks[pr.TeamCode] = pr.Rank
+	}
+	return CalculateAlgorithmicPowerRankings(seasonYear, weekNumber, standings, prevWeekRanks, teamMap), nil
+}
+
+// CalculateAlgorithmicPowerRankings generates weekly Power Rankings for any season week
+// based on win percentage, point differential, Pythagorean expectation, and streaks.
+func CalculateAlgorithmicPowerRankings(
+	seasonYear, weekNumber int,
+	standings *db.SeasonStandings,
+	prevRankings map[string]int,
+	teamMap map[string]*db.Team,
+) []*db.TeamPowerRanking {
+	if standings == nil || len(standings.League) == 0 {
+		// Fallback to baseline week 3 if no standings available
+		rankings := make([]*db.TeamPowerRanking, 0, len(OfficialWeek3PowerRankings))
+		for _, orig := range OfficialWeek3PowerRankings {
+			pr := *orig
+			pr.SeasonYear = seasonYear
+			pr.WeekNumber = weekNumber
+			if t, ok := teamMap[pr.TeamCode]; ok {
+				pr.TeamID = t.ID
+				pr.TeamName = t.Name
+				pr.TeamCity = t.City
+				pr.LogoURL = t.LogoURL
+				pr.PrimaryColor = t.PrimaryColor
+				pr.Conference = t.Conference
+				pr.Division = t.Division
+			}
+			rankings = append(rankings, &pr)
+		}
+		return rankings
+	}
+
+	type teamEval struct {
+		standing   *db.TeamStanding
+		powerScore float64
+	}
+
+	evals := make([]teamEval, 0, len(standings.League))
+
+	for _, ts := range standings.League {
+		score := 0.0
+
+		// 1. Win percentage (0 to 45 pts)
+		score += ts.WinPercent * 45.0
+
+		// 2. Normalized point differential (up to +/- 20 pts)
+		if ts.GamesPlayed > 0 {
+			diffPerGame := float64(ts.PointDiff) / float64(ts.GamesPlayed)
+			score += math.Max(math.Min(diffPerGame*1.5, 20.0), -20.0)
+		}
+
+		// 3. Pythagorean wins expectation (up to 25 pts)
+		if ts.GamesPlayed > 0 {
+			score += (ts.PythagoreanWins / float64(ts.GamesPlayed)) * 25.0
+		}
+
+		// 4. Streak momentum (+/- 10 pts)
+		if strings.HasPrefix(ts.Streak, "W") {
+			streakNum, _ := strconv.Atoi(strings.TrimPrefix(ts.Streak, "W"))
+			score += math.Min(float64(streakNum)*2.0, 10.0)
+		} else if strings.HasPrefix(ts.Streak, "L") {
+			streakNum, _ := strconv.Atoi(strings.TrimPrefix(ts.Streak, "L"))
+			score -= math.Min(float64(streakNum)*2.0, 10.0)
+		}
+
+		evals = append(evals, teamEval{
+			standing:   ts,
+			powerScore: score,
+		})
+	}
+
+	// Sort descending by power score
+	sort.Slice(evals, func(i, j int) bool {
+		return evals[i].powerScore > evals[j].powerScore
+	})
+
+	rankings := make([]*db.TeamPowerRanking, 0, len(evals))
+	for idx, item := range evals {
+		ts := item.standing
+		rank := idx + 1
+
+		prevRank := rank
+		if pRank, ok := prevRankings[ts.TeamCode]; ok && pRank > 0 {
+			prevRank = pRank
+		} else if ts.ConferenceSeed > 0 {
+			prevRank = ts.ConferenceSeed * 2
+		}
+		rankChange := prevRank - rank
+
+		rec := fmt.Sprintf("%d-%d", ts.Wins, ts.Losses)
+		if ts.Ties > 0 {
+			rec = fmt.Sprintf("%d-%d-%d", ts.Wins, ts.Losses, ts.Ties)
+		}
+
+		var analysis string
+		if rank <= 5 {
+			analysis = fmt.Sprintf("Contendiente de primer nivel. Récord de %s con un diferencial de %+d puntos y racha %s. Eficiencia neta de élite (%.1f PPG ofensivos vs %.1f defensivos).",
+				rec, ts.PointDiff, ts.Streak, ts.OffensivePPG, ts.DefensivePPG)
+		} else if rank <= 14 {
+			analysis = fmt.Sprintf("En zona sólida de postemporada. Récord de %s con diferencial de %+d puntos. Promedio anotador de %.1f puntos por partido.",
+				rec, ts.PointDiff, ts.OffensivePPG)
+		} else if rank <= 24 {
+			analysis = fmt.Sprintf("En la pelea en el corte de mitad de tabla. Récord de %s y diferencial de %+d puntos con balance de juego de una sola posesión (%s).",
+				rec, ts.PointDiff, ts.OneScoreRecord)
+		} else {
+			analysis = fmt.Sprintf("Buscando corregir el rumbo en la segunda mitad del calendario. Récord de %s con diferencial de %+d puntos y %.1f PPG permitidos a los rivales.",
+				rec, ts.PointDiff, ts.DefensivePPG)
+		}
+
+		pr := &db.TeamPowerRanking{
+			SeasonYear:   seasonYear,
+			WeekNumber:   weekNumber,
+			TeamID:       ts.TeamID,
+			TeamCode:     ts.TeamCode,
+			TeamName:     ts.TeamName,
+			TeamCity:     ts.TeamCity,
+			LogoURL:      ts.LogoURL,
+			PrimaryColor: ts.PrimaryColor,
+			Conference:   ts.Conference,
+			Division:     ts.Division,
+			Rank:         rank,
+			PreviousRank: prevRank,
+			RankChange:   rankChange,
+			Record:       rec,
+			Analysis:     analysis,
+			Author:       "Modelo Analítico ESPN/Quiniela",
+			UpdatedAt:    time.Now(),
+		}
+		if t, ok := teamMap[ts.TeamCode]; ok && pr.TeamID == 0 {
+			pr.TeamID = t.ID
+		}
+
+		rankings = append(rankings, pr)
+	}
+
+	return rankings
 }
