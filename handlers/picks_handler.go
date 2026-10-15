@@ -224,6 +224,11 @@ func (h *PicksHandler) SavePick(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+	if !user.EmailVerified && !user.IsAdmin() && !user.IsBot() {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Debes verificar tu correo para ingresar pronósticos.", "type": "error"}}`)
+		http.Error(w, "Correo no verificado", http.StatusForbidden)
+		return
+	}
 
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
@@ -310,6 +315,11 @@ func (h *PicksHandler) SaveScore(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+	if !user.EmailVerified && !user.IsAdmin() && !user.IsBot() {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Debes verificar tu correo para ingresar pronósticos.", "type": "error"}}`)
+		http.Error(w, "Correo no verificado", http.StatusForbidden)
+		return
+	}
 
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
@@ -388,6 +398,11 @@ func (h *PicksHandler) SaveAll(w http.ResponseWriter, r *http.Request) {
 	user := auth.GetUserFromContext(r.Context())
 	if user == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if !user.EmailVerified && !user.IsAdmin() && !user.IsBot() {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Debes verificar tu correo para ingresar pronósticos.", "type": "error"}}`)
+		http.Error(w, "Correo no verificado", http.StatusForbidden)
 		return
 	}
 
@@ -905,6 +920,11 @@ func (h *PicksHandler) ApplyAdvisorPicks(w http.ResponseWriter, r *http.Request)
 	user := auth.GetUserFromContext(r.Context())
 	if user == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if !user.EmailVerified && !user.IsAdmin() && !user.IsBot() {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Debes verificar tu correo para ingresar pronósticos.", "type": "error"}}`)
+		http.Error(w, "Correo no verificado", http.StatusForbidden)
 		return
 	}
 

@@ -231,6 +231,7 @@ func main() {
 
 	// Email Verification & Password Reset
 	r.Get("/verify-email", authHandler.HandleVerifyEmail)
+	r.Get("/verify-email-pending", authHandler.ShowVerifyEmailPending)
 	r.Post("/verify-email/resend", authHandler.HandleResendVerification)
 	r.Get("/forgot-password", authHandler.ShowForgotPassword)
 	r.Post("/forgot-password", authHandler.HandleForgotPassword)
@@ -251,9 +252,10 @@ func main() {
 	r.Get("/picks/community/{gameId}", picksHandler.CommunityPicks)
 	r.Get("/events/live", eventsHandler.StreamLiveEvents)
 
-	// Authenticated Player Routes
+	// Authenticated Player Routes (Requires Active Verified Account)
 	r.Group(func(player chi.Router) {
 		player.Use(authService.RequireAuth)
+		player.Use(authService.RequireVerifiedEmail)
 
 		player.Get("/picks", picksHandler.ShowPicks)
 		player.Post("/picks/save", picksHandler.SavePick)
@@ -299,6 +301,8 @@ func main() {
 		admin.Get("/admin/users/{userId}/picks", adminHandler.ShowUserPicks)
 		admin.Post("/admin/users/{userId}/picks/save", adminHandler.SaveUserPicks)
 		admin.Post("/admin/users/{userId}/verify-email", adminHandler.VerifyUserEmail)
+		admin.Post("/admin/users/{userId}/toggle-verify", adminHandler.ToggleUserVerification)
+		admin.Post("/admin/users/{userId}/resend-verification", adminHandler.AdminResendVerificationEmail)
 		admin.Post("/admin/users/{userId}/toggle-role", adminHandler.ToggleUserRole)
 		admin.Post("/admin/users/{userId}/toggle-beta", adminHandler.ToggleUserBeta)
 		admin.Post("/admin/features/save", adminHandler.SaveFeatureFlags)

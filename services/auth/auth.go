@@ -235,6 +235,37 @@ func (s *AuthService) RequireAuth(next http.Handler) http.Handler {
 	})
 }
 
+// Middleware: Requires user to have verified their email address
+func (s *AuthService) RequireVerifiedEmail(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := GetUserFromContext(r.Context())
+		if user == nil {
+			if r.Header.Get("HX-Request") == "true" {
+				w.Header().Set("HX-Redirect", "/login")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		// Admin and bot users are exempt from email verification
+		if user.IsAdmin() || user.IsBot() {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !user.EmailVerified {
+			if r.Header.Get("HX-Request") == "true" {
+				w.Header().Set("HX-Redirect", "/verify-email-pending")
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			http.Redirect(w, r, "/verify-email-pending", http.StatusSeeOther)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // Middleware: Requires admin role
 func (s *AuthService) RequireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

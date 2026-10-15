@@ -98,13 +98,16 @@ func TestApplyAdvisorPicks_SuccessAndFairPlay(t *testing.T) {
 		t.Fatalf("failed to create beta user: %v", err)
 	}
 	betaUser.IsBetaTester = true
+	betaUser.EmailVerified = true
 	_ = repo.SetUserBetaTester(betaUser.ID, true)
+	_ = repo.SetUserEmailVerified(betaUser.ID, true)
 
 	// Create non-beta user
 	regularUser, err := repo.CreateUser("regular_pete", "regularpete@test.com", "hash", "player")
 	if err != nil {
 		t.Fatalf("failed to create regular user: %v", err)
 	}
+	_ = repo.SetUserEmailVerified(regularUser.ID, true)
 
 	season, _ := repo.GetActiveSeason(2026)
 	week, err := repo.GetWeekByNumber(season.ID, 1)

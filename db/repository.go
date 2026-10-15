@@ -189,8 +189,14 @@ func (r *Repository) CreateUserWithVerification(username, email, passwordHash, r
 	VALUES (?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP);`
 	
 	emailVerified := false
-	if token == "" && role == "admin" {
-		emailVerified = true // Auto-verify admin
+	if token != "" {
+		verifToken = &token
+		nowStr := time.Now().UTC().Format("2006-01-02 15:04:05")
+		verifSentAt = &nowStr
+	}
+
+	if role == "admin" || role == "bot" || username == "ia_quiniela" {
+		emailVerified = true
 	}
 
 	res, err := r.db.Exec(query, username, email, passwordHash, role, emailVerified, verifToken, verifSentAt)
@@ -1579,7 +1585,7 @@ func (r *Repository) GetWeeklyLeaderboard(weekID int64) ([]*LeaderboardEntry, er
 	       u.favorite_team_id, COALESCE(u.bio, ''), COALESCE(u.featured_badge_code, '')
 	FROM weekly_leaderboard wl
 	JOIN users u ON wl.user_id = u.id
-	WHERE wl.week_id = ? AND COALESCE(u.role, 'player') != 'admin'
+	WHERE wl.week_id = ? AND COALESCE(u.role, 'player') != 'admin' AND (u.email_verified = 1 OR u.role = 'bot' OR u.username = 'ia_quiniela')
 	ORDER BY wl.total_points DESC, wl.correct_picks DESC, wl.tiebreaker_winner_correct DESC, wl.tiebreaker_error ASC, u.username ASC`
 
 	rows, err := r.db.Query(query, weekID)
@@ -1658,7 +1664,7 @@ func (r *Repository) GetSeasonLeaderboard(seasonID int64) ([]*LeaderboardEntry, 
 	    weekly_leaderboard wl
 	    JOIN weeks w ON wl.week_id = w.id AND w.season_id = ?
 	) ON u.id = wl.user_id
-	WHERE COALESCE(u.role, 'player') != 'admin' AND (u.username != 'ia_quiniela' OR wl.user_id IS NOT NULL)
+	WHERE COALESCE(u.role, 'player') != 'admin' AND (u.email_verified = 1 OR u.role = 'bot' OR u.username = 'ia_quiniela') AND (u.username != 'ia_quiniela' OR wl.user_id IS NOT NULL)
 	GROUP BY u.id, u.username, u.avatar_url, u.favorite_team_id, u.bio, u.featured_badge_code
 	ORDER BY grand_total_points DESC, 
 	         grand_correct_picks DESC, 

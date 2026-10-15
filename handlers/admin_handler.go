@@ -647,22 +647,91 @@ func (h *AdminHandler) SaveUserPicks(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *AdminHandler) VerifyUserEmail(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) ToggleUserVerification(w http.ResponseWriter, r *http.Request) {
 	targetUserID, err := strconv.ParseInt(chi.URLParam(r, "userId"), 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.repo.SetUserEmailVerified(targetUserID, true); err != nil {
-		http.Error(w, "Error verifying user email", http.StatusInternalServerError)
+	targetUser, err := h.repo.GetUserByID(targetUserID)
+	if err != nil || targetUser == nil {
+		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
 
-	w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Correo del usuario verificado manualmente", "type": "success"}}`)
+	newVerified := !targetUser.EmailVerified
+	if err := h.repo.SetUserEmailVerified(targetUserID, newVerified); err != nil {
+		http.Error(w, "Error updating user verification", http.StatusInternalServerError)
+		return
+	}
+
+	// Recalculate leaderboard so user inclusion/exclusion updates immediately
+	activeSeason, _ := h.repo.GetActiveSeason(h.seasonYear)
+	if activeSeason != nil {
+		activeWeek, _ := h.repo.GetActiveWeek(activeSeason.ID)
+		if activeWeek != nil {
+			_ = h.calculator.CalculateWeekScores(activeWeek.ID)
+			if h.broker != nil {
+				h.broker.BroadcastLeaderboardUpdate()
+			}
+		}
+	}
+
+	statusMsg := "Verificación revocada"
+	if newVerified {
+		statusMsg = "Usuario verificado exitosamente"
+	}
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "%s para %s", "type": "info"}}`, statusMsg, targetUser.Username))
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"><i class="fa-solid fa-circle-check mr-1 text-[9px]"></i> Verificado</span>`)
+
+	if newVerified {
+		fmt.Fprintf(w, `<button hx-post="/admin/users/%d/toggle-verify" hx-swap="outerHTML" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-rose-500/15 hover:text-rose-400 hover:border-rose-500/30 transition-colors cursor-pointer" title="Clic para revocar verificación"><i class="fa-solid fa-circle-check mr-1 text-[9px]"></i> Verificado</button>`, targetUserID)
+	} else {
+		fmt.Fprintf(w, `<button hx-post="/admin/users/%d/toggle-verify" hx-swap="outerHTML" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-emerald-500/15 hover:text-emerald-400 hover:border-emerald-500/30 transition-colors cursor-pointer" title="Clic para validar manualmente"><i class="fa-solid fa-clock mr-1 text-[9px]"></i> Sin Verificar</button>`, targetUserID)
+	}
+}
+
+func (h *AdminHandler) VerifyUserEmail(w http.ResponseWriter, r *http.Request) {
+	h.ToggleUserVerification(w, r)
+}
+
+func (h *AdminHandler) AdminResendVerificationEmail(w http.ResponseWriter, r *http.Request) {
+	targetUserID, err := strconv.ParseInt(chi.URLParam(r, "userId"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	targetUser, err := h.repo.GetUserByID(targetUserID)
+	if err != nil || targetUser == nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	token, err := auth.GenerateRandomToken(32)
+	if err != nil {
+		http.Error(w, "Error generating token", http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.repo.SetVerificationToken(targetUserID, token); err != nil {
+		http.Error(w, "Error saving token", http.StatusInternalServerError)
+		return
+	}
+
+	if h.reminderWorker != nil && h.reminderWorker.Sender() != nil {
+		baseURL := getBaseURLFromRequest(r, h.reminderWorker.Sender().BaseURL())
+		go func(u *db.User, tok, bURL string) {
+			_ = h.reminderWorker.Sender().SendVerificationEmail(u, tok, bURL)
+		}(targetUser, token, baseURL)
+	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Correo de activación reenviado a %s", "type": "success"}}`, targetUser.Email))
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, `<span class="text-[10px] text-emerald-400 font-mono"><i class="fa-solid fa-paper-plane mr-1"></i>Enviado</span>`)
 }
 
 func (h *AdminHandler) ToggleUserRole(w http.ResponseWriter, r *http.Request) {

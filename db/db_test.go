@@ -67,6 +67,7 @@ func TestDatabaseAndRepository(t *testing.T) {
 	if err != nil || user == nil {
 		t.Fatalf("Failed to create user: %v", err)
 	}
+	_ = repo.SetUserEmailVerified(user.ID, true)
 
 	predHome := 27
 	predAway := 20

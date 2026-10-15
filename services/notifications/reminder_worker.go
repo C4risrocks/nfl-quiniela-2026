@@ -23,6 +23,13 @@ func NewReminderWorker(repo *db.Repository, sender *EmailSender, seasonYear int)
 	}
 }
 
+func (w *ReminderWorker) Sender() *EmailSender {
+	if w == nil {
+		return nil
+	}
+	return w.sender
+}
+
 // Start runs periodic reminder checks and weekly digest checks in the background
 func (w *ReminderWorker) Start(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)

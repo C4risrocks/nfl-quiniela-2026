@@ -127,6 +127,9 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 		if u.IsAdmin() {
 			continue
 		}
+		if !u.EmailVerified && !u.IsBot() {
+			continue
+		}
 		if u.IsBot() && len(userPicks[u.ID]) == 0 {
 			continue
 		}

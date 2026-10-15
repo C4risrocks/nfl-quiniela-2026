@@ -106,6 +106,8 @@ func TestPicksSaveAndLockEnforcement(t *testing.T) {
 
 	// Create user
 	user, _ := authService.Register("picker1", "picker1@test.com", "pass123")
+	_ = repo.SetUserEmailVerified(user.ID, true)
+	user, _ = repo.GetUserByID(user.ID)
 
 	// Get Season, Week, and Teams
 	season, _ := repo.GetActiveSeason(2026)
@@ -227,6 +229,8 @@ func TestPicksSaveAll(t *testing.T) {
 	picksHandler := NewPicksHandler(repo, renderer, nil, 2026)
 
 	user, _ := authService.Register("picker_batch", "batch@test.com", "pass123")
+	_ = repo.SetUserEmailVerified(user.ID, true)
+	user, _ = repo.GetUserByID(user.ID)
 	season, _ := repo.GetActiveSeason(2026)
 	week, _ := repo.GetWeekByNumber(season.ID, 2)
 	kc, _ := repo.GetTeamByCode("KC")
@@ -341,6 +345,8 @@ func TestScoreWinnerInferenceAndCompletion(t *testing.T) {
 	picksHandler := NewPicksHandler(repo, renderer, nil, 2026)
 
 	user, _ := authService.Register("score_picker", "score_picker@test.com", "pass123")
+	_ = repo.SetUserEmailVerified(user.ID, true)
+	user, _ = repo.GetUserByID(user.ID)
 	season, _ := repo.GetActiveSeason(2026)
 	week, _ := repo.GetWeekByNumber(season.ID, 3)
 	kc, _ := repo.GetTeamByCode("KC")
@@ -841,6 +847,8 @@ func TestWeek1GracePeriodException(t *testing.T) {
 	picksHandler := NewPicksHandler(repo, renderer, nil, 2026)
 
 	user, _ := authService.Register("grace_tester", "grace@test.com", "pass123")
+	_ = repo.SetUserEmailVerified(user.ID, true)
+	user, _ = repo.GetUserByID(user.ID)
 	season, _ := repo.GetActiveSeason(2026)
 	week1, _ := repo.GetWeekByNumber(season.ID, 1)
 
@@ -921,27 +929,40 @@ func TestAdminUserManagementAndOverride(t *testing.T) {
 	adminUser, _ = repo.GetUserByID(adminUser.ID)
 
 	playerUser, _ := authService.Register("playerjoe", "joe@test.com", "pass123")
+	_ = repo.SetUserEmailVerified(playerUser.ID, false)
+	playerUser, _ = repo.GetUserByID(playerUser.ID)
 
 	season, _ := repo.GetActiveSeason(2026)
 	weeks, _ := repo.ListWeeks(season.ID)
 	week1 := weeks[0]
 	games, _ := repo.ListGamesByWeek(week1.ID)
 
-	// 1. Test VerifyUserEmail
+	// 1. Test VerifyUserEmail / ToggleUserVerification
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("userId", strconvFormat(playerUser.ID))
-	reqVerify := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/admin/users/%d/verify-email", playerUser.ID), nil)
+	reqVerify := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/admin/users/%d/toggle-verify", playerUser.ID), nil)
 	reqVerify = reqVerify.WithContext(context.WithValue(reqVerify.Context(), chi.RouteCtxKey, rctx))
 	reqVerify = reqVerify.WithContext(injectUser(reqVerify.Context(), adminUser))
 	rrVerify := httptest.NewRecorder()
 
-	adminHandler.VerifyUserEmail(rrVerify, reqVerify)
+	adminHandler.ToggleUserVerification(rrVerify, reqVerify)
 	if rrVerify.Code != http.StatusOK {
 		t.Errorf("Expected 200 OK verifying email, got %d", rrVerify.Code)
 	}
 	uCheck, _ := repo.GetUserByID(playerUser.ID)
 	if !uCheck.EmailVerified {
 		t.Errorf("Expected user email to be verified in DB")
+	}
+
+	// 1b. Test AdminResendVerificationEmail
+	reqResend := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/admin/users/%d/resend-verification", playerUser.ID), nil)
+	reqResend = reqResend.WithContext(context.WithValue(reqResend.Context(), chi.RouteCtxKey, rctx))
+	reqResend = reqResend.WithContext(injectUser(reqResend.Context(), adminUser))
+	rrResend := httptest.NewRecorder()
+
+	adminHandler.AdminResendVerificationEmail(rrResend, reqResend)
+	if rrResend.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK resending verification email, got %d", rrResend.Code)
 	}
 
 	// 2. Test ToggleUserRole
@@ -1996,6 +2017,159 @@ func TestFeatureFlagAccessControlGating(t *testing.T) {
 
 	if strings.Contains(rrCompareBeta.Body.String(), "Beta Privada") {
 		t.Errorf("Beta tester should have access to compare picks")
+	}
+}
+
+func TestUnverifiedPlayerPicksGatingAndAdminVerification(t *testing.T) {
+	repo, _, renderer, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	scoringCalc := scoring.NewCalculator(repo)
+	picksHandler := NewPicksHandler(repo, renderer, nil, 2026)
+	adminHandler := NewAdminHandler(repo, renderer, nil, scoringCalc, nil, nil, 2026)
+
+	adminUser, _ := repo.CreateUser("lead_admin", "admin@lead.com", "hash", "admin")
+	unverifiedUser, err := repo.CreateUserWithVerification("novato_picks", "novato@test.com", "hash", "player", "tok_novato_123")
+	if err != nil {
+		t.Fatalf("Failed to create unverified user: %v", err)
+	}
+	if unverifiedUser.EmailVerified {
+		t.Fatalf("Expected unverifiedUser to have EmailVerified = false")
+	}
+
+	season, _ := repo.GetActiveSeason(2026)
+	weeks, _ := repo.ListWeeks(season.ID)
+	week1 := weeks[0]
+	kc, _ := repo.GetTeamByCode("KC")
+	bal, _ := repo.GetTeamByCode("BAL")
+
+	game, _ := repo.CreateManualGame(&db.Game{
+		WeekID:       week1.ID,
+		HomeTeamID:   kc.ID,
+		AwayTeamID:   bal.ID,
+		KickoffTime:  time.Now().Add(48 * time.Hour),
+		Status:       "scheduled",
+		StatusDetail: "Sun 1:00 PM",
+	})
+
+	// 1. Unverified player attempts to save a pick -> Must be 403 Forbidden!
+	formPick := url.Values{}
+	formPick.Set("game_id", strconvFormat(game.ID))
+	formPick.Set("picked_team_id", strconvFormat(kc.ID))
+	reqPick := httptest.NewRequest(http.MethodPost, "/picks/save", strings.NewReader(formPick.Encode()))
+	reqPick.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqPick = reqPick.WithContext(injectUser(reqPick.Context(), unverifiedUser))
+	rrPick := httptest.NewRecorder()
+
+	picksHandler.SavePick(rrPick, reqPick)
+	if rrPick.Code != http.StatusForbidden {
+		t.Errorf("Expected 403 Forbidden for unverified player in SavePick, got %d", rrPick.Code)
+	}
+
+	// 2. Unverified player attempts to save score -> Must be 403 Forbidden!
+	formScore := url.Values{}
+	formScore.Set("game_id", strconvFormat(game.ID))
+	formScore.Set("home_score", "24")
+	formScore.Set("away_score", "17")
+	reqScore := httptest.NewRequest(http.MethodPost, "/picks/score", strings.NewReader(formScore.Encode()))
+	reqScore.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqScore = reqScore.WithContext(injectUser(reqScore.Context(), unverifiedUser))
+	rrScore := httptest.NewRecorder()
+
+	picksHandler.SaveScore(rrScore, reqScore)
+	if rrScore.Code != http.StatusForbidden {
+		t.Errorf("Expected 403 Forbidden for unverified player in SaveScore, got %d", rrScore.Code)
+	}
+
+	// 3. Unverified player attempts SaveAll -> Must be 403 Forbidden!
+	formAll := url.Values{}
+	formAll.Set("week_id", strconvFormat(week1.ID))
+	reqAll := httptest.NewRequest(http.MethodPost, "/picks/save-all", strings.NewReader(formAll.Encode()))
+	reqAll.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqAll = reqAll.WithContext(injectUser(reqAll.Context(), unverifiedUser))
+	rrAll := httptest.NewRecorder()
+
+	picksHandler.SaveAll(rrAll, reqAll)
+	if rrAll.Code != http.StatusForbidden {
+		t.Errorf("Expected 403 Forbidden for unverified player in SaveAll, got %d", rrAll.Code)
+	}
+
+	// 4. Check that unverified player does NOT appear in Weekly or Season Leaderboard
+	_ = repo.UpsertWeeklyLeaderboard(&db.LeaderboardEntry{
+		UserID:          unverifiedUser.ID,
+		TotalPoints:     25,
+		CorrectPicks:    2,
+		TotalPicks:      2,
+		TiebreakerError: 3,
+		Rank:            1,
+	}, week1.ID)
+
+	wLB, _ := repo.GetWeeklyLeaderboard(week1.ID)
+	for _, entry := range wLB {
+		if entry.UserID == unverifiedUser.ID {
+			t.Errorf("Unverified player should NOT appear in weekly leaderboard!")
+		}
+	}
+
+	sLB, _ := repo.GetSeasonLeaderboard(season.ID)
+	for _, entry := range sLB {
+		if entry.UserID == unverifiedUser.ID {
+			t.Errorf("Unverified player should NOT appear in season leaderboard!")
+		}
+	}
+
+	// 5. Admin toggles verification to true via ToggleUserVerification
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("userId", strconvFormat(unverifiedUser.ID))
+	reqToggle := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/admin/users/%d/toggle-verify", unverifiedUser.ID), nil)
+	reqToggle = reqToggle.WithContext(context.WithValue(reqToggle.Context(), chi.RouteCtxKey, rctx))
+	reqToggle = reqToggle.WithContext(injectUser(reqToggle.Context(), adminUser))
+	rrToggle := httptest.NewRecorder()
+
+	adminHandler.ToggleUserVerification(rrToggle, reqToggle)
+	if rrToggle.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK from ToggleUserVerification, got %d", rrToggle.Code)
+	}
+
+	verifiedUser, _ := repo.GetUserByID(unverifiedUser.ID)
+	if !verifiedUser.EmailVerified {
+		t.Fatalf("Expected user to be verified after admin toggle")
+	}
+
+	// 6. Now player is verified -> Must appear in leaderboards!
+	wLBVerified, _ := repo.GetWeeklyLeaderboard(week1.ID)
+	foundInWeekly := false
+	for _, entry := range wLBVerified {
+		if entry.UserID == verifiedUser.ID {
+			foundInWeekly = true
+			break
+		}
+	}
+	if !foundInWeekly {
+		t.Errorf("Expected verified player to appear in weekly leaderboard")
+	}
+
+	sLBVerified, _ := repo.GetSeasonLeaderboard(season.ID)
+	foundInSeason := false
+	for _, entry := range sLBVerified {
+		if entry.UserID == verifiedUser.ID {
+			foundInSeason = true
+			break
+		}
+	}
+	if !foundInSeason {
+		t.Errorf("Expected verified player to appear in season leaderboard")
+	}
+
+	// 7. Now player is verified -> SavePick must succeed with 200 OK!
+	rrPickVerified := httptest.NewRecorder()
+	reqPickVerified := httptest.NewRequest(http.MethodPost, "/picks/save", strings.NewReader(formPick.Encode()))
+	reqPickVerified.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqPickVerified = reqPickVerified.WithContext(injectUser(reqPickVerified.Context(), verifiedUser))
+
+	picksHandler.SavePick(rrPickVerified, reqPickVerified)
+	if rrPickVerified.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK for verified player in SavePick, got %d", rrPickVerified.Code)
 	}
 }
 

@@ -418,7 +418,23 @@
     </div>
 
     <!-- TAB 3: Users List & Picks Overview -->
-    <div x-show="activeTab === 'users'" x-cloak class="space-y-6">
+    <div x-show="activeTab === 'users'" 
+         x-cloak 
+         x-data="{
+             userSearch: '',
+             userFilter: 'all',
+             matchesUser(u) {
+                 const q = this.userSearch.toLowerCase().trim();
+                 const matchesQuery = !q || (u.username && u.username.toLowerCase().includes(q)) || (u.email && u.email.toLowerCase().includes(q));
+                 if (!matchesQuery) return false;
+                 if (this.userFilter === 'verified') return !!u.verified;
+                 if (this.userFilter === 'unverified') return !u.verified;
+                 if (this.userFilter === 'admin') return u.role === 'admin';
+                 if (this.userFilter === 'beta') return !!u.beta;
+                 return true;
+             }
+         }"
+         class="space-y-6">
         <div class="vercel-card p-6 rounded-2xl">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                 <div>
@@ -427,7 +443,7 @@
                         Jugadores y Pronósticos ({{.SelectedWeek.Name}})
                     </h2>
                     <p class="text-xs text-zinc-400">
-                        Gestiona roles, verifica cuentas de correo, inspecciona y edita pronósticos en nombre de cualquier jugador.
+                        Gestiona roles, valida o revoca cuentas de correo, inspecciona y edita pronósticos en nombre de cualquier jugador.
                     </p>
                 </div>
 
@@ -448,11 +464,58 @@
                 </div>
             </div>
 
+            <!-- Search & Filter Controls -->
+            <div class="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-zinc-950/60 p-3 rounded-xl border border-zinc-800/80">
+                <div class="relative flex-1 max-w-md">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs"></i>
+                    <input type="text" 
+                           x-model="userSearch" 
+                           placeholder="Buscar por jugador o correo..."
+                           class="w-full bg-zinc-900 border border-zinc-700/80 rounded-lg pl-8 pr-8 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors">
+                    <button x-show="userSearch" @click="userSearch = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-xs">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                
+                <div class="flex items-center flex-wrap gap-1.5 text-xs">
+                    <span class="text-[10px] font-mono uppercase text-zinc-500 mr-1 hidden sm:inline">Filtrar:</span>
+                    <button @click="userFilter = 'all'" 
+                            :class="userFilter === 'all' ? 'bg-zinc-200 text-zinc-950 font-semibold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                            class="px-2.5 py-1 rounded-lg text-[11px] transition-colors cursor-pointer">
+                        Todos
+                    </button>
+                    <button @click="userFilter = 'verified'" 
+                            :class="userFilter === 'verified' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                            class="px-2.5 py-1 rounded-lg text-[11px] transition-colors flex items-center space-x-1 cursor-pointer">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        <span>Verificados</span>
+                    </button>
+                    <button @click="userFilter = 'unverified'" 
+                            :class="userFilter === 'unverified' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                            class="px-2.5 py-1 rounded-lg text-[11px] transition-colors flex items-center space-x-1 cursor-pointer">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                        <span>Sin Verificar</span>
+                    </button>
+                    <button @click="userFilter = 'admin'" 
+                            :class="userFilter === 'admin' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                            class="px-2.5 py-1 rounded-lg text-[11px] transition-colors cursor-pointer">
+                        Admins
+                    </button>
+                    <button @click="userFilter = 'beta'" 
+                            :class="userFilter === 'beta' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-semibold' : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'"
+                            class="px-2.5 py-1 rounded-lg text-[11px] transition-colors cursor-pointer">
+                        Beta
+                    </button>
+                </div>
+            </div>
+
             <!-- Mobile User Cards View (md:hidden) -->
             <div class="md:hidden space-y-3">
                 {{if .UserSummaries}}
                     {{range .UserSummaries}}
-                        <div class="p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800 space-y-2.5" {{if .User.FavoriteTeam}}style="border-left: 3px solid {{.User.FavoriteTeam.PrimaryColor}};"{{end}}>
+                        <div x-show="matchesUser({ username: '{{.User.Username}}', email: '{{.User.Email}}', verified: {{.User.EmailVerified}}, role: '{{.User.Role}}', beta: {{.User.IsBetaTester}} })" 
+                             class="p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800 space-y-2.5" 
+                             {{if .User.FavoriteTeam}}style="border-left: 3px solid {{.User.FavoriteTeam.PrimaryColor}};"{{end}}>
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-2.5 min-w-0 flex-1">
                                     <div class="relative shrink-0">
@@ -493,7 +556,7 @@
                                 <div class="flex items-center space-x-1.5 shrink-0">
                                     <button hx-post="/admin/users/{{.User.ID}}/toggle-role" 
                                             hx-swap="outerHTML"
-                                            class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold shrink-0 {{if .User.IsAdmin}}bg-amber-500/10 text-amber-300 border border-amber-500/30{{else}}bg-zinc-900 text-zinc-400 border border-zinc-800{{end}}">
+                                            class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold shrink-0 cursor-pointer hover:opacity-80 transition-opacity {{if .User.IsAdmin}}bg-amber-500/10 text-amber-300 border border-amber-500/30{{else}}bg-zinc-900 text-zinc-400 border border-zinc-800{{end}}">
                                         {{.User.Role}}
                                     </button>
                                     {{if .User.IsBetaTester}}
@@ -525,11 +588,25 @@
                                     {{end}}
                                 </div>
                                 <div class="flex items-center space-x-1.5">
-                                    {{if not .User.EmailVerified}}
-                                        <button hx-post="/admin/users/{{.User.ID}}/verify-email" 
+                                    {{if .User.EmailVerified}}
+                                        <button hx-post="/admin/users/{{.User.ID}}/toggle-verify" 
                                                 hx-swap="outerHTML"
-                                                class="px-2 py-0.5 rounded text-[10px] bg-zinc-800 text-zinc-300 border border-zinc-700">
-                                            Validar
+                                                class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-rose-500/15 hover:text-rose-400 hover:border-rose-500/30 transition-colors cursor-pointer"
+                                                title="Clic para revocar verificación">
+                                            <i class="fa-solid fa-circle-check mr-1 text-[8px]"></i> Verificado
+                                        </button>
+                                    {{else}}
+                                        <button hx-post="/admin/users/{{.User.ID}}/toggle-verify" 
+                                                hx-swap="outerHTML"
+                                                class="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-emerald-500/15 hover:text-emerald-400 hover:border-emerald-500/30 transition-colors cursor-pointer"
+                                                title="Clic para validar manualmente">
+                                            <i class="fa-solid fa-clock mr-1 text-[8px]"></i> Validar
+                                        </button>
+                                        <button hx-post="/admin/users/{{.User.ID}}/resend-verification" 
+                                                hx-swap="outerHTML"
+                                                class="px-2 py-0.5 rounded text-[10px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800 hover:text-white hover:border-zinc-700 transition-colors cursor-pointer"
+                                                title="Reenviar correo de activación">
+                                            <i class="fa-solid fa-paper-plane text-[8px]"></i>
                                         </button>
                                     {{end}}
                                     <button hx-get="/admin/users/{{.User.ID}}/picks?week_id={{$.SelectedWeek.ID}}" 
@@ -561,7 +638,8 @@
                     <tbody class="divide-y divide-[#1a1a1a] text-zinc-300">
                         {{if .UserSummaries}}
                             {{range .UserSummaries}}
-                                <tr class="hover:bg-zinc-900/30">
+                                <tr x-show="matchesUser({ username: '{{.User.Username}}', email: '{{.User.Email}}', verified: {{.User.EmailVerified}}, role: '{{.User.Role}}', beta: {{.User.IsBetaTester}} })"
+                                    class="hover:bg-zinc-900/30">
                                     <td class="py-2.5 px-3">
                                         <div class="flex items-center space-x-2.5">
                                             <div class="relative shrink-0">
@@ -602,23 +680,27 @@
                                     </td>
                                     <td class="py-2.5 px-3">
                                         <div class="text-zinc-300 font-mono">{{.User.Email}}</div>
-                                        <div class="mt-1">
+                                        <div class="mt-1 flex items-center space-x-1.5">
                                             {{if .User.EmailVerified}}
-                                                <span class="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
-                                                    <i class="fa-solid fa-circle-check mr-1 text-[8px]"></i> Verificado
-                                                </span>
+                                                <button hx-post="/admin/users/{{.User.ID}}/toggle-verify" 
+                                                        hx-swap="outerHTML"
+                                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-rose-500/15 hover:text-rose-400 hover:border-rose-500/30 transition-colors cursor-pointer" 
+                                                        title="Clic para revocar verificación">
+                                                    <i class="fa-solid fa-circle-check mr-1 text-[9px]"></i> Verificado
+                                                </button>
                                             {{else}}
-                                                <span class="inline-flex items-center space-x-1.5">
-                                                    <span class="px-1.5 py-0.2 rounded text-[10px] font-mono text-amber-300 bg-amber-500/10 border border-amber-500/20">
-                                                        No verificado
-                                                    </span>
-                                                    <button hx-post="/admin/users/{{.User.ID}}/verify-email" 
-                                                            hx-swap="outerHTML"
-                                                            class="px-2 py-0.5 rounded text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors border border-zinc-700"
-                                                            title="Confirmar correo manualmente">
-                                                        <i class="fa-solid fa-check mr-1 text-[8px]"></i> Validar
-                                                    </button>
-                                                </span>
+                                                <button hx-post="/admin/users/{{.User.ID}}/toggle-verify" 
+                                                        hx-swap="outerHTML"
+                                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono uppercase font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-emerald-500/15 hover:text-emerald-400 hover:border-emerald-500/30 transition-colors cursor-pointer" 
+                                                        title="Clic para validar manualmente">
+                                                    <i class="fa-solid fa-clock mr-1 text-[9px]"></i> Sin Verificar
+                                                </button>
+                                                <button hx-post="/admin/users/{{.User.ID}}/resend-verification" 
+                                                        hx-swap="outerHTML"
+                                                        class="inline-flex items-center px-2 py-0.5 rounded text-[10px] bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors border border-zinc-700 cursor-pointer"
+                                                        title="Reenviar enlace de activación por correo">
+                                                    <i class="fa-solid fa-paper-plane mr-1 text-[8px]"></i> Reenviar
+                                                </button>
                                             {{end}}
                                         </div>
                                     </td>
@@ -673,7 +755,8 @@
                             {{end}}
                         {{else}}
                             {{range .Users}}
-                                <tr class="hover:bg-zinc-900/30">
+                                <tr x-show="matchesUser({ username: '{{.Username}}', email: '{{.Email}}', verified: {{.EmailVerified}}, role: '{{.Role}}', beta: {{.IsBetaTester}} })"
+                                    class="hover:bg-zinc-900/30">
                                     <td class="py-2.5 px-3 font-semibold text-white">{{.Username}}</td>
                                     <td class="py-2.5 px-3 text-zinc-400">{{.Email}}</td>
                                     <td class="py-2.5 px-3 text-center">
@@ -682,6 +765,7 @@
                                         </span>
                                     </td>
                                     <td class="py-2.5 px-3 text-center text-zinc-500">--</td>
+                                    <td class="py-2.5 px-3 text-center font-mono">--</td>
                                     <td class="py-2.5 px-3 text-right">
                                         <button hx-get="/admin/users/{{.ID}}/picks?week_id={{$.SelectedWeek.ID}}" 
                                                 hx-target="#admin-modal-container" 

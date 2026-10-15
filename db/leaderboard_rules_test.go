@@ -24,14 +24,17 @@ func TestSeasonLeaderboardRulesCompliance(t *testing.T) {
 		t.Fatalf("Active season not found: %v", err)
 	}
 
-	// Create test users (players and admin)
 	userPointsKing, _ := repo.CreateUser("Player_PointsKing", "king@test.com", "hash", "player")
 	userAciertosWin, _ := repo.CreateUser("Player_AciertosWin", "aciertos@test.com", "hash", "player")
 	userEffWin, _ := repo.CreateUser("Player_EffWin", "eff@test.com", "hash", "player")
 	userEffLower, _ := repo.CreateUser("Player_EffLower", "efflow@test.com", "hash", "player")
 	userTwin1, _ := repo.CreateUser("Player_Twin1", "twin1@test.com", "hash", "player")
 	userTwin2, _ := repo.CreateUser("Player_Twin2", "twin2@test.com", "hash", "player")
-	_, _ = repo.CreateUser("Player_ZeroPicks", "zero@test.com", "hash", "player")
+	userZeroPicks, _ := repo.CreateUser("Player_ZeroPicks", "zero@test.com", "hash", "player")
+
+	for _, u := range []*User{userPointsKing, userAciertosWin, userEffWin, userEffLower, userTwin1, userTwin2, userZeroPicks} {
+		_ = repo.SetUserEmailVerified(u.ID, true)
+	}
 
 	// Ensure admin user exists with 'admin' role
 	adminUser, _ := repo.GetUserByUsername("admin_user")

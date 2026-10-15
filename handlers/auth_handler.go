@@ -30,6 +30,10 @@ func NewAuthHandler(authService *auth.AuthService, repo *db.Repository, emailSen
 
 func (h *AuthHandler) ShowLogin(w http.ResponseWriter, r *http.Request) {
 	if user := auth.GetUserFromContext(r.Context()); user != nil {
+		if !user.EmailVerified && !user.IsAdmin() && !user.IsBot() {
+			http.Redirect(w, r, "/verify-email-pending", http.StatusSeeOther)
+			return
+		}
 		http.Redirect(w, r, "/picks", http.StatusSeeOther)
 		return
 	}
@@ -64,11 +68,19 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.authService.SetSessionCookie(w, user.ID)
+	if !user.EmailVerified && !user.IsAdmin() && !user.IsBot() {
+		http.Redirect(w, r, "/verify-email-pending", http.StatusSeeOther)
+		return
+	}
 	http.Redirect(w, r, "/picks", http.StatusSeeOther)
 }
 
 func (h *AuthHandler) ShowRegister(w http.ResponseWriter, r *http.Request) {
 	if user := auth.GetUserFromContext(r.Context()); user != nil {
+		if !user.EmailVerified && !user.IsAdmin() && !user.IsBot() {
+			http.Redirect(w, r, "/verify-email-pending", http.StatusSeeOther)
+			return
+		}
 		http.Redirect(w, r, "/picks", http.StatusSeeOther)
 		return
 	}
@@ -113,7 +125,33 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.authService.SetSessionCookie(w, user.ID)
-	http.Redirect(w, r, "/picks?welcome=1", http.StatusSeeOther)
+	http.Redirect(w, r, "/verify-email-pending?registered=1", http.StatusSeeOther)
+}
+
+// ShowVerifyEmailPending displays the holding screen for unverified accounts
+func (h *AuthHandler) ShowVerifyEmailPending(w http.ResponseWriter, r *http.Request) {
+	user := auth.GetUserFromContext(r.Context())
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	// Check fresh state from DB
+	freshUser, err := h.repo.GetUserByID(user.ID)
+	if err == nil && freshUser != nil {
+		user = freshUser
+	}
+
+	if user.EmailVerified || user.IsAdmin() || user.IsBot() {
+		http.Redirect(w, r, "/picks", http.StatusSeeOther)
+		return
+	}
+
+	h.renderer.RenderPage(w, "verify_pending.html", map[string]interface{}{
+		"ActiveNav":      "verify_pending",
+		"User":           user,
+		"JustRegistered": r.URL.Query().Get("registered") == "1",
+	})
 }
 
 func (h *AuthHandler) HandleVerifyEmail(w http.ResponseWriter, r *http.Request) {

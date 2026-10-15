@@ -124,12 +124,14 @@ func TestLeaderboardTiebreakerResolution(t *testing.T) {
 
 	// User A: Picked KC, predicted 24-20 (Total 44 -> diff 0)
 	userA, _ := repo.CreateUser("Alice", "alice@test.com", "hash", "player")
+	_ = repo.SetUserEmailVerified(userA.ID, true)
 	pH_A := 24
 	pA_A := 20
 	_, _ = repo.SavePick(userA.ID, game.ID, &kc.ID, &pH_A, &pA_A)
 
 	// User B: Picked KC, predicted 21-17 (Total 38 -> diff 6)
 	userB, _ := repo.CreateUser("Bob", "bob@test.com", "hash", "player")
+	_ = repo.SetUserEmailVerified(userB.ID, true)
 	pH_B := 21
 	pA_B := 17
 	_, _ = repo.SavePick(userB.ID, game.ID, &kc.ID, &pH_B, &pA_B)
@@ -203,6 +205,9 @@ func TestStandardCompetitionRankingAndTiebreakers(t *testing.T) {
 	userC, _ := repo.CreateUser("Charlie", "c@test.com", "hash", "player")
 	userD, _ := repo.CreateUser("David", "d@test.com", "hash", "player")
 	userE, _ := repo.CreateUser("Eve", "e@test.com", "hash", "player")
+	_ = repo.SetUserEmailVerified(userC.ID, true)
+	_ = repo.SetUserEmailVerified(userD.ID, true)
+	_ = repo.SetUserEmailVerified(userE.ID, true)
 
 	// Charlie: picked KC, predicted 24-20 (diff 0)
 	pC_H, pC_A := 24, 20
@@ -320,18 +325,21 @@ func TestTiebreakerWinnerPriorityAndPointsSupremacy(t *testing.T) {
 
 	// User Victor: Picks KC (correct) & SF (correct) -> 2 points
 	userVictor, _ := repo.CreateUser("Victor", "victor@test.com", "hash", "player")
+	_ = repo.SetUserEmailVerified(userVictor.ID, true)
 	_, _ = repo.SavePick(userVictor.ID, game1.ID, &kc.ID, nil, nil)
 	pVH, pVA := 10, 10 // Total 20 -> error 24
 	_, _ = repo.SavePick(userVictor.ID, tbGame.ID, &sf.ID, &pVH, &pVA)
 
 	// User Mariana: Picks BAL (incorrect) & SF (correct) -> 1 point, tb error 9
 	userMariana, _ := repo.CreateUser("Mariana", "mariana@test.com", "hash", "player")
+	_ = repo.SetUserEmailVerified(userMariana.ID, true)
 	_, _ = repo.SavePick(userMariana.ID, game1.ID, &bal.ID, nil, nil)
 	pMH, pMA := 20, 15 // Total 35 -> error 9
 	_, _ = repo.SavePick(userMariana.ID, tbGame.ID, &sf.ID, &pMH, &pMA)
 
 	// User Oscar: Picks KC (correct) & LAR (INCORRECT winner) -> 1 point, tb error 0
 	userOscar, _ := repo.CreateUser("Oscar", "oscar@test.com", "hash", "player")
+	_ = repo.SetUserEmailVerified(userOscar.ID, true)
 	_, _ = repo.SavePick(userOscar.ID, game1.ID, &kc.ID, nil, nil)
 	pOH, pOA := 24, 20 // Total 44 -> error 0
 	_, _ = repo.SavePick(userOscar.ID, tbGame.ID, &lar.ID, &pOH, &pOA)
@@ -432,6 +440,10 @@ func TestGhostRankingBotDoesNotDisplaceHumanPodium(t *testing.T) {
 	humanB, _ := repo.CreateUser("Maria_2nd", "maria@test.com", "pass", "player")
 	humanC, _ := repo.CreateUser("Juan_3rd", "juan@test.com", "pass", "player")
 	humanD, _ := repo.CreateUser("Pedro_4th", "pedro@test.com", "pass", "player")
+
+	for _, u := range []*db.User{humanA, humanB, humanC, humanD} {
+		_ = repo.SetUserEmailVerified(u.ID, true)
+	}
 
 	// We insert weekly leaderboard rows to test ranking:
 	// Carlos_1st: 25 pts -> Must be Rank 1 (Gold 🥇)
