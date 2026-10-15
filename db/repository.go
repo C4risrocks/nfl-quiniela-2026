@@ -2149,6 +2149,131 @@ func (r *Repository) AdminDeleteUser(userID int64) error {
 	return tx.Commit()
 }
 
+func (r *Repository) BulkSetUserVerification(userIDs []int64, verified bool) error {
+	if len(userIDs) == 0 {
+		return nil
+	}
+	v := 0
+	if verified {
+		v = 1
+	}
+	placeholders := make([]string, len(userIDs))
+	args := make([]interface{}, len(userIDs)+1)
+	args[0] = v
+	for i, id := range userIDs {
+		placeholders[i] = "?"
+		args[i+1] = id
+	}
+	query := fmt.Sprintf(`UPDATE users SET email_verified = ? WHERE id IN (%s)`, strings.Join(placeholders, ","))
+	_, err := r.db.Exec(query, args...)
+	return err
+}
+
+func (r *Repository) BulkSetUserBeta(userIDs []int64, isBeta bool) error {
+	if len(userIDs) == 0 {
+		return nil
+	}
+	v := 0
+	if isBeta {
+		v = 1
+	}
+	placeholders := make([]string, len(userIDs))
+	args := make([]interface{}, len(userIDs)+1)
+	args[0] = v
+	for i, id := range userIDs {
+		placeholders[i] = "?"
+		args[i+1] = id
+	}
+	query := fmt.Sprintf(`UPDATE users SET is_beta_tester = ? WHERE id IN (%s)`, strings.Join(placeholders, ","))
+	_, err := r.db.Exec(query, args...)
+	return err
+}
+
+func (r *Repository) BulkSetUserRole(userIDs []int64, role string) error {
+	if role != "admin" && role != "player" {
+		return fmt.Errorf("invalid role: %s", role)
+	}
+	if len(userIDs) == 0 {
+		return nil
+	}
+	placeholders := make([]string, len(userIDs))
+	args := make([]interface{}, len(userIDs)+1)
+	args[0] = role
+	for i, id := range userIDs {
+		placeholders[i] = "?"
+		args[i+1] = id
+	}
+	query := fmt.Sprintf(`UPDATE users SET role = ? WHERE id IN (%s)`, strings.Join(placeholders, ","))
+	_, err := r.db.Exec(query, args...)
+	return err
+}
+
+func (r *Repository) BulkDeleteUsers(userIDs []int64) error {
+	if len(userIDs) == 0 {
+		return nil
+	}
+	placeholders := make([]string, len(userIDs))
+	args := make([]interface{}, len(userIDs))
+	for i, id := range userIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	inClause := strings.Join(placeholders, ",")
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	cleanupQueries := []string{
+		`DELETE FROM in_app_notifications WHERE user_id IN (%s)`,
+		`DELETE FROM notification_logs WHERE user_id IN (%s)`,
+		`DELETE FROM user_achievements WHERE user_id IN (%s)`,
+		`DELETE FROM weekly_leaderboard WHERE user_id IN (%s)`,
+		`DELETE FROM picks WHERE user_id IN (%s)`,
+		`DELETE FROM users WHERE id IN (%s)`,
+	}
+
+	for _, qTemplate := range cleanupQueries {
+		q := fmt.Sprintf(qTemplate, inClause)
+		if _, err := tx.Exec(q, args...); err != nil {
+			return fmt.Errorf("bulk delete executing %s: %w", q, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (r *Repository) GetUsersByIDs(userIDs []int64) ([]*User, error) {
+	if len(userIDs) == 0 {
+		return []*User{}, nil
+	}
+	placeholders := make([]string, len(userIDs))
+	args := make([]interface{}, len(userIDs))
+	for i, id := range userIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	query := fmt.Sprintf(`SELECT %s FROM users WHERE id IN (%s)`, userColumns, strings.Join(placeholders, ","))
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*User
+	for rows.Next() {
+		u, err := scanUserRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	r.EnrichUsers(users)
+	return users, nil
+}
+
 func (r *Repository) GetUserWeeklySummaries(weekID int64) ([]*UserWeeklySummary, error) {
 	users, err := r.ListUsers()
 	if err != nil {

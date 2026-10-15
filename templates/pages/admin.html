@@ -423,6 +423,19 @@
          x-data="{
              userSearch: '',
              userFilter: 'all',
+             selectedUsers: [],
+             bulkAction: '',
+             usersList: [
+                 {{if .UserSummaries}}
+                     {{range .UserSummaries}}
+                         { id: {{.User.ID}}, username: {{printf "%q" .User.Username}}, email: {{printf "%q" .User.Email}}, verified: {{.User.EmailVerified}}, role: {{printf "%q" .User.Role}}, beta: {{.User.IsBetaTester}} },
+                     {{end}}
+                 {{else}}
+                     {{range .Users}}
+                         { id: {{.ID}}, username: {{printf "%q" .Username}}, email: {{printf "%q" .Email}}, verified: {{.EmailVerified}}, role: {{printf "%q" .Role}}, beta: {{.IsBetaTester}} },
+                     {{end}}
+                 {{end}}
+             ],
              matchesUser(u) {
                  const q = this.userSearch.toLowerCase().trim();
                  const matchesQuery = !q || (u.username && u.username.toLowerCase().includes(q)) || (u.email && u.email.toLowerCase().includes(q));
@@ -432,6 +445,53 @@
                  if (this.userFilter === 'admin') return u.role === 'admin';
                  if (this.userFilter === 'beta') return !!u.beta;
                  return true;
+             },
+             get visibleUserIDs() {
+                 return this.usersList.filter(u => this.matchesUser(u)).map(u => u.id);
+             },
+             toggleUser(id) {
+                 const numId = Number(id);
+                 const idx = this.selectedUsers.indexOf(numId);
+                 if (idx > -1) {
+                     this.selectedUsers.splice(idx, 1);
+                 } else {
+                     this.selectedUsers.push(numId);
+                 }
+             },
+             isSelected(id) {
+                 return this.selectedUsers.includes(Number(id));
+             },
+             selectAllVisible() {
+                 const visibleIds = this.visibleUserIDs;
+                 if (visibleIds.length === 0) return;
+                 const allSelected = visibleIds.every(id => this.selectedUsers.includes(id));
+                 if (allSelected) {
+                     this.selectedUsers = this.selectedUsers.filter(id => !visibleIds.includes(id));
+                 } else {
+                     const set = new Set([...this.selectedUsers, ...visibleIds]);
+                     this.selectedUsers = Array.from(set);
+                 }
+             },
+             isAllVisibleSelected() {
+                 const visibleIds = this.visibleUserIDs;
+                 if (visibleIds.length === 0) return false;
+                 return visibleIds.every(id => this.selectedUsers.includes(id));
+             },
+             clearSelection() {
+                 this.selectedUsers = [];
+             },
+             submitBulk(action) {
+                 if (this.selectedUsers.length === 0) return;
+                 if (action === 'delete') {
+                     if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente las ${this.selectedUsers.length} cuentas de jugadores seleccionadas? Esta acción eliminará sus pronósticos y no se puede deshacer.`)) {
+                         return;
+                     }
+                 }
+                 this.bulkAction = action;
+                 this.$nextTick(() => {
+                     const btn = document.getElementById('bulk-submit-btn');
+                     if (btn) btn.click();
+                 });
              }
          }"
          class="space-y-6">
@@ -524,6 +584,114 @@
                             class="px-2.5 py-1 rounded-lg text-[11px] transition-colors cursor-pointer">
                         Beta
                     </button>
+
+                    <!-- Quick Select/Deselect visible button -->
+                    <button type="button"
+                            @click="selectAllVisible()" 
+                            class="px-2.5 py-1 rounded-lg text-[11px] transition-colors flex items-center space-x-1 cursor-pointer border ml-1"
+                            :class="isAllVisibleSelected() ? 'bg-blue-600 text-white border-blue-500 font-semibold' : 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:text-white'">
+                        <i class="fa-solid fa-check-double text-[10px]"></i>
+                        <span x-text="isAllVisibleSelected() ? 'Deseleccionar' : 'Seleccionar visibles'"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Hidden form for bulk actions submission via HTMX -->
+            <form id="bulk-action-form" 
+                  hx-post="/admin/users/bulk-action" 
+                  hx-swap="none"
+                  class="hidden">
+                <input type="hidden" name="action" :value="bulkAction">
+                <input type="hidden" name="user_ids" :value="selectedUsers.join(',')">
+                <button type="submit" id="bulk-submit-btn" class="hidden"></button>
+            </form>
+
+            <!-- Inline Bulk Actions Bar (Appears when 1+ users selected) -->
+            <div x-show="selectedUsers.length > 0" 
+                 x-transition:enter="transition ease-out duration-150"
+                 x-transition:enter-start="opacity-0 -translate-y-2"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-100"
+                 x-transition:leave-start="opacity-100 translate-y-0"
+                 x-transition:leave-end="opacity-0 -translate-y-2"
+                 x-cloak
+                 class="mb-4 p-3 rounded-xl bg-gradient-to-r from-blue-950/40 via-zinc-900 to-zinc-900 border border-blue-500/30 shadow-md">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    <div class="flex items-center space-x-2">
+                        <span class="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-blue-500/20 text-blue-300 font-bold text-xs font-mono border border-blue-500/40" x-text="selectedUsers.length"></span>
+                        <span class="text-xs font-semibold text-white">
+                            <span x-text="selectedUsers.length === 1 ? 'jugador seleccionado' : 'jugadores seleccionados'"></span>
+                        </span>
+                        <button type="button" 
+                                @click="clearSelection()" 
+                                class="text-[11px] text-zinc-400 hover:text-white underline ml-2 cursor-pointer">
+                            Deseleccionar
+                        </button>
+                    </div>
+
+                    <div class="flex items-center flex-wrap gap-2 text-xs">
+                        <!-- Verificar -->
+                        <button type="button" 
+                                @click="submitBulk('verify')" 
+                                class="px-2.5 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition-all flex items-center cursor-pointer shadow-xs"
+                                title="Verificar cuentas seleccionadas">
+                            <i class="fa-solid fa-circle-check mr-1.5 text-emerald-400"></i> Verificar
+                        </button>
+
+                        <!-- Desverificar -->
+                        <button type="button" 
+                                @click="submitBulk('unverify')" 
+                                class="px-2.5 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-semibold transition-all flex items-center cursor-pointer shadow-xs"
+                                title="Revocar verificación de cuentas">
+                            <i class="fa-solid fa-clock mr-1.5 text-amber-400"></i> Desverificar
+                        </button>
+
+                        <!-- Beta -->
+                        <button type="button" 
+                                @click="submitBulk('enable_beta')" 
+                                class="px-2.5 py-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-xs font-semibold transition-all flex items-center cursor-pointer shadow-xs"
+                                title="Activar Beta a seleccionados">
+                            <i class="fa-solid fa-flask mr-1.5 text-purple-400"></i> Activar Beta
+                        </button>
+                        <button type="button" 
+                                @click="submitBulk('disable_beta')" 
+                                class="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-xs font-semibold transition-all flex items-center cursor-pointer shadow-xs"
+                                title="Quitar Beta a seleccionados">
+                            <i class="fa-solid fa-ban mr-1.5 text-zinc-400"></i> Quitar Beta
+                        </button>
+
+                        <!-- Rol -->
+                        <div class="inline-flex rounded-lg bg-zinc-950 p-0.5 border border-zinc-800">
+                            <button type="button" 
+                                    @click="submitBulk('set_role_player')" 
+                                    class="px-2 py-1 rounded-md text-[11px] font-semibold text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                                    title="Asignar rol de Jugador (player)">
+                                <i class="fa-solid fa-user mr-1 text-[10px]"></i> Jugador
+                            </button>
+                            <button type="button" 
+                                    @click="submitBulk('set_role_admin')" 
+                                    class="px-2 py-1 rounded-md text-[11px] font-semibold text-amber-300 hover:text-amber-200 transition-colors cursor-pointer"
+                                    title="Asignar rol de Administrador">
+                                <i class="fa-solid fa-shield-halved mr-1 text-[10px]"></i> Admin
+                            </button>
+                        </div>
+
+                        <!-- Reenviar Correos -->
+                        <button type="button" 
+                                @click="submitBulk('resend_verification')" 
+                                class="px-2.5 py-1.5 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 text-xs font-semibold transition-all flex items-center cursor-pointer shadow-xs"
+                                title="Reenviar correo de activación a seleccionados no verificados">
+                            <i class="fa-solid fa-paper-plane mr-1.5 text-blue-400"></i> Reenviar Correos
+                        </button>
+
+                        <!-- Eliminar -->
+                        <button type="button" 
+                                @click="submitBulk('delete')" 
+                                class="px-2.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-semibold transition-all flex items-center cursor-pointer shadow-xs ml-auto lg:ml-0"
+                                title="Eliminar cuentas seleccionadas permanentemente">
+                            <i class="fa-solid fa-trash-can mr-1.5 text-rose-400"></i> Eliminar
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -533,10 +701,16 @@
                     {{range .UserSummaries}}
                         <div id="user-card-{{.User.ID}}"
                              x-show="matchesUser({ username: '{{.User.Username}}', email: '{{.User.Email}}', verified: {{.User.EmailVerified}}, role: '{{.User.Role}}', beta: {{.User.IsBetaTester}} })" 
-                             class="p-3.5 rounded-xl bg-zinc-950/80 border border-zinc-800 space-y-2.5" 
+                             :class="isSelected({{.User.ID}}) ? 'ring-1 ring-blue-500/80 bg-blue-950/20' : 'bg-zinc-950/80'"
+                             class="p-3.5 rounded-xl border border-zinc-800 space-y-2.5 transition-all" 
                              {{if .User.FavoriteTeam}}style="border-left: 3px solid {{.User.FavoriteTeam.PrimaryColor}};"{{end}}>
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-2.5 min-w-0 flex-1">
+                                    <input type="checkbox" 
+                                           :value="{{.User.ID}}" 
+                                           :checked="isSelected({{.User.ID}})" 
+                                           @click.stop="toggleUser({{.User.ID}})" 
+                                           class="w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer shrink-0">
                                     <div class="relative shrink-0">
                                         <div class="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-xs text-white overflow-hidden shadow">
                                             {{if .User.AvatarURL}}
@@ -664,6 +838,13 @@
                 <table class="w-full text-left border-collapse text-xs">
                     <thead>
                         <tr class="border-b border-[#1f1f1f] bg-black/40 text-zinc-500 font-mono text-[11px] uppercase tracking-wider">
+                            <th class="py-2.5 px-3 w-10 text-center">
+                                <input type="checkbox" 
+                                       @click="selectAllVisible()" 
+                                       :checked="isAllVisibleSelected()" 
+                                       title="Seleccionar todos los visibles"
+                                       class="w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer">
+                            </th>
                             <th class="py-2.5 px-3">Usuario</th>
                             <th class="py-2.5 px-3">Correo & Estado</th>
                             <th class="py-2.5 px-3 text-center">Rol</th>
@@ -677,7 +858,15 @@
                             {{range .UserSummaries}}
                                 <tr id="user-row-{{.User.ID}}"
                                     x-show="matchesUser({ username: '{{.User.Username}}', email: '{{.User.Email}}', verified: {{.User.EmailVerified}}, role: '{{.User.Role}}', beta: {{.User.IsBetaTester}} })"
-                                    class="hover:bg-zinc-900/30">
+                                    :class="isSelected({{.User.ID}}) ? 'bg-blue-950/20 hover:bg-blue-900/30' : 'hover:bg-zinc-900/30'"
+                                    class="transition-colors">
+                                    <td class="py-2.5 px-3 w-10 text-center">
+                                        <input type="checkbox" 
+                                               :value="{{.User.ID}}" 
+                                               :checked="isSelected({{.User.ID}})" 
+                                               @click.stop="toggleUser({{.User.ID}})" 
+                                               class="w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer">
+                                    </td>
                                     <td class="py-2.5 px-3">
                                         <div class="flex items-center space-x-2.5">
                                             <div class="relative shrink-0">
@@ -815,7 +1004,15 @@
                             {{range .Users}}
                                 <tr id="user-row-{{.ID}}"
                                     x-show="matchesUser({ username: '{{.Username}}', email: '{{.Email}}', verified: {{.EmailVerified}}, role: '{{.Role}}', beta: {{.IsBetaTester}} })"
-                                    class="hover:bg-zinc-900/30">
+                                    :class="isSelected({{.ID}}) ? 'bg-blue-950/20 hover:bg-blue-900/30' : 'hover:bg-zinc-900/30'"
+                                    class="transition-colors">
+                                    <td class="py-2.5 px-3 w-10 text-center">
+                                        <input type="checkbox" 
+                                               :value="{{.ID}}" 
+                                               :checked="isSelected({{.ID}})" 
+                                               @click.stop="toggleUser({{.ID}})" 
+                                               class="w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-blue-600 focus:ring-0 focus:ring-offset-0 cursor-pointer">
+                                    </td>
                                     <td class="py-2.5 px-3 font-semibold text-white">{{.Username}}</td>
                                     <td class="py-2.5 px-3 text-zinc-400">{{.Email}}</td>
                                     <td class="py-2.5 px-3 text-center">
@@ -858,6 +1055,48 @@
                         {{end}}
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Floating Bulk Actions Toolbar (Sticky Bottom) -->
+        <div x-show="selectedUsers.length > 0" 
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 translate-y-6"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 translate-y-0"
+             x-transition:leave-end="opacity-0 translate-y-6"
+             x-cloak
+             class="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 max-w-4xl w-[92%] bg-zinc-950/95 border border-blue-500/40 shadow-2xl backdrop-blur-md rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs text-white">
+            <div class="flex items-center space-x-2">
+                <span class="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-blue-500/20 text-blue-300 font-bold text-xs font-mono border border-blue-500/40" x-text="selectedUsers.length"></span>
+                <span class="font-semibold text-white">
+                    <span x-text="selectedUsers.length === 1 ? 'jugador seleccionado' : 'jugadores seleccionados'"></span>
+                </span>
+                <button type="button" @click="clearSelection()" class="text-[11px] text-zinc-400 hover:text-white underline ml-1 cursor-pointer">
+                    Cancelar
+                </button>
+            </div>
+
+            <div class="flex items-center flex-wrap gap-1.5 text-xs">
+                <button type="button" @click="submitBulk('verify')" class="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-semibold cursor-pointer">
+                    <i class="fa-solid fa-circle-check mr-1 text-emerald-400"></i> Verificar
+                </button>
+                <button type="button" @click="submitBulk('unverify')" class="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-semibold cursor-pointer">
+                    <i class="fa-solid fa-clock mr-1 text-amber-400"></i> Desverificar
+                </button>
+                <button type="button" @click="submitBulk('enable_beta')" class="px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-xs font-semibold cursor-pointer">
+                    <i class="fa-solid fa-flask mr-1 text-purple-400"></i> Beta
+                </button>
+                <button type="button" @click="submitBulk('set_role_admin')" class="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold cursor-pointer">
+                    <i class="fa-solid fa-shield-halved mr-1 text-amber-400"></i> Admin
+                </button>
+                <button type="button" @click="submitBulk('resend_verification')" class="px-2.5 py-1 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-300 border border-blue-500/30 text-xs font-semibold cursor-pointer">
+                    <i class="fa-solid fa-paper-plane mr-1 text-blue-400"></i> Correos
+                </button>
+                <button type="button" @click="submitBulk('delete')" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-semibold cursor-pointer">
+                    <i class="fa-solid fa-trash-can mr-1 text-rose-400"></i> Eliminar
+                </button>
             </div>
         </div>
     </div>

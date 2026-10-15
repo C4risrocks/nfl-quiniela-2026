@@ -309,6 +309,7 @@ func main() {
 		admin.Post("/admin/users/{userId}/resend-verification", adminHandler.AdminResendVerificationEmail)
 		admin.Post("/admin/users/{userId}/toggle-role", adminHandler.ToggleUserRole)
 		admin.Post("/admin/users/{userId}/toggle-beta", adminHandler.ToggleUserBeta)
+		admin.Post("/admin/users/bulk-action", adminHandler.BulkUserAction)
 		admin.Post("/admin/features/save", adminHandler.SaveFeatureFlags)
 		admin.Get("/admin/picks/export", adminHandler.ExportWeekPicksCSV)
 	})

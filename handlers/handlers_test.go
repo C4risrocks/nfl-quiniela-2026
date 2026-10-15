@@ -2462,6 +2462,233 @@ func TestAdminUserManagementEditAndDelete(t *testing.T) {
 	}
 }
 
+func TestAdminBulkUserActions(t *testing.T) {
+	repo, _, renderer, calculator, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	adminHandler := NewAdminHandler(repo, renderer, nil, calculator, nil, nil, 2026)
+
+	adminUser, err := repo.GetUserByUsername("admin")
+	if err != nil || adminUser == nil {
+		t.Fatalf("Admin user not found: %v", err)
+	}
+
+	p1, err := repo.CreateUser("bulk_player_1", "bulk1@test.com", "hash", "player")
+	if err != nil {
+		t.Fatalf("Failed to create bulk_player_1: %v", err)
+	}
+	p2, err := repo.CreateUser("bulk_player_2", "bulk2@test.com", "hash", "player")
+	if err != nil {
+		t.Fatalf("Failed to create bulk_player_2: %v", err)
+	}
+	p3, err := repo.CreateUser("bulk_player_3", "bulk3@test.com", "hash", "player")
+	if err != nil {
+		t.Fatalf("Failed to create bulk_player_3: %v", err)
+	}
+
+	// 1. Missing action
+	formEmpty := url.Values{}
+	formEmpty.Set("user_ids", fmt.Sprintf("%d,%d", p1.ID, p2.ID))
+	reqEmpty := httptest.NewRequest(http.MethodPost, "/admin/users/bulk-action", strings.NewReader(formEmpty.Encode()))
+	reqEmpty.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqEmpty = reqEmpty.WithContext(injectUser(reqEmpty.Context(), adminUser))
+	rrEmpty := httptest.NewRecorder()
+	adminHandler.BulkUserAction(rrEmpty, reqEmpty)
+	if rrEmpty.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request for missing action, got %d", rrEmpty.Code)
+	}
+
+	// 2. Missing users
+	formNoUsers := url.Values{}
+	formNoUsers.Set("action", "verify")
+	reqNoUsers := httptest.NewRequest(http.MethodPost, "/admin/users/bulk-action", strings.NewReader(formNoUsers.Encode()))
+	reqNoUsers.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqNoUsers = reqNoUsers.WithContext(injectUser(reqNoUsers.Context(), adminUser))
+	rrNoUsers := httptest.NewRecorder()
+	adminHandler.BulkUserAction(rrNoUsers, reqNoUsers)
+	if rrNoUsers.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request for no users selected, got %d", rrNoUsers.Code)
+	}
+
+	// 3. Action: verify
+	formVerify := url.Values{}
+	formVerify.Set("action", "verify")
+	formVerify.Set("user_ids", fmt.Sprintf("%d,%d", p1.ID, p2.ID))
+	reqVerify := httptest.NewRequest(http.MethodPost, "/admin/users/bulk-action", strings.NewReader(formVerify.Encode()))
+	reqVerify.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqVerify.Header.Set("HX-Request", "true")
+	reqVerify = reqVerify.WithContext(injectUser(reqVerify.Context(), adminUser))
+	rrVerify := httptest.NewRecorder()
+	adminHandler.BulkUserAction(rrVerify, reqVerify)
+	if rrVerify.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK from bulk verify, got %d", rrVerify.Code)
+	}
+	if rrVerify.Header().Get("HX-Refresh") != "true" {
+		t.Errorf("Expected HX-Refresh: true")
+	}
+
+	u1, _ := repo.GetUserByID(p1.ID)
+	u2, _ := repo.GetUserByID(p2.ID)
+	if !u1.EmailVerified || !u2.EmailVerified {
+		t.Errorf("Expected p1 and p2 to be verified")
+	}
+
+	// 4. Action: unverify
+	formUnverify := url.Values{}
+	formUnverify.Set("action", "unverify")
+	formUnverify.Set("user_ids", fmt.Sprintf("%d", p1.ID))
+	reqUnverify := httptest.NewRequest(http.MethodPost, "/admin/users/bulk-action", strings.NewReader(formUnverify.Encode()))
+	reqUnverify.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqUnverify.Header.Set("HX-Request", "true")
+	reqUnverify = reqUnverify.WithContext(injectUser(reqUnverify.Context(), adminUser))
+	rrUnverify := httptest.NewRecorder()
+	adminHandler.BulkUserAction(rrUnverify, reqUnverify)
+	if rrUnverify.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK from bulk unverify, got %d", rrUnverify.Code)
+	}
+	u1, _ = repo.GetUserByID(p1.ID)
+	if u1.EmailVerified {
+		t.Errorf("Expected p1 to be unverified")
+	}
+
+	// 5. Action: enable_beta and disable_beta
+	formBeta := url.Values{}
+	formBeta.Set("action", "enable_beta")
+	formBeta.Set("user_ids", fmt.Sprintf("%d,%d", p1.ID, p2.ID))
+	reqBeta := httptest.NewRequest(http.MethodPost, "/admin/users/bulk-action", strings.NewReader(formBeta.Encode()))
+	reqBeta.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqBeta = reqBeta.WithContext(injectUser(reqBeta.Context(), adminUser))
+	rrBeta := httptest.NewRecorder()
+	adminHandler.BulkUserAction(rrBeta, reqBeta)
+	if rrBeta.Code != http.StatusSeeOther {
+		t.Errorf("Expected 303 SeeOther for non-HTMX bulk beta, got %d", rrBeta.Code)
+	}
+	u1, _ = repo.GetUserByID(p1.ID)
+	u2, _ = repo.GetUserByID(p2.ID)
+	if !u1.IsBetaTester || !u2.IsBetaTester {
+		t.Errorf("Expected p1 and p2 to have beta enabled")
+	}
+
+	formNoBeta := url.Values{}
+	formNoBeta.Set("action", "disable_beta")
+	formNoBeta.Set("user_ids", fmt.Sprintf("%d,%d", p1.ID, p2.ID))
+	reqNoBeta := httptest.NewRequest(http.MethodPost, "/admin/users/bulk-action", strings.NewReader(formNoBeta.Encode()))
+	reqNoBeta.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqNoBeta = reqNoBeta.WithContext(injectUser(reqNoBeta.Context(), adminUser))
+	rrNoBeta := httptest.NewRecorder()
+	adminHandler.BulkUserAction(rrNoBeta, reqNoBeta)
+	u1, _ = repo.GetUserByID(p1.ID)
+	if u1.IsBetaTester {
+		t.Errorf("Expected p1 to have beta disabled")
+	}
+
+	// 6. Action: set_role_admin and set_role_player with self-demotion protection
+	formRoleAdmin := url.Values{}
+	formRoleAdmin.Set("action", "set_role_admin")
+	formRoleAdmin.Set("user_ids", fmt.Sprintf("%d", p1.ID))
+	reqRoleAdmin := httptest.NewRequest(http.MethodPost, "/admin/users/bulk-action", strings.NewReader(formRoleAdmin.Encode()))
+	reqRoleAdmin.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqRoleAdmin = reqRoleAdmin.WithContext(injectUser(reqRoleAdmin.Context(), adminUser))
+	rrRoleAdmin := httptest.NewRecorder()
+	adminHandler.BulkUserAction(rrRoleAdmin, reqRoleAdmin)
+	u1, _ = repo.GetUserByID(p1.ID)
+	if u1.Role != "admin" {
+		t.Errorf("Expected p1 to have role admin, got %s", u1.Role)
+	}
+
+	// Try to demote both p1 and current adminUser to player
+	formRolePlayer := url.Values{}
+	formRolePlayer.Set("action", "set_role_player")
+	formRolePlayer.Set("user_ids", fmt.Sprintf("%d,%d", p1.ID, adminUser.ID))
+	reqRolePlayer := httptest.NewRequest(http.MethodPost, "/admin/users/bulk-action", strings.NewReader(formRolePlayer.Encode()))
+	reqRolePlayer.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqRolePlayer = reqRolePlayer.WithContext(injectUser(reqRolePlayer.Context(), adminUser))
+	rrRolePlayer := httptest.NewRecorder()
+	adminHandler.BulkUserAction(rrRolePlayer, reqRolePlayer)
+	if rrRolePlayer.Code != http.StatusSeeOther {
+		t.Errorf("Expected 303 SeeOther, got %d", rrRolePlayer.Code)
+	}
+
+	u1, _ = repo.GetUserByID(p1.ID)
+	if u1.Role != "player" {
+		t.Errorf("Expected p1 to be demoted to player, got %s", u1.Role)
+	}
+	adminCheck, _ := repo.GetUserByID(adminUser.ID)
+	if adminCheck.Role != "admin" {
+		t.Errorf("Expected current admin to remain admin (protected), got %s", adminCheck.Role)
+	}
+
+	// 7. Action: resend_verification
+	formResend := url.Values{}
+	formResend.Set("action", "resend_verification")
+	formResend.Set("user_ids", fmt.Sprintf("%d,%d", p1.ID, p2.ID))
+	reqResend := httptest.NewRequest(http.MethodPost, "/admin/users/bulk-action", strings.NewReader(formResend.Encode()))
+	reqResend.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqResend.Header.Set("HX-Request", "true")
+	reqResend = reqResend.WithContext(injectUser(reqResend.Context(), adminUser))
+	rrResend := httptest.NewRecorder()
+	adminHandler.BulkUserAction(rrResend, reqResend)
+	if rrResend.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK for resend_verification, got %d", rrResend.Code)
+	}
+
+	// 8. Action: delete with bot & admin protection
+	botUser, _ := repo.GetUserByUsername("ia_quiniela")
+	botID := int64(9999)
+	if botUser != nil {
+		botID = botUser.ID
+	}
+
+	// Only protected users selected for deletion
+	formDelProtected := url.Values{}
+	formDelProtected.Set("action", "delete")
+	formDelProtected.Set("user_ids", fmt.Sprintf("%d,%d", adminUser.ID, botID))
+	reqDelProtected := httptest.NewRequest(http.MethodPost, "/admin/users/bulk-action", strings.NewReader(formDelProtected.Encode()))
+	reqDelProtected.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqDelProtected = reqDelProtected.WithContext(injectUser(reqDelProtected.Context(), adminUser))
+	rrDelProtected := httptest.NewRecorder()
+	adminHandler.BulkUserAction(rrDelProtected, reqDelProtected)
+	if rrDelProtected.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request when deleting only protected accounts, got %d", rrDelProtected.Code)
+	}
+
+	// Delete mixed: adminUser (protected) + p1 (normal) + p3 (normal)
+	formDelMixed := url.Values{}
+	formDelMixed.Set("action", "delete")
+	formDelMixed.Set("user_ids", fmt.Sprintf("%d,%d,%d", adminUser.ID, p1.ID, p3.ID))
+	reqDelMixed := httptest.NewRequest(http.MethodPost, "/admin/users/bulk-action", strings.NewReader(formDelMixed.Encode()))
+	reqDelMixed.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	reqDelMixed.Header.Set("HX-Request", "true")
+	reqDelMixed = reqDelMixed.WithContext(injectUser(reqDelMixed.Context(), adminUser))
+	rrDelMixed := httptest.NewRecorder()
+	adminHandler.BulkUserAction(rrDelMixed, reqDelMixed)
+	if rrDelMixed.Code != http.StatusOK {
+		t.Errorf("Expected 200 OK for mixed delete, got %d", rrDelMixed.Code)
+	}
+
+	// Admin must still exist
+	adminStillThere, _ := repo.GetUserByID(adminUser.ID)
+	if adminStillThere == nil {
+		t.Errorf("Admin should NOT have been deleted")
+	}
+
+	// p1 and p3 must be deleted
+	del1, _ := repo.GetUserByID(p1.ID)
+	if del1 != nil {
+		t.Errorf("p1 should have been deleted")
+	}
+	del3, _ := repo.GetUserByID(p3.ID)
+	if del3 != nil {
+		t.Errorf("p3 should have been deleted")
+	}
+
+	// p2 should still exist
+	del2, _ := repo.GetUserByID(p2.ID)
+	if del2 == nil {
+		t.Errorf("p2 should still exist")
+	}
+}
+
 
 
 

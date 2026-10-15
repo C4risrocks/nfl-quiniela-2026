@@ -1005,6 +1005,223 @@ func (h *AdminHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "")
 }
 
+func (h *AdminHandler) BulkUserAction(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Datos de formulario inválidos", "type": "error"}}`)
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	action := strings.TrimSpace(r.FormValue("action"))
+	if action == "" {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Acción masiva no especificada", "type": "error"}}`)
+		http.Error(w, "Missing action", http.StatusBadRequest)
+		return
+	}
+
+	idMap := make(map[int64]bool)
+	var rawIDs []string
+	if list, ok := r.Form["user_ids"]; ok {
+		rawIDs = append(rawIDs, list...)
+	}
+	if list, ok := r.Form["user_ids[]"]; ok {
+		rawIDs = append(rawIDs, list...)
+	}
+	if len(rawIDs) == 0 && r.FormValue("user_ids") != "" {
+		rawIDs = strings.Split(r.FormValue("user_ids"), ",")
+	}
+
+	for _, raw := range rawIDs {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			continue
+		}
+		parts := strings.Split(trimmed, ",")
+		for _, p := range parts {
+			cleanP := strings.TrimSpace(p)
+			if id, err := strconv.ParseInt(cleanP, 10, 64); err == nil && id > 0 {
+				idMap[id] = true
+			}
+		}
+	}
+
+	var userIDs []int64
+	for id := range idMap {
+		userIDs = append(userIDs, id)
+	}
+
+	if len(userIDs) == 0 {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "No has seleccionado ningún jugador", "type": "warning"}}`)
+		http.Error(w, "No users selected", http.StatusBadRequest)
+		return
+	}
+
+	currentUser := auth.GetUserFromContext(r.Context())
+	currentUserID := int64(0)
+	if currentUser != nil {
+		currentUserID = currentUser.ID
+	}
+
+	toastMsg := ""
+	toastType := "success"
+	needsLeaderboardRecalc := false
+
+	switch action {
+	case "verify":
+		if err := h.repo.BulkSetUserVerification(userIDs, true); err != nil {
+			w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Error al verificar cuentas: %s", "type": "error"}}`, err.Error()))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		needsLeaderboardRecalc = true
+		toastMsg = fmt.Sprintf("Se verificaron %d cuentas exitosamente", len(userIDs))
+
+	case "unverify":
+		if err := h.repo.BulkSetUserVerification(userIDs, false); err != nil {
+			w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Error al revocar verificación: %s", "type": "error"}}`, err.Error()))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		needsLeaderboardRecalc = true
+		toastMsg = fmt.Sprintf("Se revocó la verificación de %d cuentas", len(userIDs))
+
+	case "enable_beta":
+		if err := h.repo.BulkSetUserBeta(userIDs, true); err != nil {
+			w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Error al activar beta: %s", "type": "error"}}`, err.Error()))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		toastMsg = fmt.Sprintf("Acceso Beta otorgado a %d cuentas", len(userIDs))
+		toastType = "info"
+
+	case "disable_beta":
+		if err := h.repo.BulkSetUserBeta(userIDs, false); err != nil {
+			w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Error al revocar beta: %s", "type": "error"}}`, err.Error()))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		toastMsg = fmt.Sprintf("Acceso Beta revocado para %d cuentas", len(userIDs))
+		toastType = "info"
+
+	case "set_role_admin":
+		if err := h.repo.BulkSetUserRole(userIDs, "admin"); err != nil {
+			w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Error al asignar rol de administrador: %s", "type": "error"}}`, err.Error()))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		toastMsg = fmt.Sprintf("Rol de Administrador asignado a %d cuentas", len(userIDs))
+
+	case "set_role_player":
+		var safeIDs []int64
+		for _, id := range userIDs {
+			if currentUserID > 0 && id == currentUserID {
+				continue
+			}
+			safeIDs = append(safeIDs, id)
+		}
+		if len(safeIDs) == 0 {
+			w.Header().Set("HX-Trigger", `{"show-toast": {"message": "No puedes cambiar tu propio rol de administrador a jugador", "type": "warning"}}`)
+			http.Error(w, "Cannot demote yourself", http.StatusBadRequest)
+			return
+		}
+		if err := h.repo.BulkSetUserRole(safeIDs, "player"); err != nil {
+			w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Error al asignar rol de jugador: %s", "type": "error"}}`, err.Error()))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		toastMsg = fmt.Sprintf("Rol de Jugador asignado a %d cuentas", len(safeIDs))
+
+	case "resend_verification":
+		users, err := h.repo.GetUsersByIDs(userIDs)
+		if err != nil {
+			w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Error al consultar usuarios: %s", "type": "error"}}`, err.Error()))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		sentCount := 0
+		var baseURL string
+		if h.reminderWorker != nil && h.reminderWorker.Sender() != nil {
+			baseURL = getBaseURLFromRequest(r, h.reminderWorker.Sender().BaseURL())
+		}
+		for _, u := range users {
+			if u.EmailVerified {
+				continue
+			}
+			tok, err := auth.GenerateRandomToken(32)
+			if err != nil {
+				continue
+			}
+			if err := h.repo.SetVerificationToken(u.ID, tok); err != nil {
+				continue
+			}
+			if h.reminderWorker != nil && h.reminderWorker.Sender() != nil {
+				go func(targetU *db.User, token, bURL string) {
+					_ = h.reminderWorker.Sender().SendVerificationEmail(targetU, token, bURL)
+				}(u, tok, baseURL)
+			}
+			sentCount++
+		}
+		if sentCount == 0 {
+			toastMsg = "Todas las cuentas seleccionadas ya se encuentran verificadas"
+			toastType = "info"
+		} else {
+			toastMsg = fmt.Sprintf("Correos de activación reenviados a %d cuentas no verificadas", sentCount)
+		}
+
+	case "delete":
+		users, err := h.repo.GetUsersByIDs(userIDs)
+		if err != nil {
+			w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Error al consultar usuarios: %s", "type": "error"}}`, err.Error()))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		var safeDeleteIDs []int64
+		for _, u := range users {
+			if currentUserID > 0 && u.ID == currentUserID {
+				continue
+			}
+			if u.Username == "ia_quiniela" {
+				continue
+			}
+			safeDeleteIDs = append(safeDeleteIDs, u.ID)
+		}
+
+		if len(safeDeleteIDs) == 0 {
+			w.Header().Set("HX-Trigger", `{"show-toast": {"message": "No se pueden eliminar las cuentas protegidas (administrador actual o bot)", "type": "warning"}}`)
+			http.Error(w, "No safe users to delete", http.StatusBadRequest)
+			return
+		}
+
+		if err := h.repo.BulkDeleteUsers(safeDeleteIDs); err != nil {
+			w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Error al eliminar usuarios: %s", "type": "error"}}`, err.Error()))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		needsLeaderboardRecalc = true
+		toastMsg = fmt.Sprintf("Se eliminaron %d cuentas permanentemente", len(safeDeleteIDs))
+
+	default:
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Acción masiva no reconocida", "type": "error"}}`)
+		http.Error(w, "Invalid action", http.StatusBadRequest)
+		return
+	}
+
+	if needsLeaderboardRecalc {
+		_ = h.calculator.RecalculateAllWeeks(h.seasonYear)
+		if h.broker != nil {
+			h.broker.BroadcastLeaderboardUpdate()
+		}
+	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "%s", "type": "%s"}}`, toastMsg, toastType))
+	if r.Header.Get("HX-Request") != "" {
+		w.Header().Set("HX-Refresh", "true")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
 func (h *AdminHandler) ToggleRegistration(w http.ResponseWriter, r *http.Request) {
 	currentState := h.repo.IsRegistrationEnabled()
 	newState := !currentState
