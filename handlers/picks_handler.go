@@ -48,8 +48,9 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Determine selected week
+	activeWeek, _ := h.repo.GetActiveWeek(season.ID)
 	selectedWeekNum := 1
-	if activeWeek, _ := h.repo.GetActiveWeek(season.ID); activeWeek != nil {
+	if activeWeek != nil {
 		selectedWeekNum = activeWeek.WeekNumber
 	}
 	if weekParam := r.URL.Query().Get("week"); weekParam != "" {
@@ -66,7 +67,11 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if selectedWeek == nil {
-		selectedWeek = weeks[0]
+		if activeWeek != nil {
+			selectedWeek = activeWeek
+		} else {
+			selectedWeek = weeks[0]
+		}
 	}
 
 	games, err := h.repo.ListGamesByWeek(selectedWeek.ID)
@@ -191,6 +196,7 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 		"User":                    user,
 		"Weeks":                   weeks,
 		"SelectedWeek":            selectedWeek,
+		"ActiveWeek":              activeWeek,
 		"Games":                   games,
 		"PicksCount":              picksCount,
 		"UserWeeklyPoints":        userWeeklyPts,
@@ -667,6 +673,7 @@ func (h *PicksHandler) ShowPicksMatrix(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	activeWeek, _ := h.repo.GetActiveWeek(season.ID)
 	weekNumStr := r.URL.Query().Get("week")
 	var selectedWeek *db.Week
 	if weekNumStr != "" {
@@ -679,13 +686,9 @@ func (h *PicksHandler) ShowPicksMatrix(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if selectedWeek == nil {
-		for _, wk := range weeks {
-			if wk.Status == "active" {
-				selectedWeek = wk
-				break
-			}
-		}
-		if selectedWeek == nil {
+		if activeWeek != nil {
+			selectedWeek = activeWeek
+		} else {
 			selectedWeek = weeks[0]
 		}
 	}
@@ -708,6 +711,7 @@ func (h *PicksHandler) ShowPicksMatrix(w http.ResponseWriter, r *http.Request) {
 			"Matrix":       matrixData,
 			"User":         user,
 			"SelectedWeek": selectedWeek,
+			"ActiveWeek":   activeWeek,
 			"Weeks":        weeks,
 		})
 		return
@@ -718,6 +722,7 @@ func (h *PicksHandler) ShowPicksMatrix(w http.ResponseWriter, r *http.Request) {
 		"User":         user,
 		"Matrix":       matrixData,
 		"SelectedWeek": selectedWeek,
+		"ActiveWeek":   activeWeek,
 		"Weeks":        weeks,
 	})
 }
@@ -746,14 +751,12 @@ func (h *PicksHandler) PicksReadinessModal(w http.ResponseWriter, r *http.Reques
 			http.Error(w, "Active season not found", http.StatusInternalServerError)
 			return
 		}
-		weeks, _ := h.repo.ListWeeks(season.ID)
-		if len(weeks) > 0 {
-			selectedWeek = weeks[0]
-			for _, wk := range weeks {
-				if wk.Status == "active" {
-					selectedWeek = wk
-					break
-				}
+		if activeWeek, _ := h.repo.GetActiveWeek(season.ID); activeWeek != nil {
+			selectedWeek = activeWeek
+		} else {
+			weeks, _ := h.repo.ListWeeks(season.ID)
+			if len(weeks) > 0 {
+				selectedWeek = weeks[0]
 			}
 		}
 	}
@@ -832,8 +835,9 @@ func (h *PicksHandler) ShowPicksAdvisor(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	activeWeek, _ := h.repo.GetActiveWeek(season.ID)
 	selectedWeekNum := 1
-	if activeWeek, _ := h.repo.GetActiveWeek(season.ID); activeWeek != nil {
+	if activeWeek != nil {
 		selectedWeekNum = activeWeek.WeekNumber
 	}
 	if weekParam := r.URL.Query().Get("week"); weekParam != "" {
@@ -850,7 +854,11 @@ func (h *PicksHandler) ShowPicksAdvisor(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	if selectedWeek == nil {
-		selectedWeek = weeks[0]
+		if activeWeek != nil {
+			selectedWeek = activeWeek
+		} else {
+			selectedWeek = weeks[0]
+		}
 	}
 
 	games, _ := h.repo.ListGamesByWeek(selectedWeek.ID)
@@ -902,6 +910,7 @@ func (h *PicksHandler) ShowPicksAdvisor(w http.ResponseWriter, r *http.Request) 
 		"User":         user,
 		"Overview":     overview,
 		"SelectedWeek": selectedWeek,
+		"ActiveWeek":   activeWeek,
 		"Weeks":        weeks,
 		"FeatureFlags": featureFlags,
 		"AppliedToast": r.URL.Query().Get("applied") == "1",

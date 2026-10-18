@@ -761,12 +761,13 @@ func (r *Repository) GetWeekByNumber(seasonID int64, weekNumber int) (*Week, err
 }
 
 // GetActiveWeek determines the current active week for a season based on game status and schedule:
-// 1. Week with status = 'active'
-// 2. Week with games currently in progress
-// 3. Week with upcoming scheduled games (earliest kickoff)
-// 4. First week with status = 'scheduled' immediately following completed weeks
-// 5. Fallback: Most recently completed week (latest final kickoff)
-// 6. Fallback: First week of the season
+// 1. Explicitly marked active week (status = 'active')
+// 2. Week with games currently in progress (status = 'in_progress')
+// 3. Time-window: Week whose games span around current real-world date (-2 days before first kickoff to +1 day after last kickoff)
+// 4. Week with upcoming scheduled games (earliest kickoff)
+// 5. First week with status = 'scheduled' immediately following completed weeks
+// 6. Fallback: Most recently completed week (latest final kickoff)
+// 7. Fallback: First week of the season
 func (r *Repository) GetActiveWeek(seasonID int64) (*Week, error) {
 	var w Week
 
@@ -787,7 +788,21 @@ func (r *Repository) GetActiveWeek(seasonID int64) (*Week, error) {
 		return &w, nil
 	}
 
-	// 3. Week with earliest upcoming scheduled games
+	// 3. Time-window query: Week whose games match the current date window of the round (-2 days before kickoff to +1 day after)
+	nowStr := time.Now().UTC().Format("2006-01-02 15:04:05")
+	queryTimeWindow := `SELECT w.id, w.season_id, w.week_number, w.name, w.status, w.lock_type, w.created_at 
+	                    FROM weeks w 
+	                    JOIN games g ON g.week_id = w.id 
+	                    WHERE w.season_id = ? AND w.status != 'completed' 
+	                      AND EXISTS (SELECT 1 FROM games g2 WHERE g2.week_id = w.id AND g2.status != 'final')
+	                    GROUP BY w.id 
+	                    HAVING ? >= datetime(MIN(g.kickoff_time), '-2 days') AND ? <= datetime(MAX(g.kickoff_time), '+1 day') 
+	                    ORDER BY w.week_number ASC LIMIT 1`
+	if err := r.db.QueryRow(queryTimeWindow, seasonID, nowStr, nowStr).Scan(&w.ID, &w.SeasonID, &w.WeekNumber, &w.Name, &w.Status, &w.LockType, &w.CreatedAt); err == nil {
+		return &w, nil
+	}
+
+	// 4. Week with earliest upcoming scheduled games
 	queryScheduled := `SELECT w.id, w.season_id, w.week_number, w.name, w.status, w.lock_type, w.created_at 
 	                   FROM weeks w 
 	                   JOIN games g ON g.week_id = w.id 

@@ -1260,6 +1260,26 @@ func TestGetActiveWeek(t *testing.T) {
 	if activeWk.WeekNumber != 2 {
 		t.Errorf("Expected latest completed week 2, got %d", activeWk.WeekNumber)
 	}
+
+	// 6. Time-window: Week 5 has a game scheduled in 12 hours (within -2 days to +1 day window), week 6 scheduled in 30 days
+	_, err = repo.CreateManualGame(&Game{
+		WeekID:       weeks[4].ID,
+		HomeTeamID:   t1.ID,
+		AwayTeamID:   t2.ID,
+		KickoffTime:  time.Now().Add(12 * time.Hour),
+		Status:       "scheduled",
+		IsTiebreaker: false,
+	})
+	if err != nil {
+		t.Fatalf("CreateManualGame week 5 failed: %v", err)
+	}
+	activeWk, err = repo.GetActiveWeek(season.ID)
+	if err != nil {
+		t.Fatalf("GetActiveWeek time-window failed: %v", err)
+	}
+	if activeWk.WeekNumber != 5 {
+		t.Errorf("Expected Week 5 via time-window detection, got %d", activeWk.WeekNumber)
+	}
 }
 
 func TestUpdateUserPreferences(t *testing.T) {

@@ -59,7 +59,12 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	weeks, _ := h.repo.ListWeeks(season.ID)
+	activeWeek, _ := h.repo.GetActiveWeek(season.ID)
+
 	selectedWeekNum := 1
+	if activeWeek != nil {
+		selectedWeekNum = activeWeek.WeekNumber
+	}
 	if wStr := r.URL.Query().Get("week"); wStr != "" {
 		if wn, err := strconv.Atoi(wStr); err == nil && wn >= 1 && wn <= len(weeks) {
 			selectedWeekNum = wn
@@ -74,7 +79,11 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if selectedWeek == nil && len(weeks) > 0 {
-		selectedWeek = weeks[0]
+		if activeWeek != nil {
+			selectedWeek = activeWeek
+		} else {
+			selectedWeek = weeks[0]
+		}
 	}
 
 	games, _ := h.repo.ListGamesByWeek(selectedWeek.ID)
@@ -95,6 +104,7 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 		"User":               user,
 		"Weeks":              weeks,
 		"SelectedWeek":       selectedWeek,
+		"ActiveWeek":         activeWeek,
 		"Games":              games,
 		"Users":              users,
 		"UserSummaries":      userSummaries,
@@ -543,9 +553,14 @@ func (h *AdminHandler) ShowUserPicks(w http.ResponseWriter, r *http.Request) {
 	}
 	if week == nil {
 		season, _ := h.repo.GetActiveSeason(h.seasonYear)
-		weeks, _ := h.repo.ListWeeks(season.ID)
-		if len(weeks) > 0 {
-			week = weeks[0]
+		if season != nil {
+			week, _ = h.repo.GetActiveWeek(season.ID)
+			if week == nil {
+				weeks, _ := h.repo.ListWeeks(season.ID)
+				if len(weeks) > 0 {
+					week = weeks[0]
+				}
+			}
 		}
 	}
 	if week == nil {
@@ -1276,6 +1291,9 @@ func (h *AdminHandler) ExportWeekPicksCSV(w http.ResponseWriter, r *http.Request
 	}
 
 	weekNum := 1
+	if activeWeek, _ := h.repo.GetActiveWeek(season.ID); activeWeek != nil {
+		weekNum = activeWeek.WeekNumber
+	}
 	if wStr := r.URL.Query().Get("week"); wStr != "" {
 		if wn, err := strconv.Atoi(wStr); err == nil && wn > 0 {
 			weekNum = wn

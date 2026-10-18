@@ -2689,6 +2689,134 @@ func TestAdminBulkUserActions(t *testing.T) {
 	}
 }
 
+func TestActiveWeekDefaultAndDisplay(t *testing.T) {
+	repo, _, renderer, _, cleanup := setupTestApp(t)
+	defer cleanup()
+
+	adminHandler := NewAdminHandler(repo, renderer, nil, nil, nil, nil, 2026)
+	picksHandler := NewPicksHandler(repo, renderer, nil, 2026)
+	leaderboardHandler := NewLeaderboardHandler(repo, renderer, 2026)
+
+	adminUser, err := repo.GetUserByUsername("admin")
+	if err != nil {
+		t.Fatalf("Failed to get admin: %v", err)
+	}
+
+	season, err := repo.GetActiveSeason(2026)
+	if err != nil {
+		t.Fatalf("GetActiveSeason failed: %v", err)
+	}
+	weeks, _ := repo.ListWeeks(season.ID)
+
+	// Set weeks 1..5 as completed, week 6 as active
+	for i := 0; i < 5 && i < len(weeks); i++ {
+		_ = repo.UpdateWeekStatus(weeks[i].ID, "completed")
+	}
+	if len(weeks) >= 6 {
+		_ = repo.UpdateWeekStatus(weeks[5].ID, "active")
+	}
+
+	activeWk, err := repo.GetActiveWeek(season.ID)
+	if err != nil || activeWk == nil || activeWk.WeekNumber != 6 {
+		t.Fatalf("Expected active week 6, got %+v (err: %v)", activeWk, err)
+	}
+
+	// 1. Test Admin Panel (/admin) without ?week= defaults to Week 6
+	reqAdmin := httptest.NewRequest(http.MethodGet, "/admin", nil)
+	reqAdmin = reqAdmin.WithContext(injectUser(reqAdmin.Context(), adminUser))
+	rrAdmin := httptest.NewRecorder()
+	adminHandler.ShowAdmin(rrAdmin, reqAdmin)
+	if rrAdmin.Code != http.StatusOK {
+		t.Fatalf("ShowAdmin failed: %d", rrAdmin.Code)
+	}
+	bodyAdmin := rrAdmin.Body.String()
+	if !strings.Contains(bodyAdmin, "Jornada en curso: Semana 6") {
+		t.Errorf("Expected Admin Panel to show 'Jornada en curso: Semana 6'")
+	}
+	if !strings.Contains(bodyAdmin, "Partidos de Semana 6") {
+		t.Errorf("Expected Admin Panel to default to 'Partidos de Semana 6'")
+	}
+
+	// 2. Test Admin Panel viewing historical week (/admin?week=1) shows mismatch warning banner
+	reqAdminWk1 := httptest.NewRequest(http.MethodGet, "/admin?week=1", nil)
+	reqAdminWk1 = reqAdminWk1.WithContext(injectUser(reqAdminWk1.Context(), adminUser))
+	rrAdminWk1 := httptest.NewRecorder()
+	adminHandler.ShowAdmin(rrAdminWk1, reqAdminWk1)
+	if rrAdminWk1.Code != http.StatusOK {
+		t.Fatalf("ShowAdmin week 1 failed: %d", rrAdminWk1.Code)
+	}
+	bodyAdminWk1 := rrAdminWk1.Body.String()
+	if !strings.Contains(bodyAdminWk1, "Estás administrando <strong>Semana 1</strong>") || !strings.Contains(bodyAdminWk1, "Semana 6") {
+		t.Errorf("Expected Admin Panel viewing Week 1 to show warning banner pointing to active Semana 6")
+	}
+
+	// 3. Test Export CSV defaults to active week 6
+	reqExport := httptest.NewRequest(http.MethodGet, "/admin/picks/export", nil)
+	reqExport = reqExport.WithContext(injectUser(reqExport.Context(), adminUser))
+	rrExport := httptest.NewRecorder()
+	adminHandler.ExportWeekPicksCSV(rrExport, reqExport)
+	if rrExport.Code != http.StatusOK {
+		t.Fatalf("ExportWeekPicksCSV failed: %d", rrExport.Code)
+	}
+	disp := rrExport.Header().Get("Content-Disposition")
+	if !strings.Contains(disp, "quiniela_semana_6_") {
+		t.Errorf("Expected CSV attachment filename to contain quiniela_semana_6_, got %s", disp)
+	}
+
+	// 4. Test Picks page (/picks) without ?week= defaults to Week 6
+	reqPicks := httptest.NewRequest(http.MethodGet, "/picks", nil)
+	reqPicks = reqPicks.WithContext(injectUser(reqPicks.Context(), adminUser))
+	rrPicks := httptest.NewRecorder()
+	picksHandler.ShowPicks(rrPicks, reqPicks)
+	if rrPicks.Code != http.StatusOK {
+		t.Fatalf("ShowPicks failed: %d", rrPicks.Code)
+	}
+	bodyPicks := rrPicks.Body.String()
+	if !strings.Contains(bodyPicks, "Semana 6 ⚡ (En curso)") {
+		t.Errorf("Expected Picks page dropdown to label 'Semana 6 ⚡ (En curso)'")
+	}
+
+	// 5. Test Picks page viewing Week 1 shows warning banner
+	reqPicksWk1 := httptest.NewRequest(http.MethodGet, "/picks?week=1", nil)
+	reqPicksWk1 = reqPicksWk1.WithContext(injectUser(reqPicksWk1.Context(), adminUser))
+	rrPicksWk1 := httptest.NewRecorder()
+	picksHandler.ShowPicks(rrPicksWk1, reqPicksWk1)
+	if rrPicksWk1.Code != http.StatusOK {
+		t.Fatalf("ShowPicks week 1 failed: %d", rrPicksWk1.Code)
+	}
+	bodyPicksWk1 := rrPicksWk1.Body.String()
+	if !strings.Contains(bodyPicksWk1, "Viendo pronósticos de <strong>Semana 1</strong>") {
+		t.Errorf("Expected Picks page viewing Week 1 to show banner pointing to Semana 6")
+	}
+
+	// 6. Test Picks Matrix (/picks/matrix) defaults to Week 6
+	reqMatrix := httptest.NewRequest(http.MethodGet, "/picks/matrix", nil)
+	reqMatrix = reqMatrix.WithContext(injectUser(reqMatrix.Context(), adminUser))
+	rrMatrix := httptest.NewRecorder()
+	picksHandler.ShowPicksMatrix(rrMatrix, reqMatrix)
+	if rrMatrix.Code != http.StatusOK {
+		t.Fatalf("ShowPicksMatrix failed: %d", rrMatrix.Code)
+	}
+	bodyMatrix := rrMatrix.Body.String()
+	if !strings.Contains(bodyMatrix, "Jornada en curso: Semana 6") {
+		t.Errorf("Expected Picks Matrix to show 'Jornada en curso: Semana 6'")
+	}
+
+	// 7. Test Leaderboard (/leaderboard?mode=weekly) defaults to Week 6
+	reqLB := httptest.NewRequest(http.MethodGet, "/leaderboard?mode=weekly", nil)
+	reqLB = reqLB.WithContext(injectUser(reqLB.Context(), adminUser))
+	rrLB := httptest.NewRecorder()
+	leaderboardHandler.ShowLeaderboard(rrLB, reqLB)
+	if rrLB.Code != http.StatusOK {
+		t.Fatalf("ShowLeaderboard failed: %d", rrLB.Code)
+	}
+	bodyLB := rrLB.Body.String()
+	if !strings.Contains(bodyLB, "Jornada en curso: Semana 6") {
+		t.Errorf("Expected Leaderboard to show 'Jornada en curso: Semana 6'")
+	}
+}
+
+
 
 
 

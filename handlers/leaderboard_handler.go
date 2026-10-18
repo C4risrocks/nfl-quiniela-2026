@@ -78,6 +78,7 @@ func (h *LeaderboardHandler) ShowLeaderboard(w http.ResponseWriter, r *http.Requ
 		"User":          user,
 		"Weeks":         weeks,
 		"SelectedWeek":  selectedWeek,
+		"ActiveWeek":    activeWeek,
 		"ViewMode":      viewMode,
 		"Leaderboard":   leaderboard,
 		"ScoringConfig": scoringCfg,
@@ -125,6 +126,7 @@ func (h *LeaderboardHandler) LeaderboardTable(w http.ResponseWriter, r *http.Req
 		"Leaderboard":  leaderboard,
 		"CurrentUser":  user,
 		"SelectedWeek": selectedWeek,
+		"ActiveWeek":   activeWeek,
 		"ViewMode":     viewMode,
 	})
 }

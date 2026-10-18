@@ -89,6 +89,7 @@ type LiveViewData struct {
 	Season              *db.Season
 	Weeks               []*db.Week
 	SelectedWeek        *db.Week
+	ActiveWeek          *db.Week
 	Games               []*db.Game
 	FeaturedGame        *db.Game
 	FeaturedGameLocked  bool
@@ -134,11 +135,13 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 		}
 	}
 
+	activeWeek, _ := h.repo.GetActiveWeek(season.ID)
 	if selectedWeek == nil {
-		selectedWeek, _ = h.repo.GetActiveWeek(season.ID)
-	}
-	if selectedWeek == nil && len(weeks) > 0 {
-		selectedWeek = weeks[0]
+		if activeWeek != nil {
+			selectedWeek = activeWeek
+		} else if len(weeks) > 0 {
+			selectedWeek = weeks[0]
+		}
 	}
 
 	scoringCfg, _ := h.repo.GetScoringConfig()
@@ -564,6 +567,7 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 		Season:              season,
 		Weeks:               weeks,
 		SelectedWeek:        selectedWeek,
+		ActiveWeek:          activeWeek,
 		Games:               games,
 		FeaturedGame:        featuredGame,
 		FeaturedGameLocked:  featuredGameLocked,
