@@ -131,7 +131,7 @@ func (r *Repository) SetScoringConfig(cfg *ScoringConfig) error {
 // Users
 // ----------------------------------------------------
 
-const userColumns = `id, username, email, password_hash, role, avatar_url, favorite_team_id, email_verified, verification_token, verification_sent_at, reset_token, reset_token_expires_at, notify_email, created_at, bio, featured_badge_code, notify_kickoff, notify_recap, is_beta_tester`
+const userColumns = `id, username, email, password_hash, role, avatar_url, favorite_team_id, email_verified, verification_token, verification_sent_at, reset_token, reset_token_expires_at, notify_email, created_at, bio, featured_badge_code, notify_kickoff, notify_recap, is_beta_tester, notify_push`
 
 func scanUserRow(scanner interface{ Scan(dest ...any) error }) (*User, error) {
 	var u User
@@ -144,12 +144,13 @@ func scanUserRow(scanner interface{ Scan(dest ...any) error }) (*User, error) {
 	var notifyKickoff sql.NullBool
 	var notifyRecap sql.NullBool
 	var isBetaTester sql.NullBool
+	var notifyPush sql.NullBool
 
 	err := scanner.Scan(
 		&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarURL, &favTeamID,
 		&u.EmailVerified, &u.VerificationToken, &verifSentAtStr,
 		&u.ResetToken, &resetExpStr, &u.NotifyEmail, &createdAtStr,
-		&bioStr, &featBadgeStr, &notifyKickoff, &notifyRecap, &isBetaTester,
+		&bioStr, &featBadgeStr, &notifyKickoff, &notifyRecap, &isBetaTester, &notifyPush,
 	)
 	if err != nil {
 		return nil, err
@@ -180,6 +181,10 @@ func scanUserRow(scanner interface{ Scan(dest ...any) error }) (*User, error) {
 	u.NotifyRecap = true
 	if notifyRecap.Valid {
 		u.NotifyRecap = notifyRecap.Bool
+	}
+	u.NotifyPush = true
+	if notifyPush.Valid {
+		u.NotifyPush = notifyPush.Bool
 	}
 	if isBetaTester.Valid {
 		u.IsBetaTester = isBetaTester.Bool
@@ -433,14 +438,18 @@ func (r *Repository) UpdateUserPassword(userID int64, newPasswordHash string) er
 func (r *Repository) UpdateUserPreferences(userID int64, avatarURL string, favoriteTeamID *int64, notifyEmail bool, bio, featuredBadgeCode string, notifyOpts ...bool) error {
 	notifyKickoff := true
 	notifyRecap := true
+	notifyPush := true
 	if len(notifyOpts) >= 1 {
 		notifyKickoff = notifyOpts[0]
 	}
 	if len(notifyOpts) >= 2 {
 		notifyRecap = notifyOpts[1]
 	}
-	query := `UPDATE users SET avatar_url = ?, favorite_team_id = ?, notify_email = ?, bio = ?, featured_badge_code = ?, notify_kickoff = ?, notify_recap = ? WHERE id = ?`
-	_, err := r.db.Exec(query, avatarURL, favoriteTeamID, notifyEmail, bio, featuredBadgeCode, notifyKickoff, notifyRecap, userID)
+	if len(notifyOpts) >= 3 {
+		notifyPush = notifyOpts[2]
+	}
+	query := `UPDATE users SET avatar_url = ?, favorite_team_id = ?, notify_email = ?, bio = ?, featured_badge_code = ?, notify_kickoff = ?, notify_recap = ?, notify_push = ? WHERE id = ?`
+	_, err := r.db.Exec(query, avatarURL, favoriteTeamID, notifyEmail, bio, featuredBadgeCode, notifyKickoff, notifyRecap, notifyPush, userID)
 	return err
 }
 
@@ -2009,6 +2018,78 @@ func (r *Repository) MarkAllNotificationsAsRead(userID int64) error {
 	query := `UPDATE in_app_notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0`
 	_, err := r.db.Exec(query, userID)
 	return err
+}
+
+// ----------------------------------------------------
+// Web Push Subscriptions (RFC 8292 / VAPID)
+// ----------------------------------------------------
+
+func (r *Repository) SavePushSubscription(sub *PushSubscription) error {
+	query := `
+	INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, user_agent, created_at)
+	VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	ON CONFLICT(endpoint) DO UPDATE SET
+		user_id = excluded.user_id,
+		p256dh = excluded.p256dh,
+		auth = excluded.auth,
+		user_agent = excluded.user_agent,
+		created_at = CURRENT_TIMESTAMP;`
+	_, err := r.db.Exec(query, sub.UserID, sub.Endpoint, sub.P256dh, sub.Auth, sub.UserAgent)
+	return err
+}
+
+func (r *Repository) DeletePushSubscription(endpoint string) error {
+	query := `DELETE FROM push_subscriptions WHERE endpoint = ?`
+	_, err := r.db.Exec(query, endpoint)
+	return err
+}
+
+func (r *Repository) DeleteUserPushSubscription(userID int64, endpoint string) error {
+	query := `DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?`
+	_, err := r.db.Exec(query, userID, endpoint)
+	return err
+}
+
+func (r *Repository) GetUserPushSubscriptions(userID int64) ([]*PushSubscription, error) {
+	query := `SELECT id, user_id, endpoint, p256dh, auth, user_agent, created_at FROM push_subscriptions WHERE user_id = ? ORDER BY created_at DESC`
+	rows, err := r.db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var subs []*PushSubscription
+	for rows.Next() {
+		var s PushSubscription
+		var createdAtStr string
+		if err := rows.Scan(&s.ID, &s.UserID, &s.Endpoint, &s.P256dh, &s.Auth, &s.UserAgent, &createdAtStr); err != nil {
+			return nil, err
+		}
+		s.CreatedAt = parseTimeSafe(createdAtStr)
+		subs = append(subs, &s)
+	}
+	return subs, rows.Err()
+}
+
+func (r *Repository) GetAllPushSubscriptions() ([]*PushSubscription, error) {
+	query := `SELECT id, user_id, endpoint, p256dh, auth, user_agent, created_at FROM push_subscriptions ORDER BY created_at DESC`
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var subs []*PushSubscription
+	for rows.Next() {
+		var s PushSubscription
+		var createdAtStr string
+		if err := rows.Scan(&s.ID, &s.UserID, &s.Endpoint, &s.P256dh, &s.Auth, &s.UserAgent, &createdAtStr); err != nil {
+			return nil, err
+		}
+		s.CreatedAt = parseTimeSafe(createdAtStr)
+		subs = append(subs, &s)
+	}
+	return subs, rows.Err()
 }
 
 func (r *Repository) GetUpcomingKickoffForWeek(weekID int64, now time.Time) (*time.Time, *Game, error) {

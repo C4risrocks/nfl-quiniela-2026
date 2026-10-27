@@ -1662,6 +1662,121 @@ func TestBetaTesterAndFeatureFlags(t *testing.T) {
 	}
 }
 
+func TestPushSubscriptionRepository(t *testing.T) {
+	testDBPath := "test_push_subs.db"
+	_ = os.Remove(testDBPath)
+	defer os.Remove(testDBPath)
+
+	database, err := InitDB("sqlite", testDBPath)
+	if err != nil {
+		t.Fatalf("InitDB: %v", err)
+	}
+	defer database.Close()
+
+	repo := NewRepository(database)
+	_ = SeedDatabase(repo, "admin", "admin@test.com", "pass123", 2026)
+
+	user, err := repo.CreateUser("pushtester", "push@test.com", "hash", "player")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	// 1. Initial should be empty
+	subs, err := repo.GetUserPushSubscriptions(user.ID)
+	if err != nil {
+		t.Fatalf("GetUserPushSubscriptions: %v", err)
+	}
+	if len(subs) != 0 {
+		t.Errorf("Expected 0 subscriptions initially, got %d", len(subs))
+	}
+
+	// 2. Save first device subscription
+	sub1 := &PushSubscription{
+		UserID:    user.ID,
+		Endpoint:  "https://fcm.googleapis.com/fcm/send/device-token-1",
+		P256dh:    "test-p256dh-key-1",
+		Auth:      "test-auth-secret-1",
+		UserAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 16_4 like Mac OS X)",
+	}
+	if err := repo.SavePushSubscription(sub1); err != nil {
+		t.Fatalf("SavePushSubscription sub1: %v", err)
+	}
+
+	// 3. Save second device subscription (e.g. iPad or MacBook)
+	sub2 := &PushSubscription{
+		UserID:    user.ID,
+		Endpoint:  "https://fcm.googleapis.com/fcm/send/device-token-2",
+		P256dh:    "test-p256dh-key-2",
+		Auth:      "test-auth-secret-2",
+		UserAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+	}
+	if err := repo.SavePushSubscription(sub2); err != nil {
+		t.Fatalf("SavePushSubscription sub2: %v", err)
+	}
+
+	// Verify both exist
+	subs, err = repo.GetUserPushSubscriptions(user.ID)
+	if err != nil {
+		t.Fatalf("GetUserPushSubscriptions: %v", err)
+	}
+	if len(subs) != 2 {
+		t.Errorf("Expected 2 subscriptions, got %d", len(subs))
+	}
+
+	// 4. Test Upsert (re-saving same endpoint with updated keys)
+	sub1Updated := &PushSubscription{
+		UserID:    user.ID,
+		Endpoint:  "https://fcm.googleapis.com/fcm/send/device-token-1",
+		P256dh:    "updated-p256dh-key-1",
+		Auth:      "updated-auth-secret-1",
+		UserAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
+	}
+	if err := repo.SavePushSubscription(sub1Updated); err != nil {
+		t.Fatalf("SavePushSubscription upsert: %v", err)
+	}
+	subs, _ = repo.GetUserPushSubscriptions(user.ID)
+	if len(subs) != 2 {
+		t.Errorf("Expected 2 subscriptions after upsert, got %d", len(subs))
+	}
+	foundUpdated := false
+	for _, s := range subs {
+		if s.Endpoint == sub1.Endpoint && s.P256dh == "updated-p256dh-key-1" {
+			foundUpdated = true
+		}
+	}
+	if !foundUpdated {
+		t.Errorf("Expected updated subscription data to be saved on conflict")
+	}
+
+	// 5. Test DeletePushSubscription
+	if err := repo.DeletePushSubscription(sub2.Endpoint); err != nil {
+		t.Fatalf("DeletePushSubscription: %v", err)
+	}
+	subs, _ = repo.GetUserPushSubscriptions(user.ID)
+	if len(subs) != 1 {
+		t.Errorf("Expected 1 subscription after deleting sub2, got %d", len(subs))
+	}
+
+	// 6. Test User NotifyPush preference
+	userFetched, err := repo.GetUserByID(user.ID)
+	if err != nil {
+		t.Fatalf("GetUserByID: %v", err)
+	}
+	if !userFetched.NotifyPush {
+		t.Errorf("Expected user.NotifyPush to default to true")
+	}
+
+	// Update preferences to disable push
+	if err := repo.UpdateUserPreferences(user.ID, "", nil, true, "", "", true, true, false); err != nil {
+		t.Fatalf("UpdateUserPreferences: %v", err)
+	}
+	userFetched, _ = repo.GetUserByID(user.ID)
+	if userFetched.NotifyPush {
+		t.Errorf("Expected user.NotifyPush to be false after updating preferences")
+	}
+}
+
+
 
 
 

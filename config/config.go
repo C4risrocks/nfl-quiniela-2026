@@ -1,9 +1,13 @@
 package config
 
 import (
+	"encoding/json"
+	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 
+	webpush "github.com/SherClockHolmes/webpush-go"
 	"github.com/joho/godotenv"
 )
 
@@ -27,6 +31,9 @@ type Config struct {
 	AppBaseURL           string
 	EnableReminders      bool
 	UploadDir            string
+	VAPIDPublicKey       string
+	VAPIDPrivateKey      string
+	VAPIDSubject         string
 }
 
 func LoadConfig() *Config {
@@ -69,6 +76,59 @@ func LoadConfig() *Config {
 	appBaseURL := getEnv("APP_BASE_URL", "http://localhost:8080")
 	enableReminders := getEnvAsBool("ENABLE_REMINDERS", true)
 
+	// Web Push VAPID Keys (RFC 8292)
+	vapidPublicKey := getEnv("VAPID_PUBLIC_KEY", "")
+	vapidPrivateKey := getEnv("VAPID_PRIVATE_KEY", "")
+	vapidSubject := getEnv("VAPID_SUBJECT", "")
+	if vapidSubject == "" {
+		if adminEmail != "" {
+			vapidSubject = "mailto:" + adminEmail
+		} else {
+			vapidSubject = "mailto:admin@quiniela.com"
+		}
+	}
+
+	// If VAPID keys are not provided in environment, maintain persistent keypair in storage
+	if vapidPublicKey == "" || vapidPrivateKey == "" {
+		keyFile := ".vapid_keys.json"
+		if fi, err := os.Stat("/app/data"); err == nil && fi.IsDir() {
+			keyFile = "/app/data/.vapid_keys.json"
+		} else if dbDir := filepath.Dir(dbPath); dbDir != "" && dbDir != "." {
+			keyFile = filepath.Join(dbDir, ".vapid_keys.json")
+		}
+
+		type StoredKeys struct {
+			PublicKey  string `json:"public_key"`
+			PrivateKey string `json:"private_key"`
+		}
+
+		loaded := false
+		if data, err := os.ReadFile(keyFile); err == nil {
+			var sk StoredKeys
+			if err := json.Unmarshal(data, &sk); err == nil && sk.PublicKey != "" && sk.PrivateKey != "" {
+				vapidPublicKey = sk.PublicKey
+				vapidPrivateKey = sk.PrivateKey
+				loaded = true
+				log.Printf("[Config] Loaded persistent VAPID keys from %s", keyFile)
+			}
+		}
+
+		if !loaded {
+			priv, pub, err := webpush.GenerateVAPIDKeys()
+			if err == nil {
+				vapidPublicKey = pub
+				vapidPrivateKey = priv
+				sk := StoredKeys{PublicKey: pub, PrivateKey: priv}
+				if bytes, err := json.MarshalIndent(sk, "", "  "); err == nil {
+					_ = os.WriteFile(keyFile, bytes, 0600)
+					log.Printf("[Config] Generated new VAPID keypair and persisted to %s", keyFile)
+				}
+			} else {
+				log.Printf("[Config] Warning: Failed to auto-generate VAPID keys: %v", err)
+			}
+		}
+	}
+
 	return &Config{
 		Port:                 port,
 		DBType:               dbType,
@@ -89,6 +149,9 @@ func LoadConfig() *Config {
 		AppBaseURL:           appBaseURL,
 		EnableReminders:      enableReminders,
 		UploadDir:            uploadDir,
+		VAPIDPublicKey:       vapidPublicKey,
+		VAPIDPrivateKey:      vapidPrivateKey,
+		VAPIDSubject:         vapidSubject,
 	}
 }
 

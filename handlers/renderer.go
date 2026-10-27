@@ -35,11 +35,23 @@ func init() {
 
 type Renderer struct {
 	templatesFS fs.FS
+	repo        *db.Repository
 }
 
-func NewRenderer(templatesFS fs.FS) *Renderer {
+func NewRenderer(templatesFS fs.FS, optRepo ...*db.Repository) *Renderer {
+	var r *db.Repository
+	if len(optRepo) > 0 {
+		r = optRepo[0]
+	}
 	return &Renderer{
 		templatesFS: templatesFS,
+		repo:        r,
+	}
+}
+
+func (r *Renderer) SetRepository(repo *db.Repository) {
+	if r != nil {
+		r.repo = repo
 	}
 }
 
@@ -189,6 +201,12 @@ func (r *Renderer) FuncMap() template.FuncMap {
 				return f.IsAccessibleTo(u)
 			}
 			return true
+		},
+		"isRegistrationEnabled": func() bool {
+			if r == nil || r.repo == nil {
+				return true
+			}
+			return r.repo.IsRegistrationEnabled()
 		},
 	}
 }

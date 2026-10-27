@@ -10,16 +10,22 @@ import (
 )
 
 type ReminderWorker struct {
-	repo       *db.Repository
-	sender     *EmailSender
-	seasonYear int
+	repo        *db.Repository
+	sender      *EmailSender
+	pushService *PushService
+	seasonYear  int
 }
 
-func NewReminderWorker(repo *db.Repository, sender *EmailSender, seasonYear int) *ReminderWorker {
+func NewReminderWorker(repo *db.Repository, sender *EmailSender, seasonYear int, optPushService ...*PushService) *ReminderWorker {
+	var pushSvc *PushService
+	if len(optPushService) > 0 {
+		pushSvc = optPushService[0]
+	}
 	return &ReminderWorker{
-		repo:       repo,
-		sender:     sender,
-		seasonYear: seasonYear,
+		repo:        repo,
+		sender:      sender,
+		pushService: pushSvc,
+		seasonYear:  seasonYear,
 	}
 }
 
@@ -28,6 +34,19 @@ func (w *ReminderWorker) Sender() *EmailSender {
 		return nil
 	}
 	return w.sender
+}
+
+func (w *ReminderWorker) PushService() *PushService {
+	if w == nil {
+		return nil
+	}
+	return w.pushService
+}
+
+func (w *ReminderWorker) SetPushService(ps *PushService) {
+	if w != nil {
+		w.pushService = ps
+	}
 }
 
 // Start runs periodic reminder checks and weekly digest checks in the background
@@ -164,6 +183,16 @@ func (w *ReminderWorker) CheckAndSendReminders() (int, error) {
 				}
 			}
 
+			// 3. Web Push Notification (if user has mobile push & kickoff alerts enabled)
+			if user.NotifyPush && user.NotifyKickoff && w.pushService != nil {
+				_, _ = w.pushService.SendToUser(user.ID, PushPayload{
+					Title: fmt.Sprintf("⏰ Recordatorio: %s", week.Name),
+					Body:  fmt.Sprintf("Los partidos inician pronto (%s). Tienes pronósticos pendientes de registrar.", deadlineStr),
+					URL:   fmt.Sprintf("/picks?week=%d", week.WeekNumber),
+					Tag:   fmt.Sprintf("kickoff-reminder-w%d", week.WeekNumber),
+				})
+			}
+
 			_ = w.repo.LogReminderSent(user.ID, week.ID, reminderType)
 			totalSent++
 		}
@@ -243,6 +272,17 @@ func (w *ReminderWorker) SendManualReminders(weekID int64, requestedType ...stri
 			log.Printf("[Notifications] Manual send failed for %s: %v", user.Email, sendErr)
 			continue
 		}
+
+		// Web Push Notification
+		if user.NotifyPush && w.pushService != nil {
+			_, _ = w.pushService.SendToUser(user.ID, PushPayload{
+				Title: fmt.Sprintf("⏰ Recordatorio: %s", week.Name),
+				Body:  "Tienes pronósticos pendientes de registrar. ¡Ingresa tus selecciones antes del inicio!",
+				URL:   fmt.Sprintf("/picks?week=%d", week.WeekNumber),
+				Tag:   fmt.Sprintf("manual-reminder-w%d", week.WeekNumber),
+			})
+		}
+
 		typeTag := "manual"
 		if isGrace {
 			typeTag = "manual-grace"
@@ -359,6 +399,16 @@ func (w *ReminderWorker) CheckAndSendWeeklyDigests() (int, error) {
 				}
 			}
 
+			// 3. Web Push Notification (if user has mobile push & recap alerts enabled)
+			if user.NotifyPush && user.NotifyRecap && w.pushService != nil {
+				_, _ = w.pushService.SendToUser(user.ID, PushPayload{
+					Title: fmt.Sprintf("🏆 Resultados Oficiales: %s", week.Name),
+					Body:  fmt.Sprintf("La jornada ha concluido.%s Revisa los resultados completos y el podio.", userRankText),
+					URL:   fmt.Sprintf("/leaderboard?week=%d", week.WeekNumber),
+					Tag:   fmt.Sprintf("weekly-recap-w%d", week.WeekNumber),
+				})
+			}
+
 			_ = w.repo.LogReminderSent(user.ID, week.ID, "weekly_recap")
 			totalSent++
 		}
@@ -412,6 +462,16 @@ func (w *ReminderWorker) SendManualWeeklyRecap(weekID int64) (int, error) {
 				log.Printf("[Notifications] Manual recap email failed for %s: %v", user.Email, err)
 				continue
 			}
+		}
+
+		// Web Push Notification
+		if user.NotifyPush && w.pushService != nil {
+			_, _ = w.pushService.SendToUser(user.ID, PushPayload{
+				Title: fmt.Sprintf("🏆 Resumen Semanal: %s", week.Name),
+				Body:  fmt.Sprintf("Resultados calculados de la jornada.%s Revisa el podio y las posiciones.", userRankText),
+				URL:   fmt.Sprintf("/leaderboard?week=%d", week.WeekNumber),
+				Tag:   fmt.Sprintf("manual-recap-w%d", week.WeekNumber),
+			})
 		}
 
 		_ = w.repo.LogReminderSent(user.ID, week.ID, typeTag)

@@ -41,7 +41,7 @@ func setupTestApp(t *testing.T) (*db.Repository, *auth.AuthService, *Renderer, *
 
 	// In tests, read templates from local directory
 	templatesFS := os.DirFS("../templates")
-	renderer := NewRenderer(templatesFS)
+	renderer := NewRenderer(templatesFS, repo)
 
 	cleanup := func() {
 		database.Close()
@@ -2212,6 +2212,24 @@ func TestRegistrationLockFlow(t *testing.T) {
 	showRegBody := rrShowReg.Body.String()
 	if !strings.Contains(showRegBody, "Registros Temporalmente Cerrados") {
 		t.Errorf("Expected ShowRegister to render blocked notice, got: %s", showRegBody)
+	}
+
+	// 3b. ShowLogin when blocked -> Must NOT have active register link, must show locked notice
+	reqShowLogin := httptest.NewRequest(http.MethodGet, "/login", nil)
+	rrShowLogin := httptest.NewRecorder()
+	authHandler.ShowLogin(rrShowLogin, reqShowLogin)
+	loginBody := rrShowLogin.Body.String()
+	if !strings.Contains(loginBody, "Nuevos registros cerrados temporalmente") {
+		t.Errorf("Expected ShowLogin to show closed notice, got: %s", loginBody)
+	}
+	if strings.Contains(loginBody, `href="/register"`) {
+		t.Errorf("Expected ShowLogin to NOT show href='/register' link when registration is blocked")
+	}
+
+	// 3c. Direct call to AuthService.RegisterWithVerification must also fail
+	_, errAuthDirect := authService.RegisterWithVerification("hacker", "hack@test.com", "secret123", "")
+	if errAuthDirect == nil {
+		t.Errorf("Expected AuthService.RegisterWithVerification to fail when registration disabled")
 	}
 
 	// 4. HandleRegister when blocked -> Must be rejected, user NOT created

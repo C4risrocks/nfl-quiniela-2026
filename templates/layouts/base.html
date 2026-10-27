@@ -350,9 +350,11 @@
                         </form>
                     {{else}}
                         <a href="/login" class="text-xs font-medium text-zinc-400 hover:text-white px-3 py-1.5 transition-colors">Iniciar Sesión</a>
+                        {{if isRegistrationEnabled}}
                         <a href="/register" class="text-xs font-semibold bg-white hover:bg-zinc-200 text-black px-3.5 py-1.5 rounded-lg shadow-sm transition-all">
                             Registrarse
                         </a>
+                        {{end}}
                     {{end}}
                 </div>
 
@@ -460,7 +462,9 @@
                 {{else}}
                     <div class="w-full flex space-x-2">
                         <a href="/login" class="flex-1 text-center py-2 rounded-lg text-xs font-medium bg-zinc-900 text-zinc-300 border border-zinc-800">Iniciar Sesión</a>
+                        {{if isRegistrationEnabled}}
                         <a href="/register" class="flex-1 text-center py-2 rounded-lg text-xs font-semibold bg-white text-black">Registrarse</a>
+                        {{end}}
                     </div>
                 {{end}}
             </div>
@@ -1178,6 +1182,21 @@
                 }
             };
         })();
+    </script>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                    .then((reg) => {
+                        console.log('[SW] PWA Service Worker registered with scope:', reg.scope);
+                    })
+                    .catch((err) => {
+                        console.warn('[SW] Service Worker registration failed:', err);
+                    });
+            });
+        }
     </script>
 
 </body>

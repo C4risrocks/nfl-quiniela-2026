@@ -1268,6 +1268,20 @@ func (h *AdminHandler) ToggleRegistration(w http.ResponseWriter, r *http.Request
             class="ml-1 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[11px] font-semibold transition-all cursor-pointer">
         <i class="fa-solid fa-lock mr-1 text-[10px]"></i> Bloquear
     </button>
+</div>
+<div id="settings-tab-registration-toggle" hx-swap-oob="true">
+    <button hx-post="/admin/settings/toggle-registration"
+            hx-target="#registration-toggle-control"
+            hx-swap="outerHTML"
+            class="px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold text-xs transition-all shadow-sm flex items-center space-x-2 cursor-pointer">
+        <i class="fa-solid fa-lock text-xs"></i>
+        <span>Bloquear Nuevos Registros</span>
+    </button>
+</div>
+<div id="settings-tab-registration-status" hx-swap-oob="true" class="flex items-center space-x-2">
+    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+    <span class="text-xs font-bold text-emerald-400">Registros ABIERTOS</span>
+    <span class="text-zinc-500 text-xs">— Cualquier usuario puede registrarse y competir</span>
 </div>`)
 	} else {
 		fmt.Fprint(w, `<div id="registration-toggle-control" class="inline-flex items-center space-x-2 bg-zinc-900 border border-rose-900/50 rounded-xl px-3 py-1.5 shadow-sm">
@@ -1279,6 +1293,20 @@ func (h *AdminHandler) ToggleRegistration(w http.ResponseWriter, r *http.Request
             class="ml-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold transition-all cursor-pointer">
         <i class="fa-solid fa-lock-open mr-1 text-[10px]"></i> Permitir
     </button>
+</div>
+<div id="settings-tab-registration-toggle" hx-swap-oob="true">
+    <button hx-post="/admin/settings/toggle-registration"
+            hx-target="#registration-toggle-control"
+            hx-swap="outerHTML"
+            class="px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold text-xs transition-all shadow-sm flex items-center space-x-2 cursor-pointer">
+        <i class="fa-solid fa-lock-open text-xs"></i>
+        <span>Permitir Nuevos Registros</span>
+    </button>
+</div>
+<div id="settings-tab-registration-status" hx-swap-oob="true" class="flex items-center space-x-2">
+    <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+    <span class="text-xs font-bold text-rose-400">Registros BLOQUEADOS</span>
+    <span class="text-zinc-500 text-xs">— Se oculta el botón de registro y se rechazan solicitudes</span>
 </div>`)
 	}
 }

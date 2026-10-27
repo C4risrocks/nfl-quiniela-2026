@@ -77,7 +77,8 @@ func main() {
 
 	// Notifications & Reminder Worker
 	emailSender := notifications.NewEmailSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.SMTPFrom, cfg.AppBaseURL)
-	reminderWorker := notifications.NewReminderWorker(repo, emailSender, cfg.CurrentSeasonYear)
+	pushService := notifications.NewPushService(repo, cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey, cfg.VAPIDSubject)
+	reminderWorker := notifications.NewReminderWorker(repo, emailSender, cfg.CurrentSeasonYear, pushService)
 
 	// 5. Background Tasks (Sync, Heartbeat, Reminders)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -145,7 +146,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Fatal: Failed to load templates filesystem: %v", err)
 	}
-	renderer := handlers.NewRenderer(subTemplatesFS)
+	renderer := handlers.NewRenderer(subTemplatesFS, repo)
 
 	// 7. HTTP Handlers
 	authHandler := handlers.NewAuthHandler(authService, repo, emailSender, renderer)
@@ -158,6 +159,7 @@ func main() {
 	eventsHandler := handlers.NewEventsHandler(broker)
 	notificationHandler := handlers.NewNotificationHandler(repo, renderer)
 	teamStatsHandler := handlers.NewTeamStatsHandler(repo, renderer, espnClient, cfg.CurrentSeasonYear)
+	pushHandler := handlers.NewPushHandler(repo, pushService)
 
 	// 8. Router Setup
 	r := chi.NewRouter()
@@ -186,6 +188,14 @@ func main() {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("Cache-Control", "public, max-age=86400")
 		http.ServeFileFS(w, r, subStaticFS, "robots.txt")
+	})
+
+	// Service Worker served at root with Service-Worker-Allowed header for global scope
+	r.Get("/sw.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		w.Header().Set("Service-Worker-Allowed", "/")
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		http.ServeFileFS(w, r, subStaticFS, "sw.js")
 	})
 
 	// Uploaded User Media (/uploads/*)
@@ -256,6 +266,9 @@ func main() {
 	r.Get("/picks/community/{gameId}", picksHandler.CommunityPicks)
 	r.Get("/events/live", eventsHandler.StreamLiveEvents)
 
+	// Web Push VAPID Public Key (Client registration)
+	r.Get("/api/push/vapid-public-key", pushHandler.GetVAPIDPublicKey)
+
 	// Authenticated Player Routes (Requires Active Verified Account)
 	r.Group(func(player chi.Router) {
 		player.Use(authService.RequireAuth)
@@ -277,11 +290,15 @@ func main() {
 		player.Post("/profile/avatar/upload", profileHandler.HandleUploadAvatar)
 		player.Post("/profile/password", profileHandler.HandleChangePassword)
 
-		// Notifications Center
+		// Notifications Center & Web Push API
 		player.Get("/notifications", notificationHandler.GetNotifications)
 		player.Get("/notifications/badge", notificationHandler.GetUnreadBadge)
 		player.Post("/notifications/{id}/read", notificationHandler.MarkAsRead)
 		player.Post("/notifications/read-all", notificationHandler.MarkAllAsRead)
+		player.Get("/api/push/status", pushHandler.GetStatus)
+		player.Post("/api/push/subscribe", pushHandler.Subscribe)
+		player.Post("/api/push/unsubscribe", pushHandler.Unsubscribe)
+		player.Post("/api/push/test", pushHandler.SendTest)
 	})
 
 	// Admin Protected Routes

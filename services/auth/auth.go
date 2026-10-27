@@ -78,6 +78,10 @@ func (s *AuthService) Register(username, email, password string) (*db.User, erro
 
 // RegisterWithVerification creates a player account with an initial email verification token
 func (s *AuthService) RegisterWithVerification(username, email, password, token string) (*db.User, error) {
+	if s.repo != nil && !s.repo.IsRegistrationEnabled() {
+		return nil, errors.New("el registro de nuevos jugadores se encuentra cerrado temporalmente por la administración")
+	}
+
 	if len(strings.TrimSpace(username)) < 3 {
 		return nil, errors.New("el nombre de usuario debe tener al menos 3 caracteres")
 	}
@@ -289,4 +293,9 @@ func GetUserFromContext(ctx context.Context) *db.User {
 		return u
 	}
 	return nil
+}
+
+// SetUserContext attaches an authenticated user to context (useful for middleware and tests)
+func SetUserContext(ctx context.Context, user *db.User) context.Context {
+	return context.WithValue(ctx, UserContextKey, user)
 }

@@ -17,7 +17,141 @@
          notifyEmail: {{if .ProfileUser.NotifyEmail}}true{{else}}false{{end}},
          notifyKickoff: {{if .ProfileUser.NotifyKickoff}}true{{else}}false{{end}},
          notifyRecap: {{if .ProfileUser.NotifyRecap}}true{{else}}false{{end}},
+         notifyPush: {{if .ProfileUser.NotifyPush}}true{{else}}false{{end}},
          customUrlInput: '',
+         
+         pushSupported: false,
+         pushPermission: 'default',
+         isSubscribedToPush: false,
+         isPushLoading: false,
+         pushMessage: '',
+         isIOS: false,
+         isStandalone: false,
+         userDeviceCount: 0,
+
+         urlBase64ToUint8Array(base64String) {
+             const padding = '='.repeat((4 - base64String.length % 4) % 4);
+             const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+             const rawData = window.atob(base64);
+             const outputArray = new Uint8Array(rawData.length);
+             for (let i = 0; i < rawData.length; ++i) {
+                 outputArray[i] = rawData.charCodeAt(i);
+             }
+             return outputArray;
+         },
+
+         init() {
+             this.initPush();
+         },
+
+         async initPush() {
+             this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+             this.isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+             
+             if (!('serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window)) {
+                 this.pushSupported = false;
+                 return;
+             }
+             this.pushSupported = true;
+             this.pushPermission = Notification.permission;
+
+             try {
+                 const statusRes = await fetch('/api/push/status');
+                 if (statusRes.ok) {
+                     const statusData = await statusRes.json();
+                     this.userDeviceCount = statusData.deviceCount || 0;
+                 }
+                 const reg = await navigator.serviceWorker.ready;
+                 const sub = await reg.pushManager.getSubscription();
+                 this.isSubscribedToPush = !!sub;
+             } catch (e) {
+                 console.warn('[Push] Error in initPush:', e);
+             }
+         },
+
+         async subscribeDevice() {
+             if (!this.pushSupported) return;
+             this.isPushLoading = true;
+             this.pushMessage = '';
+             try {
+                 const perm = await Notification.requestPermission();
+                 this.pushPermission = perm;
+                 if (perm !== 'granted') {
+                     this.pushMessage = 'Permiso denegado por el navegador.';
+                     return;
+                 }
+
+                 const keyRes = await fetch('/api/push/vapid-public-key');
+                 if (!keyRes.ok) throw new Error('No se pudo obtener la llave VAPID del servidor.');
+                 const keyData = await keyRes.json();
+
+                 const reg = await navigator.serviceWorker.ready;
+                 const sub = await reg.pushManager.subscribe({
+                     userVisibleOnly: true,
+                     applicationServerKey: this.urlBase64ToUint8Array(keyData.publicKey)
+                 });
+
+                 const saveRes = await fetch('/api/push/subscribe', {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify(sub)
+                 });
+
+                 if (saveRes.ok) {
+                     this.isSubscribedToPush = true;
+                     this.userDeviceCount++;
+                     this.pushMessage = '✓ ¡Dispositivo registrado para recibir notificaciones!';
+                 } else {
+                     throw new Error('Error al guardar la suscripción en el servidor.');
+                 }
+             } catch (err) {
+                 this.pushMessage = 'Error: ' + err.message;
+             } finally {
+                 this.isPushLoading = false;
+             }
+         },
+
+         async unsubscribeDevice() {
+             this.isPushLoading = true;
+             this.pushMessage = '';
+             try {
+                 const reg = await navigator.serviceWorker.ready;
+                 const sub = await reg.pushManager.getSubscription();
+                 if (sub) {
+                     await fetch('/api/push/unsubscribe', {
+                         method: 'POST',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({ endpoint: sub.endpoint })
+                     });
+                     await sub.unsubscribe();
+                 }
+                 this.isSubscribedToPush = false;
+                 if (this.userDeviceCount > 0) this.userDeviceCount--;
+                 this.pushMessage = 'Dispositivo desvinculado.';
+             } catch (err) {
+                 this.pushMessage = 'Error: ' + err.message;
+             } finally {
+                 this.isPushLoading = false;
+             }
+         },
+
+         async sendTestPush() {
+             this.isPushLoading = true;
+             this.pushMessage = '';
+             try {
+                 const res = await fetch('/api/push/test', { method: 'POST' });
+                 const data = await res.json();
+                 if (res.ok && data.success) {
+                     this.pushMessage = '🏈 ' + data.message;
+                 } else {
+                     this.pushMessage = 'Error: ' + (data.error || 'No se pudo enviar');
+                 }
+             } catch (err) {
+                 this.pushMessage = 'Error: ' + err.message;
+             } finally {
+                 this.isPushLoading = false;
+             }
+         },
          
          teams: [
              {{range .Teams}}
@@ -714,6 +848,15 @@
                             <span class="text-[11px] text-zinc-400 block mt-0.5 leading-relaxed">Digest al terminar la jornada con el podio (1º, 2º y 3º), tus puntos y ranking.</span>
                         </div>
                     </label>
+
+                    <label class="flex items-start space-x-3 cursor-pointer select-none">
+                        <input type="checkbox" name="notify_push" value="1" {{if .ProfileUser.NotifyPush}}checked{{end}}
+                                class="w-4 h-4 mt-0.5 rounded bg-zinc-900 border-zinc-700 text-white focus:ring-0 focus:ring-offset-0">
+                        <div>
+                            <span class="text-xs font-medium text-white block">Notificaciones Push en Dispositivos</span>
+                            <span class="text-[11px] text-zinc-400 block mt-0.5 leading-relaxed">Permitir avisos en tiempo real en la pantalla de tu celular o navegador web autorizado.</span>
+                        </div>
+                    </label>
                 </div>
 
                 <div class="pt-2 flex items-center space-x-3">
@@ -1155,6 +1298,108 @@
                                     <span class="text-[11px] text-zinc-400 block mt-0.5 leading-relaxed">Digest semanal con el podio (1º, 2º y 3º lugar), tus aciertos, ranking y botón a la próxima jornada.</span>
                                 </div>
                             </label>
+                        </div>
+
+                        <div class="p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                            <label class="flex items-start space-x-3 cursor-pointer select-none">
+                                <input type="checkbox" name="notify_push" value="1" 
+                                       x-model="notifyPush"
+                                       class="w-4 h-4 mt-0.5 rounded bg-zinc-900 border-zinc-700 text-white focus:ring-0 focus:ring-offset-0">
+                                <div>
+                                    <span class="text-xs font-bold text-white block">Notificaciones Push en Dispositivos</span>
+                                    <span class="text-[11px] text-zinc-400 block mt-0.5 leading-relaxed">Permitir envíos directos a tus celulares, tablets o computadoras autorizadas.</span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Panel Interactivo Web Push VAPID para Celular -->
+                        <div class="p-4 rounded-xl bg-zinc-950 border border-cyan-500/30 space-y-3.5">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs">
+                                        <i class="fa-solid fa-mobile-screen"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-xs font-bold text-white">Notificaciones Push en este Celular / Navegador</h4>
+                                        <p class="text-[11px] text-zinc-400">Estándar RFC 8292 (VAPID) de alta prioridad.</p>
+                                    </div>
+                                </div>
+                                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">
+                                    <span x-text="userDeviceCount"></span> dispositivo(s)
+                                </span>
+                            </div>
+
+                            <!-- iOS PWA Guidance Alert if on iOS and not standalone -->
+                            <template x-if="isIOS && !isStandalone">
+                                <div class="p-3 rounded-lg bg-amber-950/40 border border-amber-500/40 text-amber-200 text-[11px] space-y-1">
+                                    <div class="flex items-center space-x-1.5 font-bold text-amber-300">
+                                        <i class="fa-brands fa-apple text-sm"></i>
+                                        <span>Requisito en iPhone / iPad (iOS 16.4+)</span>
+                                    </div>
+                                    <p class="leading-relaxed">
+                                        Para habilitar notificaciones push en iOS, pulsa el botón <strong>Compartir</strong> (<i class="fa-solid fa-arrow-up-from-bracket text-[10px]"></i>) en Safari, selecciona <strong>"Agregar al inicio"</strong> y abre la app desde tu pantalla de inicio.
+                                    </p>
+                                </div>
+                            </template>
+
+                            <!-- Push Status -->
+                            <div class="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg bg-zinc-900/90 border border-zinc-800 text-xs">
+                                <div class="flex items-center space-x-2 min-w-0">
+                                    <template x-if="!pushSupported">
+                                        <span class="inline-flex items-center space-x-1.5 text-zinc-500">
+                                            <i class="fa-solid fa-circle-xmark text-zinc-500"></i>
+                                            <span>Web Push no soportado en este navegador.</span>
+                                        </span>
+                                    </template>
+                                    <template x-if="pushSupported && isSubscribedToPush">
+                                        <span class="inline-flex items-center space-x-1.5 text-emerald-400 font-semibold">
+                                            <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                                            <span>Este dispositivo está ACTIVO y suscrito</span>
+                                        </span>
+                                    </template>
+                                    <template x-if="pushSupported && !isSubscribedToPush">
+                                        <span class="inline-flex items-center space-x-1.5 text-zinc-400">
+                                            <i class="fa-regular fa-circle-dot text-zinc-500"></i>
+                                            <span>Este dispositivo aún no está suscrito</span>
+                                        </span>
+                                    </template>
+                                </div>
+
+                                <div class="flex items-center space-x-2">
+                                    <template x-if="pushSupported && !isSubscribedToPush">
+                                        <button type="button" 
+                                                @click="subscribeDevice()" 
+                                                :disabled="isPushLoading"
+                                                class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-50">
+                                            <i class="fa-solid fa-bell"></i>
+                                            <span>Activar en este equipo</span>
+                                        </button>
+                                    </template>
+                                    <template x-if="pushSupported && isSubscribedToPush">
+                                        <div class="flex items-center space-x-2">
+                                            <button type="button" 
+                                                    @click="sendTestPush()" 
+                                                    :disabled="isPushLoading"
+                                                    class="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs border border-zinc-700 transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                                                    title="Recibe un mensaje inmediato de verificación en tu celular">
+                                                <i class="fa-solid fa-paper-plane text-cyan-400"></i>
+                                                <span>Probar Notificación</span>
+                                            </button>
+                                            <button type="button" 
+                                                    @click="unsubscribeDevice()" 
+                                                    :disabled="isPushLoading"
+                                                    class="px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-red-950/60 text-zinc-400 hover:text-red-300 text-xs border border-zinc-800 hover:border-red-800 transition-colors cursor-pointer disabled:opacity-50">
+                                                <span>Desactivar</span>
+                                            </button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Push Feedback Message -->
+                            <div x-show="pushMessage" x-transition class="text-[11px] font-mono px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300">
+                                <span x-text="pushMessage"></span>
+                            </div>
                         </div>
                     </div>
 

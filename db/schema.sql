@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
     notify_email BOOLEAN NOT NULL DEFAULT 1,
     notify_kickoff BOOLEAN NOT NULL DEFAULT 1,
     notify_recap BOOLEAN NOT NULL DEFAULT 1,
+    notify_push BOOLEAN NOT NULL DEFAULT 1,
     is_beta_tester BOOLEAN NOT NULL DEFAULT 0,
     bio TEXT DEFAULT '',
     featured_badge_code TEXT DEFAULT '',
@@ -235,4 +236,17 @@ CREATE TABLE IF NOT EXISTS team_season_schedules (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY(season_year, team_code)
 );
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    user_agent TEXT DEFAULT '',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_user_id ON push_subscriptions(user_id);
+
 

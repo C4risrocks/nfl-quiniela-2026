@@ -25,6 +25,7 @@ type User struct {
 	NotifyEmail         bool       `json:"notify_email"`
 	NotifyKickoff       bool       `json:"notify_kickoff"`
 	NotifyRecap         bool       `json:"notify_recap"`
+	NotifyPush          bool       `json:"notify_push"`
 	IsBetaTester        bool       `json:"is_beta_tester"`
 	Bio                 string           `json:"bio"`
 	FeaturedBadgeCode   string           `json:"featured_badge_code"`
@@ -1757,6 +1758,17 @@ type InAppNotification struct {
 	Link      string    `json:"link"`
 	Type      string    `json:"type"` // "kickoff_reminder", "weekly_recap", "achievement", "system"
 	IsRead    bool      `json:"is_read"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// PushSubscription represents a Web Push device subscription (RFC 8292 / VAPID)
+type PushSubscription struct {
+	ID        int64     `json:"id"`
+	UserID    int64     `json:"user_id"`
+	Endpoint  string    `json:"endpoint"`
+	P256dh    string    `json:"p256dh"`
+	Auth      string    `json:"auth"`
+	UserAgent string    `json:"user_agent"`
 	CreatedAt time.Time `json:"created_at"`
 }
 

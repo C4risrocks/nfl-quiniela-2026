@@ -90,6 +90,42 @@
 
     <!-- TAB 1: Scoring Rules Configuration -->
     <div x-show="activeTab === 'settings'" class="space-y-6">
+
+        <!-- Card: Control de Admisión y Registro de Nuevos Jugadores -->
+        <div class="vercel-card p-5 sm:p-6 rounded-2xl border {{if .RegistrationEnabled}}border-zinc-800{{else}}border-rose-900/50 bg-rose-950/10{{end}} transition-all">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div class="space-y-1">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-7 h-7 rounded-lg {{if .RegistrationEnabled}}bg-emerald-500/10 text-emerald-400 border border-emerald-500/30{{else}}bg-rose-500/10 text-rose-400 border border-rose-500/30{{end}} flex items-center justify-center text-xs">
+                            <i class="fa-solid {{if .RegistrationEnabled}}fa-user-check{{else}}fa-user-slash{{end}}"></i>
+                        </div>
+                        <h2 class="text-base font-bold text-white">
+                            Acceso y Registro de Nuevos Jugadores
+                        </h2>
+                    </div>
+                    <div id="settings-tab-registration-status" class="flex items-center space-x-2 pt-0.5">
+                        <span class="w-2.5 h-2.5 rounded-full {{if .RegistrationEnabled}}bg-emerald-400 animate-pulse{{else}}bg-rose-500{{end}}"></span>
+                        <span class="text-xs font-bold {{if .RegistrationEnabled}}text-emerald-400{{else}}text-rose-400{{end}}">
+                            Registros {{if .RegistrationEnabled}}ABIERTOS{{else}}BLOQUEADOS{{end}}
+                        </span>
+                        <span class="text-zinc-500 text-xs hidden sm:inline">
+                            {{if .RegistrationEnabled}}— Cualquier aficionado puede registrarse y participar{{else}}— Se oculta el botón de registro y se rechazan solicitudes{{end}}
+                        </span>
+                    </div>
+                </div>
+
+                <div id="settings-tab-registration-toggle">
+                    <button hx-post="/admin/settings/toggle-registration"
+                            hx-target="#registration-toggle-control"
+                            hx-swap="outerHTML"
+                            class="px-4 py-2 rounded-xl {{if .RegistrationEnabled}}bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/40{{else}}bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/40{{end}} font-bold text-xs transition-all shadow-sm flex items-center space-x-2 cursor-pointer">
+                        <i class="fa-solid {{if .RegistrationEnabled}}fa-lock{{else}}fa-lock-open{{end}} text-xs"></i>
+                        <span>{{if .RegistrationEnabled}}Bloquear Nuevos Registros{{else}}Permitir Nuevos Registros{{end}}</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div class="vercel-card p-6 rounded-2xl">
             <h2 class="text-base font-bold text-white mb-1 flex items-center">
                 <i class="fa-solid fa-scale-balanced text-zinc-400 mr-2"></i>

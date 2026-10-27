@@ -136,6 +136,7 @@ func (d *DB) migrate() error {
 		"ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''",
 		"ALTER TABLE users ADD COLUMN featured_badge_code TEXT DEFAULT ''",
 		"ALTER TABLE users ADD COLUMN is_beta_tester BOOLEAN NOT NULL DEFAULT 0",
+		"ALTER TABLE users ADD COLUMN notify_push BOOLEAN NOT NULL DEFAULT 1",
 	}
 	if d.DriverName == "pgx" {
 		userCols = []string{
@@ -150,6 +151,7 @@ func (d *DB) migrate() error {
 			"ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT ''",
 			"ALTER TABLE users ADD COLUMN IF NOT EXISTS featured_badge_code TEXT DEFAULT ''",
 			"ALTER TABLE users ADD COLUMN IF NOT EXISTS is_beta_tester BOOLEAN NOT NULL DEFAULT FALSE",
+			"ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_push BOOLEAN NOT NULL DEFAULT TRUE",
 		}
 	}
 	for _, colStmt := range userCols {
@@ -404,6 +406,25 @@ func (d *DB) migrate() error {
 		log.Printf("[DB] Warning creating team_depth_charts table: %v", err)
 	}
 	_, _ = d.Exec(`CREATE INDEX IF NOT EXISTS idx_team_depth_lookup ON team_depth_charts(team_code, formation_group, position_code, depth_rank)`)
+
+	// Create push_subscriptions table if not exists
+	createPushSubTable := `
+	CREATE TABLE IF NOT EXISTS push_subscriptions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		endpoint TEXT NOT NULL UNIQUE,
+		p256dh TEXT NOT NULL,
+		auth TEXT NOT NULL,
+		user_agent TEXT DEFAULT '',
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	);`
+	if d.DriverName == "pgx" {
+		createPushSubTable = strings.ReplaceAll(createPushSubTable, "INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+	}
+	if _, err := d.Exec(createPushSubTable); err != nil {
+		log.Printf("[DB] Warning creating push_subscriptions table: %v", err)
+	}
+	_, _ = d.Exec(`CREATE INDEX IF NOT EXISTS idx_push_user_id ON push_subscriptions(user_id)`)
 
 	return nil
 }
