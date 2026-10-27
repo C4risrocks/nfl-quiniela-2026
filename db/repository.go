@@ -760,14 +760,16 @@ func (r *Repository) GetWeekByNumber(seasonID int64, weekNumber int) (*Week, err
 	return &w, nil
 }
 
-// GetActiveWeek determines the current active week for a season based on game status and schedule:
+// GetActiveWeek determines the current active week for a season based on game status, schedule,
+// and the post-MNF rollover policy (holds active until Tuesday 00:00 CDMX):
 // 1. Explicitly marked active week (status = 'active')
 // 2. Week with games currently in progress (status = 'in_progress')
-// 3. Time-window: Week whose games span around current real-world date (-2 days before first kickoff to +1 day after last kickoff)
-// 4. Week with upcoming scheduled games (earliest kickoff)
-// 5. First week with status = 'scheduled' immediately following completed weeks
-// 6. Fallback: Most recently completed week (latest final kickoff)
-// 7. Fallback: First week of the season
+// 3. Post-MNF Hold: If the most recently finished round ended on Monday (or Sunday), hold that round active until Tuesday 00:00 CDMX so users can view recap and leaderboard
+// 4. Time-window: Week whose games span around current real-world date (-2 days before first kickoff to +1 day after last kickoff)
+// 5. Week with earliest upcoming scheduled games (kickoff in the future, guarded against skipping prior uncompleted weeks)
+// 6. First uncompleted week (status != 'completed') in strict monotonic order (ensuring no skipping)
+// 7. Fallback: Most recently completed week (latest final kickoff)
+// 8. Fallback: First week of the season
 func (r *Repository) GetActiveWeek(seasonID int64) (*Week, error) {
 	var w Week
 
@@ -788,7 +790,50 @@ func (r *Repository) GetActiveWeek(seasonID int64) (*Week, error) {
 		return &w, nil
 	}
 
-	// 3. Time-window query: Week whose games match the current date window of the round (-2 days before kickoff to +1 day after)
+	// 3. Post-MNF Hold: Check most recently finished round.
+	// If its games finished recently and current local time is still before Tuesday 00:00 CDMX,
+	// keep that round active so users can inspect final scores, tiebreakers, and rankings.
+	var lastFinishedWeek Week
+	var maxKickoffStr string
+	queryLastFinished := `SELECT w.id, w.season_id, w.week_number, w.name, w.status, w.lock_type, w.created_at, MAX(g.kickoff_time)
+	                      FROM weeks w
+	                      JOIN games g ON g.week_id = w.id
+	                      WHERE w.season_id = ? AND g.status = 'final'
+	                        AND NOT EXISTS (SELECT 1 FROM games g2 WHERE g2.week_id = w.id AND g2.status != 'final')
+	                      GROUP BY w.id
+	                      ORDER BY MAX(g.kickoff_time) DESC LIMIT 1`
+	if err := r.db.QueryRow(queryLastFinished, seasonID).Scan(
+		&lastFinishedWeek.ID, &lastFinishedWeek.SeasonID, &lastFinishedWeek.WeekNumber,
+		&lastFinishedWeek.Name, &lastFinishedWeek.Status, &lastFinishedWeek.LockType,
+		&lastFinishedWeek.CreatedAt, &maxKickoffStr,
+	); err == nil && maxKickoffStr != "" {
+		if tLast, parseErr := time.Parse("2006-01-02 15:04:05", maxKickoffStr); parseErr == nil {
+			loc, locErr := time.LoadLocation("America/Mexico_City")
+			if locErr != nil {
+				loc = time.FixedZone("CST", -6*3600)
+			}
+			nowLocal := time.Now().In(loc)
+			tLocal := tLast.In(loc)
+
+			// Rollover boundary: Tuesday 00:00 CDMX immediately following the round
+			var nextTuesday time.Time
+			switch tLocal.Weekday() {
+			case time.Monday:
+				nextTuesday = time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, 1)
+			case time.Sunday:
+				nextTuesday = time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, 2)
+			case time.Tuesday:
+				// If game kicked off early Tuesday (or extended past midnight)
+				nextTuesday = time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, 1)
+			}
+
+			if !nextTuesday.IsZero() && nowLocal.Before(nextTuesday) && nowLocal.After(tLocal.Add(-6*time.Hour)) {
+				return &lastFinishedWeek, nil
+			}
+		}
+	}
+
+	// 4. Time-window query: Week whose games match the current date window of the round (-2 days before kickoff to +1 day after)
 	nowStr := time.Now().UTC().Format("2006-01-02 15:04:05")
 	queryTimeWindow := `SELECT w.id, w.season_id, w.week_number, w.name, w.status, w.lock_type, w.created_at 
 	                    FROM weeks w 
@@ -802,30 +847,42 @@ func (r *Repository) GetActiveWeek(seasonID int64) (*Week, error) {
 		return &w, nil
 	}
 
-	// 4. Week with earliest upcoming scheduled games
+	// 5. Week with earliest upcoming scheduled games (guarded against skipping prior uncompleted weeks)
 	queryScheduled := `SELECT w.id, w.season_id, w.week_number, w.name, w.status, w.lock_type, w.created_at 
 	                   FROM weeks w 
 	                   JOIN games g ON g.week_id = w.id 
 	                   WHERE w.season_id = ? AND g.status = 'scheduled' 
 	                   ORDER BY g.kickoff_time ASC LIMIT 1`
 	if err := r.db.QueryRow(queryScheduled, seasonID).Scan(&w.ID, &w.SeasonID, &w.WeekNumber, &w.Name, &w.Status, &w.LockType, &w.CreatedAt); err == nil {
+		// Monotonic safeguard: if an earlier week exists that has not completed, don't leap over it
+		var priorUncompleted Week
+		queryPrior := `SELECT id, season_id, week_number, name, status, lock_type, created_at
+		               FROM weeks
+		               WHERE season_id = ? AND status != 'completed' AND week_number < ?
+		               ORDER BY week_number ASC LIMIT 1`
+		if errPrior := r.db.QueryRow(queryPrior, seasonID, w.WeekNumber).Scan(
+			&priorUncompleted.ID, &priorUncompleted.SeasonID, &priorUncompleted.WeekNumber,
+			&priorUncompleted.Name, &priorUncompleted.Status, &priorUncompleted.LockType, &priorUncompleted.CreatedAt,
+		); errPrior == nil {
+			return &priorUncompleted, nil
+		}
 		return &w, nil
 	}
 
-	// 4. First scheduled week if any completed weeks exist
-	queryNextScheduled := `SELECT id, season_id, week_number, name, status, lock_type, created_at 
-	                       FROM weeks 
-	                       WHERE season_id = ? AND status = 'scheduled' 
-	                       ORDER BY week_number ASC LIMIT 1`
+	// 6. First scheduled week if any completed weeks exist (continuous progression)
 	var countCompleted int
 	_ = r.db.QueryRow(`SELECT COUNT(*) FROM weeks WHERE season_id = ? AND status = 'completed'`, seasonID).Scan(&countCompleted)
 	if countCompleted > 0 {
+		queryNextScheduled := `SELECT id, season_id, week_number, name, status, lock_type, created_at 
+		                       FROM weeks 
+		                       WHERE season_id = ? AND status = 'scheduled' 
+		                       ORDER BY week_number ASC LIMIT 1`
 		if err := r.db.QueryRow(queryNextScheduled, seasonID).Scan(&w.ID, &w.SeasonID, &w.WeekNumber, &w.Name, &w.Status, &w.LockType, &w.CreatedAt); err == nil {
 			return &w, nil
 		}
 	}
 
-	// 5. Most recently completed week
+	// 7. Most recently completed week (latest final kickoff)
 	queryFinal := `SELECT w.id, w.season_id, w.week_number, w.name, w.status, w.lock_type, w.created_at 
 	               FROM weeks w 
 	               JOIN games g ON g.week_id = w.id 
@@ -835,7 +892,7 @@ func (r *Repository) GetActiveWeek(seasonID int64) (*Week, error) {
 		return &w, nil
 	}
 
-	// 6. Fallback: First week of the season
+	// 8. Fallback: First week of the season
 	queryFirst := `SELECT id, season_id, week_number, name, status, lock_type, created_at 
 	               FROM weeks WHERE season_id = ? ORDER BY week_number ASC LIMIT 1`
 	if err := r.db.QueryRow(queryFirst, seasonID).Scan(&w.ID, &w.SeasonID, &w.WeekNumber, &w.Name, &w.Status, &w.LockType, &w.CreatedAt); err == nil {

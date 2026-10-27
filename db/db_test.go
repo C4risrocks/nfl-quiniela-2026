@@ -1280,6 +1280,33 @@ func TestGetActiveWeek(t *testing.T) {
 	if activeWk.WeekNumber != 5 {
 		t.Errorf("Expected Week 5 via time-window detection, got %d", activeWk.WeekNumber)
 	}
+
+	// 7. Strict Monotonic Guard: Mark weeks 1..7 as completed. Week 18 has scheduled games, but Week 8 has no games yet.
+	// GetActiveWeek MUST return Week 8 and NEVER skip forward to Week 18.
+	for i := 0; i < 7; i++ {
+		_ = repo.UpdateWeekStatus(weeks[i].ID, "completed")
+	}
+	// Purge the temporary week 5 game
+	_, _ = database.Exec("UPDATE games SET status = 'final' WHERE week_id = ?", weeks[4].ID)
+	// Create a scheduled game in week 18 (weeks[17])
+	_, err = repo.CreateManualGame(&Game{
+		WeekID:       weeks[17].ID,
+		HomeTeamID:   t1.ID,
+		AwayTeamID:   t2.ID,
+		KickoffTime:  time.Now().Add(60 * 24 * time.Hour),
+		Status:       "scheduled",
+		IsTiebreaker: false,
+	})
+	if err != nil {
+		t.Fatalf("CreateManualGame week 18 failed: %v", err)
+	}
+	activeWk, err = repo.GetActiveWeek(season.ID)
+	if err != nil {
+		t.Fatalf("GetActiveWeek failed: %v", err)
+	}
+	if activeWk.WeekNumber != 8 {
+		t.Fatalf("CRITICAL: Expected active week to be 8 following completed week 7, but jumped to %d", activeWk.WeekNumber)
+	}
 }
 
 func TestUpdateUserPreferences(t *testing.T) {

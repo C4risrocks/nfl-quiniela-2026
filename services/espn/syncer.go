@@ -344,8 +344,11 @@ func (s *Syncer) SyncWeek(weekNum int) (count int, err error) {
 		}
 
 		if !hasTiebreaker && len(games) > 0 {
-			// Sort by kickoff time descending to find the last game of the week
+			// Sort by kickoff time descending (and ID descending for dual MNF games) to find the last game of the week
 			sort.Slice(games, func(i, j int) bool {
+				if games[i].KickoffTime.Equal(games[j].KickoffTime) {
+					return games[i].ID > games[j].ID
+				}
 				return games[i].KickoffTime.After(games[j].KickoffTime)
 			})
 			lastGame := games[0]
@@ -373,19 +376,29 @@ func (s *Syncer) SyncWeek(weekNum int) (count int, err error) {
 		} else if hasLive {
 			newStatus = "active"
 		} else {
-			now := time.Now()
-			firstKickoff := syncedGames[0].KickoffTime
-			lastKickoff := syncedGames[len(syncedGames)-1].KickoffTime
-			for _, g := range syncedGames {
-				if g.KickoffTime.Before(firstKickoff) {
-					firstKickoff = g.KickoffTime
-				}
-				if g.KickoffTime.After(lastKickoff) {
-					lastKickoff = g.KickoffTime
+			// Check if this week is the current active round determined by schedule / rollover
+			season, err := s.repo.GetActiveSeason(s.seasonYear)
+			if err == nil && season != nil {
+				if activeWk, err := s.repo.GetActiveWeek(season.ID); err == nil && activeWk != nil && activeWk.ID == week.ID {
+					newStatus = "active"
 				}
 			}
-			if now.After(firstKickoff.Add(-48*time.Hour)) && now.Before(lastKickoff.Add(12*time.Hour)) {
-				newStatus = "active"
+			// Also maintain time window around kickoff (-48h to +12h)
+			if newStatus != "active" {
+				now := time.Now()
+				firstKickoff := syncedGames[0].KickoffTime
+				lastKickoff := syncedGames[len(syncedGames)-1].KickoffTime
+				for _, g := range syncedGames {
+					if g.KickoffTime.Before(firstKickoff) {
+						firstKickoff = g.KickoffTime
+					}
+					if g.KickoffTime.After(lastKickoff) {
+						lastKickoff = g.KickoffTime
+					}
+				}
+				if now.After(firstKickoff.Add(-48*time.Hour)) && now.Before(lastKickoff.Add(12*time.Hour)) {
+					newStatus = "active"
+				}
 			}
 		}
 
@@ -426,18 +439,53 @@ func (s *Syncer) SyncWeek(weekNum int) (count int, err error) {
 	return len(syncedGames), nil
 }
 
-// FetchCurrentWeekNumber retrieves the current active week number from ESPN, falling back to DB active week
+// FetchCurrentWeekNumber retrieves the current active week number, cross-validating ESPN's scoreboard
+// against local database state to prevent erratic leaps (such as jumping to Week 18).
 func (s *Syncer) FetchCurrentWeekNumber() int {
-	if sb, err := s.client.FetchCurrentScoreboard(); err == nil && sb != nil && sb.Week.Number > 0 {
-		return sb.Week.Number
-	}
-	season, err := s.repo.GetActiveSeason(s.seasonYear)
-	if err == nil && season != nil {
+	season, _ := s.repo.GetActiveSeason(s.seasonYear)
+	var dbActiveWeekNum int
+	if season != nil {
 		if activeW, err := s.repo.GetActiveWeek(season.ID); err == nil && activeW != nil {
-			return activeW.WeekNumber
+			dbActiveWeekNum = activeW.WeekNumber
 		}
 	}
+
+	sb, err := s.client.FetchCurrentScoreboard()
+	if err == nil && sb != nil && sb.Week.Number > 0 {
+		espnWk := sb.Week.Number
+		// If DB already has active/completed weeks, ensure ESPN doesn't wildly skip forward
+		if dbActiveWeekNum > 0 {
+			if espnWk >= dbActiveWeekNum && espnWk <= dbActiveWeekNum+1 {
+				return espnWk
+			}
+			// When ESPN reports out of plausible sequence (e.g. 18 during week 8 transition), trust DB
+			return dbActiveWeekNum
+		}
+		if espnWk >= 1 && espnWk <= 22 {
+			return espnWk
+		}
+	}
+
+	if dbActiveWeekNum > 0 {
+		return dbActiveWeekNum
+	}
 	return 1
+}
+
+// SyncFullSeasonSchedule syncs all 18 regular season weeks from ESPN so that all games,
+// kickoffs, and broadcast channels are pre-seeded in the database, preventing empty gaps.
+func (s *Syncer) SyncFullSeasonSchedule(year int) (totalGames int, err error) {
+	log.Printf("[Syncer] Ingesting full season schedule for %d (Weeks 1 to 18)...", year)
+	for w := 1; w <= 18; w++ {
+		count, syncErr := s.SyncWeek(w)
+		if syncErr != nil {
+			log.Printf("[Syncer] Schedule sync notice for Week %d: %v", w, syncErr)
+		} else {
+			totalGames += count
+		}
+	}
+	log.Printf("[Syncer] Full season schedule ingestion complete: %d total games ready across 18 weeks.", totalGames)
+	return totalGames, nil
 }
 
 // StartBackgroundSync periodically syncs the current active week with adaptive frequency (60s during live games)

@@ -286,6 +286,38 @@ func (w *ReminderWorker) CheckAndSendWeeklyDigests() (int, error) {
 			continue
 		}
 
+		// Timing Rule: Automated weekly recap digests are scheduled for Tuesday morning at 10:00 hrs CDMX
+		// allowing players to review Monday night results before receiving their consolidated recap.
+		loc, errLoc := time.LoadLocation("America/Mexico_City")
+		if errLoc != nil {
+			loc = time.FixedZone("CST", -6*3600)
+		}
+		nowLocal := time.Now().In(loc)
+
+		var lastKickoff time.Time
+		for _, g := range games {
+			if g.KickoffTime.After(lastKickoff) {
+				lastKickoff = g.KickoffTime
+			}
+		}
+		if !lastKickoff.IsZero() {
+			lastLocal := lastKickoff.In(loc)
+			var targetTuesday10AM time.Time
+			switch lastLocal.Weekday() {
+			case time.Monday:
+				targetTuesday10AM = time.Date(lastLocal.Year(), lastLocal.Month(), lastLocal.Day(), 10, 0, 0, 0, loc).AddDate(0, 0, 1)
+			case time.Sunday:
+				targetTuesday10AM = time.Date(lastLocal.Year(), lastLocal.Month(), lastLocal.Day(), 10, 0, 0, 0, loc).AddDate(0, 0, 2)
+			case time.Tuesday:
+				targetTuesday10AM = time.Date(lastLocal.Year(), lastLocal.Month(), lastLocal.Day(), 10, 0, 0, 0, loc)
+			}
+
+			// If current time is before the designated Tuesday 10:00 hrs slot, hold off until 10:00 AM arrives
+			if !targetTuesday10AM.IsZero() && nowLocal.Before(targetTuesday10AM) {
+				continue
+			}
+		}
+
 		users, err := w.repo.ListUsers()
 		if err != nil {
 			continue

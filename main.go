@@ -93,8 +93,9 @@ func main() {
 		reminderWorker.Start(ctx, 15*time.Minute)
 	}
 
-	// Trigger initial sync for weeks up to the current active week
+	// Trigger initial sync and full season schedule ingestion
 	go func() {
+		// 1. Immediately reconcile weeks up to current active week
 		currentWeek := syncer.FetchCurrentWeekNumber()
 		if currentWeek < 1 {
 			currentWeek = 1
@@ -107,6 +108,9 @@ func main() {
 				log.Printf("[Syncer] Initial sync completed: %d games ready for Week %d.", count, w)
 			}
 		}
+
+		// 2. Pre-seed remaining regular season weeks so no scheduled week remains with 0 games
+		_, _ = syncer.SyncFullSeasonSchedule(cfg.CurrentSeasonYear)
 	}()
 
 	// Pre-warm / ensure historical season standings (2022-2025) are persisted in DB

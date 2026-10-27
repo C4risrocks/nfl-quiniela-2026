@@ -62,11 +62,31 @@
                 <select id="live-week-select" 
                         onchange="window.location.href = '/live?week=' + this.value"
                         class="bg-zinc-900 border border-zinc-700/80 text-white text-base sm:text-xs font-semibold rounded-xl px-3 py-2 focus:ring-1 focus:ring-white focus:border-white transition-all shadow-inner">
-                    {{range .Weeks}}
-                        <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
-                            {{.Name}} {{if and $.ActiveWeek (eq .ID $.ActiveWeek.ID)}}⚡ (En curso){{else if eq .Status "completed"}}✓{{end}}
+                    {{if .ActiveWeek}}
+                    <optgroup label="⚡ Jornada en curso">
+                        <option value="{{.ActiveWeek.WeekNumber}}" {{if eq .ActiveWeek.ID $.SelectedWeek.ID}}selected{{end}}>
+                            {{.ActiveWeek.Name}} ⚡ (En curso)
                         </option>
+                    </optgroup>
                     {{end}}
+                    <optgroup label="✓ Jornadas Finalizadas">
+                    {{range .Weeks}}
+                        {{if and (eq .Status "completed") (or (not $.ActiveWeek) (ne .ID $.ActiveWeek.ID))}}
+                        <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
+                            {{.Name}} ✓
+                        </option>
+                        {{end}}
+                    {{end}}
+                    </optgroup>
+                    <optgroup label="📅 Próximas Jornadas">
+                    {{range .Weeks}}
+                        {{if and (ne .Status "completed") (or (not $.ActiveWeek) (ne .ID $.ActiveWeek.ID))}}
+                        <option value="{{.WeekNumber}}" {{if eq .ID $.SelectedWeek.ID}}selected{{end}}>
+                            {{.Name}}
+                        </option>
+                        {{end}}
+                    {{end}}
+                    </optgroup>
                 </select>
             </div>
         </div>
