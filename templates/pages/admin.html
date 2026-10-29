@@ -380,7 +380,7 @@
             </div>
 
             <!-- Sync Standings, Rankings & Lesiones -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
                 <!-- Sync Equipos & Standings -->
                 <div class="p-4 rounded-xl bg-zinc-900/50 border border-zinc-800/80 flex flex-col justify-between gap-3">
                     <div>
@@ -403,6 +403,31 @@
                             <span class="htmx-indicator">Actualizando...</span>
                         </button>
                         <div id="sync-teams-result" class="text-xs text-zinc-300"></div>
+                    </form>
+                </div>
+
+                <!-- Sync Power Rankings ESPN -->
+                <div class="p-4 rounded-xl bg-zinc-900/50 border border-zinc-800/80 flex flex-col justify-between gap-3">
+                    <div>
+                        <div class="text-xs font-semibold text-white flex items-center gap-1.5">
+                            <i class="fa-solid fa-bolt text-amber-400"></i>
+                            <span>Power Rankings ESPN (1 a N)</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-400 mt-1">
+                            Descarga y procesa los artículos editoriales oficiales de ESPN semana a semana, completando semanas faltantes.
+                        </p>
+                    </div>
+                    <form hx-post="/admin/sync/power-rankings"
+                          hx-target="#sync-power-rankings-result"
+                          hx-swap="innerHTML"
+                          class="flex items-center gap-2">
+                        <button type="submit" class="px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-medium text-xs border border-zinc-700/80 transition-all flex items-center cursor-pointer">
+                            <i class="fa-solid fa-arrows-rotate mr-1.5 htmx-request-hide"></i>
+                            <i class="fa-solid fa-circle-notch fa-spin mr-1.5 htmx-indicator"></i>
+                            <span class="htmx-request-hide">Sincronizar Rankings</span>
+                            <span class="htmx-indicator">Actualizando...</span>
+                        </button>
+                        <div id="sync-power-rankings-result" class="text-xs text-zinc-300"></div>
                     </form>
                 </div>
 

@@ -7,7 +7,7 @@
             <div>
                 <div class="flex items-center space-x-2 mb-2">
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                        <i class="fa-solid fa-bolt mr-1.5 text-amber-400"></i> ESPN Power Rankings · Semana {{if .SelectedWeek}}{{.SelectedWeek}}{{else if .Standings.LatestRankingsWeek}}{{.Standings.LatestRankingsWeek}}{{else}}6{{end}}
+                        <i class="fa-solid fa-bolt mr-1.5 text-amber-400"></i> ESPN Power Rankings · Semana {{if .SelectedWeek}}{{.SelectedWeek}}{{else if .Standings.LatestRankingsWeek}}{{.Standings.LatestRankingsWeek}}{{else}}8{{end}}
                     </span>
                     <span class="text-[10px] font-mono text-zinc-400">32 Franquicias Jerarquizadas</span>
                 </div>
@@ -15,7 +15,7 @@
                     <i class="fa-solid fa-ranking-star mr-2.5 text-amber-400"></i> Power Rankings Oficiales de la NFL
                 </h2>
                 <p class="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
-                    Evaluación cualitativa y jerárquica del momento de cada equipo tras la Semana {{if .SelectedWeek}}{{.SelectedWeek}}{{else if .Standings.LatestRankingsWeek}}{{.Standings.LatestRankingsWeek}}{{else}}6{{end}} de la temporada regular, con el análisis editorial y firmas de los especialistas de ESPN.
+                    Evaluación cualitativa y jerárquica del momento de cada equipo tras la Semana {{if .SelectedWeek}}{{.SelectedWeek}}{{else if .Standings.LatestRankingsWeek}}{{.Standings.LatestRankingsWeek}}{{else}}8{{end}} de la temporada regular, con el análisis editorial y firmas de los especialistas de ESPN.
                 </p>
             </div>
 
@@ -41,8 +41,8 @@
                     <i class="fa-regular fa-calendar-days mr-1.5 text-amber-400"></i> Elegir Semana:
                 </span>
                 <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-0.5">
-                    {{$activeWeek := or $.SelectedWeek $.Standings.LatestRankingsWeek 6}}
-                    {{$maxWk := max 6 (or $.Standings.LatestRankingsWeek 6)}}
+                    {{$activeWeek := or $.SelectedWeek $.Standings.LatestRankingsWeek 8}}
+                    {{$maxWk := max 8 (or $.Standings.LatestRankingsWeek 8)}}
                     {{range $wk := seq 1 $maxWk}}
                         <button type="button"
                                 hx-get="/teams/table?season={{$.SelectedSeason}}&view=power-rankings&week={{$wk}}"

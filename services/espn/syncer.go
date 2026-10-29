@@ -563,6 +563,7 @@ func (s *Syncer) StartBackgroundSync(ctx context.Context, defaultInterval time.D
 				// 5. Periodic refresh of Power Rankings & FPI (every 12 hours)
 				if lastRankingsSync.IsZero() || time.Since(lastRankingsSync) >= 12*time.Hour {
 					go func(wk int) {
+						_, _ = s.SyncAllPowerRankings(s.seasonYear, wk)
 						_ = s.SyncPowerRankingsAndFPI(s.seasonYear, wk)
 					}(currentWeekNum)
 					lastRankingsSync = time.Now()
@@ -670,6 +671,49 @@ func (s *Syncer) SyncAllInjuries() (int, error) {
 	}
 	log.Printf("[Syncer] Successfully synced NFL injuries across %d teams (%d total active records).", len(injMap), totalSaved)
 	return totalSaved, nil
+}
+
+// SyncAllPowerRankings iterates from Week 1 up to upToWeek, downloading and storing official ESPN Power Rankings
+// for each week to ensure all past and present weeks are fully populated in the database.
+func (s *Syncer) SyncAllPowerRankings(seasonYear, upToWeek int) (int, error) {
+	if s.client == nil {
+		return 0, fmt.Errorf("espn client not initialized")
+	}
+	if upToWeek < 1 {
+		upToWeek = 1
+	}
+
+	teams, err := s.repo.ListTeams()
+	if err != nil {
+		return 0, fmt.Errorf("failed to list teams: %w", err)
+	}
+	teamMap := make(map[string]*db.Team, len(teams))
+	for _, t := range teams {
+		teamMap[t.Code] = t
+	}
+
+	totalSynced := 0
+	for wk := 1; wk <= upToWeek; wk++ {
+		rankings, err := s.client.FetchPowerRankings(seasonYear, wk, teamMap)
+		if err != nil {
+			log.Printf("[Syncer] Warning: unable to fetch power rankings for week %d: %v", wk, err)
+			continue
+		}
+		if len(rankings) > 0 {
+			if err := s.repo.SavePowerRankings(rankings); err != nil {
+				log.Printf("[Syncer] Error saving power rankings for week %d: %v", wk, err)
+			} else {
+				log.Printf("[Syncer] Successfully saved %d power rankings for week %d.", len(rankings), wk)
+				totalSynced++
+			}
+		}
+	}
+
+	if s.broker != nil && totalSynced > 0 {
+		s.broker.Broadcast("rankings-updated", fmt.Sprintf(`{"season": %d, "synced_weeks": %d}`, seasonYear, totalSynced))
+	}
+
+	return totalSynced, nil
 }
 
 // SyncPowerRankingsAndFPI refreshes ESPN Power Rankings and FPI Playoff Probabilities for the given week

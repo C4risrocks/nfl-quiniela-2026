@@ -411,6 +411,9 @@ var Known2026PowerRankingsURLs = map[int]string{
 	3: "https://www.espn.com/nfl/story/_/id/49998616/nfl-power-rankings-week-3-teams-quarterbacks-stats",
 	4: "https://www.espn.com/nfl/story/_/id/50052289/nfl-power-rankings-week-4-teams-fantasy-surprises",
 	5: "https://www.espn.com/nfl/story/_/id/50109845/nfl-power-rankings-week-5-teams-first-month-recap",
+	6: "https://www.espn.com/nfl/story/_/id/50166454/nfl-power-rankings-week-6-teams-biggest-issue-defense",
+	7: "https://www.espn.com/nfl/story/_/id/50218886/nfl-power-rankings-week-7-teams-biggest-issue-offense",
+	8: "https://www.espn.com/nfl/story/_/id/50288293/nfl-power-rankings-week-8-teams-best-offseason-additions",
 }
 
 // GetLatestKnownPowerRankingsWeek returns the highest week number available in Known2026PowerRankingsURLs
@@ -455,29 +458,17 @@ func (c *Client) FindPowerRankingsArticleURL(seasonYear, weekNumber int) (string
 		}
 	}
 
-	searchQuery := fmt.Sprintf("NFL+Power+Rankings+%d+week+%d", seasonYear, weekNumber)
-	searchURL := fmt.Sprintf("https://site.web.api.espn.com/apis/search/v2?query=%s&limit=15", searchQuery)
-
-	req, err := http.NewRequest("GET", searchURL, nil)
-	if err != nil {
-		return "", err
+	searchQueries := []string{
+		fmt.Sprintf("NFL+Power+Rankings+%d+week+%d", seasonYear, weekNumber),
+		fmt.Sprintf("NFL+Power+Rankings+week+%d", weekNumber),
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0")
 
 	httpClient := c.httpClient
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 10 * time.Second}
 	}
 
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("search API returned status %d", resp.StatusCode)
-	}
+	weekPattern := regexp.MustCompile(fmt.Sprintf(`(?i)\bweek[- ]%d\b`, weekNumber))
 
 	type searchContent struct {
 		DisplayName string `json:"displayName"`
@@ -492,18 +483,39 @@ func (c *Client) FindPowerRankingsArticleURL(seasonYear, weekNumber int) (string
 		Results []searchItem `json:"results"`
 	}
 
-	var parsed searchResp
-	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return "", err
-	}
+	for _, searchQuery := range searchQueries {
+		searchURL := fmt.Sprintf("https://site.web.api.espn.com/apis/search/v2?query=%s&limit=15", searchQuery)
 
-	weekPattern := regexp.MustCompile(fmt.Sprintf(`(?i)\bweek[- ]%d\b`, weekNumber))
-	for _, item := range parsed.Results {
-		for _, content := range item.Contents {
-			link := content.Link.Web
-			if strings.Contains(link, "nfl/story") && strings.Contains(link, "power-rankings") {
-				if weekPattern.MatchString(link) || weekPattern.MatchString(content.DisplayName) {
-					return link, nil
+		req, err := http.NewRequest("GET", searchURL, nil)
+		if err != nil {
+			continue
+		}
+		req.Header.Set("User-Agent", "Mozilla/5.0")
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			continue
+		}
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			resp.Body.Close()
+			continue
+		}
+
+		var parsed searchResp
+		if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+			resp.Body.Close()
+			continue
+		}
+		resp.Body.Close()
+
+		for _, item := range parsed.Results {
+			for _, content := range item.Contents {
+				link := content.Link.Web
+				if strings.Contains(link, "nfl/story") && strings.Contains(link, "power-rankings") {
+					if weekPattern.MatchString(link) || weekPattern.MatchString(content.DisplayName) {
+						return link, nil
+					}
 				}
 			}
 		}

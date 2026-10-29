@@ -112,6 +112,14 @@ func main() {
 
 		// 2. Pre-seed remaining regular season weeks so no scheduled week remains with 0 games
 		_, _ = syncer.SyncFullSeasonSchedule(cfg.CurrentSeasonYear)
+
+		// 3. Backfill official ESPN Power Rankings for all weeks up to active week
+		log.Printf("[Syncer] Performing initial Power Rankings sync for weeks 1 through %d...", currentWeek)
+		if syncedWks, err := syncer.SyncAllPowerRankings(cfg.CurrentSeasonYear, currentWeek); err != nil {
+			log.Printf("[Syncer] Error during startup Power Rankings sync: %v", err)
+		} else {
+			log.Printf("[Syncer] Initial Power Rankings sync complete: %d weeks synced.", syncedWks)
+		}
 	}()
 
 	// Pre-warm / ensure historical season standings (2022-2025) are persisted in DB
@@ -311,6 +319,7 @@ func main() {
 		admin.Post("/admin/settings/toggle-registration", adminHandler.ToggleRegistration)
 		admin.Post("/admin/sync-espn", adminHandler.SyncESPN)
 		admin.Post("/admin/sync/teams", adminHandler.SyncTeams)
+		admin.Post("/admin/sync/power-rankings", adminHandler.SyncPowerRankings)
 		admin.Post("/admin/sync/injuries", adminHandler.SyncInjuries)
 		admin.Post("/admin/recalculate", adminHandler.RecalculateScores)
 		admin.Post("/admin/games/save-score", adminHandler.SaveGameScore)

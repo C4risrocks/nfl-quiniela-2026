@@ -1,6 +1,7 @@
 package espn
 
 import (
+	"os"
 	"testing"
 
 	"nfl-quiniela-2026/db"
@@ -142,5 +143,43 @@ func TestFetchFPIPlayoffProbabilities_OfflineFallback(t *testing.T) {
 	if pitProb.PlayoffPctWithWin <= pitProb.PlayoffPctWithLoss {
 		t.Errorf("expected PlayoffPctWithWin > PlayoffPctWithLoss for PIT, got win %f vs loss %f",
 			pitProb.PlayoffPctWithWin, pitProb.PlayoffPctWithLoss)
+	}
+}
+
+func TestSyncAllPowerRankings(t *testing.T) {
+	testDBPath := "test_sync_all_pr.db"
+	database, err := db.InitDB("sqlite", testDBPath)
+	if err != nil {
+		t.Fatalf("failed to init db: %v", err)
+	}
+	defer func() {
+		_ = database.Close()
+		_ = os.Remove(testDBPath)
+		_ = os.Remove("services/espn/" + testDBPath)
+		_ = os.Remove("services/espn/" + testDBPath + "-shm")
+		_ = os.Remove("services/espn/" + testDBPath + "-wal")
+	}()
+
+	repo := db.NewRepository(database)
+	client := NewClient()
+	syncer := NewSyncer(client, repo, nil, nil, 2026)
+
+	// Test backfilling weeks 1 to 2
+	synced, err := syncer.SyncAllPowerRankings(2026, 2)
+	if err != nil {
+		t.Fatalf("SyncAllPowerRankings returned error: %v", err)
+	}
+	if synced != 2 {
+		t.Errorf("expected 2 weeks synced, got %d", synced)
+	}
+
+	for w := 1; w <= 2; w++ {
+		rankings, err := repo.GetPowerRankings(2026, w)
+		if err != nil {
+			t.Fatalf("GetPowerRankings for week %d returned error: %v", w, err)
+		}
+		if len(rankings) != 32 {
+			t.Errorf("expected 32 teams for week %d, got %d", w, len(rankings))
+		}
 	}
 }

@@ -225,6 +225,7 @@ func (h *AdminHandler) SyncTeams(w http.ResponseWriter, r *http.Request) {
 	}
 
 	currentWk := h.syncer.FetchCurrentWeekNumber()
+	_, _ = h.syncer.SyncAllPowerRankings(h.seasonYear, currentWk)
 	_ = h.syncer.SyncPowerRankingsAndFPI(h.seasonYear, currentWk)
 
 	count := 0
@@ -235,6 +236,31 @@ func (h *AdminHandler) SyncTeams(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "¡Éxito! Standings de %d equipos y Power Rankings sincronizados", "type": "success"}}`, count))
 	w.Header().Set("Content-Type", "text/html")
 	w.Write([]byte(fmt.Sprintf(`<span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i> ¡Éxito! %d equipos sincronizados (`+time.Now().Format("15:04:05")+`)</span>`, count)))
+}
+
+// SyncPowerRankings handles manual backfill of ESPN Power Rankings for all weeks up to current week
+func (h *AdminHandler) SyncPowerRankings(w http.ResponseWriter, r *http.Request) {
+	if h.syncer == nil {
+		http.Error(w, "Syncer unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	currentWk := h.syncer.FetchCurrentWeekNumber()
+	if currentWk < 1 {
+		currentWk = 1
+	}
+
+	syncedWks, err := h.syncer.SyncAllPowerRankings(h.seasonYear, currentWk)
+	if err != nil {
+		w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Error al sincronizar Power Rankings de ESPN", "type": "error"}}`)
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(fmt.Sprintf(`<span class="text-rose-400 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Error: %v</span>`, err)))
+		return
+	}
+
+	w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "¡Éxito! Power Rankings de ESPN sincronizados para %d semanas", "type": "success"}}`, syncedWks))
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(fmt.Sprintf(`<span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i> ¡Éxito! %d semanas actualizadas (`+time.Now().Format("15:04:05")+`)</span>`, syncedWks)))
 }
 
 // SyncInjuries syncs NFL injury reports from ESPN and clears healed players
