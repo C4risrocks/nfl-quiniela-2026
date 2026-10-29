@@ -838,11 +838,21 @@ func (h *TeamStatsHandler) enrichStandingsWithPowerRankingsAndFPI(standings *db.
 	if h.repo != nil {
 		dbRankings, err := h.repo.GetPowerRankings(seasonYear, targetWeek)
 		if err == nil && len(dbRankings) > 0 {
-			rankings = dbRankings
+			// If existing records are algorithmic placeholders, allow upgrade to official editorial rankings
+			isPlaceholder := false
+			for _, pr := range dbRankings {
+				if strings.Contains(pr.Author, "Modelo Analítico") || pr.Author == "ESPN" {
+					isPlaceholder = true
+					break
+				}
+			}
+			if !isPlaceholder {
+				rankings = dbRankings
+			}
 		}
 	}
 
-	// If not in DB for targetWeek, fetch from ESPN client and persist
+	// If not in DB or was algorithmic placeholder, fetch official editorial rankings and persist
 	if len(rankings) == 0 && h.espnClient != nil {
 		freshRankings, err := h.espnClient.FetchPowerRankings(seasonYear, targetWeek, teamMap)
 		if err == nil && len(freshRankings) > 0 {

@@ -62,6 +62,9 @@ func main() {
 		log.Printf("Warning: Seed database error: %v", err)
 	}
 
+	// Seed official verified ESPN editorial power rankings for Weeks 1 to 8 (guarantees authentic journalists in all deployments)
+	_ = db.SeedOfficialPowerRankings(repo, cfg.CurrentSeasonYear, espn.Verified2026EditorialPowerRankings)
+
 	// Ensure official AI bot picks for past weeks
 	if season, err := repo.GetActiveSeason(cfg.CurrentSeasonYear); err == nil && season != nil {
 		botWorker := forecasting.NewBotWorker(repo)

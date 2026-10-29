@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -175,5 +176,41 @@ func SeedDatabase(repo *Repository, adminUser, adminEmail, adminPass string, sea
 	}
 
 	log.Println("[DB] Seeding completed successfully.")
+	return nil
+}
+
+// SeedOfficialPowerRankings seeds authentic ESPN NFL Nation editorial power rankings
+// for past and current weeks if they are missing or if the database contains algorithmic placeholders.
+func SeedOfficialPowerRankings(repo *Repository, seasonYear int, rankingsByWeek map[int][]*TeamPowerRanking) error {
+	if repo == nil || len(rankingsByWeek) == 0 {
+		return nil
+	}
+
+	for w, rankings := range rankingsByWeek {
+		if len(rankings) == 0 {
+			continue
+		}
+		existing, err := repo.GetPowerRankings(seasonYear, w)
+		needsSeed := false
+		if err != nil || len(existing) == 0 {
+			needsSeed = true
+		} else {
+			// Check if any existing record is an algorithmic placeholder or generic
+			for _, pr := range existing {
+				if strings.Contains(pr.Author, "Modelo Analítico") || pr.Author == "ESPN" {
+					needsSeed = true
+					break
+				}
+			}
+		}
+
+		if needsSeed {
+			if err := repo.SavePowerRankings(rankings); err != nil {
+				log.Printf("[DB] Note on seeding power rankings for week %d: %v", w, err)
+			} else {
+				log.Printf("[DB] Successfully seeded %d official ESPN power rankings for week %d.", len(rankings), w)
+			}
+		}
+	}
 	return nil
 }

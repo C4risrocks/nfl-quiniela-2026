@@ -431,11 +431,12 @@ func GetLatestKnownPowerRankingsWeek(seasonYear int) int {
 }
 
 var (
-	rankHeaderRegex = regexp.MustCompile(`(?s)<h2>([0-9]{1,2})\.\s*<a[^>]*href=["']/nfl/team/_/name/([^/'"]+)/[^"']*["'][^>]*>([^<]+)</a>(?:\s*\(([0-9]+-[0-9]+(?:-[0-9]+)?)\))?</h2>`)
-	prevRankRegex   = regexp.MustCompile(`<strong>(?:Week\s*[0-9]+\s*ranking|Previous\s*ranking):</strong>\s*([0-9]{1,2})`)
-	authorRegex     = regexp.MustCompile(`<em>--\s*([^<]+)</em>`)
+	rankHeaderRegex = regexp.MustCompile(`(?s)<h2[^>]*>\s*([0-9]{1,2})\.\s*<a[^>]*href=["'](?:https?://(?:www\.)?espn\.com)?/nfl/team/_/name/([^/'"]+)/[^"']*["'][^>]*>([^<]+)</a>(?:\s*\(([0-9]+-[0-9]+(?:-[0-9]+)?)\))?</h2>`)
+	prevRankRegex   = regexp.MustCompile(`(?i)(?:Week\s*[0-9]+\s*ranking|Previous\s*ranking|Postdraft\s*ranking):?\s*</strong>?\s*([0-9]{1,2})`)
+	authorRegex     = regexp.MustCompile(`(?:<em>\s*)?(?:--|—|&mdash;)\s*([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚáéíóúñ\s.']+?)(?:,\s*NFL Nation)?(?:</em>|$)`)
 	htmlTagRegex    = regexp.MustCompile(`<[^>]+>`)
 	spaceRegex      = regexp.MustCompile(`\s+`)
+	storyIDRegex    = regexp.MustCompile(`/id/([0-9]+)`)
 
 	articleRankingsCache   = make(map[string][]*db.TeamPowerRanking)
 	articleRankingsCacheMu sync.RWMutex
@@ -597,7 +598,7 @@ func ParseESPNPowerRankingsHTML(htmlContent string, seasonYear, weekNumber int, 
 		// Enrich with metadata from teamMap
 		if t, ok := teamMap[teamCode]; ok {
 			pr.TeamID = t.ID
-			if pr.TeamName == "" || len(pr.TeamName) < len(t.Name) {
+			if t.Name != "" {
 				pr.TeamName = t.Name
 			}
 			pr.TeamCity = t.City
@@ -627,6 +628,9 @@ func (c *Client) FetchOfficialArticlePowerRankings(seasonYear, weekNumber int, t
 			cp := *orig
 			if t, ok := teamMap[cp.TeamCode]; ok {
 				cp.TeamID = t.ID
+				if t.Name != "" {
+					cp.TeamName = t.Name
+				}
 				cp.TeamCity = t.City
 				cp.LogoURL = t.LogoURL
 				cp.PrimaryColor = t.PrimaryColor
@@ -643,33 +647,62 @@ func (c *Client) FetchOfficialArticlePowerRankings(seasonYear, weekNumber int, t
 		return nil, err
 	}
 
-	req, err := http.NewRequest("GET", articleURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0")
-
 	httpClient := c.httpClient
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 10 * time.Second}
 	}
 
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+	var htmlContent string
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("article request failed with status %d", resp.StatusCode)
+	// Strategy 1: Fast CDN JSON API (immune to Akamai/CloudFront blocks on cloud hosts)
+	if idMatch := storyIDRegex.FindStringSubmatch(articleURL); len(idMatch) > 1 {
+		cdnURL := fmt.Sprintf("https://cdn.espn.com/core/nfl/story?xhr=1&id=%s", idMatch[1])
+		if cdnReq, err := http.NewRequest("GET", cdnURL, nil); err == nil {
+			cdnReq.Header.Set("User-Agent", "curl/8.7.1")
+			cdnReq.Header.Set("Accept", "*/*")
+			if cdnResp, err := httpClient.Do(cdnReq); err == nil {
+				if cdnResp.StatusCode >= 200 && cdnResp.StatusCode < 300 {
+					var payload struct {
+						Content struct {
+							Story string `json:"story"`
+						} `json:"content"`
+					}
+					if err := json.NewDecoder(cdnResp.Body).Decode(&payload); err == nil && len(payload.Content.Story) > 1000 {
+						htmlContent = payload.Content.Story
+					}
+				}
+				cdnResp.Body.Close()
+			}
+		}
 	}
 
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+	// Strategy 2: Direct web article request if CDN is unavailable or empty
+	if htmlContent == "" {
+		req, err := http.NewRequest("GET", articleURL, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return nil, fmt.Errorf("article request failed with status %d", resp.StatusCode)
+		}
+
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		htmlContent = string(bodyBytes)
 	}
 
-	rankings, err := ParseESPNPowerRankingsHTML(string(bodyBytes), seasonYear, weekNumber, teamMap)
+	rankings, err := ParseESPNPowerRankingsHTML(htmlContent, seasonYear, weekNumber, teamMap)
 	if err != nil {
 		return nil, err
 	}
@@ -690,35 +723,34 @@ func (c *Client) FetchPowerRankings(seasonYear, weekNumber int, teamMap map[stri
 		weekNumber = 3
 	}
 
-	// For week 3: use curated official baseline when requested (preserves offline tests and verified Spanish rankings)
-	if weekNumber == 3 {
-		rankings := make([]*db.TeamPowerRanking, 0, len(OfficialWeek3PowerRankings))
-		for _, orig := range OfficialWeek3PowerRankings {
-			pr := *orig
-			pr.SeasonYear = seasonYear
-			pr.WeekNumber = weekNumber
-			if t, ok := teamMap[pr.TeamCode]; ok {
-				pr.TeamID = t.ID
-				pr.TeamName = t.Name
-				pr.TeamCity = t.City
-				pr.LogoURL = t.LogoURL
-				pr.PrimaryColor = t.PrimaryColor
-				pr.Conference = t.Conference
-				pr.Division = t.Division
-			}
-			rankings = append(rankings, &pr)
-		}
-		return rankings, nil
-	}
-
-	// For all other weeks (e.g. Week 6, Week 5, Week 4, Week 2, Week 1, and future weeks):
-	// First attempt to fetch the official ESPN editorial article
+	// 1. First attempt to fetch the official ESPN editorial article dynamically
 	articleRankings, err := c.FetchOfficialArticlePowerRankings(seasonYear, weekNumber, teamMap)
 	if err == nil && len(articleRankings) == 32 {
 		return articleRankings, nil
 	}
 
-	// Fallback: generate algorithmic rankings based on latest season standings, point diff and streaks
+	// 2. If article fetch failed or was offline, check if verified editorial baseline exists
+	if seasonYear == 2026 {
+		if verified, ok := Verified2026EditorialPowerRankings[weekNumber]; ok && len(verified) == 32 {
+			result := make([]*db.TeamPowerRanking, len(verified))
+			for i, orig := range verified {
+				cp := *orig
+				if t, ok := teamMap[cp.TeamCode]; ok {
+					cp.TeamID = t.ID
+					cp.TeamName = t.Name
+					cp.TeamCity = t.City
+					cp.LogoURL = t.LogoURL
+					cp.PrimaryColor = t.PrimaryColor
+					cp.Conference = t.Conference
+					cp.Division = t.Division
+				}
+				result[i] = &cp
+			}
+			return result, nil
+		}
+	}
+
+	// 3. Fallback: generate algorithmic rankings for future unverified weeks when ESPN is offline
 	standings, _ := c.FetchNFLStandings(seasonYear, seasonYear, teamMap)
 	prevWeekRanks := make(map[string]int)
 	for _, pr := range OfficialWeek3PowerRankings {

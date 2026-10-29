@@ -11,8 +11,8 @@ func TestFetchPowerRankings_OfflineFallback(t *testing.T) {
 	client := NewClient()
 
 	mockTeams := map[string]*db.Team{
-		"KC": {ID: 1, Code: "KC", Name: "Chiefs", City: "Kansas City"},
-		"SF": {ID: 2, Code: "SF", Name: "49ers", City: "San Francisco"},
+		"BUF": {ID: 1, Code: "BUF", Name: "Bills", City: "Buffalo"},
+		"SEA": {ID: 2, Code: "SEA", Name: "Seahawks", City: "Seattle"},
 	}
 
 	rankings, err := client.FetchPowerRankings(2026, 3, mockTeams)
@@ -24,20 +24,23 @@ func TestFetchPowerRankings_OfflineFallback(t *testing.T) {
 		t.Fatalf("expected 32 power rankings, got %d", len(rankings))
 	}
 
-	// Rank 1 must be KC
-	if rankings[0].TeamCode != "KC" || rankings[0].Rank != 1 {
-		t.Errorf("expected #1 to be KC, got %+v", rankings[0])
+	// Rank 1 must be BUF (Bills) authored by Nick Suss
+	if rankings[0].TeamCode != "BUF" || rankings[0].Rank != 1 {
+		t.Errorf("expected #1 to be BUF, got %+v", rankings[0])
 	}
-	if rankings[0].TeamName != "Chiefs" {
-		t.Errorf("expected TeamName Chiefs, got %s", rankings[0].TeamName)
+	if rankings[0].TeamName != "Bills" {
+		t.Errorf("expected TeamName Bills, got %s", rankings[0].TeamName)
 	}
-	if rankings[0].Author != "Eric Gómez" {
-		t.Errorf("expected author Eric Gómez, got %s", rankings[0].Author)
+	if rankings[0].Author != "Nick Suss" {
+		t.Errorf("expected author Nick Suss, got %s", rankings[0].Author)
 	}
 
-	// Rank 2 must be SF
-	if rankings[1].TeamCode != "SF" || rankings[1].Rank != 2 {
-		t.Errorf("expected #2 to be SF, got %+v", rankings[1])
+	// Rank 2 must be SEA (Seahawks) authored by Brady Henderson
+	if rankings[1].TeamCode != "SEA" || rankings[1].Rank != 2 {
+		t.Errorf("expected #2 to be SEA, got %+v", rankings[1])
+	}
+	if rankings[1].Author != "Brady Henderson" {
+		t.Errorf("expected author Brady Henderson, got %s", rankings[1].Author)
 	}
 }
 
