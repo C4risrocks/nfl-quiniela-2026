@@ -15,20 +15,34 @@ import (
 	"nfl-quiniela-2026/db"
 )
 
-// AllowInsecureEndpointsForTesting enables loopback endpoints only during automated tests
-var AllowInsecureEndpointsForTesting = false
+// pushNetwork supplies per-instance network dependencies without relaxing destination policy.
+type pushNetwork struct {
+	lookupIP    func(context.Context, string) ([]net.IP, error)
+	dialContext func(context.Context, string, string) (net.Conn, error)
+}
 
-// ValidatePushEndpoint ensures the target push URL uses HTTPS and does not point to internal/private networks (SSRF prevention)
+func defaultPushNetwork() pushNetwork {
+	dialer := &net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}
+	return pushNetwork{
+		lookupIP: func(ctx context.Context, host string) ([]net.IP, error) {
+			return net.DefaultResolver.LookupIP(ctx, "ip", host)
+		},
+		dialContext: dialer.DialContext,
+	}
+}
+
+// ValidatePushEndpoint requires HTTPS and a public destination.
 func ValidatePushEndpoint(endpointStr string) error {
+	return validatePushEndpoint(context.Background(), endpointStr, defaultPushNetwork().lookupIP)
+}
+
+func validatePushEndpoint(ctx context.Context, endpointStr string, lookup func(context.Context, string) ([]net.IP, error)) error {
 	u, err := url.Parse(endpointStr)
 	if err != nil {
 		return fmt.Errorf("invalid endpoint URL: %w", err)
 	}
 
 	if u.Scheme != "https" {
-		if u.Scheme == "http" && AllowInsecureEndpointsForTesting {
-			return nil
-		}
 		return fmt.Errorf("push endpoint must use HTTPS scheme")
 	}
 
@@ -36,9 +50,8 @@ func ValidatePushEndpoint(endpointStr string) error {
 	if host == "" {
 		return fmt.Errorf("push endpoint host is missing")
 	}
-
-	if AllowInsecureEndpointsForTesting && (host == "127.0.0.1" || host == "localhost") {
-		return nil
+	if u.User != nil || u.Fragment != "" {
+		return fmt.Errorf("push endpoint must not contain credentials or a fragment")
 	}
 
 	// Reject localhost / loopback hostnames
@@ -53,7 +66,7 @@ func ValidatePushEndpoint(endpointStr string) error {
 		}
 	} else {
 		// Resolve DNS
-		ips, err := net.LookupIP(host)
+		ips, err := lookup(ctx, host)
 		if err != nil {
 			return fmt.Errorf("failed to resolve push endpoint host: %w", err)
 		}
@@ -72,7 +85,7 @@ func ValidatePushEndpoint(endpointStr string) error {
 
 // IsPrivateOrLoopbackIP checks if an IP belongs to loopback, private RFC1918, or link-local ranges
 func IsPrivateOrLoopbackIP(ip net.IP) bool {
-	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsPrivate() || ip.IsUnspecified() {
+	if !ip.IsGlobalUnicast() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsPrivate() || ip.IsUnspecified() {
 		return true
 	}
 	if ip4 := ip.To4(); ip4 != nil {
@@ -113,34 +126,35 @@ type PushService struct {
 	privateKey string
 	subject    string
 	httpClient *http.Client
+	network    pushNetwork
 }
 
 // NewPushService initializes a new Web Push service instance with anti-SSRF protections
 func NewPushService(repo *db.Repository, publicKey, privateKey, subject string) *PushService {
+	return newPushService(repo, publicKey, privateKey, subject, defaultPushNetwork())
+}
+
+func newPushService(repo *db.Repository, publicKey, privateKey, subject string, network pushNetwork) *PushService {
 	safeTransport := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+		Proxy: nil, // Resolve and validate the actual destination locally, never an ambient proxy.
+		DialContext: func(ctx context.Context, networkName, addr string) (net.Conn, error) {
 			host, port, err := net.SplitHostPort(addr)
 			if err != nil {
 				return nil, err
 			}
-			ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+			ips, err := network.lookupIP(ctx, host)
 			if err != nil {
 				return nil, err
 			}
 			for _, ip := range ips {
-				if !AllowInsecureEndpointsForTesting && IsPrivateOrLoopbackIP(ip) {
+				if IsPrivateOrLoopbackIP(ip) {
 					return nil, fmt.Errorf("SSRF protection: push endpoint resolves to private/loopback IP: %s", ip.String())
 				}
 			}
-			dialer := &net.Dialer{
-				Timeout:   5 * time.Second,
-				KeepAlive: 30 * time.Second,
+			if len(ips) == 0 {
+				return nil, fmt.Errorf("push destination has no IP addresses")
 			}
-			if len(ips) > 0 {
-				return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].String(), port))
-			}
-			return dialer.DialContext(ctx, network, addr)
+			return network.dialContext(ctx, networkName, net.JoinHostPort(ips[0].String(), port))
 		},
 		MaxIdleConns:          100,
 		IdleConnTimeout:       90 * time.Second,
@@ -150,6 +164,7 @@ func NewPushService(repo *db.Repository, publicKey, privateKey, subject string) 
 
 	return &PushService{
 		repo:       repo,
+		network:    network,
 		publicKey:  publicKey,
 		privateKey: privateKey,
 		subject:    subject,
@@ -184,7 +199,7 @@ func (s *PushService) SendNotification(ctx context.Context, sub *db.PushSubscrip
 		return fmt.Errorf("webpush service is not configured with VAPID keys")
 	}
 
-	if err := ValidatePushEndpoint(sub.Endpoint); err != nil {
+	if err := validatePushEndpoint(ctx, sub.Endpoint, s.network.lookupIP); err != nil {
 		return fmt.Errorf("invalid push subscription endpoint: %w", err)
 	}
 

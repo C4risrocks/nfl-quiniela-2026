@@ -77,7 +77,7 @@ func MapQuinielaWeekToESPNWeek(weekNum int) (espnWeek int, seasonType int) {
 // FetchWeekScoreboard fetches games for a specific season, week, and seasonType (2 = regular season, 3 = postseason)
 func (c *Client) FetchWeekScoreboard(year, weekNum, seasonType int) (*ESPNScoreboardResponse, error) {
 	url := fmt.Sprintf("%s?dates=%d&seasontype=%d&week=%d", c.baseURL, year, seasonType, weekNum)
-	
+
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating espn request: %w", err)
@@ -355,6 +355,7 @@ func (c *Client) FetchGameSummary(espnGameID string) (*db.GameDetailedSummary, e
 	}
 
 	result := &db.GameDetailedSummary{
+		Source:       db.StatsSourceESPN,
 		ScoringPlays: make([]db.ScoringPlayItem, 0, len(espnResp.ScoringPlays)),
 	}
 
@@ -896,5 +897,3 @@ func parseTeamPlayerStats(item ESPNBoxscorePlayerTeam) *db.TeamPlayerStats {
 		Categories: cats,
 	}
 }
-
-

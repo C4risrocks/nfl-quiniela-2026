@@ -1,0 +1,12 @@
+?   	nfl-quiniela-2026	[no test files]
+?   	nfl-quiniela-2026/benchmarks/forecast_evaluation/models	[no test files]
+ok  	nfl-quiniela-2026/config	0.413s
+ok  	nfl-quiniela-2026/db	4.982s
+ok  	nfl-quiniela-2026/handlers	17.689s
+ok  	nfl-quiniela-2026/services/auth	2.212s
+ok  	nfl-quiniela-2026/services/espn	5.269s
+ok  	nfl-quiniela-2026/services/events	3.446s
+ok  	nfl-quiniela-2026/services/forecasting	2.846s
+ok  	nfl-quiniela-2026/services/notifications	1.774s
+ok  	nfl-quiniela-2026/services/scoring	3.519s
+ok  	nfl-quiniela-2026/services/security	2.112s

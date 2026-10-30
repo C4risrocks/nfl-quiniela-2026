@@ -1,0 +1,69 @@
+[
+  {
+    "test": "initial",
+    "ready": "1/2 listos\n                    50%",
+    "status": "Tus cambios se guardan al pulsar Enviar.",
+    "loaded": true
+  },
+  {
+    "test": "save-network",
+    "state": "error",
+    "text": "No se confirmó el guardado. Revisa tu conexión y vuelve a enviar; tus selecciones siguen en esta página.",
+    "draftPreserved": true,
+    "url": "/picks",
+    "buttonEnabled": true
+  },
+  {
+    "test": "save-403",
+    "state": "error",
+    "text": "No se guardaron tus cambios: la solicitud fue rechazada. Revisa tu sesión y vuelve a intentarlo.",
+    "draftPreserved": true,
+    "url": "/picks",
+    "buttonEnabled": true
+  },
+  {
+    "test": "save-429",
+    "state": "error",
+    "text": "No se guardaron tus cambios. Espera 7 segundos y vuelve a enviar.",
+    "draftPreserved": true,
+    "url": "/picks",
+    "buttonEnabled": true
+  },
+  {
+    "test": "save-confirmed",
+    "url": "/picks?week=18&saved=1&missing=0",
+    "status": "Pronósticos guardados correctamente.",
+    "state": "saved",
+    "ready": "2/2 listos\n                    100%"
+  },
+  {
+    "test": "modal-open",
+    "inside": true
+  },
+  {
+    "test": "modal-refresh",
+    "inside": true,
+    "tag": "INPUT",
+    "value": "testplayer",
+    "selection": [
+      2,
+      5
+    ]
+  },
+  {
+    "test": "modal-close",
+    "restored": true
+  },
+  {
+    "test": "provenance-espn",
+    "note": "Fuente de estadísticas: ESPN."
+  },
+  {
+    "test": "provenance-unknown",
+    "note": "Procedencia sin verificar: estos datos guardados pueden incluir estimaciones. Se conservan para consulta y no se presentan como estadísticas oficiales de ESPN."
+  },
+  {
+    "test": "provenance-simulated",
+    "note": "Datos simulados: estadísticas, jugadores, jugadas y sede pueden ser estimaciones. No son estadísticas oficiales de ESPN."
+  }
+]

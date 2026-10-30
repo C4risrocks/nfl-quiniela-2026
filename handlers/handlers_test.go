@@ -28,7 +28,7 @@ import (
 )
 
 func setupTestApp(t *testing.T) (*db.Repository, *auth.AuthService, *Renderer, *scoring.Calculator, func()) {
-	testDB := "test_handlers.db"
+	testDB := filepath.Join(t.TempDir(), "test_handlers.db")
 	database, err := db.InitDB("sqlite", testDB)
 	if err != nil {
 		t.Fatalf("InitDB error: %v", err)
@@ -2909,9 +2909,3 @@ func TestExportCSV_SanitizesFormulaInjection(t *testing.T) {
 		t.Fatalf("Expected sanitized username \"'=1+1\" in CSV output, but was not found. Output:\n%s", body)
 	}
 }
-
-
-
-
-
-

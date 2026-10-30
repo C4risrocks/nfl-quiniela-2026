@@ -61,6 +61,7 @@
              const inp = document.getElementById('pick-input-{{.Game.ID}}');
              if (inp) inp.value = this.pickedTeam;
              if (typeof updatePicksCounter === 'function') updatePicksCounter();
+             if (typeof window.markPicksDirty === 'function') window.markPicksDirty();
              if (this.pickedTeam && typeof window.__onGamePickedFocusAdvancer === 'function') {
                  window.__onGamePickedFocusAdvancer({{.Game.ID}});
              }
@@ -91,6 +92,7 @@
              const inp = document.getElementById('pick-input-{{.Game.ID}}');
              if (inp) inp.value = this.pickedTeam;
              if (typeof updatePicksCounter === 'function') updatePicksCounter();
+             if (typeof window.markPicksDirty === 'function') window.markPicksDirty();
          }
      }"
      class="vercel-card rounded-2xl relative transition-all duration-150 shadow-sm overflow-hidden max-w-full min-w-0 {{if .Game.IsTiebreaker}}ring-2 ring-amber-500/40 bg-gradient-to-b from-amber-500/10 via-zinc-950 to-zinc-950 border-amber-500/40 shadow-lg shadow-amber-500/5{{end}}"

@@ -43,6 +43,8 @@
          aria-labelledby="game-stats-modal-title"
          @click.stop>
 
+        {{template "stats_provenance.html" .Summary}}
+
         <!-- 1. Header (Fixed, shrink-0) -->
         <div class="shrink-0 p-3 sm:p-5 border-b border-zinc-800/80 bg-zinc-900/60 flex flex-col space-y-2.5 sm:space-y-3">
             <div class="flex items-center justify-between">
@@ -321,7 +323,7 @@
                         
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-mono font-bold uppercase tracking-wider text-zinc-300 flex items-center">
-                                <i class="fa-solid fa-chart-area mr-1.5 text-amber-400"></i> Gráfica de Probabilidad de Victoria (ESPN FPI)
+                                <i class="fa-solid fa-chart-area mr-1.5 text-amber-400"></i> Gráfica de Probabilidad de Victoria
                             </span>
                             <span class="text-[10px] font-mono text-zinc-500">
                                 Pasa el cursor o desliza para ver jugadas
@@ -452,7 +454,7 @@
                         </div>
                         <h4 class="text-sm font-bold text-white">Probabilidad de victoria no disponible</h4>
                         <p class="text-xs text-zinc-400 max-w-sm mx-auto">
-                            Las proyecciones jugada a jugada de ESPN FPI se calculan dinámicamente una vez iniciado el encuentro.
+                            La probabilidad de victoria no está disponible para este partido.
                         </p>
                     </div>
                 {{end}}
@@ -578,7 +580,7 @@
                                     </div>
                                     <div class="bg-zinc-900/60 p-2 rounded-lg border border-zinc-800/60">
                                         <span class="text-[9px] font-mono text-zinc-500 uppercase block">Árbitro</span>
-                                        <span class="font-bold text-white block truncate">{{if $v.Referee}}{{$v.Referee}}{{else}}Oficial NFL{{end}}</span>
+                                        <span class="font-bold text-white block truncate">{{if $v.Referee}}{{$v.Referee}}{{else}}No disponible{{end}}</span>
                                         <span class="text-[10px] text-zinc-400 block">Oficial Principal</span>
                                     </div>
                                 </div>
@@ -901,7 +903,7 @@
         <!-- 3. Footer (shrink-0) -->
         <div class="shrink-0 p-3 sm:p-4 border-t border-zinc-800/80 bg-zinc-900/60 flex items-center justify-between">
             <span class="text-[10px] font-mono text-zinc-500 flex items-center">
-                <i class="fa-solid fa-satellite-dish mr-1.5 text-cyan-400"></i> Datos oficiales en vivo vía ESPN API
+                <i class="fa-solid fa-satellite-dish mr-1.5 text-cyan-400"></i> {{if and .Summary (eq .Summary.EffectiveSource "espn")}}Fuente: ESPN{{else}}Consulta la procedencia indicada al inicio{{end}}
             </span>
 
             <button type="button"

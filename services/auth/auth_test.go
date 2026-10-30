@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"nfl-quiniela-2026/db"
+	"nfl-quiniela-2026/services/security"
 )
 
 func TestSessionRevocationOnPasswordChange(t *testing.T) {
@@ -114,7 +115,8 @@ func TestCookieSecureFlagOnHTTPS(t *testing.T) {
 	recProxy := httptest.NewRecorder()
 	reqProxy := httptest.NewRequest(http.MethodGet, "http://example.com/login", nil)
 	reqProxy.Header.Set("X-Forwarded-Proto", "https")
-	authService.SetSessionCookie(recProxy, 100, reqProxy)
+	reqProxy.RemoteAddr = "172.18.0.2:1234"
+	security.NewClientIPResolver([]string{"172.18.0.2"}, true).Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { authService.SetSessionCookie(w, 100, r) })).ServeHTTP(recProxy, reqProxy)
 
 	cookieProxy := recProxy.Result().Cookies()[0]
 	if !cookieProxy.Secure {

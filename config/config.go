@@ -2,7 +2,10 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -13,31 +16,31 @@ import (
 )
 
 type Config struct {
-	Port                 string
-	DBType               string // "sqlite" or "postgres"
-	DBPath               string
-	DatabaseURL          string
-	SessionSecret        string
-	AdminUsername        string
-	AdminPassword        string
-	AdminEmail           string
-	ESPNSyncIntervalMins int
-	CurrentSeasonYear    int
-	EnableBackgroundSync bool
-	SMTPHost             string
-	SMTPPort             int
-	SMTPUser             string
-	SMTPPass             string
-	SMTPFrom             string
-	AppBaseURL           string
-	EnableReminders      bool
-	UploadDir            string
-	VAPIDPublicKey       string
-	VAPIDPrivateKey      string
-	VAPIDSubject         string
-	BehindProxy          bool
-	TrustedProxies       []string
-	RateLimitAuthPerMin  int
+	Port                  string
+	DBType                string // "sqlite" or "postgres"
+	DBPath                string
+	DatabaseURL           string
+	SessionSecret         string
+	AdminUsername         string
+	AdminPassword         string
+	AdminEmail            string
+	ESPNSyncIntervalMins  int
+	CurrentSeasonYear     int
+	EnableBackgroundSync  bool
+	SMTPHost              string
+	SMTPPort              int
+	SMTPUser              string
+	SMTPPass              string
+	SMTPFrom              string
+	AppBaseURL            string
+	EnableReminders       bool
+	UploadDir             string
+	VAPIDPublicKey        string
+	VAPIDPrivateKey       string
+	VAPIDSubject          string
+	BehindProxy           bool
+	TrustedProxies        []string
+	RateLimitAuthPerMin   int
 	RateLimitGlobalPerMin int
 }
 
@@ -165,6 +168,9 @@ func LoadConfig() *Config {
 			}
 		}
 	}
+	if err := validateNetworkConfig(behindProxy, trustedProxies, appBaseURL); err != nil {
+		log.Fatal(err)
+	}
 	rateLimitAuth := getEnvAsInt("RATE_LIMIT_AUTH_PER_MIN", 10)
 	rateLimitGlobal := getEnvAsInt("RATE_LIMIT_GLOBAL_PER_MIN", 120)
 
@@ -227,4 +233,24 @@ func getEnvAsBool(key string, fallback bool) bool {
 		return fallback
 	}
 	return val
+}
+
+func validateNetworkConfig(behindProxy bool, trustedProxies []string, appBaseURL string) error {
+	if behindProxy {
+		if len(trustedProxies) == 0 {
+			return errors.New("BEHIND_PROXY=true requires explicit TRUSTED_PROXIES")
+		}
+		for _, proxy := range trustedProxies {
+			if net.ParseIP(proxy) == nil {
+				if _, _, err := net.ParseCIDR(proxy); err != nil {
+					return errors.New("invalid TRUSTED_PROXIES entry")
+				}
+			}
+		}
+	}
+	base, err := url.Parse(appBaseURL)
+	if err != nil || base.Hostname() == "" || base.User != nil || (base.Scheme != "http" && base.Scheme != "https") {
+		return errors.New("APP_BASE_URL must be a valid HTTP(S) origin")
+	}
+	return nil
 }

@@ -14,8 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"nfl-quiniela-2026/db"
 	"golang.org/x/crypto/bcrypt"
+	"nfl-quiniela-2026/db"
+	"nfl-quiniela-2026/services/security"
 )
 
 type contextKey string
@@ -209,9 +210,7 @@ func (s *AuthService) SetSessionCookie(w http.ResponseWriter, userID int64, req 
 	secure := false
 	if len(req) > 0 && req[0] != nil {
 		r := req[0]
-		if r.TLS != nil ||
-			strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") ||
-			strings.EqualFold(r.Header.Get("X-Forwarded-Ssl"), "on") {
+		if security.RequestScheme(r) == "https" {
 			secure = true
 		}
 	}
@@ -233,9 +232,7 @@ func (s *AuthService) ClearSessionCookie(w http.ResponseWriter, req ...*http.Req
 	secure := false
 	if len(req) > 0 && req[0] != nil {
 		r := req[0]
-		if r.TLS != nil ||
-			strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") ||
-			strings.EqualFold(r.Header.Get("X-Forwarded-Ssl"), "on") {
+		if security.RequestScheme(r) == "https" {
 			secure = true
 		}
 	}

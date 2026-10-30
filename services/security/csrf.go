@@ -2,6 +2,7 @@ package security
 
 import (
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -10,12 +11,7 @@ import (
 // CSRFProtectionMiddleware protects state-changing requests against Cross-Site Request Forgery (CSRF).
 // It verifies that incoming POST/PUT/DELETE/PATCH requests originate from the same site.
 func CSRFProtectionMiddleware(appBaseURL string) func(http.Handler) http.Handler {
-	var allowedHosts []string
-	if appBaseURL != "" {
-		if u, err := url.Parse(appBaseURL); err == nil && u.Host != "" {
-			allowedHosts = append(allowedHosts, strings.ToLower(u.Host))
-		}
-	}
+	allowedOrigin := normalizedOrigin(appBaseURL)
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -37,12 +33,13 @@ func CSRFProtectionMiddleware(appBaseURL string) func(http.Handler) http.Handler
 			originHeader := r.Header.Get("Origin")
 			refererHeader := r.Header.Get("Referer")
 
-			targetHost := strings.ToLower(r.Host)
-
 			if originHeader != "" {
-				originURL, err := url.Parse(originHeader)
-				if err != nil || !isHostAllowed(strings.ToLower(originURL.Host), targetHost, allowedHosts) {
-					log.Printf("[CSRF] Blocked invalid Origin '%s' (target: '%s') from IP %s", originHeader, targetHost, GetClientIP(r))
+				origin := normalizedOrigin(originHeader)
+				if u, err := url.Parse(originHeader); err != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+					origin = ""
+				}
+				if origin == "" || origin != allowedOrigin {
+					log.Printf("[CSRF] Blocked invalid Origin '%s' (target: '%s') from IP %s", originHeader, allowedOrigin, GetClientIP(r))
 					rejectCSRF(w, r)
 					return
 				}
@@ -52,9 +49,9 @@ func CSRFProtectionMiddleware(appBaseURL string) func(http.Handler) http.Handler
 
 			// Fallback to Referer if Origin is missing
 			if refererHeader != "" {
-				refURL, err := url.Parse(refererHeader)
-				if err != nil || !isHostAllowed(strings.ToLower(refURL.Host), targetHost, allowedHosts) {
-					log.Printf("[CSRF] Blocked invalid Referer '%s' (target: '%s') from IP %s", refererHeader, targetHost, GetClientIP(r))
+				origin := normalizedOrigin(refererHeader)
+				if origin == "" || origin != allowedOrigin {
+					log.Printf("[CSRF] Blocked invalid Referer '%s' (target: '%s') from IP %s", refererHeader, allowedOrigin, GetClientIP(r))
 					rejectCSRF(w, r)
 					return
 				}
@@ -62,50 +59,33 @@ func CSRFProtectionMiddleware(appBaseURL string) func(http.Handler) http.Handler
 				return
 			}
 
-			// If both Origin and Referer are absent on a mutating request,
-			// allow if it has a same-origin HTMX/AJAX custom header, otherwise pass through (e.g. CLI/testing)
+			if r.Header.Get("Sec-Fetch-Site") != "same-origin" || allowedOrigin == "" {
+				rejectCSRF(w, r)
+				return
+			}
 			next.ServeHTTP(w, r)
 		})
 	}
 }
 
-func isHostAllowed(candidateHost, targetHost string, allowedHosts []string) bool {
-	if candidateHost == "" || targetHost == "" {
-		return false
+func normalizedOrigin(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.User != nil || u.Hostname() == "" {
+		return ""
 	}
-	if candidateHost == targetHost {
-		return true
+	scheme := strings.ToLower(u.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return ""
 	}
-	// Strip port for comparison if port differs in proxy
-	candNoPort := stripPort(candidateHost)
-	targetNoPort := stripPort(targetHost)
-	if candNoPort == targetNoPort {
-		return true
-	}
-
-	for _, allowed := range allowedHosts {
-		if candidateHost == allowed || candNoPort == stripPort(allowed) {
-			return true
+	port := u.Port()
+	if port == "" {
+		if scheme == "https" {
+			port = "443"
+		} else {
+			port = "80"
 		}
 	}
-
-	// Permit local dev loopback pairings (e.g. 127.0.0.1 <-> localhost)
-	if isLoopback(candNoPort) && isLoopback(targetNoPort) {
-		return true
-	}
-
-	return false
-}
-
-func stripPort(host string) string {
-	if idx := strings.IndexByte(host, ':'); idx != -1 {
-		return host[:idx]
-	}
-	return host
-}
-
-func isLoopback(host string) bool {
-	return host == "localhost" || host == "127.0.0.1" || host == "::1"
+	return scheme + "://" + net.JoinHostPort(strings.ToLower(u.Hostname()), port)
 }
 
 func rejectCSRF(w http.ResponseWriter, r *http.Request) {

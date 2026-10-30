@@ -2,6 +2,8 @@ name: Build & Publish Docker Image
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 env:
   REGISTRY: ghcr.io
@@ -11,6 +13,20 @@ jobs:
   test:
     name: Run Automated Tests & Quality Gates
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: quiniela_test
+          POSTGRES_PASSWORD: integration_only
+          POSTGRES_DB: quiniela_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U quiniela_test -d quiniela_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,7 +42,14 @@ jobs:
       - name: Run Unit Tests with Race Detector
         run: go test -v -race ./...
 
+      - name: Run SQLite and PostgreSQL 17 integration tests
+        env:
+          TEST_POSTGRES_DSN: postgres://quiniela_test:integration_only@127.0.0.1:5432/quiniela_test?sslmode=disable
+          REQUIRE_POSTGRES_TESTS: "1"
+        run: go test -v -race -tags=integration ./db
+
   build-and-push:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: test
     runs-on: ubuntu-latest
     permissions:

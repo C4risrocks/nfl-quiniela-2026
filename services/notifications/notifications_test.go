@@ -2,9 +2,14 @@ package notifications
 
 import (
 	"context"
+	"crypto/x509"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -145,7 +150,7 @@ func TestWeeklyRecapEmailAndDigest(t *testing.T) {
 }
 
 func TestPushServiceAndPruning(t *testing.T) {
-	dbPath := "test_push_unit.db"
+	dbPath := t.TempDir() + "/push.db"
 	_ = os.Remove(dbPath)
 	defer os.Remove(dbPath)
 
@@ -156,7 +161,9 @@ func TestPushServiceAndPruning(t *testing.T) {
 	defer database.Close()
 
 	repo := db.NewRepository(database)
-	_ = db.SeedDatabase(repo, "admin", "admin@test.com", "pass123", 2026)
+	if err := db.SeedDatabase(repo, "admin", "admin@test.com", "pass123", 2026); err != nil {
+		t.Fatal(err)
+	}
 
 	// 1. Generate real VAPID keys for testing
 	privKey, pubKey, err := webpush.GenerateVAPIDKeys()
@@ -172,29 +179,32 @@ func TestPushServiceAndPruning(t *testing.T) {
 		t.Errorf("Expected PublicKey %s, got %s", pubKey, pushSvc.PublicKey())
 	}
 
-	user, _ := repo.CreateUser("pusher", "pusher@test.com", "hash", "player")
-
-	// Allow loopback mock in unit test
-	AllowInsecureEndpointsForTesting = true
-	defer func() { AllowInsecureEndpointsForTesting = false }()
+	user, err := repo.CreateUser("pusher", "pusher@test.com", "hash", "player")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// 2. Mock Push Gateway server
 	var statusCode int = http.StatusCreated
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(statusCode)
 	}))
 	defer ts.Close()
 
+	pushSvc = testPushService(t, repo, pubKey, privKey, ts)
+
 	// Direct endpoint to mock server
 	sub1 := &db.PushSubscription{
 		UserID:   user.ID,
-		Endpoint: ts.URL + "/fcm/sub1",
+		Endpoint: "https://example.com/fcm/sub1",
 		// Valid base64url keys so webpush-go encryption doesn't fail before network
 		P256dh:    pubKey,
 		Auth:      "kZ1q9zP3p4_x5y6w7v8u9g",
 		UserAgent: "TestAgent/1.0",
 	}
-	_ = repo.SavePushSubscription(sub1)
+	if err := repo.SavePushSubscription(sub1); err != nil {
+		t.Fatal(err)
+	}
 
 	// 3. Test successful dispatch
 	statusCode = http.StatusCreated
@@ -204,18 +214,25 @@ func TestPushServiceAndPruning(t *testing.T) {
 		URL:   "/picks",
 	})
 	if err != nil {
-		t.Logf("SendNotification note (expected if mock encryption auth mismatch): %v", err)
+		t.Fatalf("successful dispatch: %v", err)
 	}
 
 	// 4. Test 410 Gone / 404 Not Found pruning
 	statusCode = http.StatusGone
-	_ = pushSvc.SendNotification(context.Background(), sub1, PushPayload{
+	err = pushSvc.SendNotification(context.Background(), sub1, PushPayload{
 		Title: "Test Expired",
 		Body:  "Expired",
 	})
 
+	if err == nil || !strings.Contains(err.Error(), "subscription expired") {
+		t.Fatalf("expected expiration, got %v", err)
+	}
+
 	// Verify endpoint was automatically pruned from DB
-	subsAfter, _ := repo.GetUserPushSubscriptions(user.ID)
+	subsAfter, err := repo.GetUserPushSubscriptions(user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(subsAfter) != 0 {
 		t.Errorf("Expected subscription to be pruned on HTTP 410, still found %d", len(subsAfter))
 	}
@@ -229,8 +246,6 @@ func TestPushServiceAndPruning(t *testing.T) {
 }
 
 func TestValidatePushEndpoint_SSRFPrevention(t *testing.T) {
-	// Ensure test override is disabled during SSRF validation test
-	AllowInsecureEndpointsForTesting = false
 
 	blockedEndpoints := []string{
 		"http://127.0.0.1:8080/push",
@@ -258,44 +273,104 @@ func TestValidatePushEndpoint_SSRFPrevention(t *testing.T) {
 	}
 
 	for _, ep := range validEndpoints {
-		if err := ValidatePushEndpoint(ep); err != nil {
+		if err := validatePushEndpoint(context.Background(), ep, func(context.Context, string) ([]net.IP, error) { return []net.IP{net.ParseIP("8.8.8.8")}, nil }); err != nil {
 			t.Errorf("Expected endpoint %s to be allowed, but got error: %v", ep, err)
 		}
 	}
 }
 
-func TestPushService_AntiRedirectAndAntiRebindingSSRF(t *testing.T) {
-	AllowInsecureEndpointsForTesting = false
-
-	// Target internal server that should NEVER receive a request via redirect
-	internalReceived := false
-	internalServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		internalReceived = true
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer internalServer.Close()
-
-	// Server attempting redirect to internal server
-	redirectServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, internalServer.URL+"/victim", http.StatusFound)
-	}))
-	defer redirectServer.Close()
-
-	ps := NewPushService(nil, "dummy_pub", "dummy_priv", "mailto:test@test.com")
-
-	req, _ := http.NewRequest("POST", redirectServer.URL, nil)
-	resp, err := ps.httpClient.Do(req)
-	if err == nil && resp != nil {
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusFound {
-			t.Errorf("Expected 302 response without following redirect, got: %d", resp.StatusCode)
-		}
+// The resolver reports a public destination; only this per-instance connector routes
+// that validated address to the TLS fixture. Production policy remains active.
+func testPushService(t *testing.T, repo *db.Repository, pub, priv string, server *httptest.Server) *PushService {
+	t.Helper()
+	n := pushNetwork{
+		lookupIP: func(context.Context, string) ([]net.IP, error) { return []net.IP{net.ParseIP("8.8.8.8")}, nil },
+		dialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			if addr != "8.8.8.8:443" {
+				t.Errorf("unexpected unvalidated dial %s", addr)
+			}
+			return (&net.Dialer{}).DialContext(ctx, network, server.Listener.Addr().String())
+		},
 	}
+	ps := newPushService(repo, pub, priv, "mailto:test@example.com", n)
+	tr := ps.httpClient.Transport.(*http.Transport)
+	tr.TLSClientConfig = server.Client().Transport.(*http.Transport).TLSClientConfig.Clone()
+	tr.TLSClientConfig.InsecureSkipVerify = false
+	tr.TLSClientConfig.RootCAs = x509.NewCertPool()
+	tr.TLSClientConfig.RootCAs.AddCert(server.Certificate())
+	t.Cleanup(tr.CloseIdleConnections)
+	return ps
+}
 
-	if internalReceived {
-		t.Fatalf("CRITICAL SSRF FAIL: internalServer received redirected request!")
+func TestPushService_AntiRedirectAndAntiRebindingSSRF(t *testing.T) {
+	for _, code := range []int{302, 307, 308} {
+		t.Run(http.StatusText(code), func(t *testing.T) {
+			var initial, target atomic.Int32
+			internal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { target.Add(1); w.WriteHeader(201) }))
+			defer internal.Close()
+			gateway := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { initial.Add(1); http.Redirect(w, r, internal.URL, code) }))
+			defer gateway.Close()
+			ps := testPushService(t, nil, "", "", gateway)
+			req, err := http.NewRequest("POST", "https://example.com/push", strings.NewReader("payload"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp, err := ps.httpClient.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != code || initial.Load() != 1 || target.Load() != 0 {
+				t.Fatalf("status=%d initial=%d target=%d", resp.StatusCode, initial.Load(), target.Load())
+			}
+		})
 	}
 }
 
+func TestPushNetworkBlocksResolvedAddresses(t *testing.T) {
+	for _, addresses := range [][]string{{"127.0.0.1"}, {"::1"}, {"::ffff:127.0.0.1"}, {"10.0.0.1"}, {"169.254.169.254"}, {"fc00::1"}, {"8.8.8.8", "192.168.1.1"}, {}} {
+		t.Run(strings.Join(addresses, ","), func(t *testing.T) {
+			var dialed atomic.Int32
+			n := pushNetwork{lookupIP: func(context.Context, string) ([]net.IP, error) {
+				var ips []net.IP
+				for _, v := range addresses {
+					ips = append(ips, net.ParseIP(v))
+				}
+				return ips, nil
+			}, dialContext: func(context.Context, string, string) (net.Conn, error) {
+				dialed.Add(1)
+				return nil, fmt.Errorf("must not dial")
+			}}
+			ps := newPushService(nil, "", "", "", n)
+			_, err := ps.httpClient.Get("https://example.com/push")
+			if err == nil || dialed.Load() != 0 {
+				t.Fatalf("err=%v dials=%d", err, dialed.Load())
+			}
+		})
+	}
+}
 
-
+func TestPushDNSRebindingAndAmbientProxy(t *testing.T) {
+	t.Setenv("HTTPS_PROXY", "http://127.0.0.1:9")
+	var lookups, dials atomic.Int32
+	n := pushNetwork{lookupIP: func(context.Context, string) ([]net.IP, error) {
+		if lookups.Add(1) == 1 {
+			return []net.IP{net.ParseIP("8.8.8.8")}, nil
+		}
+		return []net.IP{net.ParseIP("127.0.0.1")}, nil
+	}, dialContext: func(context.Context, string, string) (net.Conn, error) {
+		dials.Add(1)
+		return nil, fmt.Errorf("must not dial")
+	}}
+	if err := validatePushEndpoint(context.Background(), "https://example.com/push", n.lookupIP); err != nil {
+		t.Fatal(err)
+	}
+	ps := newPushService(nil, "", "", "", n)
+	if ps.httpClient.Transport.(*http.Transport).Proxy != nil {
+		t.Fatal("push inherits ambient proxy")
+	}
+	_, err := ps.httpClient.Get("https://example.com/push")
+	if err == nil || lookups.Load() != 2 || dials.Load() != 0 {
+		t.Fatalf("err=%v lookups=%d dials=%d", err, lookups.Load(), dials.Load())
+	}
+}

@@ -45,3 +45,17 @@ func TestLoadConfigAppDataFallback(t *testing.T) {
 		}
 	}
 }
+
+func TestNetworkConfiguration(t *testing.T) {
+	for _, tc := range []struct {
+		behind  bool
+		proxies []string
+		base    string
+		valid   bool
+	}{{false, nil, "http://localhost:8080", true}, {true, nil, "https://example.com", false}, {true, []string{"bad"}, "https://example.com", false}, {true, []string{"172.18.0.2", "2001:db8::/32"}, "https://example.com", true}, {false, nil, "https://user:pass@example.com", false}, {false, nil, "file:///tmp/app", false}} {
+		err := validateNetworkConfig(tc.behind, tc.proxies, tc.base)
+		if (err == nil) != tc.valid {
+			t.Errorf("%+v: %v", tc, err)
+		}
+	}
+}

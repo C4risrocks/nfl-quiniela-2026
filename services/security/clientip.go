@@ -37,29 +37,6 @@ func NewClientIPResolver(trustedProxies []string, behindProxy bool) *ClientIPRes
 		behindProxy: behindProxy,
 	}
 
-	// Default trusted loopback networks
-	defaultBlocks := []string{
-		"127.0.0.0/8",
-		"::1/128",
-	}
-
-	// If behind a proxy in a containerized environment (Docker/Kubernetes),
-	// trust private RFC 1918 subnets for reverse proxy hops by default.
-	if behindProxy {
-		defaultBlocks = append(defaultBlocks,
-			"10.0.0.0/8",
-			"172.16.0.0/12",
-			"192.168.0.0/16",
-			"fc00::/7",
-		)
-	}
-
-	for _, cidr := range defaultBlocks {
-		if _, ipNet, err := net.ParseCIDR(cidr); err == nil {
-			resolver.trustedProxies = append(resolver.trustedProxies, ipNet)
-		}
-	}
-
 	// Add any explicitly user-configured trusted proxy CIDRs/IPs
 	for _, proxy := range trustedProxies {
 		proxy = strings.TrimSpace(proxy)
@@ -96,7 +73,7 @@ func (r *ClientIPResolver) ResolveClientIP(req *http.Request) string {
 	}
 
 	// If connection is not from a trusted proxy, do NOT trust X-Forwarded-For or X-Real-IP
-	if !r.trustedProxies.Contains(remoteIP) {
+	if !r.behindProxy || !r.trustedProxies.Contains(remoteIP) {
 		return remoteIP.String()
 	}
 
@@ -138,6 +115,16 @@ func (r *ClientIPResolver) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		clientIP := r.ResolveClientIP(req)
 		ctx := context.WithValue(req.Context(), ClientIPContextKey, clientIP)
+		scheme := "http"
+		if req.TLS != nil {
+			scheme = "https"
+		} else {
+			remote, _, _ := net.SplitHostPort(req.RemoteAddr)
+			if r.behindProxy && r.trustedProxies.Contains(net.ParseIP(remote)) && strings.EqualFold(req.Header.Get("X-Forwarded-Proto"), "https") {
+				scheme = "https"
+			}
+		}
+		ctx = context.WithValue(ctx, contextKey("request_scheme"), scheme)
 		next.ServeHTTP(w, req.WithContext(ctx))
 	})
 }
@@ -152,4 +139,15 @@ func GetClientIP(req *http.Request) string {
 		return host
 	}
 	return req.RemoteAddr
+}
+
+// RequestScheme returns TLS or scheme asserted by an explicitly trusted proxy.
+func RequestScheme(req *http.Request) string {
+	if req.TLS != nil {
+		return "https"
+	}
+	if v, ok := req.Context().Value(contextKey("request_scheme")).(string); ok {
+		return v
+	}
+	return "http"
 }

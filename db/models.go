@@ -10,23 +10,23 @@ import (
 
 // User represents a player or administrator
 type User struct {
-	ID                  int64      `json:"id"`
-	Username            string     `json:"username"`
-	Email               string     `json:"email"`
-	PasswordHash        string     `json:"-"`
-	Role                string     `json:"role"` // "admin" or "player"
-	AvatarURL           string     `json:"avatar_url"`
-	FavoriteTeamID      *int64     `json:"favorite_team_id"`
-	EmailVerified       bool       `json:"email_verified"`
-	VerificationToken   *string    `json:"-"`
-	VerificationSentAt  *time.Time `json:"-"`
-	ResetToken          *string    `json:"-"`
-	ResetTokenExpiresAt *time.Time `json:"-"`
-	NotifyEmail         bool       `json:"notify_email"`
-	NotifyKickoff       bool       `json:"notify_kickoff"`
-	NotifyRecap         bool       `json:"notify_recap"`
-	NotifyPush          bool       `json:"notify_push"`
-	IsBetaTester        bool       `json:"is_beta_tester"`
+	ID                  int64            `json:"id"`
+	Username            string           `json:"username"`
+	Email               string           `json:"email"`
+	PasswordHash        string           `json:"-"`
+	Role                string           `json:"role"` // "admin" or "player"
+	AvatarURL           string           `json:"avatar_url"`
+	FavoriteTeamID      *int64           `json:"favorite_team_id"`
+	EmailVerified       bool             `json:"email_verified"`
+	VerificationToken   *string          `json:"-"`
+	VerificationSentAt  *time.Time       `json:"-"`
+	ResetToken          *string          `json:"-"`
+	ResetTokenExpiresAt *time.Time       `json:"-"`
+	NotifyEmail         bool             `json:"notify_email"`
+	NotifyKickoff       bool             `json:"notify_kickoff"`
+	NotifyRecap         bool             `json:"notify_recap"`
+	NotifyPush          bool             `json:"notify_push"`
+	IsBetaTester        bool             `json:"is_beta_tester"`
 	Bio                 string           `json:"bio"`
 	FeaturedBadgeCode   string           `json:"featured_badge_code"`
 	TokenVersion        int              `json:"token_version"`
@@ -178,24 +178,24 @@ func (t *Team) FullName() string {
 
 // Game represents an NFL matchup
 type Game struct {
-	ID            int64     `json:"id"`
-	WeekID        int64     `json:"week_id"`
-	WeekNumber    int       `json:"week_number,omitempty"`
-	ESPNGameID    string    `json:"espn_game_id"`
-	HomeTeamID    int64     `json:"home_team_id"`
-	AwayTeamID    int64     `json:"away_team_id"`
-	KickoffTime   time.Time `json:"kickoff_time"`
-	HomeScore     *int      `json:"home_score"`
-	AwayScore     *int      `json:"away_score"`
-	Status        string    `json:"status"` // "scheduled", "in_progress", "final"
-	StatusDetail  string    `json:"status_detail"`
-	Broadcast     string    `json:"broadcast,omitempty"`
-	Situation     string    `json:"situation,omitempty"`
-	Linescores    string    `json:"linescores,omitempty"`
-	StatsJSON     string    `json:"stats_json,omitempty"`
-	IsTiebreaker  bool      `json:"is_tiebreaker"`
-	IsLocked      bool      `json:"is_locked"`
-	CreatedAt     time.Time `json:"created_at"`
+	ID           int64     `json:"id"`
+	WeekID       int64     `json:"week_id"`
+	WeekNumber   int       `json:"week_number,omitempty"`
+	ESPNGameID   string    `json:"espn_game_id"`
+	HomeTeamID   int64     `json:"home_team_id"`
+	AwayTeamID   int64     `json:"away_team_id"`
+	KickoffTime  time.Time `json:"kickoff_time"`
+	HomeScore    *int      `json:"home_score"`
+	AwayScore    *int      `json:"away_score"`
+	Status       string    `json:"status"` // "scheduled", "in_progress", "final"
+	StatusDetail string    `json:"status_detail"`
+	Broadcast    string    `json:"broadcast,omitempty"`
+	Situation    string    `json:"situation,omitempty"`
+	Linescores   string    `json:"linescores,omitempty"`
+	StatsJSON    string    `json:"stats_json,omitempty"`
+	IsTiebreaker bool      `json:"is_tiebreaker"`
+	IsLocked     bool      `json:"is_locked"`
+	CreatedAt    time.Time `json:"created_at"`
 
 	// Enriched fields for view rendering
 	HomeTeam *Team `json:"home_team,omitempty"`
@@ -328,6 +328,7 @@ func (g *Game) DetailedSummary() *GameDetailedSummary {
 	if err := json.Unmarshal([]byte(g.StatsJSON), &s); err != nil {
 		return nil
 	}
+	s.Source = s.EffectiveSource()
 	return &s
 }
 
@@ -464,7 +465,7 @@ func (w WinProbabilityPoint) SwingDeltaPct() int {
 
 // GameLeaderItem represents a top individual performer in a key stat category
 type GameLeaderItem struct {
-	Category    string `json:"category"`     // "Pase", "Acarreo", "Recepción"
+	Category    string `json:"category"` // "Pase", "Acarreo", "Recepción"
 	PlayerName  string `json:"player_name"`
 	TeamCode    string `json:"team_code"`
 	TeamLogoURL string `json:"team_logo_url"`
@@ -480,7 +481,7 @@ type GameVenueInfo struct {
 	VenueName        string `json:"venue_name"`
 	City             string `json:"city"`
 	State            string `json:"state"`
-	Surface          string `json:"surface"`           // Pasto Natural / Artificial
+	Surface          string `json:"surface"` // Pasto Natural / Artificial
 	Attendance       int    `json:"attendance"`
 	WeatherTemp      string `json:"weather_temp"`      // e.g. "72°F"
 	WeatherCondition string `json:"weather_condition"` // e.g. "Despejado"
@@ -524,31 +525,58 @@ func (v *GameVenueInfo) FormattedAttendance() string {
 	return res.String()
 }
 
+// StatsSource identifies where a complete summary originated. Historical cache rows
+// without an explicit source remain unknown; they must never be assumed official.
+type StatsSource string
+
+const (
+	StatsSourceESPN      StatsSource = "espn"
+	StatsSourceSimulated StatsSource = "simulated"
+	StatsSourceUnknown   StatsSource = "unknown"
+)
+
 // GameDetailedSummary combines boxscore team statistics, player statistics, scoring plays and offensive drives
 type GameDetailedSummary struct {
-	AwayStats         *TeamBoxscoreStats    `json:"away_stats,omitempty"`
-	HomeStats         *TeamBoxscoreStats    `json:"home_stats,omitempty"`
-	AwayPlayerStats   *TeamPlayerStats      `json:"away_player_stats,omitempty"`
-	HomePlayerStats   *TeamPlayerStats      `json:"home_player_stats,omitempty"`
-	ScoringPlays      []ScoringPlayItem     `json:"scoring_plays,omitempty"`
-	Drives            []DriveItem           `json:"drives,omitempty"`
-	StatusDetail      string                `json:"status_detail,omitempty"`
-	GameStatus        string                `json:"game_status,omitempty"`
-	AwayScore         *int                  `json:"away_score,omitempty"`
-	HomeScore         *int                  `json:"home_score,omitempty"`
-	Linescores        string                `json:"linescores,omitempty"`
-	WinProbability    []WinProbabilityPoint `json:"win_probability,omitempty"`
-	CurrentHomeWinPct int                   `json:"current_home_win_pct"`
-	CurrentAwayWinPct int                   `json:"current_away_win_pct"`
-	Leaders           []GameLeaderItem      `json:"leaders,omitempty"`
-	VenueInfo         *GameVenueInfo        `json:"venue_info,omitempty"`
-	HasStats          bool                  `json:"has_stats"`
-	HasPlayerStats    bool                  `json:"has_player_stats"`
-	HasDrives         bool                  `json:"has_drives"`
-	HasWinProb        bool                  `json:"has_win_prob"`
-	HasLeaders        bool                  `json:"has_leaders"`
-	IsSimulatedFallback bool                `json:"is_simulated_fallback"`
-	HasSimulatedWinProb bool                `json:"has_simulated_win_prob"`
+	Source              StatsSource           `json:"source"`
+	AwayStats           *TeamBoxscoreStats    `json:"away_stats,omitempty"`
+	HomeStats           *TeamBoxscoreStats    `json:"home_stats,omitempty"`
+	AwayPlayerStats     *TeamPlayerStats      `json:"away_player_stats,omitempty"`
+	HomePlayerStats     *TeamPlayerStats      `json:"home_player_stats,omitempty"`
+	ScoringPlays        []ScoringPlayItem     `json:"scoring_plays,omitempty"`
+	Drives              []DriveItem           `json:"drives,omitempty"`
+	StatusDetail        string                `json:"status_detail,omitempty"`
+	GameStatus          string                `json:"game_status,omitempty"`
+	AwayScore           *int                  `json:"away_score,omitempty"`
+	HomeScore           *int                  `json:"home_score,omitempty"`
+	Linescores          string                `json:"linescores,omitempty"`
+	WinProbability      []WinProbabilityPoint `json:"win_probability,omitempty"`
+	CurrentHomeWinPct   int                   `json:"current_home_win_pct"`
+	CurrentAwayWinPct   int                   `json:"current_away_win_pct"`
+	Leaders             []GameLeaderItem      `json:"leaders,omitempty"`
+	VenueInfo           *GameVenueInfo        `json:"venue_info,omitempty"`
+	HasStats            bool                  `json:"has_stats"`
+	HasPlayerStats      bool                  `json:"has_player_stats"`
+	HasDrives           bool                  `json:"has_drives"`
+	HasWinProb          bool                  `json:"has_win_prob"`
+	HasLeaders          bool                  `json:"has_leaders"`
+	IsSimulatedFallback bool                  `json:"is_simulated_fallback"`
+	HasSimulatedWinProb bool                  `json:"has_simulated_win_prob"`
+}
+
+// EffectiveSource preserves compatibility with explicitly marked older simulations.
+func (s *GameDetailedSummary) EffectiveSource() StatsSource {
+	if s == nil {
+		return StatsSourceUnknown
+	}
+	if s.IsSimulatedFallback {
+		return StatsSourceSimulated
+	}
+	switch s.Source {
+	case StatsSourceESPN, StatsSourceSimulated:
+		return s.Source
+	default:
+		return StatsSourceUnknown
+	}
 }
 
 func (s *GameDetailedSummary) WinProbHome() int {
@@ -642,7 +670,7 @@ type WinProbChartData struct {
 	MidY              float64                   `json:"mid_y"`
 	LinePath          string                    `json:"line_path"`
 	HomeAreaPath      string                    `json:"home_area_path"`
-	QuarterMarkers    []WinProbQuarterMarker   `json:"quarter_markers"`
+	QuarterMarkers    []WinProbQuarterMarker    `json:"quarter_markers"`
 	InteractivePoints []WinProbInteractivePoint `json:"interactive_points"`
 	PointsJSON        string                    `json:"points_json"`
 }
@@ -757,7 +785,6 @@ func (s *GameDetailedSummary) WinProbChart(w, h float64) *WinProbChartData {
 		PointsJSON:        pointsJSON,
 	}
 }
-
 
 func (g *Game) HomeScoreVal() int {
 	if g != nil && g.HomeScore != nil {
@@ -1186,8 +1213,8 @@ type Pick struct {
 	UpdatedAt          time.Time `json:"updated_at"`
 
 	// Enriched fields
-	User     *User `json:"user,omitempty"`
-	Game     *Game `json:"game,omitempty"`
+	User     *User  `json:"user,omitempty"`
+	Game     *Game  `json:"game,omitempty"`
 	TeamCode string `json:"team_code,omitempty"`
 }
 
@@ -1303,7 +1330,6 @@ func (g *Game) HasPickCompleted() bool {
 	}
 	return g.UserPick.IsCompleteForGame(g)
 }
-
 
 // LeaderboardEntry represents a user's standings in a week or season
 type LeaderboardEntry struct {
@@ -1429,17 +1455,17 @@ type GameCommunityStats struct {
 
 // HeadToHeadMatchup compares two users' picks on a single game
 type HeadToHeadMatchup struct {
-	Game            *Game `json:"game"`
-	UserAPick       *Pick `json:"user_a_pick"`
-	UserBPick       *Pick `json:"user_b_pick"`
-	UserAPickedTeam *Team `json:"user_a_picked_team"`
-	UserBPickedTeam *Team `json:"user_b_picked_team"`
-	IsDivergent     bool  `json:"is_divergent"`
-	UserAPoints     int   `json:"user_a_points"`
-	UserBPoints     int   `json:"user_b_points"`
-	IsLive               bool  `json:"is_live"`
-	IsFinal              bool  `json:"is_final"`
-	IsMaskedForFairPlay  bool  `json:"is_masked_for_fair_play"`
+	Game                *Game `json:"game"`
+	UserAPick           *Pick `json:"user_a_pick"`
+	UserBPick           *Pick `json:"user_b_pick"`
+	UserAPickedTeam     *Team `json:"user_a_picked_team"`
+	UserBPickedTeam     *Team `json:"user_b_picked_team"`
+	IsDivergent         bool  `json:"is_divergent"`
+	UserAPoints         int   `json:"user_a_points"`
+	UserBPoints         int   `json:"user_b_points"`
+	IsLive              bool  `json:"is_live"`
+	IsFinal             bool  `json:"is_final"`
+	IsMaskedForFairPlay bool  `json:"is_masked_for_fair_play"`
 }
 
 // HeadToHeadComparison aggregates a direct rivalry matchup between two users for a week
@@ -1552,7 +1578,7 @@ type H2HSeasonHistory struct {
 	UserATotalPoints    int              `json:"user_a_total_points"`
 	UserBTotalPoints    int              `json:"user_b_total_points"`
 	WeekResults         []*H2HWeekResult `json:"week_results"`
-	LeaderStatus        string           `json:"leader_status"` // "a_leads", "b_leads", or "tied"
+	LeaderStatus        string           `json:"leader_status"`         // "a_leads", "b_leads", or "tied"
 	CurrentStreakWinner string           `json:"current_streak_winner"` // "user_a", "user_b", or ""
 	CurrentStreakCount  int              `json:"current_streak_count"`
 	MaxMargin           int              `json:"max_margin"`
@@ -1682,23 +1708,23 @@ type UserAchievementDisplay struct {
 
 // GameForecast represents the AI model projection and odds consensus for a game
 type GameForecast struct {
-	GameID            int64      `json:"game_id"`
-	EloHomeProb       float64    `json:"elo_home_prob"`
-	EloAwayProb       float64    `json:"elo_away_prob"`
-	EloSpread         float64    `json:"elo_spread"`
-	ProjHomeScore     int        `json:"proj_home_score"`
-	ProjAwayScore     int        `json:"proj_away_score"`
-	PredictedWinnerID int64      `json:"predicted_winner_id"`
-	VegasFavoriteID   *int64     `json:"vegas_favorite_id,omitempty"`
-	VegasSpread       *float64   `json:"vegas_spread,omitempty"`
-	ConsensusLevel    string     `json:"consensus_level"` // "high", "moderate", "upset_alert"
-	ESPNAvailable     bool       `json:"espn_available"`
-	SourcesSummary    string     `json:"sources_summary"`
-	AuditNotes        string     `json:"audit_notes"`
-	CalculatedAt      time.Time  `json:"calculated_at"`
+	GameID            int64     `json:"game_id"`
+	EloHomeProb       float64   `json:"elo_home_prob"`
+	EloAwayProb       float64   `json:"elo_away_prob"`
+	EloSpread         float64   `json:"elo_spread"`
+	ProjHomeScore     int       `json:"proj_home_score"`
+	ProjAwayScore     int       `json:"proj_away_score"`
+	PredictedWinnerID int64     `json:"predicted_winner_id"`
+	VegasFavoriteID   *int64    `json:"vegas_favorite_id,omitempty"`
+	VegasSpread       *float64  `json:"vegas_spread,omitempty"`
+	ConsensusLevel    string    `json:"consensus_level"` // "high", "moderate", "upset_alert"
+	ESPNAvailable     bool      `json:"espn_available"`
+	SourcesSummary    string    `json:"sources_summary"`
+	AuditNotes        string    `json:"audit_notes"`
+	CalculatedAt      time.Time `json:"calculated_at"`
 
 	// Relational helpers
-	PredictedWinner   *Team      `json:"predicted_winner,omitempty"`
+	PredictedWinner *Team `json:"predicted_winner,omitempty"`
 }
 
 func (f *GameForecast) WinProbabilityPct() int {
@@ -1822,29 +1848,29 @@ func (n *InAppNotification) Icon() string {
 
 // PodiumEntry represents a top player in the weekly or season rankings
 type PodiumEntry struct {
-	Rank            int    `json:"rank"`
-	UserID          int64  `json:"user_id"`
-	Username        string `json:"username"`
-	AvatarURL       string `json:"avatar_url"`
+	Rank             int    `json:"rank"`
+	UserID           int64  `json:"user_id"`
+	Username         string `json:"username"`
+	AvatarURL        string `json:"avatar_url"`
 	FavoriteTeamCode string `json:"favorite_team_code"`
-	TotalPoints     int    `json:"total_points"`
-	CorrectPicks    int    `json:"correct_picks"`
-	TotalPicks      int    `json:"total_picks"`
-	TiebreakerError int    `json:"tiebreaker_error"`
-	IsBot           bool   `json:"is_bot"`
+	TotalPoints      int    `json:"total_points"`
+	CorrectPicks     int    `json:"correct_picks"`
+	TotalPicks       int    `json:"total_picks"`
+	TiebreakerError  int    `json:"tiebreaker_error"`
+	IsBot            bool   `json:"is_bot"`
 }
 
 // UserRecapStats holds the user's personal summary for a completed week
 type UserRecapStats struct {
-	WeeklyRank       int `json:"weekly_rank"`
-	TotalPoints      int `json:"total_points"`
-	CorrectPicks     int `json:"correct_picks"`
-	TotalGames       int `json:"total_games"`
-	AccuracyPercent  int `json:"accuracy_percent"`
-	TiebreakerPoints int `json:"tiebreaker_points"`
+	WeeklyRank       int  `json:"weekly_rank"`
+	TotalPoints      int  `json:"total_points"`
+	CorrectPicks     int  `json:"correct_picks"`
+	TotalGames       int  `json:"total_games"`
+	AccuracyPercent  int  `json:"accuracy_percent"`
+	TiebreakerPoints int  `json:"tiebreaker_points"`
 	HasTiebreaker    bool `json:"has_tiebreaker"`
-	SeasonRank       int `json:"season_rank"`
-	SeasonTotalPts   int `json:"season_total_pts"`
+	SeasonRank       int  `json:"season_rank"`
+	SeasonTotalPts   int  `json:"season_total_pts"`
 }
 
 // WeeklyRecapData holds all aggregated data for the weekly digest
@@ -1997,11 +2023,11 @@ type SeasonDashboardSummary struct {
 
 // SeasonStandings holds full standings and groupings for a single season
 type SeasonStandings struct {
-	Year            int                         `json:"year"`
-	IsCurrent       bool                        `json:"is_current"`
-	Summary         *SeasonDashboardSummary     `json:"summary"`
-	Divisions       []*DivisionStandings        `json:"divisions"`
-	Conferences     []*ConferenceStandings      `json:"conferences"`
+	Year                 int                         `json:"year"`
+	IsCurrent            bool                        `json:"is_current"`
+	Summary              *SeasonDashboardSummary     `json:"summary"`
+	Divisions            []*DivisionStandings        `json:"divisions"`
+	Conferences          []*ConferenceStandings      `json:"conferences"`
 	League               []*TeamStanding             `json:"league"` // All 32 sorted by record
 	PlayoffPictures      []*ConferencePlayoffPicture `json:"playoff_pictures,omitempty"`
 	PowerRankings        []*TeamPowerRanking         `json:"power_rankings,omitempty"`
@@ -2091,41 +2117,41 @@ type TeamPlayoffProbability struct {
 	LogoURL            string    `json:"logo_url"`
 	Conference         string    `json:"conference"` // "AFC" or "NFC"
 	Division           string    `json:"division"`
-	MakePlayoffsPct    float64   `json:"make_playoffs_pct"`    // 0.0 - 1.0 (e.g. 0.967 = 96.7%)
-	ClinchDivisionPct  float64   `json:"clinch_division_pct"`  // 0.0 - 1.0 (e.g. 0.898 = 89.8%)
-	ClinchFirstSeedPct float64   `json:"clinch_first_seed_pct"`// 0.0 - 1.0 (e.g. 0.331 = 33.1%)
-	WildCardPct        float64   `json:"wild_card_pct"`        // 0.0 - 1.0 (e.g. 0.069 = 6.9%)
+	MakePlayoffsPct    float64   `json:"make_playoffs_pct"`     // 0.0 - 1.0 (e.g. 0.967 = 96.7%)
+	ClinchDivisionPct  float64   `json:"clinch_division_pct"`   // 0.0 - 1.0 (e.g. 0.898 = 89.8%)
+	ClinchFirstSeedPct float64   `json:"clinch_first_seed_pct"` // 0.0 - 1.0 (e.g. 0.331 = 33.1%)
+	WildCardPct        float64   `json:"wild_card_pct"`         // 0.0 - 1.0 (e.g. 0.069 = 6.9%)
 	NextOpponentCode   string    `json:"next_opponent_code"`
 	NextOpponentLogo   string    `json:"next_opponent_logo"`
-	WinProjPct         float64   `json:"win_proj_pct"`         // Probability to win next game
+	WinProjPct         float64   `json:"win_proj_pct"` // Probability to win next game
 	PlayoffPctWithWin  float64   `json:"playoff_pct_with_win"`
 	PlayoffPctWithLoss float64   `json:"playoff_pct_with_loss"`
-	PlayoffLeverage    float64   `json:"playoff_leverage"`     // PlayoffPctWithWin - PlayoffPctWithLoss (volatility/stakes)
+	PlayoffLeverage    float64   `json:"playoff_leverage"` // PlayoffPctWithWin - PlayoffPctWithLoss (volatility/stakes)
 	IsFavorite         bool      `json:"is_favorite"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // PlayoffMatchupImpact represents one of the weekly games with FPI win probabilities and playoff stakes for both sides
 type PlayoffMatchupImpact struct {
-	WeekNumber      int       `json:"week_number"`
-	GameDateTime    string    `json:"game_datetime"`
-	AwayTeamCode    string    `json:"away_team_code"`
-	AwayTeamName    string    `json:"away_team_name"`
-	AwayLogoURL     string    `json:"away_logo_url"`
-	AwayWinProb     float64   `json:"away_win_prob"`
-	AwayPlayoffCur  float64   `json:"away_playoff_cur"`
-	AwayPlayoffWin  float64   `json:"away_playoff_win"`
-	AwayPlayoffLoss float64   `json:"away_playoff_loss"`
-	AwayIsFavorite  bool      `json:"away_is_favorite"`
-	HomeTeamCode    string    `json:"home_team_code"`
-	HomeTeamName    string    `json:"home_team_name"`
-	HomeLogoURL     string    `json:"home_logo_url"`
-	HomeWinProb     float64   `json:"home_win_prob"`
-	HomePlayoffCur  float64   `json:"home_playoff_cur"`
-	HomePlayoffWin  float64   `json:"home_playoff_win"`
-	HomePlayoffLoss float64   `json:"home_playoff_loss"`
-	HomeIsFavorite  bool      `json:"home_is_favorite"`
-	StakesLevel     string    `json:"stakes_level"` // "critical", "high", "moderate"
+	WeekNumber      int     `json:"week_number"`
+	GameDateTime    string  `json:"game_datetime"`
+	AwayTeamCode    string  `json:"away_team_code"`
+	AwayTeamName    string  `json:"away_team_name"`
+	AwayLogoURL     string  `json:"away_logo_url"`
+	AwayWinProb     float64 `json:"away_win_prob"`
+	AwayPlayoffCur  float64 `json:"away_playoff_cur"`
+	AwayPlayoffWin  float64 `json:"away_playoff_win"`
+	AwayPlayoffLoss float64 `json:"away_playoff_loss"`
+	AwayIsFavorite  bool    `json:"away_is_favorite"`
+	HomeTeamCode    string  `json:"home_team_code"`
+	HomeTeamName    string  `json:"home_team_name"`
+	HomeLogoURL     string  `json:"home_logo_url"`
+	HomeWinProb     float64 `json:"home_win_prob"`
+	HomePlayoffCur  float64 `json:"home_playoff_cur"`
+	HomePlayoffWin  float64 `json:"home_playoff_win"`
+	HomePlayoffLoss float64 `json:"home_playoff_loss"`
+	HomeIsFavorite  bool    `json:"home_is_favorite"`
+	StakesLevel     string  `json:"stakes_level"` // "critical", "high", "moderate"
 }
 
 // TeamScheduleItem represents a single matchup in a team's schedule
@@ -2164,10 +2190,10 @@ type TeamCommunityStats struct {
 type TacticalQuadrant string
 
 const (
-	QuadrantAnchor   TacticalQuadrant = "anchor"     // Ancla de Seguridad (High prob, High consensus)
-	QuadrantValueGem TacticalQuadrant = "value_gem"  // Gema de Valor +EV (Viable prob, Low/Mid community pick)
-	QuadrantUpset    TacticalQuadrant = "upset_alert"// Alerta de Sorpresa (Viable underdog, Heavy favorite bias)
-	QuadrantCoinToss TacticalQuadrant = "coin_toss"  // Moneda al Aire (50-50 high variance)
+	QuadrantAnchor   TacticalQuadrant = "anchor"      // Ancla de Seguridad (High prob, High consensus)
+	QuadrantValueGem TacticalQuadrant = "value_gem"   // Gema de Valor +EV (Viable prob, Low/Mid community pick)
+	QuadrantUpset    TacticalQuadrant = "upset_alert" // Alerta de Sorpresa (Viable underdog, Heavy favorite bias)
+	QuadrantCoinToss TacticalQuadrant = "coin_toss"   // Moneda al Aire (50-50 high variance)
 )
 
 type AdvisorMatchupRecommendation struct {
@@ -2247,13 +2273,13 @@ type UserPlayoffBracket struct {
 
 // LeaderboardTrajectory models a player's rank and points across each completed week
 type LeaderboardTrajectory struct {
-	UserID        int64   `json:"user_id"`
-	Username      string  `json:"username"`
-	DisplayName   string  `json:"display_name"`
-	AvatarURL     string  `json:"avatar_url"`
-	PointsHistory []int   `json:"points_history"`
-	RanksHistory  []int   `json:"ranks_history"`
-	Weeks         []int   `json:"weeks"`
+	UserID        int64  `json:"user_id"`
+	Username      string `json:"username"`
+	DisplayName   string `json:"display_name"`
+	AvatarURL     string `json:"avatar_url"`
+	PointsHistory []int  `json:"points_history"`
+	RanksHistory  []int  `json:"ranks_history"`
+	Weeks         []int  `json:"weeks"`
 }
 
 // TimeSlotStat represents pick accuracy broken down by kickoff time window
@@ -2279,27 +2305,27 @@ type TeamPickStat struct {
 
 // UserAnalytics encapsulates deep performance indicators for a single player
 type UserAnalytics struct {
-	UserID                 int64           `json:"user_id"`
-	Username               string          `json:"username"`
-	DisplayName            string          `json:"display_name"`
-	AvatarURL              string          `json:"avatar_url"`
-	SeasonYear             int             `json:"season_year"`
-	TotalPicks             int             `json:"total_picks"`
-	TotalCorrect           int             `json:"total_correct"`
-	OverallAccuracy        float64         `json:"overall_accuracy"`
-	TalismanTeam           *TeamPickStat   `json:"talisman_team,omitempty"`
-	NemesisTeam            *TeamPickStat   `json:"nemesis_team,omitempty"`
-	TimeSlots              []TimeSlotStat  `json:"time_slots"`
-	FavoritePicks          int             `json:"favorite_picks"`
-	FavoriteCorrect        int             `json:"favorite_correct"`
-	FavoriteAccuracy       float64         `json:"favorite_accuracy"`
-	UnderdogPicks          int             `json:"underdog_picks"`
-	UnderdogCorrect        int             `json:"underdog_correct"`
-	UnderdogAccuracy       float64         `json:"underdog_accuracy"`
-	ContrarianPicks        int             `json:"contrarian_picks"`
-	ContrarianCorrect      int             `json:"contrarian_correct"`
-	ContrarianPointsEarned int             `json:"contrarian_points_earned"`
-	ContrarianRate         float64         `json:"contrarian_rate"`
+	UserID                 int64          `json:"user_id"`
+	Username               string         `json:"username"`
+	DisplayName            string         `json:"display_name"`
+	AvatarURL              string         `json:"avatar_url"`
+	SeasonYear             int            `json:"season_year"`
+	TotalPicks             int            `json:"total_picks"`
+	TotalCorrect           int            `json:"total_correct"`
+	OverallAccuracy        float64        `json:"overall_accuracy"`
+	TalismanTeam           *TeamPickStat  `json:"talisman_team,omitempty"`
+	NemesisTeam            *TeamPickStat  `json:"nemesis_team,omitempty"`
+	TimeSlots              []TimeSlotStat `json:"time_slots"`
+	FavoritePicks          int            `json:"favorite_picks"`
+	FavoriteCorrect        int            `json:"favorite_correct"`
+	FavoriteAccuracy       float64        `json:"favorite_accuracy"`
+	UnderdogPicks          int            `json:"underdog_picks"`
+	UnderdogCorrect        int            `json:"underdog_correct"`
+	UnderdogAccuracy       float64        `json:"underdog_accuracy"`
+	ContrarianPicks        int            `json:"contrarian_picks"`
+	ContrarianCorrect      int            `json:"contrarian_correct"`
+	ContrarianPointsEarned int            `json:"contrarian_points_earned"`
+	ContrarianRate         float64        `json:"contrarian_rate"`
 }
 
 // TeamATSRecord holds against-the-spread (ATS) and Over/Under trends for an NFL team
@@ -2363,8 +2389,3 @@ func (m *MatchupIntel) HasH2H() bool {
 func (g *Game) IntelAvailable() bool {
 	return g != nil && g.Intel != nil
 }
-
-
-
-
-

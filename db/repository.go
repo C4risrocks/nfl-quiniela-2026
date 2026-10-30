@@ -215,7 +215,7 @@ func (r *Repository) CreateUserWithVerification(username, email, passwordHash, r
 	query := `
 	INSERT INTO users (username, email, password_hash, role, email_verified, verification_token, verification_sent_at, notify_email, created_at)
 	VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, CURRENT_TIMESTAMP);`
-	
+
 	emailVerified := false
 	if token != "" {
 		verifToken = &token
@@ -471,7 +471,7 @@ func (r *Repository) GetUserStats(userID int64) (*UserStats, error) {
 	statsQuery := `
 	SELECT 
 		COUNT(p.id),
-		COALESCE(SUM(CASE WHEN p.is_correct = 1 THEN 1 ELSE 0 END), 0),
+		COALESCE(SUM(CASE WHEN p.is_correct = TRUE THEN 1 ELSE 0 END), 0),
 		COALESCE(SUM(p.points_earned + p.bonus_points), 0)
 	FROM picks p
 	JOIN games g ON p.game_id = g.id
@@ -795,6 +795,10 @@ func (r *Repository) GetWeekByNumber(seasonID int64, weekNumber int) (*Week, err
 // 7. Fallback: Most recently completed week (latest final kickoff)
 // 8. Fallback: First week of the season
 func (r *Repository) GetActiveWeek(seasonID int64) (*Week, error) {
+	return r.getActiveWeekAt(seasonID, time.Now())
+}
+
+func (r *Repository) getActiveWeekAt(seasonID int64, now time.Time) (*Week, error) {
 	var w Week
 
 	// 1. Explicitly marked active week
@@ -818,7 +822,7 @@ func (r *Repository) GetActiveWeek(seasonID int64) (*Week, error) {
 	// If its games finished recently and current local time is still before Tuesday 00:00 CDMX,
 	// keep that round active so users can inspect final scores, tiebreakers, and rankings.
 	var lastFinishedWeek Week
-	var maxKickoffStr string
+	var maxKickoffValue any
 	queryLastFinished := `SELECT w.id, w.season_id, w.week_number, w.name, w.status, w.lock_type, w.created_at, MAX(g.kickoff_time)
 	                      FROM weeks w
 	                      JOIN games g ON g.week_id = w.id
@@ -829,14 +833,14 @@ func (r *Repository) GetActiveWeek(seasonID int64) (*Week, error) {
 	if err := r.db.QueryRow(queryLastFinished, seasonID).Scan(
 		&lastFinishedWeek.ID, &lastFinishedWeek.SeasonID, &lastFinishedWeek.WeekNumber,
 		&lastFinishedWeek.Name, &lastFinishedWeek.Status, &lastFinishedWeek.LockType,
-		&lastFinishedWeek.CreatedAt, &maxKickoffStr,
-	); err == nil && maxKickoffStr != "" {
-		if tLast, parseErr := time.Parse("2006-01-02 15:04:05", maxKickoffStr); parseErr == nil {
+		&lastFinishedWeek.CreatedAt, &maxKickoffValue,
+	); err == nil && maxKickoffValue != nil {
+		if tLast, parseErr := parseDatabaseTimestamp(maxKickoffValue); parseErr == nil {
 			loc, locErr := time.LoadLocation("America/Mexico_City")
 			if locErr != nil {
 				loc = time.FixedZone("CST", -6*3600)
 			}
-			nowLocal := time.Now().In(loc)
+			nowLocal := now.In(loc)
 			tLocal := tLast.In(loc)
 
 			// Rollover boundary: Tuesday 00:00 CDMX immediately following the round
@@ -857,19 +861,43 @@ func (r *Repository) GetActiveWeek(seasonID int64) (*Week, error) {
 		}
 	}
 
-	// 4. Time-window query: Week whose games match the current date window of the round (-2 days before kickoff to +1 day after)
-	nowStr := time.Now().UTC().Format("2006-01-02 15:04:05")
-	queryTimeWindow := `SELECT w.id, w.season_id, w.week_number, w.name, w.status, w.lock_type, w.created_at 
-	                    FROM weeks w 
-	                    JOIN games g ON g.week_id = w.id 
-	                    WHERE w.season_id = ? AND w.status != 'completed' 
+	// 4. Compare the round window in Go so both SQL dialects use the same UTC boundaries.
+	queryTimeWindow := `SELECT w.id, w.season_id, w.week_number, w.name, w.status, w.lock_type, w.created_at,
+	                           MIN(g.kickoff_time), MAX(g.kickoff_time)
+	                    FROM weeks w
+	                    JOIN games g ON g.week_id = w.id
+	                    WHERE w.season_id = ? AND w.status != 'completed'
 	                      AND EXISTS (SELECT 1 FROM games g2 WHERE g2.week_id = w.id AND g2.status != 'final')
-	                    GROUP BY w.id 
-	                    HAVING ? >= datetime(MIN(g.kickoff_time), '-2 days') AND ? <= datetime(MAX(g.kickoff_time), '+1 day') 
-	                    ORDER BY w.week_number ASC LIMIT 1`
-	if err := r.db.QueryRow(queryTimeWindow, seasonID, nowStr, nowStr).Scan(&w.ID, &w.SeasonID, &w.WeekNumber, &w.Name, &w.Status, &w.LockType, &w.CreatedAt); err == nil {
-		return &w, nil
+	                    GROUP BY w.id
+	                    ORDER BY w.week_number ASC`
+	rows, err := r.db.Query(queryTimeWindow, seasonID)
+	if err != nil {
+		return nil, fmt.Errorf("querying active week windows: %w", err)
 	}
+	for rows.Next() {
+		var candidate Week
+		var firstValue, lastValue any
+		if err := rows.Scan(&candidate.ID, &candidate.SeasonID, &candidate.WeekNumber, &candidate.Name,
+			&candidate.Status, &candidate.LockType, &candidate.CreatedAt, &firstValue, &lastValue); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("reading active week window: %w", err)
+		}
+		first, firstErr := parseDatabaseTimestamp(firstValue)
+		last, lastErr := parseDatabaseTimestamp(lastValue)
+		if firstErr != nil || lastErr != nil {
+			rows.Close()
+			return nil, fmt.Errorf("invalid kickoff window for week %d", candidate.ID)
+		}
+		if !now.Before(first.Add(-48*time.Hour)) && !now.After(last.Add(24*time.Hour)) {
+			rows.Close()
+			return &candidate, nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, fmt.Errorf("reading active week windows: %w", err)
+	}
+	rows.Close()
 
 	// 5. Week with earliest upcoming scheduled games (guarded against skipping prior uncompleted weeks)
 	queryScheduled := `SELECT w.id, w.season_id, w.week_number, w.name, w.status, w.lock_type, w.created_at 
@@ -1780,7 +1808,7 @@ func (r *Repository) UpsertWeeklyLeaderboardTx(tx *Tx, entry *LeaderboardEntry, 
 
 func (r *Repository) GetWeeklyLeaderboard(weekID int64) ([]*LeaderboardEntry, error) {
 	query := `
-	SELECT wl.rank, wl.user_id, u.username, u.avatar_url, wl.total_points, wl.correct_picks, wl.total_picks, wl.tiebreaker_error, COALESCE(wl.tiebreaker_winner_correct, 0),
+	SELECT wl.rank, wl.user_id, u.username, u.avatar_url, wl.total_points, wl.correct_picks, wl.total_picks, wl.tiebreaker_error, COALESCE(wl.tiebreaker_winner_correct, FALSE),
 	       u.favorite_team_id, COALESCE(u.bio, ''), COALESCE(u.featured_badge_code, '')
 	FROM weekly_leaderboard wl
 	JOIN users u ON wl.user_id = u.id
@@ -1969,6 +1997,28 @@ func (r *Repository) CountFutureSeasonGames(seasonID int64, afterWeekNumber int)
 }
 
 // Helpers
+// Aggregate timestamps are strings in SQLite and time.Time values in pgx.
+func parseDatabaseTimestamp(value any) (time.Time, error) {
+	if t, ok := value.(time.Time); ok {
+		return t.UTC(), nil
+	}
+	var text string
+	switch v := value.(type) {
+	case string:
+		text = v
+	case []byte:
+		text = string(v)
+	default:
+		return time.Time{}, fmt.Errorf("unsupported timestamp type %T", value)
+	}
+	for _, layout := range []string{time.RFC3339Nano, "2006-01-02 15:04:05.999999999-07:00", "2006-01-02 15:04:05.999999999", "2006-01-02 15:04:05"} {
+		if t, err := time.Parse(layout, text); err == nil {
+			return t.UTC(), nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("invalid database timestamp %q", text)
+}
+
 func parseTimeSafe(tStr string) time.Time {
 	formats := []string{
 		"2006-01-02 15:04:05",
@@ -2106,18 +2156,18 @@ func (r *Repository) ListUserNotifications(userID int64, limit int) ([]*InAppNot
 
 func (r *Repository) GetUnreadNotificationsCount(userID int64) (int, error) {
 	var count int
-	err := r.db.QueryRow(`SELECT COUNT(*) FROM in_app_notifications WHERE user_id = ? AND is_read = 0`, userID).Scan(&count)
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM in_app_notifications WHERE user_id = ? AND is_read = FALSE`, userID).Scan(&count)
 	return count, err
 }
 
 func (r *Repository) MarkNotificationAsRead(notifID, userID int64) error {
-	query := `UPDATE in_app_notifications SET is_read = 1 WHERE id = ? AND user_id = ?`
+	query := `UPDATE in_app_notifications SET is_read = TRUE WHERE id = ? AND user_id = ?`
 	_, err := r.db.Exec(query, notifID, userID)
 	return err
 }
 
 func (r *Repository) MarkAllNotificationsAsRead(userID int64) error {
-	query := `UPDATE in_app_notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0`
+	query := `UPDATE in_app_notifications SET is_read = TRUE WHERE user_id = ? AND is_read = FALSE`
 	_, err := r.db.Exec(query, userID)
 	return err
 }
@@ -2314,12 +2364,8 @@ func (r *Repository) GetWeeklyRecapData(weekID int64, userID int64) (*WeeklyReca
 	}, nil
 }
 
-
 func (r *Repository) SetUserEmailVerified(userID int64, verified bool) error {
-	v := 0
-	if verified {
-		v = 1
-	}
+	v := verified
 	query := `UPDATE users SET email_verified = ? WHERE id = ?`
 	_, err := r.db.Exec(query, v, userID)
 	return err
@@ -2335,10 +2381,7 @@ func (r *Repository) SetUserRole(userID int64, role string) error {
 }
 
 func (r *Repository) SetUserBetaTester(userID int64, isBeta bool) error {
-	v := 0
-	if isBeta {
-		v = 1
-	}
+	v := isBeta
 	query := `UPDATE users SET is_beta_tester = ? WHERE id = ?`
 	_, err := r.db.Exec(query, v, userID)
 	return err
@@ -2359,14 +2402,8 @@ func (r *Repository) AdminUpdateUser(userID int64, username, email, role string,
 		return fmt.Errorf("el nombre de usuario o correo electrónico ya está en uso por otra cuenta")
 	}
 
-	verifVal := 0
-	if emailVerified {
-		verifVal = 1
-	}
-	betaVal := 0
-	if isBetaTester {
-		betaVal = 1
-	}
+	verifVal := emailVerified
+	betaVal := isBetaTester
 
 	if newPasswordHash != "" {
 		query := `UPDATE users SET username = ?, email = ?, role = ?, email_verified = ?, is_beta_tester = ?, favorite_team_id = ?, bio = ?, password_hash = ?, token_version = token_version + 1 WHERE id = ?`
@@ -2408,10 +2445,7 @@ func (r *Repository) BulkSetUserVerification(userIDs []int64, verified bool) err
 	if len(userIDs) == 0 {
 		return nil
 	}
-	v := 0
-	if verified {
-		v = 1
-	}
+	v := verified
 	placeholders := make([]string, len(userIDs))
 	args := make([]interface{}, len(userIDs)+1)
 	args[0] = v
@@ -2428,10 +2462,7 @@ func (r *Repository) BulkSetUserBeta(userIDs []int64, isBeta bool) error {
 	if len(userIDs) == 0 {
 		return nil
 	}
-	v := 0
-	if isBeta {
-		v = 1
-	}
+	v := isBeta
 	placeholders := make([]string, len(userIDs))
 	args := make([]interface{}, len(userIDs)+1)
 	args[0] = v
@@ -3249,11 +3280,11 @@ func (r *Repository) ListFeatureFlags() ([]*FeatureFlag, error) {
 	for rows.Next() {
 		var f FeatureFlag
 		var updatedAtStr string
-		var isBetaVal int
+		var isBetaVal bool
 		if err := rows.Scan(&f.Key, &f.Name, &f.Description, &f.AccessLevel, &isBetaVal, &updatedAtStr); err != nil {
 			return nil, err
 		}
-		f.IsBeta = isBetaVal != 0
+		f.IsBeta = isBetaVal
 		f.UpdatedAt = parseTimeSafe(updatedAtStr)
 		flags = append(flags, &f)
 	}
@@ -3277,30 +3308,24 @@ func (r *Repository) GetFeatureFlag(key string) (*FeatureFlag, error) {
 	row := r.db.QueryRow(query, key)
 	var f FeatureFlag
 	var updatedAtStr string
-	var isBetaVal int
+	var isBetaVal bool
 	if err := row.Scan(&f.Key, &f.Name, &f.Description, &f.AccessLevel, &isBetaVal, &updatedAtStr); err != nil {
 		return nil, err
 	}
-	f.IsBeta = isBetaVal != 0
+	f.IsBeta = isBetaVal
 	f.UpdatedAt = parseTimeSafe(updatedAtStr)
 	return &f, nil
 }
 
 func (r *Repository) UpdateFeatureFlag(key string, accessLevel string, isBeta bool) error {
-	betaVal := 0
-	if isBeta {
-		betaVal = 1
-	}
+	betaVal := isBeta
 	query := `UPDATE feature_flags SET access_level = ?, is_beta = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?`
 	_, err := r.db.Exec(query, accessLevel, betaVal, key)
 	return err
 }
 
 func (r *Repository) UpsertFeatureFlag(f *FeatureFlag) error {
-	betaVal := 0
-	if f.IsBeta {
-		betaVal = 1
-	}
+	betaVal := f.IsBeta
 	query := `
 	INSERT INTO feature_flags (key, name, description, access_level, is_beta, updated_at)
 	VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -3648,7 +3673,7 @@ func (r *Repository) GetTeamCommunityStats(teamID int64, seasonYear int) (*TeamC
 	// Quiniela pick record on games where this team was picked
 	pickQuery := `
 	SELECT COUNT(p.id) as total_picks,
-	       COALESCE(SUM(CASE WHEN p.is_correct = 1 THEN 1 ELSE 0 END), 0) as win_picks
+	       COALESCE(SUM(CASE WHEN p.is_correct = TRUE THEN 1 ELSE 0 END), 0) as win_picks
 	FROM picks p
 	JOIN games g ON p.game_id = g.id
 	JOIN weeks w ON g.week_id = w.id
@@ -4499,10 +4524,7 @@ func (r *Repository) SavePlayoffProbabilities(probs []*TeamPlayoffProbability) e
 			teamIDVal = p.TeamID
 		}
 
-		isFav := 0
-		if p.IsFavorite {
-			isFav = 1
-		}
+		isFav := p.IsFavorite
 
 		if _, err := stmt.Exec(
 			p.SeasonYear, p.WeekNumber, teamIDVal, p.TeamCode,
@@ -5932,8 +5954,3 @@ func (r *Repository) assembleMatchupIntel(
 		SpecialistConsensusText: specialistConsensusText,
 	}
 }
-
-
-
-
-

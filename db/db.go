@@ -88,6 +88,14 @@ func (d *DB) QueryRowContext(ctx context.Context, query string, args ...any) *sq
 	return d.DB.QueryRowContext(ctx, d.Rebind(query), args...)
 }
 
+func (d *DB) Prepare(query string) (*sql.Stmt, error) {
+	return d.DB.Prepare(d.Rebind(query))
+}
+
+func (d *DB) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
+	return d.DB.PrepareContext(ctx, d.Rebind(query))
+}
+
 type Tx struct {
 	*sql.Tx
 	db *DB
@@ -131,6 +139,14 @@ func (tx *Tx) QueryRow(query string, args ...any) *sql.Row {
 
 func (tx *Tx) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
 	return tx.Tx.QueryRowContext(ctx, tx.db.Rebind(query), args...)
+}
+
+func (tx *Tx) Prepare(query string) (*sql.Stmt, error) {
+	return tx.Tx.Prepare(tx.db.Rebind(query))
+}
+
+func (tx *Tx) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
+	return tx.Tx.PrepareContext(ctx, tx.db.Rebind(query))
 }
 
 // InitDB initializes database connection and migrates schema
@@ -383,16 +399,16 @@ func (d *DB) migrate() error {
 		name        string
 		description string
 		accessLevel string
-		isBeta      int
+		isBeta      bool
 	}{
-		{"picks_matrix", "Matriz de Pronósticos", "Grilla interactiva comparativa de pronósticos de toda la liga semana a semana.", "beta", 1},
-		{"picks_compare", "Duelo Cara a Cara", "Comparador de pronósticos y divergencias entre rivales directos.", "all", 1},
-		{"ai_forecast", "Pronósticos con IA", "Probabilidades estimadas por machine learning y marcadores proyectados.", "all", 1},
-		{"live_gamecenter", "Game Center en Vivo", "Transmisión en directo minuto a minuto vía Server-Sent Events.", "all", 0},
-		{"community_picks", "Tendencias Comunitarias", "Porcentaje de selección comunitaria de cada equipo por partido.", "all", 0},
-		{"live_whatif", "Simulador What-If", "Simulador interactivo de escenarios y proyección de tabla de posiciones en tiempo real.", "all", 1},
-		{"ai_autofill", "Llenado Asistido por IA", "Autocompletar partidos y marcadores proyectados con un solo clic usando el modelo predictivo oficial.", "beta", 1},
-		{"picks_advisor", "Asistente Inteligente & Matriz de Riesgo", "Recomendador táctico de pronósticos basado en valor esperado (+EV), apalancamiento vs consenso de la comunidad y simulador de puntos.", "beta", 1},
+		{"picks_matrix", "Matriz de Pronósticos", "Grilla interactiva comparativa de pronósticos de toda la liga semana a semana.", "beta", true},
+		{"picks_compare", "Duelo Cara a Cara", "Comparador de pronósticos y divergencias entre rivales directos.", "all", true},
+		{"ai_forecast", "Pronósticos con IA", "Probabilidades estimadas por machine learning y marcadores proyectados.", "all", true},
+		{"live_gamecenter", "Game Center en Vivo", "Transmisión en directo minuto a minuto vía Server-Sent Events.", "all", false},
+		{"community_picks", "Tendencias Comunitarias", "Porcentaje de selección comunitaria de cada equipo por partido.", "all", false},
+		{"live_whatif", "Simulador What-If", "Simulador interactivo de escenarios y proyección de tabla de posiciones en tiempo real.", "all", true},
+		{"ai_autofill", "Llenado Asistido por IA", "Autocompletar partidos y marcadores proyectados con un solo clic usando el modelo predictivo oficial.", "beta", true},
+		{"picks_advisor", "Asistente Inteligente & Matriz de Riesgo", "Recomendador táctico de pronósticos basado en valor esperado (+EV), apalancamiento vs consenso de la comunidad y simulador de puntos.", "beta", true},
 	}
 	for _, f := range seedFeatures {
 		query := `INSERT OR IGNORE INTO feature_flags (key, name, description, access_level, is_beta) VALUES (?, ?, ?, ?, ?)`

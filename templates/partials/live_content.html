@@ -155,6 +155,7 @@
     <!-- Featured Live Matchcast Section (Partido en Transmisión) -->
     {{if .FeaturedGame}}
         {{$fg := .FeaturedGame}}
+        {{template "stats_provenance.html" .FeaturedSummary}}
         {{$linescores := $fg.LinescoreData}}
 
         <!-- Matchcast Game Switcher Strip -->
@@ -410,7 +411,7 @@
                                 <span class="text-sm font-black">{{$.FeaturedSummary.WinProbAway}}%</span>
                             </span>
                             <span class="text-zinc-500 uppercase tracking-widest text-[9px] font-bold flex items-center">
-                                <i class="fa-solid fa-chart-line text-[9px] mr-1 text-amber-400"></i> Probabilidad de Victoria (ESPN FPI)
+                                <i class="fa-solid fa-chart-line text-[9px] mr-1 text-amber-400"></i> Probabilidad de Victoria
                             </span>
                             <span class="text-amber-400 font-bold flex items-center space-x-1.5">
                                 <span class="text-sm font-black">{{$.FeaturedSummary.WinProbHome}}%</span>
@@ -593,7 +594,7 @@
                                 
                                 <div class="flex items-center justify-between">
                                     <span class="text-xs font-mono font-bold uppercase tracking-wider text-zinc-300 flex items-center">
-                                        <i class="fa-solid fa-chart-area mr-1.5 text-amber-400"></i> Gráfica de Probabilidad de Victoria (ESPN FPI)
+                                        <i class="fa-solid fa-chart-area mr-1.5 text-amber-400"></i> Gráfica de Probabilidad de Victoria
                                     </span>
                                     <span class="text-[10px] font-mono text-zinc-500">
                                         Pasa el cursor o desliza para ver jugadas
@@ -724,7 +725,7 @@
                                 </div>
                                 <h4 class="text-sm font-bold text-white">Probabilidad de victoria no disponible</h4>
                                 <p class="text-xs text-zinc-400 max-w-sm mx-auto">
-                                    Las proyecciones jugada a jugada de ESPN FPI se calculan dinámicamente una vez iniciado el encuentro.
+                                    La probabilidad de victoria no está disponible para este partido.
                                 </p>
                             </div>
                         {{end}}
@@ -862,7 +863,7 @@
                                         </div>
                                         <div class="bg-zinc-900/60 p-2 rounded-lg border border-zinc-800/60">
                                             <span class="text-[9px] font-mono text-zinc-500 uppercase block">Árbitro</span>
-                                            <span class="font-bold text-white block truncate">{{if $v.Referee}}{{$v.Referee}}{{else}}Oficial NFL{{end}}</span>
+                                            <span class="font-bold text-white block truncate">{{if $v.Referee}}{{$v.Referee}}{{else}}No disponible{{end}}</span>
                                             <span class="text-[10px] text-zinc-400 block">Oficial Principal</span>
                                         </div>
                                     </div>

@@ -1,0 +1,15 @@
+{{define "stats_provenance.html"}}
+{{if .}}
+    {{if eq .EffectiveSource "simulated"}}
+        <p class="px-4 py-3 text-sm leading-relaxed text-amber-200 bg-amber-950/40" role="note">
+            Datos simulados: estadísticas, jugadores, jugadas y sede pueden ser estimaciones. No son estadísticas oficiales de ESPN.
+        </p>
+    {{else if eq .EffectiveSource "unknown"}}
+        <p class="px-4 py-3 text-sm leading-relaxed text-amber-200 bg-amber-950/40" role="note">
+            Procedencia sin verificar: estos datos guardados pueden incluir estimaciones. Se conservan para consulta y no se presentan como estadísticas oficiales de ESPN.
+        </p>
+    {{else}}
+        <p class="px-4 py-2 text-xs text-zinc-300" role="note">Fuente de estadísticas: ESPN.</p>
+    {{end}}
+{{end}}
+{{end}}

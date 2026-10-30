@@ -319,7 +319,7 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 			if featuredGame.StatsJSON != "" {
 				featuredSummary = featuredGame.DetailedSummary()
 			}
-			if (featuredSummary == nil || !featuredSummary.HasStats) && featuredGame.ESPNGameID != "" {
+			if (featuredSummary == nil || featuredSummary.EffectiveSource() != db.StatsSourceESPN || !featuredSummary.HasStats) && featuredGame.ESPNGameID != "" {
 				if summary, err := h.espnClient.FetchGameSummary(featuredGame.ESPNGameID); err == nil && summary != nil && (summary.HasStats || summary.HasPlayerStats || len(summary.ScoringPlays) > 0 || summary.HasDrives || summary.HasWinProb) {
 					featuredSummary = summary
 					if b, err := json.Marshal(summary); err == nil {
@@ -328,7 +328,7 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 					}
 				}
 			}
-			if (featuredSummary == nil || !featuredSummary.HasStats) && (featuredGame.Status == "in_progress" || featuredGame.Status == "final") {
+			if featuredSummary == nil && (featuredGame.Status == "in_progress" || featuredGame.Status == "final") {
 				featuredSummary = espn.GenerateRealisticSummary(featuredGame)
 				if featuredSummary != nil {
 					if b, err := json.Marshal(featuredSummary); err == nil {
@@ -338,21 +338,6 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 							_ = h.repo.UpdateGameStatsJSON(featuredGame.ID, string(b))
 						}
 						featuredGame.StatsJSON = string(b)
-					}
-				}
-			} else if featuredSummary != nil && !featuredSummary.HasWinProb && (featuredGame.Status == "in_progress" || featuredGame.Status == "final") {
-				fb := espn.GenerateRealisticSummary(featuredGame)
-				if fb != nil {
-					featuredSummary.WinProbability = fb.WinProbability
-					featuredSummary.CurrentHomeWinPct = fb.CurrentHomeWinPct
-					featuredSummary.CurrentAwayWinPct = fb.CurrentAwayWinPct
-					featuredSummary.HasWinProb = fb.HasWinProb
-					if !featuredSummary.HasLeaders {
-						featuredSummary.Leaders = fb.Leaders
-						featuredSummary.HasLeaders = fb.HasLeaders
-					}
-					if featuredSummary.VenueInfo == nil {
-						featuredSummary.VenueInfo = fb.VenueInfo
 					}
 				}
 			}
@@ -650,7 +635,7 @@ func (h *LiveHandler) GameStatsModal(w http.ResponseWriter, r *http.Request) {
 
 	// For final games with valid stats already in DB, use them directly (0ms)
 	// If stats were generated as a synthetic/simulated fallback, do not block fetching official ESPN stats (A15).
-	if game.Status == "final" && summary != nil && summary.HasStats && !summary.IsSimulatedFallback {
+	if game.Status == "final" && summary != nil && summary.HasStats && summary.EffectiveSource() == db.StatsSourceESPN {
 		// Valid stats already loaded from DB
 	} else {
 		// Attempt live ESPN summary fetch
@@ -679,8 +664,8 @@ func (h *LiveHandler) GameStatsModal(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// If still missing valid stats and game is in_progress or final, generate realistic fallback and persist
-		if (summary == nil || !summary.HasStats) && (game.Status == "in_progress" || game.Status == "final") {
+		// Simulate only when no cached or official summary exists; never fill partial data with invented fields.
+		if summary == nil && (game.Status == "in_progress" || game.Status == "final") {
 			summary = espn.GenerateRealisticSummary(game)
 			if summary != nil {
 				if b, err := json.Marshal(summary); err == nil {
@@ -690,22 +675,6 @@ func (h *LiveHandler) GameStatsModal(w http.ResponseWriter, r *http.Request) {
 						_ = h.repo.UpdateGameStatsJSON(game.ID, string(b))
 					}
 					game.StatsJSON = string(b)
-				}
-			}
-		} else if summary != nil && !summary.HasWinProb && (game.Status == "in_progress" || game.Status == "final") {
-			fb := espn.GenerateRealisticSummary(game)
-			if fb != nil {
-				summary.WinProbability = fb.WinProbability
-				summary.CurrentHomeWinPct = fb.CurrentHomeWinPct
-				summary.CurrentAwayWinPct = fb.CurrentAwayWinPct
-				summary.HasWinProb = fb.HasWinProb
-				summary.HasSimulatedWinProb = true
-				if !summary.HasLeaders {
-					summary.Leaders = fb.Leaders
-					summary.HasLeaders = fb.HasLeaders
-				}
-				if summary.VenueInfo == nil {
-					summary.VenueInfo = fb.VenueInfo
 				}
 			}
 		}
@@ -722,4 +691,3 @@ func (h *LiveHandler) GameStatsModal(w http.ResponseWriter, r *http.Request) {
 
 	h.renderer.RenderPartial(w, "game_stats_modal.html", data)
 }
-

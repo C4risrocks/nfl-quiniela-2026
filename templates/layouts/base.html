@@ -849,6 +849,14 @@
             }
 
             let lastModalTrigger = null;
+            const modalSwapStates = new WeakMap();
+            function modalFocusables(dialog) {
+                return Array.from(dialog.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+                    .filter(el => el.getClientRects().length > 0);
+            }
+            function modalFocusKey(el) {
+                return JSON.stringify([el.tagName, ...['id', 'name', 'type', 'placeholder', 'title', 'aria-label', 'hx-get', '@click'].map(attr => el.getAttribute(attr) || '')]);
+            }
 
             function cleanupModalState() {
                 const hasOpen = checkAnyModalOpen() || window.__hasRivalsOpen();
@@ -933,7 +941,7 @@
             document.addEventListener('htmx:beforeRequest', function(e) {
                 if (e.detail && e.detail.elt) {
                     const target = e.detail.target ? e.detail.target.id : '';
-                    if (target.includes('modal')) {
+                    if (target.includes('modal') && !e.detail.target.querySelector('[role="dialog"]')) {
                         lastModalTrigger = e.detail.elt;
                     }
                 }
@@ -949,6 +957,23 @@
             });
 
             document.addEventListener('htmx:beforeSwap', function(e) {
+                const target = e.detail && e.detail.target;
+                if (target && (target.id || '').includes('modal')) {
+                    const dialog = target.querySelector('[role="dialog"]');
+                    const active = document.activeElement;
+                    const controls = dialog ? modalFocusables(dialog) : [];
+                    const focused = !!dialog && dialog.contains(active);
+                    modalSwapStates.set(target, {
+                        wasOpen: !!dialog,
+                        focused,
+                        index: controls.indexOf(active),
+                        key: focused ? modalFocusKey(active) : null,
+                        value: focused && (active.tagName === 'TEXTAREA' || (active.tagName === 'INPUT' && !['checkbox', 'radio', 'file', 'hidden'].includes(active.type))) ? active.value : null,
+                        selectionStart: focused && typeof active.selectionStart === 'number' ? active.selectionStart : null,
+                        selectionEnd: focused && typeof active.selectionEnd === 'number' ? active.selectionEnd : null
+                    });
+                }
+
                 if (e.detail && e.detail.target && e.detail.target.id === 'game-stats-modal-container') {
                     if (window.__statsModalClosed) {
                         e.detail.shouldSwap = false;
@@ -967,12 +992,36 @@
                 if (e.detail && e.detail.target) {
                     const targetId = e.detail.target.id || '';
                     if (targetId.includes('modal')) {
-                        const dialog = e.detail.target.querySelector('[role="dialog"]') || e.detail.target;
-                        const focusables = Array.from(dialog.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
-                            .filter(el => el.offsetParent !== null || el.offsetWidth > 0 || el.offsetHeight > 0);
-                        if (focusables.length > 0) {
-                            setTimeout(() => focusables[0].focus(), 60);
-                        }
+                        const target = e.detail.target;
+                        const state = modalSwapStates.get(target);
+                        modalSwapStates.delete(target);
+                        setTimeout(() => {
+                            const dialog = target.querySelector('[role="dialog"]');
+                            if (!dialog || !dialog.isConnected) return;
+                            const controls = modalFocusables(dialog);
+                            if (!state || !state.wasOpen) {
+                                if (controls[0]) controls[0].focus({ preventScroll: true });
+                                return;
+                            }
+                            // Polling replaces DOM nodes. Restore the same control only if
+                            // focus was inside; never take focus from another surface.
+                            if (!state.focused) return;
+                            const matches = controls.filter(el => modalFocusKey(el) === state.key);
+                            const control = matches.length === 1 ? matches[0] : controls[state.index];
+                            if (control) {
+                                if (state.value !== null && 'value' in control) {
+                                    control.value = state.value;
+                                    control.dispatchEvent(new Event('input', { bubbles: true }));
+                                }
+                                control.focus({ preventScroll: true });
+                                if (state.selectionStart !== null && typeof control.setSelectionRange === 'function') {
+                                    try { control.setSelectionRange(state.selectionStart, state.selectionEnd); } catch (err) {}
+                                }
+                            } else {
+                                dialog.setAttribute('tabindex', '-1');
+                                dialog.focus({ preventScroll: true });
+                            }
+                        }, 60);
                     }
                     if (targetId === 'live-content-container') {
                         if (lastLiveScrollY > 0 && Math.abs(window.scrollY - lastLiveScrollY) > 50) {
@@ -1281,6 +1330,8 @@
             };
         })();
     </script>
+
+    <script src="/static/js/app.js" defer></script>
 
     <!-- PWA Service Worker Registration -->
     <script>

@@ -11,7 +11,7 @@ import (
 
 func TestClientIPResolver_PreventsSpoofing(t *testing.T) {
 	// Resolver with only loopback (127.0.0.1) as trusted
-	resolver := security.NewClientIPResolver([]string{"127.0.0.1"}, false)
+	resolver := security.NewClientIPResolver([]string{"127.0.0.1"}, true)
 
 	// Case 1: Untrusted connection from internet (203.0.113.50) attempting to spoof via X-Forwarded-For
 	reqDirect := httptest.NewRequest("GET", "/picks", nil)
@@ -147,5 +147,47 @@ func TestAuthRateLimitMiddleware_BlocksAfterLimit(t *testing.T) {
 	}
 	if rr.Header().Get("Retry-After") == "" {
 		t.Fatalf("Expected Retry-After header to be set")
+	}
+}
+
+func TestExactOriginPolicy(t *testing.T) {
+	h := security.CSRFProtectionMiddleware("https://example.com")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) }))
+	for _, tc := range []struct {
+		origin, fetch string
+		want          int
+	}{{"https://example.com", "", 204}, {"https://example.com:443", "", 204}, {"http://example.com", "", 403}, {"https://example.com:9999", "", 403}, {"null", "", 403}, {"https://example.com/path", "", 403}, {"https://example.com#fragment", "", 403}, {"", "", 403}, {"", "same-origin", 204}, {"", "same-site", 403}} {
+		r := httptest.NewRequest("POST", "https://example.com/save", nil)
+		r.Header.Set("Origin", tc.origin)
+		r.Header.Set("Sec-Fetch-Site", tc.fetch)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != tc.want {
+			t.Errorf("%+v got %d", tc, w.Code)
+		}
+	}
+}
+func TestExplicitProxyTrust(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		resolver := security.NewClientIPResolver([]string{"172.18.0.2"}, enabled)
+		r := httptest.NewRequest("GET", "/", nil)
+		r.RemoteAddr = "10.5.6.7:123"
+		r.Header.Set("X-Forwarded-For", "8.8.8.8")
+		if got := resolver.ResolveClientIP(r); got != "10.5.6.7" {
+			t.Fatal(got)
+		}
+	}
+}
+
+func TestSchemeRequiresTrustedProxy(t *testing.T) {
+	resolver := security.NewClientIPResolver([]string{"172.18.0.2"}, true)
+	for _, tc := range []struct{ remote, want string }{{"10.0.0.3:99", "http"}, {"172.18.0.2:99", "https"}} {
+		r := httptest.NewRequest("GET", "http://example.com/", nil)
+		r.RemoteAddr = tc.remote
+		r.Header.Set("X-Forwarded-Proto", "https")
+		resolver.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if got := security.RequestScheme(r); got != tc.want {
+				t.Errorf("%s got%s", tc.remote, got)
+			}
+		})).ServeHTTP(httptest.NewRecorder(), r)
 	}
 }

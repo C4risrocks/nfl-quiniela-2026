@@ -194,11 +194,11 @@
                 return;
             }
 
-            document.getElementById('picks-form').submit();
+            window.submitPicks(document.getElementById('picks-form'));
         },
         forceSubmit() {
             this.confirmOpen = false;
-            document.getElementById('picks-form').submit();
+            window.submitPicks(document.getElementById('picks-form'));
         },
         reviewAndComplete() {
             this.confirmOpen = false;
@@ -322,7 +322,7 @@
                 {{end}}
                 {{if and .Games (not .IsFullWeekLocked)}}
                     <button type="button" 
-                            @click="validateAndSubmit()"
+                            data-picks-submit @click="validateAndSubmit()"
                             class="hidden sm:inline-flex items-center px-4 py-2 rounded-xl bg-white text-black font-extrabold text-xs hover:bg-zinc-200 transition-colors shadow-sm cursor-pointer shrink-0">
                         <i class="fa-solid fa-paper-plane mr-1.5"></i> Enviar
                     </button>
@@ -513,13 +513,15 @@
         </div>
     </div>
 
-    {{if .JustSaved}}
-        {{if gt .MissingCount 0}}
-            <div x-data x-init="$nextTick(() => $dispatch('show-toast', {message: '¡Pronósticos guardados! Ojo: Dejaste {{.MissingCount}} partido(s) sin pronosticar.', type: 'warning'}))"></div>
+    <p id="picks-save-status" role="status" aria-live="polite" aria-atomic="true"
+       data-state="{{if .JustSaved}}saved{{else}}idle{{end}}"
+       class="px-1 py-2 text-sm leading-relaxed {{if .JustSaved}}text-emerald-300{{else}}text-zinc-300{{end}}">
+        {{if .JustSaved}}
+            {{if gt .MissingCount 0}}Pronósticos guardados. Quedan {{.MissingCount}} partidos sin completar.{{else}}Pronósticos guardados correctamente.{{end}}
         {{else}}
-            <div x-data x-init="$nextTick(() => $dispatch('show-toast', {message: '¡Tus pronósticos se han guardado exitosamente!', type: 'success'}))"></div>
+            Tus cambios se guardan al pulsar Enviar.
         {{end}}
-    {{end}}
+    </p>
 
     <!-- Games Form and Grid -->
     {{if .Games}}
@@ -737,7 +739,7 @@
                         {{if not .IsFullWeekLocked}}
                             <button type="button" 
                                     id="mobile-submit-picks-btn"
-                                    @click="validateAndSubmit()"
+                                    data-picks-submit @click="validateAndSubmit()"
                                     class="px-3.5 py-1.5 bg-white text-black hover:bg-zinc-200 font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center space-x-1.5 active:scale-95 cursor-pointer">
                                 <i class="fa-solid fa-paper-plane text-[10px]"></i>
                                 <span>Enviar</span>
@@ -794,7 +796,7 @@
                     {{if not .IsFullWeekLocked}}
                         <button type="button" 
                                 id="submit-picks-btn"
-                                @click="validateAndSubmit()"
+                                data-picks-submit @click="validateAndSubmit()"
                                 class="px-6 py-2.5 bg-white text-black hover:bg-zinc-200 font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center justify-center space-x-2 hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
                             <i class="fa-solid fa-paper-plane text-black"></i>
                             <span>Enviar Pronósticos</span>
@@ -885,7 +887,7 @@
 
             <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-2">
                 <button type="button"
-                        @click="forceSubmit()"
+                        data-picks-submit @click="forceSubmit()"
                         class="px-4 py-2.5 rounded-xl border border-zinc-700/80 text-zinc-300 hover:text-white hover:bg-zinc-800 text-xs font-semibold transition-colors text-center cursor-pointer min-h-[44px]">
                     Enviar como están
                 </button>

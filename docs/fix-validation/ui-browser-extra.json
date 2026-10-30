@@ -1,0 +1,14 @@
+[
+  {
+    "test": "edits-while-saving",
+    "state": "unsaved",
+    "text": "Se guardaron los pronósticos enviados. Tienes cambios posteriores sin enviar."
+  },
+  {
+    "test": "specific-rejections-not-overwritten",
+    "events": [
+      "Mensaje específico 403",
+      "Mensaje específico 429"
+    ]
+  }
+]

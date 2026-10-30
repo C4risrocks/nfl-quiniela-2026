@@ -120,3 +120,13 @@ Si prefieres usar una base de datos PostgreSQL gestionada por Dokploy en vez de 
    DATABASE_URL=postgres://dokploy_user:tu_password@postgres-service:5432/quiniela_db?sslmode=disable
    ```
 3. Al reiniciar, el sistema migrará automáticamente el esquema SQL a PostgreSQL sin necesidad de pasos manuales.
+
+## Origen público y proxies de confianza
+
+Configure `APP_BASE_URL` con el origen público exacto (esquema, hostname y puerto). Los POST usan Origin, después Referer; si ambos faltan, se exige Sec-Fetch-Site: same-origin. Un cliente CLI autenticado debe enviar Origin con ese valor. No existen equivalencias automáticas entre localhost y127.0.0.1 ni entre puertos.
+
+Acceso directo: `BEHIND_PROXY=false`; las cabeceras reenviadas se ignoran. Detrás de Traefik u otro proxy: `BEHIND_PROXY=true` y `TRUSTED_PROXIES` con las IP/CIDR exactas del proxy que conecta al contenedor. La lista es exhaustiva: no se confía automáticamente en loopback ni en redes privadas. Valores vacíos o inválidos impiden el arranque. Restrinja además el acceso de red al backend. El esquema HTTPS reenviado solo se acepta desde esos proxies.
+
+Compose exige SESSION_SECRET y ADMIN_PASSWORD mediante variables externas; no usa credenciales integradas. Para desarrollo directo, copie .env.example y mantenga BEHIND_PROXY=false. La imagen productiva detrás de proxy requiere configurar explícitamente la confianza antes de desplegar.
+
+Push realiza conexiones HTTPS directas y no hereda HTTP_PROXY/HTTPS_PROXY; redes con salida obligatoria por proxy deben proporcionar salida directa para push antes de habilitarlo.
