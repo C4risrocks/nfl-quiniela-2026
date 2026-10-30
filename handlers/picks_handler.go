@@ -390,7 +390,11 @@ func (h *PicksHandler) SaveScore(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	existingPick, _ := h.repo.GetUserPickForGame(user.ID, gameID)
 	var pickedTeamID *int64
+	if existingPick != nil {
+		pickedTeamID = existingPick.PickedTeamID
+	}
 	if homeScore != nil && awayScore != nil {
 		if *homeScore > *awayScore {
 			pickedTeamID = &game.HomeTeamID
@@ -399,7 +403,7 @@ func (h *PicksHandler) SaveScore(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	pick, err := h.repo.SavePick(user.ID, gameID, pickedTeamID, homeScore, awayScore)
+	pick, err := h.repo.SavePickFull(user.ID, gameID, pickedTeamID, homeScore, awayScore)
 	if err != nil {
 		http.Error(w, "Error saving score", http.StatusInternalServerError)
 		return
@@ -504,13 +508,16 @@ func (h *PicksHandler) SaveAll(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if pickedTeamID != nil || homeScore != nil || awayScore != nil {
-			pick, err := h.repo.SavePick(user.ID, game.ID, pickedTeamID, homeScore, awayScore)
+			pick, err := h.repo.SavePickFull(user.ID, game.ID, pickedTeamID, homeScore, awayScore)
 			if err == nil {
 				pick.InferWinnerFromScores(game)
 				if pick.IsCompleteForGame(game) {
 					savedCount++
 				}
 			}
+		} else {
+			// Deliberately cleared by user on unlocked game
+			_ = h.repo.DeletePick(user.ID, game.ID)
 		}
 	}
 

@@ -140,6 +140,9 @@
                         </span>
                         <span class="text-zinc-500 uppercase tracking-widest text-[9px] flex items-center font-bold">
                             <i class="fa-solid fa-chart-line text-[9px] mr-1 text-amber-400"></i> Probabilidad de Victoria
+                            {{if .Summary.HasSimulatedWinProb}}
+                                <span class="ml-1 px-1.5 py-0.2 rounded text-[8px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30" title="Probabilidad calculada por modelo estadístico interno (sin feed directo de ESPN)">Estimada</span>
+                            {{end}}
                         </span>
                         <span class="text-amber-400 font-bold flex items-center space-x-1">
                             <span class="text-white">{{.Summary.WinProbHome}}%</span>

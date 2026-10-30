@@ -1,0 +1,6 @@
+=== RUN   TestAuditDefaultDeploymentEnvironment
+2026/10/30 00:19:54 [Config] Generated new VAPID keypair and persisted to /var/folders/66/937869x14cs_c5sk405rbf580000gn/T/TestAuditDefaultDeploymentEnvironment3059101398/001/.vapid_keys.json
+    audit_environment_test.go:6: default_admin_password=true default_session_secret=true
+--- PASS: TestAuditDefaultDeploymentEnvironment (0.00s)
+PASS
+ok  	nfl-quiniela-2026/config	0.321s

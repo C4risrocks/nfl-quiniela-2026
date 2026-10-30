@@ -1,0 +1,84 @@
+[
+  {
+    "test": "native-zoom-attempt",
+    "before": {
+      "width": 1366,
+      "dpr": 1,
+      "visualScale": 1
+    },
+    "afterMeta": {
+      "width": 1366,
+      "dpr": 1,
+      "visualScale": 1
+    },
+    "afterControl": {
+      "width": 1366,
+      "dpr": 1,
+      "visualScale": 1
+    }
+  },
+  {
+    "test": "modal-focusables",
+    "total": 9,
+    "visible": 8,
+    "lastVisible": true
+  },
+  {
+    "test": "modal-shift-tab",
+    "inside": true,
+    "active": "BUTTON"
+  },
+  {
+    "test": "reduced-motion",
+    "animations": [
+      {
+        "animation": "pulse",
+        "duration": "0.00001s",
+        "count": "1"
+      },
+      {
+        "animation": "pulse",
+        "duration": "0.00001s",
+        "count": "1"
+      },
+      {
+        "animation": "fa-spin",
+        "duration": "0.00001s",
+        "count": "1"
+      },
+      {
+        "animation": "fa-spin",
+        "duration": "0.00001s",
+        "count": "1"
+      },
+      {
+        "animation": "fa-spin",
+        "duration": "0.00001s",
+        "count": "1"
+      },
+      {
+        "animation": "fa-spin",
+        "duration": "0.00001s",
+        "count": "1"
+      }
+    ]
+  },
+  {
+    "test": "offline-cache",
+    "controller": true,
+    "cached": true
+  },
+  {
+    "test": "offline-navigation",
+    "status": 200,
+    "sw": true,
+    "title": "Reglamento - NFL Quiniela 2026",
+    "h1": "Reglamento y Sistema de Puntuación",
+    "retry": false,
+    "bodyLength": 34659
+  },
+  {
+    "test": "offline-recovery",
+    "h1": "Reglamento y Sistema de Puntuación"
+  }
+]

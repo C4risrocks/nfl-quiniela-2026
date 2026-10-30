@@ -44,7 +44,8 @@ VOLUME ["/app/data"]
 EXPOSE 8080
 
 # Environment Defaults (Override via Dokploy environment variables)
-ENV PORT=8080 \
+ENV APP_ENV=production \
+    PORT=8080 \
     DB_TYPE=sqlite \
     DB_PATH=/app/data/quiniela.db \
     ENABLE_BACKGROUND_SYNC=true \

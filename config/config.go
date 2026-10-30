@@ -35,6 +35,10 @@ type Config struct {
 	VAPIDPublicKey       string
 	VAPIDPrivateKey      string
 	VAPIDSubject         string
+	BehindProxy          bool
+	TrustedProxies       []string
+	RateLimitAuthPerMin  int
+	RateLimitGlobalPerMin int
 }
 
 func LoadConfig() *Config {
@@ -65,7 +69,18 @@ func LoadConfig() *Config {
 	adminPass := getEnv("ADMIN_PASSWORD", "admin123")
 	adminEmail := getEnv("ADMIN_EMAIL", "admin@quiniela.com")
 
-	envMode := strings.ToLower(getEnv("APP_ENV", getEnv("ENV", "development")))
+	isContainer := false
+	if fi, err := os.Stat("/app/data"); err == nil && fi.IsDir() {
+		isContainer = true
+	}
+	envMode := strings.ToLower(getEnv("APP_ENV", getEnv("ENV", "")))
+	if envMode == "" && isContainer {
+		envMode = "production"
+	}
+	if envMode == "" {
+		envMode = "development"
+	}
+
 	if envMode == "production" || envMode == "prod" {
 		if sessionSecret == "super-secret-session-key-change-in-prod-2026" {
 			log.Fatalf("[CRITICAL SECURITY ERROR] In production mode, SESSION_SECRET must be set to a strong, unique secret key. Refusing to start.")
@@ -140,29 +155,46 @@ func LoadConfig() *Config {
 		}
 	}
 
+	behindProxy := getEnvAsBool("BEHIND_PROXY", envMode == "production" || envMode == "prod")
+	trustedProxiesRaw := getEnv("TRUSTED_PROXIES", "")
+	var trustedProxies []string
+	if trustedProxiesRaw != "" {
+		for _, p := range strings.Split(trustedProxiesRaw, ",") {
+			if trimmed := strings.TrimSpace(p); trimmed != "" {
+				trustedProxies = append(trustedProxies, trimmed)
+			}
+		}
+	}
+	rateLimitAuth := getEnvAsInt("RATE_LIMIT_AUTH_PER_MIN", 10)
+	rateLimitGlobal := getEnvAsInt("RATE_LIMIT_GLOBAL_PER_MIN", 120)
+
 	return &Config{
-		Port:                 port,
-		DBType:               dbType,
-		DBPath:               dbPath,
-		DatabaseURL:          databaseURL,
-		SessionSecret:        sessionSecret,
-		AdminUsername:        adminUser,
-		AdminPassword:        adminPass,
-		AdminEmail:           adminEmail,
-		ESPNSyncIntervalMins: syncInterval,
-		CurrentSeasonYear:    seasonYear,
-		EnableBackgroundSync: bgSync,
-		SMTPHost:             smtpHost,
-		SMTPPort:             smtpPort,
-		SMTPUser:             smtpUser,
-		SMTPPass:             smtpPass,
-		SMTPFrom:             smtpFrom,
-		AppBaseURL:           appBaseURL,
-		EnableReminders:      enableReminders,
-		UploadDir:            uploadDir,
-		VAPIDPublicKey:       vapidPublicKey,
-		VAPIDPrivateKey:      vapidPrivateKey,
-		VAPIDSubject:         vapidSubject,
+		Port:                  port,
+		DBType:                dbType,
+		DBPath:                dbPath,
+		DatabaseURL:           databaseURL,
+		SessionSecret:         sessionSecret,
+		AdminUsername:         adminUser,
+		AdminPassword:         adminPass,
+		AdminEmail:            adminEmail,
+		ESPNSyncIntervalMins:  syncInterval,
+		CurrentSeasonYear:     seasonYear,
+		EnableBackgroundSync:  bgSync,
+		SMTPHost:              smtpHost,
+		SMTPPort:              smtpPort,
+		SMTPUser:              smtpUser,
+		SMTPPass:              smtpPass,
+		SMTPFrom:              smtpFrom,
+		AppBaseURL:            appBaseURL,
+		EnableReminders:       enableReminders,
+		UploadDir:             uploadDir,
+		VAPIDPublicKey:        vapidPublicKey,
+		VAPIDPrivateKey:       vapidPrivateKey,
+		VAPIDSubject:          vapidSubject,
+		BehindProxy:           behindProxy,
+		TrustedProxies:        trustedProxies,
+		RateLimitAuthPerMin:   rateLimitAuth,
+		RateLimitGlobalPerMin: rateLimitGlobal,
 	}
 }
 

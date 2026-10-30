@@ -283,4 +283,85 @@ func TestPickValidation_RejectsInvalidTeam(t *testing.T) {
 	}
 }
 
+func TestPickClearingAndDeletion_DATA02(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test_picks_clearing.db")
+	database, err := db.InitDB("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	defer database.Close()
+
+	repo := db.NewRepository(database)
+	if err := db.SeedDatabase(repo, "auditadmin", "a@example.invalid", "fictional-password", 2026); err != nil {
+		t.Fatalf("SeedDatabase failed: %v", err)
+	}
+
+	season, err := repo.GetActiveSeason(2026)
+	if err != nil {
+		t.Fatalf("GetActiveSeason failed: %v", err)
+	}
+
+	week, err := repo.GetWeekByNumber(season.ID, 1)
+	if err != nil {
+		t.Fatalf("GetWeekByNumber failed: %v", err)
+	}
+
+	kc, _ := repo.GetTeamByCode("KC")
+	bal, _ := repo.GetTeamByCode("BAL")
+	u, err := repo.CreateUser("cleartest", "cleartest@test.com", "hash", "player")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	_ = repo.SetUserEmailVerified(u.ID, true)
+
+	game, err := repo.CreateManualGame(&db.Game{
+		WeekID:      week.ID,
+		HomeTeamID:  kc.ID,
+		AwayTeamID:  bal.ID,
+		KickoffTime: time.Now().Add(24 * time.Hour),
+		Status:      "scheduled",
+	})
+	if err != nil {
+		t.Fatalf("CreateManualGame failed: %v", err)
+	}
+
+	// 1. Initial save with scores
+	hs, as := 28, 20
+	pick1, err := repo.SavePick(u.ID, game.ID, &kc.ID, &hs, &as)
+	if err != nil {
+		t.Fatalf("Initial SavePick failed: %v", err)
+	}
+	if pick1.PredictedHomeScore == nil || *pick1.PredictedHomeScore != 28 {
+		t.Fatalf("Expected PredictedHomeScore=28, got %v", pick1.PredictedHomeScore)
+	}
+
+	// 2. Clear scores explicitly using SavePickFull without COALESCE reviving them
+	pick2, err := repo.SavePickFull(u.ID, game.ID, &kc.ID, nil, nil)
+	if err != nil {
+		t.Fatalf("SavePickFull failed: %v", err)
+	}
+	if pick2.PredictedHomeScore != nil {
+		t.Fatalf("Expected PredictedHomeScore to be cleared (nil), but got: %d", *pick2.PredictedHomeScore)
+	}
+	if pick2.PredictedAwayScore != nil {
+		t.Fatalf("Expected PredictedAwayScore to be cleared (nil), but got: %d", *pick2.PredictedAwayScore)
+	}
+	if pick2.PickedTeamID == nil || *pick2.PickedTeamID != kc.ID {
+		t.Fatalf("Expected PickedTeamID to remain KC, got: %v", pick2.PickedTeamID)
+	}
+
+	// 3. Clear pick completely
+	if err := repo.DeletePick(u.ID, game.ID); err != nil {
+		t.Fatalf("DeletePick failed: %v", err)
+	}
+	clearedPick, err := repo.GetUserPickForGame(u.ID, game.ID)
+	if err != nil {
+		t.Fatalf("GetUserPickForGame failed: %v", err)
+	}
+	if clearedPick != nil {
+		t.Fatalf("Expected pick to be deleted from database, but found pick ID=%d", clearedPick.ID)
+	}
+}
+
+
 

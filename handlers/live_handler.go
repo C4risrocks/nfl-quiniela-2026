@@ -699,6 +699,7 @@ func (h *LiveHandler) GameStatsModal(w http.ResponseWriter, r *http.Request) {
 				summary.CurrentHomeWinPct = fb.CurrentHomeWinPct
 				summary.CurrentAwayWinPct = fb.CurrentAwayWinPct
 				summary.HasWinProb = fb.HasWinProb
+				summary.HasSimulatedWinProb = true
 				if !summary.HasLeaders {
 					summary.Leaders = fb.Leaders
 					summary.HasLeaders = fb.HasLeaders

@@ -11,6 +11,9 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	"nfl-quiniela-2026/db"
 )
 
@@ -848,7 +851,7 @@ func parseTeamPlayerStats(item ESPNBoxscorePlayerTeam) *db.TeamPlayerStats {
 			title = "Intercepciones"
 		default:
 			if title == "" {
-				title = strings.Title(c.Name)
+				title = cases.Title(language.Und).String(c.Name)
 			}
 		}
 

@@ -1,0 +1,8 @@
+VALIDATE http://127.0.0.1/internal error=push endpoint must use HTTPS scheme
+VALIDATE https://127.0.0.1/internal error=push endpoint targets restricted IP: 127.0.0.1
+VALIDATE https://10.0.0.1/internal error=push endpoint targets restricted IP: 10.0.0.1
+VALIDATE https://[::1]/internal error=push endpoint targets restricted IP: ::1
+VALIDATE https://169.254.169.254/latest error=push endpoint targets restricted IP: 169.254.169.254
+VALIDATE https://8.8.8.8/push error=<nil>
+PRIVATE_REDIRECT_REACHED method=POST host=127.0.0.1:65130 path=/internal
+REDIRECT_RESULT local_hits=1 error=<nil> test_switch=false

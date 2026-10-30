@@ -548,6 +548,7 @@ type GameDetailedSummary struct {
 	HasWinProb        bool                  `json:"has_win_prob"`
 	HasLeaders        bool                  `json:"has_leaders"`
 	IsSimulatedFallback bool                `json:"is_simulated_fallback"`
+	HasSimulatedWinProb bool                `json:"has_simulated_win_prob"`
 }
 
 func (s *GameDetailedSummary) WinProbHome() int {

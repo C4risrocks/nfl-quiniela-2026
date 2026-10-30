@@ -1,0 +1,50 @@
+### Result
+[{"test":"native-zoom-attempt","before":{"width":1366,"dpr":1,"visualScale":1},"afterMeta":{"width":1366,"dpr":1,"visualScale":1},"afterControl":{"width":1366,"dpr":1,"visualScale":1}},{"test":"modal-focusables","total":9,"visible":8,"lastVisible":true},{"test":"modal-shift-tab","inside":true,"active":"BUTTON"},{"test":"reduced-motion","animations":[{"animation":"pulse","duration":"0.00001s","count":"1"},{"animation":"pulse","duration":"0.00001s","count":"1"},{"animation":"fa-spin","duration":"0.00001s","count":"1"},{"animation":"fa-spin","duration":"0.00001s","count":"1"},{"animation":"fa-spin","duration":"0.00001s","count":"1"},{"animation":"fa-spin","duration":"0.00001s","count":"1"}]},{"test":"offline-cache","controller":true,"cached":true},{"test":"offline-navigation","status":200,"sw":true,"title":"Reglamento - NFL Quiniela 2026","h1":"Reglamento y Sistema de Puntuación","retry":false,"bodyLength":34659},{"test":"offline-recovery","h1":"Reglamento y Sistema de Puntuación"}]
+### Ran Playwright code
+```js
+await (async page => {
+ const origin='http://localhost:18109'; const out=[];
+ await page.goto(origin+'/picks?week=18',{waitUntil:'domcontentloaded'});
+ await page.setViewportSize({width:1366,height:768});
+ const before=await page.evaluate(()=>({width:innerWidth,dpr:devicePixelRatio,visualScale:visualViewport.scale}));
+ for(let i=0;i<4;i++)await page.keyboard.press('Meta+Equal');
+ const afterMeta=await page.evaluate(()=>({width:innerWidth,dpr:devicePixelRatio,visualScale:visualViewport.scale}));
+ for(let i=0;i<4;i++)await page.keyboard.press('Control+Equal');
+ const afterControl=await page.evaluate(()=>({width:innerWidth,dpr:devicePixelRatio,visualScale:visualViewport.scale}));
+ out.push({test:'native-zoom-attempt',before,afterMeta,afterControl});
+ await page.keyboard.press('Meta+Digit0');await page.keyboard.press('Control+Digit0');
+ await page.setViewportSize({width:390,height:844});
+ const trigger=page.locator('button[hx-target="#readiness-modal-container"]');
+ await trigger.click();await page.locator('[role=dialog]').waitFor();
+ out.push(await page.evaluate(()=>{const d=document.querySelector('[role=dialog]');const fs=[...d.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')];return{test:'modal-focusables',total:fs.length,visible:fs.filter(e=>e.getClientRects().length).length,lastVisible:!!fs.at(-1)?.getClientRects().length};}));
+ await page.evaluate(()=>document.querySelector('[role=dialog] button').focus());
+ await page.keyboard.press('Shift+Tab');
+ out.push(await page.evaluate(()=>({test:'modal-shift-tab',inside:document.querySelector('[role=dialog]').contains(document.activeElement),active:document.activeElement.tagName})));
+ await page.keyboard.press('Escape');
+ await page.emulateMedia({reducedMotion:'reduce'});
+ out.push(await page.evaluate(()=>({test:'reduced-motion',animations:[...document.querySelectorAll('*')].filter(e=>getComputedStyle(e).animationName!=='none').slice(0,6).map(e=>({animation:getComputedStyle(e).animationName,duration:getComputedStyle(e).animationDuration,count:getComputedStyle(e).animationIterationCount}))})));
+ await page.evaluate(()=>document.documentElement.style.zoom='2');
+ await page.screenshot({path:'/Users/christiandejmorenomarin/Documents/nfl-quiniela-2026/docs/audit-revalidation/picks-css-zoom200.png'});
+ await page.evaluate(()=>document.documentElement.style.zoom='1');
+ await page.goto(origin+'/offline',{waitUntil:'domcontentloaded'});
+ await page.evaluate(()=>navigator.serviceWorker.ready);
+ out.push(await page.evaluate(async()=>({test:'offline-cache',controller:!!navigator.serviceWorker.controller,cached:!!await caches.match('/offline')})));
+ await page.context().setOffline(true);
+ try {
+ const r=await page.goto(origin+'/rules?audit-offline=1',{waitUntil:'domcontentloaded',timeout:10000});
+ out.push(await page.evaluate(({status,sw})=>({test:'offline-navigation',status,sw,title:document.title,h1:document.querySelector('h1')?.textContent.trim(),retry:!![...document.querySelectorAll('button')].find(b=>b.textContent.includes('Reintentar')),bodyLength:document.body.textContent.length}),{status:r.status(),sw:r.fromServiceWorker()}));
+ await page.screenshot({path:'/Users/christiandejmorenomarin/Documents/nfl-quiniela-2026/docs/audit-revalidation/offline-firefox.png'});
+ }catch(e){out.push({test:'offline-navigation',error:e.message.slice(0,220)});}
+ await page.context().setOffline(false);
+ await page.goto(origin+'/rules',{waitUntil:'domcontentloaded',timeout:10000});
+ out.push(await page.evaluate(()=>({test:'offline-recovery',h1:document.querySelector('h1')?.textContent.trim()})));
+ return out;
+}
+)(page);
+```
+### Page
+- Page URL: http://localhost:18109/rules
+- Page Title: Reglamento - NFL Quiniela 2026
+- Console: 0 errors, 1 warnings
+### Events
+- New console entries: .playwright-cli/console-2026-10-30T06-20-09-269Z.log#L55-L80

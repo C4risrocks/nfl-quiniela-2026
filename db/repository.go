@@ -214,7 +214,7 @@ func (r *Repository) CreateUserWithVerification(username, email, passwordHash, r
 
 	query := `
 	INSERT INTO users (username, email, password_hash, role, email_verified, verification_token, verification_sent_at, notify_email, created_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP);`
+	VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, CURRENT_TIMESTAMP);`
 	
 	emailVerified := false
 	if token != "" {
@@ -391,7 +391,7 @@ func (r *Repository) VerifyUserEmail(token string) (*User, error) {
 		return nil, fmt.Errorf("token de verificación no encontrado o inválido")
 	}
 
-	updateQuery := `UPDATE users SET email_verified = 1, verification_token = NULL, verification_sent_at = NULL WHERE id = ?`
+	updateQuery := `UPDATE users SET email_verified = TRUE, verification_token = NULL, verification_sent_at = NULL WHERE id = ?`
 	if _, err := r.db.Exec(updateQuery, u.ID); err != nil {
 		return nil, err
 	}
@@ -728,7 +728,7 @@ func (r *Repository) GetActiveSeason(year int) (*Season, error) {
 	err := r.db.QueryRow(query, year).Scan(&s.ID, &s.Year, &s.Name, &s.IsActive)
 	if err == sql.ErrNoRows {
 		// Auto-create season if missing
-		ins := `INSERT INTO seasons (year, name, is_active) VALUES (?, ?, 1)`
+		ins := `INSERT INTO seasons (year, name, is_active) VALUES (?, ?, TRUE)`
 		res, err := r.db.Exec(ins, year, fmt.Sprintf("%d NFL Season", year))
 		if err != nil {
 			return nil, err
@@ -1297,6 +1297,45 @@ func (r *Repository) SavePick(userID, gameID int64, pickedTeamID *int64, predHom
 	return r.GetUserPickForGame(userID, gameID)
 }
 
+// SavePickFull writes explicit values for picked_team_id and predicted scores without COALESCE,
+// allowing deliberate score clearing or winner adjustments.
+func (r *Repository) SavePickFull(userID, gameID int64, pickedTeamID *int64, predHome, predAway *int) (*Pick, error) {
+	if pickedTeamID != nil {
+		game, err := r.GetGameByID(gameID)
+		if err != nil {
+			return nil, fmt.Errorf("loading game %d: %w", gameID, err)
+		}
+		if game == nil {
+			return nil, errors.New("partido no encontrado")
+		}
+		if *pickedTeamID != game.HomeTeamID && *pickedTeamID != game.AwayTeamID {
+			return nil, errors.New("equipo seleccionado no participa en este partido")
+		}
+	}
+
+	query := `
+	INSERT INTO picks (user_id, game_id, picked_team_id, predicted_home_score, predicted_away_score, updated_at)
+	VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	ON CONFLICT(user_id, game_id) DO UPDATE SET
+		picked_team_id = excluded.picked_team_id,
+		predicted_home_score = excluded.predicted_home_score,
+		predicted_away_score = excluded.predicted_away_score,
+		updated_at = CURRENT_TIMESTAMP;`
+
+	_, err := r.db.Exec(query, userID, gameID, pickedTeamID, predHome, predAway)
+	if err != nil {
+		return nil, err
+	}
+	return r.GetUserPickForGame(userID, gameID)
+}
+
+// DeletePick permanently removes a user's pick for a game (e.g. when unselecting on unlocked games).
+func (r *Repository) DeletePick(userID, gameID int64) error {
+	query := `DELETE FROM picks WHERE user_id = ? AND game_id = ?`
+	_, err := r.db.Exec(query, userID, gameID)
+	return err
+}
+
 func (r *Repository) ListPicksForGame(gameID int64) ([]*Pick, error) {
 	teamMap, _ := r.GetTeamMap()
 
@@ -1745,7 +1784,7 @@ func (r *Repository) GetWeeklyLeaderboard(weekID int64) ([]*LeaderboardEntry, er
 	       u.favorite_team_id, COALESCE(u.bio, ''), COALESCE(u.featured_badge_code, '')
 	FROM weekly_leaderboard wl
 	JOIN users u ON wl.user_id = u.id
-	WHERE wl.week_id = ? AND COALESCE(u.role, 'player') != 'admin' AND (u.email_verified = 1 OR u.role = 'bot' OR u.username = 'ia_quiniela')
+	WHERE wl.week_id = ? AND COALESCE(u.role, 'player') != 'admin' AND (u.email_verified = TRUE OR u.role = 'bot' OR u.username = 'ia_quiniela')
 	ORDER BY wl.total_points DESC, wl.correct_picks DESC, wl.tiebreaker_winner_correct DESC, wl.tiebreaker_error ASC, u.username ASC`
 
 	rows, err := r.db.Query(query, weekID)
@@ -1824,7 +1863,7 @@ func (r *Repository) GetSeasonLeaderboard(seasonID int64) ([]*LeaderboardEntry, 
 	    weekly_leaderboard wl
 	    JOIN weeks w ON wl.week_id = w.id AND w.season_id = ?
 	) ON u.id = wl.user_id
-	WHERE COALESCE(u.role, 'player') != 'admin' AND (u.email_verified = 1 OR u.role = 'bot' OR u.username = 'ia_quiniela') AND (u.username != 'ia_quiniela' OR wl.user_id IS NOT NULL)
+	WHERE COALESCE(u.role, 'player') != 'admin' AND (u.email_verified = TRUE OR u.role = 'bot' OR u.username = 'ia_quiniela') AND (u.username != 'ia_quiniela' OR wl.user_id IS NOT NULL)
 	GROUP BY u.id, u.username, u.avatar_url, u.favorite_team_id, u.bio, u.featured_badge_code
 	ORDER BY grand_total_points DESC, 
 	         grand_correct_picks DESC, 
@@ -2014,7 +2053,7 @@ func (r *Repository) LogReminderSent(userID, weekID int64, reminderType string) 
 // ----------------------------------------------------
 
 func (r *Repository) CreateInAppNotification(userID int64, title, message, link, notifType string) (*InAppNotification, error) {
-	query := `INSERT INTO in_app_notifications (user_id, title, message, link, type, is_read, created_at) VALUES (?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)`
+	query := `INSERT INTO in_app_notifications (user_id, title, message, link, type, is_read, created_at) VALUES (?, ?, ?, ?, ?, FALSE, CURRENT_TIMESTAMP)`
 	res, err := r.db.Exec(query, userID, title, message, link, notifType)
 	if err != nil {
 		return nil, err

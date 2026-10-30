@@ -1,0 +1,128 @@
+[
+  {
+    "test": "form",
+    "path": "/login",
+    "fields": [
+      {
+        "name": "username",
+        "labels": [
+          "Usuario o Correo"
+        ],
+        "autocomplete": "",
+        "font": "14px"
+      },
+      {
+        "name": "password",
+        "labels": [
+          "Contraseña"
+        ],
+        "autocomplete": "",
+        "font": "14px"
+      }
+    ]
+  },
+  {
+    "test": "form",
+    "path": "/register",
+    "fields": [
+      {
+        "name": "username",
+        "labels": [
+          "Nombre de Usuario"
+        ],
+        "autocomplete": "",
+        "font": "14px"
+      },
+      {
+        "name": "email",
+        "labels": [
+          "Correo Electrónico"
+        ],
+        "autocomplete": "",
+        "font": "14px"
+      },
+      {
+        "name": "password",
+        "labels": [
+          "Contraseña (Mínimo 6 caracteres)"
+        ],
+        "autocomplete": "",
+        "font": "14px"
+      }
+    ]
+  },
+  {
+    "test": "A01",
+    "status": 200,
+    "bodyClosed": true,
+    "footer": true,
+    "readinessTarget": true,
+    "error": false,
+    "cards": 17
+  },
+  {
+    "test": "A09-initial",
+    "role": "dialog",
+    "modal": "true",
+    "name": "Estatus de Participación\n                            • Semana 18",
+    "focusInside": false,
+    "active": "BUTTON"
+  },
+  {
+    "test": "A09-tab-from-trigger",
+    "inside": false,
+    "active": "<a href=\"/picks/matrix?week=18\" title=\"Ver matriz comunitaria de pronósticos\" class=\"inline-flex items-center px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-9"
+  },
+  {
+    "test": "A09-close",
+    "dialogRemains": false,
+    "restored": true
+  },
+  {
+    "test": "A10-visible",
+    "role": "status",
+    "aria": "polite",
+    "text": "Auditoría: guardado temporal confirmado",
+    "visible": true
+  },
+  {
+    "test": "A10-after4s",
+    "text": "Auditoría: guardado temporal confirmado",
+    "visible": false
+  },
+  {
+    "test": "A13-live-select",
+    "width": 360,
+    "left": 103.39999389648438,
+    "right": 327,
+    "clipped": false
+  },
+  {
+    "test": "A13-live-select",
+    "width": 390,
+    "left": 103.39999389648438,
+    "right": 357,
+    "clipped": false
+  },
+  {
+    "test": "A13-live-select",
+    "width": 768,
+    "left": 446.75,
+    "right": 653.5666656494141,
+    "clipped": false
+  },
+  {
+    "test": "A13-live-select",
+    "width": 1366,
+    "left": 1063.183349609375,
+    "right": 1270.000015258789,
+    "clipped": false
+  },
+  {
+    "test": "A13-live-select",
+    "width": 1440,
+    "left": 1100.183349609375,
+    "right": 1307.000015258789,
+    "clipped": false
+  }
+]

@@ -367,6 +367,9 @@ func (h *AdminHandler) SaveGameScore(w http.ResponseWriter, r *http.Request) {
 	// Recalculate leaderboard for this week
 	if err := h.calculator.CalculateWeekScores(game.WeekID); err != nil {
 		log.Printf("[Admin] Error calculating week scores for week %d: %v", game.WeekID, err)
+		w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Error al recalcular puntuaciones: %v", "type": "error"}}`, err))
+		http.Error(w, fmt.Sprintf("Error calculating week scores: %v", err), http.StatusInternalServerError)
+		return
 	} else if h.broker != nil {
 		h.broker.Broadcast(fmt.Sprintf("game-%d", gameID), fmt.Sprintf(`{"game_id": %d, "status": "%s"}`, gameID, status))
 		h.broker.Broadcast("week-updated", fmt.Sprintf(`{"week_id": %d}`, game.WeekID))
@@ -456,6 +459,9 @@ func (h *AdminHandler) ToggleTiebreaker(w http.ResponseWriter, r *http.Request) 
 	// Recalculate leaderboard
 	if err := h.calculator.CalculateWeekScores(game.WeekID); err != nil {
 		log.Printf("[Admin] Error calculating week scores for week %d: %v", game.WeekID, err)
+		w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Error al recalcular puntuaciones: %v", "type": "error"}}`, err))
+		http.Error(w, fmt.Sprintf("Error calculating week scores: %v", err), http.StatusInternalServerError)
+		return
 	} else if h.broker != nil {
 		h.broker.Broadcast(fmt.Sprintf("game-%d", gameID), fmt.Sprintf(`{"game_id": %d, "is_tiebreaker": %v}`, gameID, newTiebreakerState))
 		h.broker.BroadcastLeaderboardUpdate()
@@ -679,16 +685,21 @@ func (h *AdminHandler) SaveUserPicks(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if pickedTeamID != nil || homeScore != nil || awayScore != nil {
-			_, err := h.repo.SavePick(targetUser.ID, game.ID, pickedTeamID, homeScore, awayScore)
+			_, err := h.repo.SavePickFull(targetUser.ID, game.ID, pickedTeamID, homeScore, awayScore)
 			if err == nil {
 				savedCount++
 			}
+		} else {
+			_ = h.repo.DeletePick(targetUser.ID, game.ID)
 		}
 	}
 
 	// Recalculate leaderboard
 	if err := h.calculator.CalculateWeekScores(weekID); err != nil {
 		log.Printf("[Admin] Error calculating week scores for week %d: %v", weekID, err)
+		w.Header().Set("HX-Trigger", fmt.Sprintf(`{"show-toast": {"message": "Error al recalcular puntuaciones: %v", "type": "error"}}`, err))
+		http.Error(w, fmt.Sprintf("Error calculating week scores: %v", err), http.StatusInternalServerError)
+		return
 	} else if h.broker != nil {
 		h.broker.BroadcastLeaderboardUpdate()
 	}

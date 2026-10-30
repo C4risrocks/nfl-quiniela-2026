@@ -115,14 +115,53 @@ type PushService struct {
 	httpClient *http.Client
 }
 
-// NewPushService initializes a new Web Push service instance
+// NewPushService initializes a new Web Push service instance with anti-SSRF protections
 func NewPushService(repo *db.Repository, publicKey, privateKey, subject string) *PushService {
+	safeTransport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, err
+			}
+			ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+			if err != nil {
+				return nil, err
+			}
+			for _, ip := range ips {
+				if !AllowInsecureEndpointsForTesting && IsPrivateOrLoopbackIP(ip) {
+					return nil, fmt.Errorf("SSRF protection: push endpoint resolves to private/loopback IP: %s", ip.String())
+				}
+			}
+			dialer := &net.Dialer{
+				Timeout:   5 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}
+			if len(ips) > 0 {
+				return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].String(), port))
+			}
+			return dialer.DialContext(ctx, network, addr)
+		},
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
 	return &PushService{
 		repo:       repo,
 		publicKey:  publicKey,
 		privateKey: privateKey,
 		subject:    subject,
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		httpClient: &http.Client{
+			Transport: safeTransport,
+			Timeout:   10 * time.Second,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				// WebPush (RFC 8030) gateways do not require redirects.
+				// Prohibit redirects to completely block redirect-based SSRF attempts.
+				return http.ErrUseLastResponse
+			},
+		},
 	}
 }
 

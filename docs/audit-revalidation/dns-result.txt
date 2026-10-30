@@ -1,0 +1,4 @@
+CONTROLLED_DNS lookup=1 answer=[8 8 8 8]
+CONTROLLED_DNS lookup=2 answer=[127 0 0 1]
+REBIND_PRIVATE_REACHED method=POST host=audit-rebind.invalid:65068
+REBIND_RESULT dns_lookups=2 local_hits=1 error=<nil> test_switch=false

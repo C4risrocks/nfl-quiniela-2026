@@ -353,13 +353,9 @@ func (d *DB) migrate() error {
 	// Seed official AI bot user (@ia_quiniela) if not exists
 	seedBotUser := `
 	INSERT INTO users (username, email, password_hash, role, email_verified, bio, avatar_url, notify_email)
-	SELECT 'ia_quiniela', 'ia@quiniela.internal', 'NOPASSWORD_BOT_ACCOUNT', 'player', 1, '🤖 Bot Oficial de Inteligencia Artificial de la Quiniela. Pronósticos generados con FiveThirtyEight Elo y consenso de Las Vegas.', '/static/icons/bot_avatar.svg', 0
+	SELECT 'ia_quiniela', 'ia@quiniela.internal', 'NOPASSWORD_BOT_ACCOUNT', 'player', TRUE, '🤖 Bot Oficial de Inteligencia Artificial de la Quiniela. Pronósticos generados con FiveThirtyEight Elo y consenso de Las Vegas.', '/static/icons/bot_avatar.svg', FALSE
 	WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'ia_quiniela');
 	`
-	if d.DriverName == "pgx" {
-		seedBotUser = strings.ReplaceAll(seedBotUser, "1, '🤖", "TRUE, '🤖")
-		seedBotUser = strings.ReplaceAll(seedBotUser, ", 0\n", ", FALSE\n")
-	}
 	if _, err := d.Exec(seedBotUser); err != nil {
 		log.Printf("[DB] Warning seeding bot user: %v", err)
 	}

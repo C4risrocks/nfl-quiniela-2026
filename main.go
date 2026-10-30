@@ -25,6 +25,7 @@ import (
 	"nfl-quiniela-2026/services/forecasting"
 	"nfl-quiniela-2026/services/notifications"
 	"nfl-quiniela-2026/services/scoring"
+	"nfl-quiniela-2026/services/security"
 )
 
 //go:embed templates/* templates/layouts/* templates/pages/* templates/partials/*
@@ -174,15 +175,22 @@ func main() {
 	playoffsHandler := handlers.NewPlayoffsHandler(repo, renderer, cfg.CurrentSeasonYear)
 	statsHandler := handlers.NewStatsHandler(repo, renderer, cfg.CurrentSeasonYear)
 
-	// 8. Router Setup
+	// 8. Security Services (Safe Client IP, Rate Limiters & CSRF Protection)
+	ipResolver := security.NewClientIPResolver(cfg.TrustedProxies, cfg.BehindProxy)
+	globalLimiter := security.NewIPRateLimiter(cfg.RateLimitGlobalPerMin, cfg.RateLimitGlobalPerMin/3)
+	authLimiter := security.NewIPRateLimiter(cfg.RateLimitAuthPerMin, cfg.RateLimitAuthPerMin/2)
+
+	// 9. Router Setup
 	r := chi.NewRouter()
 
 	// Global Middleware
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	r.Use(ipResolver.Middleware) // Replaces deprecated middleware.RealIP vulnerable to IP spoofing
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
+	r.Use(security.GlobalRateLimitMiddleware(globalLimiter))
+	r.Use(security.CSRFProtectionMiddleware(cfg.AppBaseURL))
 	r.Use(authService.AuthMiddleware)
 
 	// Static Files (/static/*)
@@ -256,19 +264,24 @@ func main() {
 		})
 	})
 	r.Get("/login", authHandler.ShowLogin)
-	r.Post("/login", authHandler.HandleLogin)
 	r.Get("/register", authHandler.ShowRegister)
-	r.Post("/register", authHandler.HandleRegister)
 	r.Post("/logout", authHandler.HandleLogout)
 
-	// Email Verification & Password Reset
+	// Email Verification & Password Reset GET pages
 	r.Get("/verify-email", authHandler.HandleVerifyEmail)
 	r.Get("/verify-email-pending", authHandler.ShowVerifyEmailPending)
-	r.Post("/verify-email/resend", authHandler.HandleResendVerification)
 	r.Get("/forgot-password", authHandler.ShowForgotPassword)
-	r.Post("/forgot-password", authHandler.HandleForgotPassword)
 	r.Get("/reset-password", authHandler.ShowResetPassword)
-	r.Post("/reset-password", authHandler.HandleResetPassword)
+
+	// Sensitive Authentication & Recovery POST Routes (Strict Rate Limiting)
+	r.Group(func(authRouter chi.Router) {
+		authRouter.Use(security.AuthRateLimitMiddleware(authLimiter))
+		authRouter.Post("/login", authHandler.HandleLogin)
+		authRouter.Post("/register", authHandler.HandleRegister)
+		authRouter.Post("/verify-email/resend", authHandler.HandleResendVerification)
+		authRouter.Post("/forgot-password", authHandler.HandleForgotPassword)
+		authRouter.Post("/reset-password", authHandler.HandleResetPassword)
+	})
 
 	r.Get("/rules", rulesHandler.ShowRules)
 	r.Get("/leaderboard", leaderboardHandler.ShowLeaderboard)
@@ -392,6 +405,9 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Printf("Server shutdown error: %v", err)
 	}
+
+	globalLimiter.Stop()
+	authLimiter.Stop()
 
 	// For SQLite, perform WAL checkpoint to flush all journals into the main database file
 	if database.DriverName == "sqlite" {

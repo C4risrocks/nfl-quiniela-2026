@@ -264,5 +264,38 @@ func TestValidatePushEndpoint_SSRFPrevention(t *testing.T) {
 	}
 }
 
+func TestPushService_AntiRedirectAndAntiRebindingSSRF(t *testing.T) {
+	AllowInsecureEndpointsForTesting = false
+
+	// Target internal server that should NEVER receive a request via redirect
+	internalReceived := false
+	internalServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		internalReceived = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer internalServer.Close()
+
+	// Server attempting redirect to internal server
+	redirectServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, internalServer.URL+"/victim", http.StatusFound)
+	}))
+	defer redirectServer.Close()
+
+	ps := NewPushService(nil, "dummy_pub", "dummy_priv", "mailto:test@test.com")
+
+	req, _ := http.NewRequest("POST", redirectServer.URL, nil)
+	resp, err := ps.httpClient.Do(req)
+	if err == nil && resp != nil {
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusFound {
+			t.Errorf("Expected 302 response without following redirect, got: %d", resp.StatusCode)
+		}
+	}
+
+	if internalReceived {
+		t.Fatalf("CRITICAL SSRF FAIL: internalServer received redirected request!")
+	}
+}
+
 
 

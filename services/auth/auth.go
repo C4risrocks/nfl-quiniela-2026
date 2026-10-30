@@ -22,7 +22,7 @@ type contextKey string
 
 const (
 	UserContextKey    contextKey = "authenticated_user"
-	SessionCookieName            = "quiniela_session"
+	SessionCookieName string     = "quiniela_session"
 )
 
 type AuthService struct {

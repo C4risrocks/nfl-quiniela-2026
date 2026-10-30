@@ -1,0 +1,32 @@
+2026/10/30 00:22:55 [DB] Storage directory verified writable: /var/folders/66/937869x14cs_c5sk405rbf580000gn/T/audit-revalidation-1009874233
+2026/10/30 00:22:55 [DB] Initializing SQLite database at /var/folders/66/937869x14cs_c5sk405rbf580000gn/T/audit-revalidation-1009874233/db.sqlite (path: /var/folders/66/937869x14cs_c5sk405rbf580000gn/T/audit-revalidation-1009874233/db.sqlite)...
+2026/10/30 00:22:55 [DB] Database initialized and schema migrated successfully.
+2026/10/30 00:22:55 [DB] Seeding default database data...
+2026/10/30 00:22:55 [DB] Created default admin account: auditadmin
+2026/10/30 00:22:55 [DB] Seeding 18 regular season weeks and playoffs for season 2026...
+2026/10/30 00:22:55 [DB] Seeding official 2026 Week 1 NFL matchups...
+2026/10/30 00:22:55 [DB] Seeding completed successfully.
+SESSION initial=true after_password=false
+SESSION after_reset=false
+SESSION legacy_after_changes=false
+COOKIE mode=http Secure=false HttpOnly=true SameSite=2
+COOKIE mode=https Secure=true HttpOnly=true SameSite=2
+COOKIE mode=proxy_https Secure=true HttpOnly=true SameSite=2
+COOKIE mode=proxy_http Secure=false HttpOnly=true SameSite=2
+REPOSITORY third_team_error=equipo seleccionado no participa en este partido
+HTTP_THIRD_TEAM status=400
+ROLLBACK error=saving weekly leaderboard for user 3: constraint failed: audit injected leaderboard failure (1811) pick_points=0 board_rows=0
+2026/10/30 00:22:55 [Admin] Error calculating week scores for week 2: saving weekly leaderboard for user 3: constraint failed: audit injected leaderboard failure (1811)
+ADMIN_CALC_FAILURE status=200 hx_trigger={"show-toast": {"message": "¡Marcador y estado actualizados!", "type": "success"}}
+2026/10/30 00:22:55 [Scoring] Calculated leaderboard for Week ID #2 (1 players ranked).
+RETRY pick_points=17 board_points=17
+2026/10/30 00:22:55 [Scoring] Calculated leaderboard for Week ID #2 (1 players ranked).
+REPEAT error=nil
+CSV input="=1+1" neutralized=true status=200
+CSV input=" +1+1" neutralized=true status=200
+CSV input="\t=1+1" neutralized=true status=200
+CSV input="@SUM(A1)" neutralized=true status=200
+CSV input="-1+1" neutralized=true status=200
+CSV input="normal" neutralized=false status=200
+SIMULATED status=200 flagged=true label=true
+SIMULATED_LEGACY label=false status=200

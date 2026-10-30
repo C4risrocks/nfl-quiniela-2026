@@ -241,7 +241,7 @@ func (e *AdvisorEngine) BuildWeeklyAdvisor(
 					oppPickPct = b.dogPickPct
 					evScore = b.evFav
 					headline = fmt.Sprintf("Ancla Protectora: %s (%d%%)", b.favTeam.Name, b.favProb)
-					reasoning = fmt.Sprintf("Favorito confiable. Arriesgar aquí no ofrece suficiente valor matemático frente al riesgo de ceder puntos.", )
+					reasoning = "Favorito confiable. Arriesgar aquí no ofrece suficiente valor matemático frente al riesgo de ceder puntos."
 				}
 
 			default: // "balanced"
