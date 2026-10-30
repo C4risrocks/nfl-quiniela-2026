@@ -1,0 +1,15 @@
+2026/10/30 02:00:25 [DB] Initializing PostgreSQL database connection...
+2026/10/30 02:00:25 [DB] Database initialized and schema migrated successfully.
+USER_STATS error=ERROR: operator does not exist: boolean = integer (SQLSTATE 42883)
+VERIFY_USER error=failed to encode args[0]: unable to encode 1 into binary format for bool (OID 16): cannot find encode plan
+BETA_USER error=failed to encode args[0]: unable to encode 1 into binary format for bool (OID 16): cannot find encode plan
+NOTIFICATION_CREATE error=<nil>
+NOTIFICATION_COUNT error=ERROR: operator does not exist: boolean = integer (SQLSTATE 42883)
+NOTIFICATION_READ error=ERROR: column "is_read" is of type boolean but expression is of type integer (SQLSTATE 42804)
+RAW_VERIFY error=<nil>
+GAMES_READ count=1 error=<nil>
+PICK_SAVE exists=true error=<nil>
+SCORE_UPDATE error=<nil>
+2026/10/30 02:00:25 [Scoring] Calculated leaderboard for Week ID #2 (1 players ranked).
+CALCULATE error=<nil>
+BOARD_READ count=0 error=ERROR: COALESCE types boolean and integer cannot be matched (SQLSTATE 42804)

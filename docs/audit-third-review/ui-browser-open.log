@@ -1,0 +1,13 @@
+### Browser `third-ui` opened with pid 80434.
+### Ran Playwright code
+```js
+await page.goto('http://localhost:18110/login');
+```
+### Page
+- Page URL: http://localhost:18110/login
+- Page Title: Iniciar Sesión - NFL Quiniela 2026
+- Console: 0 errors, 1 warnings
+### Snapshot
+- [Snapshot](.playwright-cli/page-2026-10-30T08-00-26-777Z.yml)
+### Events
+- New console entries: .playwright-cli/console-2026-10-30T08-00-25-515Z.log#L1

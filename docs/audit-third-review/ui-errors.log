@@ -1,0 +1,32 @@
+### Result
+[{"test":"csrf-htmx-ui","events":[],"text":"","visible":false},{"test":"rate-limit-htmx-ui","statuses":[{"status":200,"retry":null},{"status":200,"retry":null},{"status":200,"retry":null},{"status":200,"retry":null},{"status":200,"retry":null},{"status":200,"retry":null},{"status":429,"retry":"5"},{"status":429,"retry":"5"}],"events":[{"message":"Demasiados intentos de acceso. Espera 5 segundos.","type":"error"}],"text":"Demasiados intentos de acceso. Espera 5 segundos.","visible":true},{"test":"toast-dismiss","visible":true}]
+### Ran Playwright code
+```js
+await (async page => {
+ const out=[]; const origin='http://localhost:18110';
+ await page.setViewportSize({width:390,height:844});await page.goto(origin+'/profile',{waitUntil:'domcontentloaded'});
+ await page.evaluate(()=>{window.__auditToastEvents=[];window.addEventListener('show-toast',e=>window.__auditToastEvents.push({message:e.detail.message,type:e.detail.type}));});
+ await page.route('**/profile/preferences',route=>route.continue({headers:{...route.request().headers(),origin:'https://untrusted.example'}}));
+ await page.evaluate(async()=>{try{await htmx.ajax('POST','/profile/preferences',{swap:'none',values:{}});}catch{}});
+ await page.waitForTimeout(200);
+ out.push(await page.evaluate(()=>({test:'csrf-htmx-ui',events:window.__auditToastEvents,text:document.getElementById('toast-container').textContent.trim(),visible:getComputedStyle(document.getElementById('toast-container')).display!=='none'})));
+ await page.screenshot({path:'/Users/christiandejmorenomarin/Documents/nfl-quiniela-2026/docs/audit-third-review/csrf-toast.png'});
+ await page.unroute('**/profile/preferences');
+ await page.evaluate(()=>window.__auditToastEvents=[]);
+ const statuses=await page.evaluate(async()=>{const out=[];for(let i=0;i<8;i++){const r=await fetch('/login',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','HX-Request':'true'},body:'username=not-a-real-user&password=bad'});out.push({status:r.status,retry:r.headers.get('Retry-After')});}return out;});
+ await page.evaluate(async()=>{try{await htmx.ajax('POST','/login',{swap:'none',values:{username:'not-a-real-user',password:'bad'}});}catch{}});
+ await page.waitForTimeout(200);
+ out.push(await page.evaluate(statuses=>({test:'rate-limit-htmx-ui',statuses,events:window.__auditToastEvents,text:document.getElementById('toast-container').textContent.trim(),visible:getComputedStyle(document.getElementById('toast-container')).display!=='none'}),statuses));
+ await page.screenshot({path:'/Users/christiandejmorenomarin/Documents/nfl-quiniela-2026/docs/audit-third-review/rate-limit-toast.png'});
+ await page.getByRole('button',{name:'Cerrar notificación'}).click();
+ out.push(await page.evaluate(()=>({test:'toast-dismiss',visible:getComputedStyle(document.getElementById('toast-container')).display!=='none'})));
+ return out;
+}
+)(page);
+```
+### Page
+- Page URL: http://localhost:18110/profile
+- Page Title: Mi Perfil - NFL Quiniela 2026
+- Console: 2 errors, 3 warnings
+### Events
+- New console entries: .playwright-cli/console-2026-10-30T08-00-25-515Z.log#L54-L118

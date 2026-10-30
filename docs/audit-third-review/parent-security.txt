@@ -1,0 +1,6 @@
+origin="https://quiniela.example" status=204
+2026/10/30 01:59:14 [CSRF] Blocked invalid Origin 'https://evil.example' (target: 'quiniela.example') from IP 192.0.2.1
+origin="https://evil.example" status=403
+origin="http://quiniela.example:9999" status=204
+origin="" status=204
+explicit_proxy=172.18.0.2 remote=10.5.6.7 resolved=8.8.8.8

@@ -1,0 +1,9 @@
+{
+  "csrf": {
+    "status": 403,
+    "trigger": "{\"show-toast\": {\"message\": \"Solicitud bloqueada: origen no autorizado (CSRF).\", \"type\": \"error\"}}",
+    "body": "403 Forbidden: Cross-Site Request Blocked\n"
+  },
+  "toastDismissedAfterTransition": true,
+  "offlineCached": true
+}

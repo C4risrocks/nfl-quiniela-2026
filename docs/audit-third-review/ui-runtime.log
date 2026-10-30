@@ -1,0 +1,51 @@
+### Result
+[{"test":"form","path":"/login","fields":[{"name":"username","labels":["Usuario o Correo"],"autocomplete":"","font":"14px"},{"name":"password","labels":["Contraseña"],"autocomplete":"","font":"14px"}]},{"test":"form","path":"/register","fields":[{"name":"username","labels":["Nombre de Usuario"],"autocomplete":"","font":"14px"},{"name":"email","labels":["Correo Electrónico"],"autocomplete":"","font":"14px"},{"name":"password","labels":["Contraseña (Mínimo 6 caracteres)"],"autocomplete":"","font":"14px"}]},{"test":"A01","status":200,"bodyClosed":true,"footer":true,"readinessTarget":true,"error":false,"cards":17},{"test":"A09-initial","role":"dialog","modal":"true","name":"Estatus de Participación\n                            • Semana 18","focusInside":true,"active":"BUTTON"},{"test":"A09-tab-from-trigger","inside":true,"active":"<button type=\"button\" onclick=\"window.closeReadinessModal()\" data-close-modal=\"true\" title=\"Cerrar (Esc)\" class=\"p-2 text-zinc-400 hover:text-white rounded-lg h"},{"test":"A09-close","dialogRemains":false,"restored":true},{"test":"A10-visible","role":"status","aria":"polite","text":"Auditoría: guardado temporal confirmado","visible":true},{"test":"A10-after5.5s","text":"Auditoría: guardado temporal confirmado","visible":false},{"test":"A13-live-select","width":360,"left":103.39999389648438,"right":327,"clipped":false},{"test":"A13-live-select","width":390,"left":103.39999389648438,"right":357,"clipped":false},{"test":"A13-live-select","width":768,"left":446.75,"right":653.5666656494141,"clipped":false},{"test":"A13-live-select","width":1366,"left":1063.183349609375,"right":1270.000015258789,"clipped":false},{"test":"A13-live-select","width":1440,"left":1100.183349609375,"right":1307.000015258789,"clipped":false}]
+### Ran Playwright code
+```js
+await (async page => {
+ const out=[];
+ const origin='http://localhost:18110';
+ await page.setViewportSize({width:390,height:844});
+ for(const path of ['/login','/register']) {
+  await page.goto(origin+path,{waitUntil:'domcontentloaded',timeout:15000});
+  out.push(await page.evaluate(path=>({test:'form',path,fields:[...document.querySelectorAll('input')].filter(e=>e.type!=='hidden').map(e=>({name:e.name,labels:[...e.labels].map(l=>l.textContent.trim()),autocomplete:e.autocomplete,font:getComputedStyle(e).fontSize}))}),path));
+ }
+ await page.goto(origin+'/login');
+ await page.getByLabel('Usuario o Correo').fill('auditor');
+ await page.getByLabel('Contraseña',{exact:true}).fill('temporary-audit-password');
+ await page.getByRole('button',{name:'Continuar'}).click({noWaitAfter:true});
+ await page.waitForURL('**/picks',{timeout:15000});
+ const response=await page.goto(origin+'/picks?week=18',{waitUntil:'domcontentloaded',timeout:15000});
+ out.push(await page.evaluate(status=>({test:'A01',status,bodyClosed:document.body.outerHTML.endsWith('</body>'),footer:!!document.querySelector('footer'),readinessTarget:!!document.getElementById('readiness-modal-container'),error:document.body.textContent.includes('error calling'),cards:document.querySelectorAll('[id^=game-card]').length}),response.status()));
+ await page.screenshot({path:'/Users/christiandejmorenomarin/Documents/nfl-quiniela-2026/docs/audit-third-review/picks-mobile.png'});
+ const trigger=page.locator('button[hx-target="#readiness-modal-container"]');
+ await trigger.focus();
+ await page.keyboard.press('Enter');
+ await page.locator('[role=dialog]').waitFor({timeout:10000});
+ await page.waitForTimeout(300);
+ out.push(await page.evaluate(()=>{const d=document.querySelector('[role=dialog]');return{test:'A09-initial',role:d.getAttribute('role'),modal:d.getAttribute('aria-modal'),name:document.getElementById(d.getAttribute('aria-labelledby'))?.textContent.trim(),focusInside:d.contains(document.activeElement),active:document.activeElement.tagName};}));
+ await page.keyboard.press('Tab');
+ out.push(await page.evaluate(()=>({test:'A09-tab-from-trigger',inside:document.querySelector('[role=dialog]').contains(document.activeElement),active:document.activeElement.outerHTML.slice(0,160)})));
+ await page.screenshot({path:'/Users/christiandejmorenomarin/Documents/nfl-quiniela-2026/docs/audit-third-review/readiness-mobile.png'});
+ await page.keyboard.press('Escape');
+ out.push(await page.evaluate(()=>({test:'A09-close',dialogRemains:!!document.querySelector('[role=dialog]'),restored:document.activeElement.matches('button[hx-target="#readiness-modal-container"]')})));
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Auditoría: guardado temporal confirmado',type:'success'}})));
+ await page.waitForTimeout(300);
+ out.push(await page.evaluate(()=>{const t=document.getElementById('toast-container');return {test:'A10-visible',role:t.getAttribute('role'),aria:t.getAttribute('aria-live'),text:t.textContent.trim(),visible:getComputedStyle(t).display!=='none'};}));
+ await page.waitForTimeout(5500);
+ out.push(await page.evaluate(()=>{const t=document.getElementById('toast-container');return {test:'A10-after5.5s',text:t.textContent.trim(),visible:getComputedStyle(t).display!=='none'};}));
+ for (const width of [360,390,768,1366,1440]) {
+  await page.setViewportSize({width,height:900});
+  await page.goto(origin+'/live',{waitUntil:'domcontentloaded',timeout:15000});
+  out.push(await page.evaluate(width=>{const r=document.querySelector('#live-week-select').getBoundingClientRect();return {test:'A13-live-select',width,left:r.left,right:r.right,clipped:r.right>innerWidth};},width));
+ }
+ return out;
+}
+)(page);
+```
+### Page
+- Page URL: http://localhost:18110/live
+- Page Title: 🔴 Game Center en Vivo - NFL Quiniela 2026
+- Console: 0 errors, 1 warnings
+### Events
+- New console entries: .playwright-cli/console-2026-10-30T08-00-25-515Z.log#L2-L53

@@ -1,0 +1,2 @@
+2026/10/30 02:03:21 [CRITICAL SECURITY ERROR] In production mode, SESSION_SECRET must be set to a strong, unique secret key. Refusing to start.
+exit status 1

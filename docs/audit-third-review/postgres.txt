@@ -1,0 +1,18 @@
+2026/10/30 01:59:34 [DB] Initializing PostgreSQL database connection...
+2026/10/30 01:59:34 [DB] Database initialized and schema migrated successfully.
+2026/10/30 01:59:34 [DB] Seeding default database data...
+2026/10/30 01:59:34 [DB] Created default admin account: auditadmin
+2026/10/30 01:59:34 [DB] Seeding 18 regular season weeks and playoffs for season 2026...
+2026/10/30 01:59:34 [DB] Seeding official 2026 Week 1 NFL matchups...
+2026/10/30 01:59:34 [DB] Seeding completed successfully.
+SEED error=<nil>
+COUNT users=2 error=<nil>
+COUNT teams=32 error=<nil>
+COUNT seasons=1 error=<nil>
+COUNT weeks=22 error=<nil>
+COUNT games=16 error=<nil>
+CREATE_USER user=&{3 probeuser probe@example.invalid fakehash player  <nil> false <nil> <nil> <nil> <nil> true true true true false   1 <nil>   <nil> 2026-10-30 07:59:34.582953 +0000 UTC} error=<nil>
+ACTIVE_SEASON season=&{1 2026 2026 NFL Season true} error=<nil>
+WEEK2 week=&{2 1 2 Semana 2 scheduled per_game 2026-10-30 07:59:34.524334 +0000 UTC} error=<nil>
+ACTIVE_WEEK week=&{1 1 1 Semana 1 scheduled per_game 2026-10-30 07:59:34.522582 +0000 UTC} error=<nil>
+CREATE_GAME game=&{17 2 2 audit-manual 1 2 2026-10-30 08:59:34 +0000 UTC <nil> <nil> scheduled      false false 2026-10-30 07:59:34.589102 +0000 UTC 0x4ef914b453b0 0x4ef914b45440 <nil> 0 0 0 <nil> <nil>} error=<nil>

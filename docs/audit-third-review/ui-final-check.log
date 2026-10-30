@@ -1,0 +1,12 @@
+### Result
+{"csrf":{"status":403,"trigger":"{\"show-toast\": {\"message\": \"Solicitud bloqueada: origen no autorizado (CSRF).\", \"type\": \"error\"}}","body":"403 Forbidden: Cross-Site Request Blocked\n"},"toastDismissedAfterTransition":true,"offlineCached":true}
+### Ran Playwright code
+```js
+await (async page => {const r=await page.request.post('http://localhost:18110/profile/preferences',{headers:{Origin:'https://untrusted.example','HX-Request':'true'},form:{}});await page.waitForTimeout(300);const dismissed=await page.evaluate(()=>getComputedStyle(document.getElementById('toast-container')).display==='none');await page.goto('http://localhost:18110/offline',{waitUntil:'domcontentloaded'});await page.evaluate(()=>navigator.serviceWorker.ready);return {csrf:{status:r.status(),trigger:r.headers()['hx-trigger'],body:(await r.text()).slice(0,120)},toastDismissedAfterTransition:dismissed,offlineCached:await page.evaluate(async()=>!!await caches.match('/offline'))};})(page);
+```
+### Page
+- Page URL: http://localhost:18110/offline
+- Page Title: NFL Quiniela 2026
+- Console: 0 errors, 1 warnings
+### Events
+- New console entries: .playwright-cli/console-2026-10-30T08-00-25-515Z.log#L119-L120

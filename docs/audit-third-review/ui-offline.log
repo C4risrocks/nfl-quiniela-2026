@@ -1,0 +1,12 @@
+### Result
+{"status":200,"sw":true,"h1":"\n                Sin Conexión a Internet\n            ","retry":1}
+### Ran Playwright code
+```js
+await (async page => {const r=await page.goto('http://localhost:18110/unvisited-offline-third',{waitUntil:'domcontentloaded',timeout:10000});await page.screenshot({path:'/Users/christiandejmorenomarin/Documents/nfl-quiniela-2026/docs/audit-third-review/offline.png'});return {status:r.status(),sw:r.fromServiceWorker(),h1:await page.locator('h1').textContent(),retry:await page.getByRole('button',{name:'Reintentar Conexión'}).count()};})(page);
+```
+### Page
+- Page URL: http://localhost:18110/unvisited-offline-third
+- Page Title: NFL Quiniela 2026
+- Console: 1 errors, 1 warnings
+### Events
+- New console entries: .playwright-cli/console-2026-10-30T08-00-25-515Z.log#L121-L123

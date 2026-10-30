@@ -1,0 +1,3 @@
+CONTROLLED_DNS lookup=1 answer=[8 8 8 8]
+CONTROLLED_DNS lookup=2 answer=[127 0 0 1]
+REBIND_RESULT dns_lookups=2 local_hits=0 error=webpush dispatch error: Post "https://audit-rebind.invalid:51284/push": SSRF protection: push endpoint resolves to private/loopback IP: 127.0.0.1 test_switch=false

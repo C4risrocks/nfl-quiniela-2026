@@ -1,0 +1,57 @@
+[
+  {
+    "test": "csrf-htmx-ui",
+    "events": [],
+    "text": "",
+    "visible": false
+  },
+  {
+    "test": "rate-limit-htmx-ui",
+    "statuses": [
+      {
+        "status": 200,
+        "retry": null
+      },
+      {
+        "status": 200,
+        "retry": null
+      },
+      {
+        "status": 200,
+        "retry": null
+      },
+      {
+        "status": 200,
+        "retry": null
+      },
+      {
+        "status": 200,
+        "retry": null
+      },
+      {
+        "status": 200,
+        "retry": null
+      },
+      {
+        "status": 429,
+        "retry": "5"
+      },
+      {
+        "status": 429,
+        "retry": "5"
+      }
+    ],
+    "events": [
+      {
+        "message": "Demasiados intentos de acceso. Espera 5 segundos.",
+        "type": "error"
+      }
+    ],
+    "text": "Demasiados intentos de acceso. Espera 5 segundos.",
+    "visible": true
+  },
+  {
+    "test": "toast-dismiss",
+    "visible": true
+  }
+]
