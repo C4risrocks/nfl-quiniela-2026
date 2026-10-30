@@ -1,0 +1,51 @@
+{{define "content"}}
+<div class="min-h-[70vh] flex items-center justify-center px-4 py-12">
+    <div class="max-w-md w-full text-center space-y-6">
+        <!-- Offline Icon Graphic -->
+        <div class="relative mx-auto w-24 h-24 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-2xl">
+            <div class="absolute inset-0 bg-amber-500/10 rounded-3xl blur-xl"></div>
+            <i class="fa-solid fa-wifi-slash text-4xl text-amber-400 relative z-10 animate-pulse"></i>
+        </div>
+
+        <div class="space-y-2">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-mono font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <span class="w-2 h-2 rounded-full bg-amber-400 mr-2 animate-ping"></span>
+                Modo Fuera de Línea
+            </span>
+            <h1 class="text-2xl font-black tracking-tight text-white sm:text-3xl">
+                Sin Conexión a Internet
+            </h1>
+            <p class="text-sm text-zinc-400 max-w-sm mx-auto leading-relaxed">
+                No pudimos establecer comunicación con el servidor de la Quiniela. Comprueba tu señal de Wi-Fi o datos móviles para continuar.
+            </p>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 text-left space-y-2">
+            <div class="flex items-start space-x-2.5">
+                <i class="fa-solid fa-shield-halved text-emerald-400 text-xs mt-0.5 shrink-0"></i>
+                <p class="text-[11px] text-zinc-300">
+                    Tus pronósticos guardados previamente permanecen seguros en tu cuenta.
+                </p>
+            </div>
+            <div class="flex items-start space-x-2.5">
+                <i class="fa-solid fa-cloud-arrow-up text-cyan-400 text-xs mt-0.5 shrink-0"></i>
+                <p class="text-[11px] text-zinc-300">
+                    Al restablecer la conexión podrás ingresar pronósticos para los partidos que aún no hayan iniciado.
+                </p>
+            </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+            <button onclick="window.location.reload()" 
+                    class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-all shadow-lg cursor-pointer">
+                <i class="fa-solid fa-rotate-right mr-2"></i>
+                Reintentar Conexión
+            </button>
+            <a href="/picks" 
+               class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-200 font-semibold text-xs border border-zinc-700 transition-all">
+                Volver a Pronósticos
+            </a>
+        </div>
+    </div>
+</div>
+{{end}}

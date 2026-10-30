@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -364,9 +365,9 @@ func (h *AdminHandler) SaveGameScore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Recalculate leaderboard for this week
-	_ = h.calculator.CalculateWeekScores(game.WeekID)
-
-	if h.broker != nil {
+	if err := h.calculator.CalculateWeekScores(game.WeekID); err != nil {
+		log.Printf("[Admin] Error calculating week scores for week %d: %v", game.WeekID, err)
+	} else if h.broker != nil {
 		h.broker.Broadcast(fmt.Sprintf("game-%d", gameID), fmt.Sprintf(`{"game_id": %d, "status": "%s"}`, gameID, status))
 		h.broker.Broadcast("week-updated", fmt.Sprintf(`{"week_id": %d}`, game.WeekID))
 		h.broker.BroadcastLeaderboardUpdate()
@@ -453,9 +454,9 @@ func (h *AdminHandler) ToggleTiebreaker(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Recalculate leaderboard
-	_ = h.calculator.CalculateWeekScores(game.WeekID)
-
-	if h.broker != nil {
+	if err := h.calculator.CalculateWeekScores(game.WeekID); err != nil {
+		log.Printf("[Admin] Error calculating week scores for week %d: %v", game.WeekID, err)
+	} else if h.broker != nil {
 		h.broker.Broadcast(fmt.Sprintf("game-%d", gameID), fmt.Sprintf(`{"game_id": %d, "is_tiebreaker": %v}`, gameID, newTiebreakerState))
 		h.broker.BroadcastLeaderboardUpdate()
 	}
@@ -672,6 +673,11 @@ func (h *AdminHandler) SaveUserPicks(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		// Ensure picked team belongs to this game (A08)
+		if pickedTeamID != nil && *pickedTeamID != game.HomeTeamID && *pickedTeamID != game.AwayTeamID {
+			pickedTeamID = nil
+		}
+
 		if pickedTeamID != nil || homeScore != nil || awayScore != nil {
 			_, err := h.repo.SavePick(targetUser.ID, game.ID, pickedTeamID, homeScore, awayScore)
 			if err == nil {
@@ -681,8 +687,9 @@ func (h *AdminHandler) SaveUserPicks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Recalculate leaderboard
-	_ = h.calculator.CalculateWeekScores(weekID)
-	if h.broker != nil {
+	if err := h.calculator.CalculateWeekScores(weekID); err != nil {
+		log.Printf("[Admin] Error calculating week scores for week %d: %v", weekID, err)
+	} else if h.broker != nil {
 		h.broker.BroadcastLeaderboardUpdate()
 	}
 
@@ -1413,22 +1420,35 @@ func (h *AdminHandler) ExportWeekPicksCSV(w http.ResponseWriter, r *http.Request
 		}
 
 		_ = writer.Write([]string{
-			r.Username,
-			r.Email,
+			sanitizeCSVField(r.Username),
+			sanitizeCSVField(r.Email),
 			strconv.Itoa(r.WeekNumber),
-			r.AwayTeamCode,
-			r.HomeTeamCode,
-			r.PickedTeamCode,
+			sanitizeCSVField(r.AwayTeamCode),
+			sanitizeCSVField(r.HomeTeamCode),
+			sanitizeCSVField(r.PickedTeamCode),
 			predAway,
 			predHome,
 			actAway,
 			actHome,
 			strconv.Itoa(r.PointsEarned),
 			strconv.Itoa(r.BonusPoints),
-			r.GameStatus,
+			sanitizeCSVField(r.GameStatus),
 			r.UpdatedAt.Format("2006-01-02 15:04:05"),
 		})
 	}
+}
+
+// sanitizeCSVField neutralizes CSV formula injection in spreadsheet software (A17).
+// Prepends a single quote if the field begins with '=', '+', '-', '@', '\t' or '\r'.
+func sanitizeCSVField(val string) string {
+	trimmed := strings.TrimSpace(val)
+	if len(trimmed) > 0 {
+		first := trimmed[0]
+		if first == '=' || first == '+' || first == '-' || first == '@' || first == '\t' || first == '\r' {
+			return "'" + val
+		}
+	}
+	return val
 }
 
 func (h *AdminHandler) formatKickoff(t time.Time) string {

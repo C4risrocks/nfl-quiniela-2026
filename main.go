@@ -240,7 +240,6 @@ func main() {
 			"status":           status,
 			"database":         dbStatus,
 			"driver":           database.DriverName,
-			"db_path":          database.DBPath,
 			"storage_writable": isWritable,
 			"season":           cfg.CurrentSeasonYear,
 			"timestamp":        time.Now().UTC().Format(time.RFC3339),
@@ -249,6 +248,12 @@ func main() {
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/picks", http.StatusSeeOther)
+	})
+	r.Get("/offline", func(w http.ResponseWriter, r *http.Request) {
+		renderer.RenderPage(w, "offline.html", map[string]interface{}{
+			"ActiveNav": "offline",
+			"Title":     "Sin Conexión",
+		})
 	})
 	r.Get("/login", authHandler.ShowLogin)
 	r.Post("/login", authHandler.HandleLogin)
@@ -369,7 +374,7 @@ func main() {
 
 	go func() {
 		log.Printf("🚀 Server listening on http://localhost:%s", cfg.Port)
-		log.Printf("🔑 Default admin credentials -> User: %s | Pass: %s", cfg.AdminUsername, cfg.AdminPassword)
+		log.Printf("🔑 Admin account configured -> User: %s", cfg.AdminUsername)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server ListenAndServe error: %v", err)
 		}

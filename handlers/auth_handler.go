@@ -67,7 +67,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.authService.SetSessionCookie(w, user.ID)
+	h.authService.SetSessionCookie(w, user.ID, r)
 	if !user.EmailVerified && !user.IsAdmin() && !user.IsBot() {
 		http.Redirect(w, r, "/verify-email-pending", http.StatusSeeOther)
 		return
@@ -142,7 +142,7 @@ func (h *AuthHandler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		}(user, token, baseURL)
 	}
 
-	h.authService.SetSessionCookie(w, user.ID)
+	h.authService.SetSessionCookie(w, user.ID, r)
 	http.Redirect(w, r, "/verify-email-pending?registered=1", http.StatusSeeOther)
 }
 
@@ -345,7 +345,7 @@ func (h *AuthHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request
 }
 
 func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
-	h.authService.ClearSessionCookie(w)
+	h.authService.ClearSessionCookie(w, r)
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 

@@ -118,6 +118,14 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 		return fmt.Errorf("listing picks for week: %w", err)
 	}
 
+	type scoredPick struct {
+		id           int64
+		pointsEarned int
+		bonusPoints  int
+		isCorrect    *bool
+	}
+	var scoredPicks []scoredPick
+
 	// Group picks by user
 	userPicks := make(map[int64][]*db.Pick)
 	for _, p := range picks {
@@ -127,12 +135,16 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 		}
 
 		pts, bonus, isCorrect := c.CalculatePickScores(p, game, cfg, weekNum)
-		if err := c.repo.UpdatePickPoints(p.ID, pts, bonus, isCorrect); err != nil {
-			log.Printf("[Scoring] Error updating pick #%d points: %v", p.ID, err)
-		}
 		p.PointsEarned = pts
 		p.BonusPoints = bonus
 		p.IsCorrect = isCorrect
+
+		scoredPicks = append(scoredPicks, scoredPick{
+			id:           p.ID,
+			pointsEarned: pts,
+			bonusPoints:  bonus,
+			isCorrect:    isCorrect,
+		})
 
 		userPicks[p.UserID] = append(userPicks[p.UserID], p)
 	}
@@ -271,7 +283,7 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 		return a.Username < b.Username
 	})
 
-	// Assign rank with Ghost Ranking for bot (handling shared ties: 1, 1, 3, 4) and upsert:
+	// Assign rank with Ghost Ranking for bot (handling shared ties: 1, 1, 3, 4):
 	// The AI Bot (@ia_quiniela) participates as a ghost/reference benchmark:
 	// it appears in its score position, but does NOT consume human rank or displace human competitors from the podium.
 	humanRankCounter := 0
@@ -291,9 +303,31 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 			}
 			prevHuman = entry
 		}
-		if err := c.repo.UpsertWeeklyLeaderboard(entry, weekID); err != nil {
-			log.Printf("[Scoring] Error saving weekly leaderboard for user %d: %v", entry.UserID, err)
+	}
+
+	// Persist all calculated points and weekly leaderboard entries in an atomic transaction.
+	// If any write fails, roll back completely and return error so that partial or inconsistent
+	// state is never saved to the database (A16).
+	tx, err := c.repo.GetDB().Begin()
+	if err != nil {
+		return fmt.Errorf("starting scoring transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	for _, sp := range scoredPicks {
+		if err := c.repo.UpdatePickPointsTx(tx, sp.id, sp.pointsEarned, sp.bonusPoints, sp.isCorrect); err != nil {
+			return fmt.Errorf("updating pick points for pick #%d: %w", sp.id, err)
 		}
+	}
+
+	for _, entry := range leaderboardEntries {
+		if err := c.repo.UpsertWeeklyLeaderboardTx(tx, entry, weekID); err != nil {
+			return fmt.Errorf("saving weekly leaderboard for user %d: %w", entry.UserID, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("committing scoring transaction: %w", err)
 	}
 
 	// Evaluate gamification achievements

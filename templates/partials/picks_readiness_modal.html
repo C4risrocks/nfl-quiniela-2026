@@ -126,7 +126,11 @@
          }
      }">
 
-    <div class="vercel-card rounded-t-3xl sm:rounded-2xl w-full max-w-2xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[85dvh] my-auto bg-zinc-950" @click.stop>
+    <div class="vercel-card rounded-t-3xl sm:rounded-2xl w-full max-w-2xl overflow-hidden border border-zinc-700 shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[85dvh] my-auto bg-zinc-950"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="readiness-modal-title"
+         @click.stop>
         
         <!-- Mobile Drag Handle -->
         <div class="w-12 h-1 bg-zinc-700 rounded-full mx-auto my-2.5 sm:hidden shrink-0"></div>
@@ -139,7 +143,7 @@
                         <i class="fa-solid fa-users-check text-sm"></i>
                     </span>
                     <div class="min-w-0">
-                        <h2 class="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-1.5 truncate">
+                        <h2 id="readiness-modal-title" class="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-1.5 truncate">
                             <span>Estatus de Participación</span>
                             <span class="text-[11px] font-mono font-normal text-zinc-400">• {{.Week.Name}}</span>
                         </h2>

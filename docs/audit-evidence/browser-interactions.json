@@ -1,0 +1,126 @@
+[
+  {
+    "test": "login keyboard from autofocus",
+    "order": [
+      {
+        "tag": "INPUT",
+        "name": "username",
+        "text": ""
+      },
+      {
+        "tag": "A",
+        "name": null,
+        "text": "¿La olvidaste?"
+      },
+      {
+        "tag": "INPUT",
+        "name": "password",
+        "text": ""
+      },
+      {
+        "tag": "BUTTON",
+        "name": null,
+        "text": "Continuar"
+      },
+      {
+        "tag": "A",
+        "name": null,
+        "text": "Regístrate"
+      }
+    ]
+  },
+  {
+    "test": "reduced motion",
+    "matches": true,
+    "animated": [
+      {
+        "tag": "I",
+        "classes": "fa-solid fa-bolt mr-1.5 text-red-500 animate-pulse",
+        "animation": "pulse"
+      },
+      {
+        "tag": "I",
+        "classes": "fa-solid fa-bolt mr-2 text-red-500 animate-pulse",
+        "animation": "pulse"
+      },
+      {
+        "tag": "SPAN",
+        "classes": "absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-red-500 animate-pulse",
+        "animation": "pulse"
+      }
+    ]
+  },
+  {
+    "test": "CSS zoom 200% (not native browser zoom)",
+    "zoom": "2",
+    "overflow": false,
+    "submitRect": {
+      "x": 98,
+      "right": 292,
+      "width": 194
+    }
+  },
+  {
+    "test": "live select clipping at360",
+    "selects": [
+      {
+        "left": 103.39999389648438,
+        "right": 364.51666259765625,
+        "width": 261.1166687011719,
+        "viewport": 360
+      },
+      {
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "viewport": 360
+      },
+      {
+        "left": 0,
+        "right": 0,
+        "width": 0,
+        "viewport": 360
+      }
+    ]
+  },
+  {
+    "test": "verified participant non beta",
+    "path": "/picks",
+    "status": 200,
+    "final": "/picks",
+    "h1": "Semana 8",
+    "bodySummary": "NFL QUINIELA 2026 Pronósticos En Vivo Posiciones Equipos Playoffs Analítica Reglamento Cargando notificaciones... a audit1793337651 Cargando notificaciones... Mis Pronósticos En Vivo (Game Center) Tabla de Posiciones Equipos y Estadísticas Cuadro de "
+  },
+  {
+    "test": "verified participant non beta",
+    "path": "/profile",
+    "status": 200,
+    "final": "/profile",
+    "h1": "audit1793337651",
+    "bodySummary": "NFL QUINIELA 2026 Pronósticos En Vivo Posiciones Equipos Playoffs Analítica Reglamento Cargando notificaciones... a audit1793337651 Cargando notificaciones... Mis Pronósticos En Vivo (Game Center) Tabla de Posiciones Equipos y Estadísticas Cuadro de "
+  },
+  {
+    "test": "verified participant non beta",
+    "path": "/admin",
+    "status": 200,
+    "final": "/picks",
+    "h1": "Semana 8",
+    "bodySummary": "NFL QUINIELA 2026 Pronósticos En Vivo Posiciones Equipos Playoffs Analítica Reglamento Cargando notificaciones... a audit1793337651 Cargando notificaciones... Mis Pronósticos En Vivo (Game Center) Tabla de Posiciones Equipos y Estadísticas Cuadro de "
+  },
+  {
+    "test": "verified participant non beta",
+    "path": "/picks/advisor",
+    "status": 200,
+    "final": "/picks/advisor",
+    "h1": "Asistente Inteligente & Matriz de Riesgo",
+    "bodySummary": "NFL QUINIELA 2026 Pronósticos En Vivo Posiciones Equipos Playoffs Analítica Reglamento Cargando notificaciones... a audit1793337651 Cargando notificaciones... Mis Pronósticos En Vivo (Game Center) Tabla de Posiciones Equipos y Estadísticas Cuadro de "
+  },
+  {
+    "test": "verified participant non beta",
+    "path": "/picks/matrix",
+    "status": 200,
+    "final": "/picks/matrix",
+    "h1": "Matriz de Pronósticos",
+    "bodySummary": "NFL QUINIELA 2026 Pronósticos En Vivo Posiciones Equipos Playoffs Analítica Reglamento Cargando notificaciones... a audit1793337651 Cargando notificaciones... Mis Pronósticos En Vivo (Game Center) Tabla de Posiciones Equipos y Estadísticas Cuadro de "
+  }
+]

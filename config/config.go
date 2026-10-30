@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
 	"github.com/joho/godotenv"
@@ -63,6 +64,16 @@ func LoadConfig() *Config {
 	adminUser := getEnv("ADMIN_USERNAME", "admin")
 	adminPass := getEnv("ADMIN_PASSWORD", "admin123")
 	adminEmail := getEnv("ADMIN_EMAIL", "admin@quiniela.com")
+
+	envMode := strings.ToLower(getEnv("APP_ENV", getEnv("ENV", "development")))
+	if envMode == "production" || envMode == "prod" {
+		if sessionSecret == "super-secret-session-key-change-in-prod-2026" {
+			log.Fatalf("[CRITICAL SECURITY ERROR] In production mode, SESSION_SECRET must be set to a strong, unique secret key. Refusing to start.")
+		}
+		if adminPass == "admin123" {
+			log.Fatalf("[CRITICAL SECURITY ERROR] In production mode, ADMIN_PASSWORD must not be the default 'admin123'. Refusing to start.")
+		}
+	}
 
 	syncInterval := getEnvAsInt("ESPN_SYNC_INTERVAL_MINS", 5)
 	seasonYear := getEnvAsInt("CURRENT_SEASON_YEAR", 2026)

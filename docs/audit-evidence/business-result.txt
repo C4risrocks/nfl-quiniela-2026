@@ -1,0 +1,14 @@
+2026/10/29 23:23:11 [DB] Storage directory verified writable: /var/folders/66/937869x14cs_c5sk405rbf580000gn/T/business-local-188148705
+2026/10/29 23:23:11 [DB] Initializing SQLite database at /var/folders/66/937869x14cs_c5sk405rbf580000gn/T/business-local-188148705/test.db (path: /var/folders/66/937869x14cs_c5sk405rbf580000gn/T/business-local-188148705/test.db)...
+2026/10/29 23:23:11 [DB] Database initialized and schema migrated successfully.
+2026/10/29 23:23:11 [DB] Seeding default database data...
+2026/10/29 23:23:11 [DB] Created default admin account: auditadmin
+2026/10/29 23:23:11 [DB] Seeding 18 regular season weeks and playoffs for season 2026...
+2026/10/29 23:23:11 [DB] Seeding official 2026 Week 1 NFL matchups...
+2026/10/29 23:23:11 [DB] Seeding completed successfully.
+THIRD_TEAM persisted=1 expected_allowed=14,5
+SYNTHETIC_SUMMARY status=200 before_bytes=0 after_bytes=14068 has_stats=true body_bytes=153149
+2026/10/29 23:23:11 [Scoring] Error updating pick #1 points: constraint failed: audit injected disk/write failure (1811)
+2026/10/29 23:23:11 [Scoring] Calculated leaderboard for Week ID #2 (1 players ranked).
+SCORING_WRITE_FAILURE returned_error=<nil> persisted_pick_points=0 leaderboard_points=17
+CSV_FORMULA username="=1+1" email="formula@example.invalid"

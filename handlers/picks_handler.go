@@ -299,6 +299,17 @@ func (h *PicksHandler) SavePick(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Validate picked team belongs strictly to this game (A08)
+	if pickedTeamID != nil && *pickedTeamID != game.HomeTeamID && *pickedTeamID != game.AwayTeamID {
+		if r.Header.Get("HX-Request") == "true" {
+			w.Header().Set("HX-Trigger", `{"show-toast": {"message": "Equipo inválido para este partido.", "type": "error"}}`)
+			w.WriteHeader(http.StatusBadRequest)
+		} else {
+			http.Error(w, "Equipo inválido para este partido.", http.StatusBadRequest)
+		}
+		return
+	}
+
 	pick, err := h.repo.SavePick(user.ID, gameID, pickedTeamID, homeScore, awayScore)
 	if err != nil {
 		http.Error(w, "Error saving pick", http.StatusInternalServerError)
@@ -485,6 +496,11 @@ func (h *PicksHandler) SaveAll(w http.ResponseWriter, r *http.Request) {
 			} else if *awayScore > *homeScore {
 				pickedTeamID = &game.AwayTeamID
 			}
+		}
+
+		// Ensure picked team belongs to this game (A08)
+		if pickedTeamID != nil && *pickedTeamID != game.HomeTeamID && *pickedTeamID != game.AwayTeamID {
+			pickedTeamID = nil
 		}
 
 		if pickedTeamID != nil || homeScore != nil || awayScore != nil {

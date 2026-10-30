@@ -1,0 +1,8 @@
+2026/10/29 23:21:56 [DB] Storage directory verified writable: /var/folders/66/937869x14cs_c5sk405rbf580000gn/T/ssrf-local-481549552
+2026/10/29 23:21:56 [DB] Initializing SQLite database at /var/folders/66/937869x14cs_c5sk405rbf580000gn/T/ssrf-local-481549552/test.db (path: /var/folders/66/937869x14cs_c5sk405rbf580000gn/T/ssrf-local-481549552/test.db)...
+2026/10/29 23:21:56 [DB] Database initialized and schema migrated successfully.
+SUBSCRIBE status=200 body={"message":"Dispositivo registrado para notificaciones push exitosamente","success":true}
+
+LOCAL_REQUEST method=POST path=/internal
+SENDTEST status=200 body={"delivered":1,"message":"Notificación de prueba enviada con éxito a 1 dispositivo(s)","success":true}
+ calls=1

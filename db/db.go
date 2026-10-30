@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	_ "embed"
 	"fmt"
@@ -21,6 +22,115 @@ type DB struct {
 	*sql.DB
 	DriverName string
 	DBPath     string
+}
+
+// Rebind converts '?' placeholders into '$1', '$2', ... if the active driver is PostgreSQL ('pgx').
+// It safely ignores '?' characters occurring inside single-quoted string literals.
+func (d *DB) Rebind(query string) string {
+	if d == nil || d.DriverName != "pgx" {
+		return query
+	}
+	return RebindPostgres(query)
+}
+
+func RebindPostgres(query string) string {
+	var b strings.Builder
+	b.Grow(len(query) + 16)
+	paramIdx := 1
+	inString := false
+
+	for i := 0; i < len(query); i++ {
+		ch := query[i]
+		if ch == '\'' {
+			if inString && i+1 < len(query) && query[i+1] == '\'' {
+				b.WriteByte('\'')
+				b.WriteByte('\'')
+				i++
+				continue
+			}
+			inString = !inString
+			b.WriteByte(ch)
+			continue
+		}
+
+		if ch == '?' && !inString {
+			b.WriteString(fmt.Sprintf("$%d", paramIdx))
+			paramIdx++
+			continue
+		}
+
+		b.WriteByte(ch)
+	}
+	return b.String()
+}
+
+func (d *DB) Exec(query string, args ...any) (sql.Result, error) {
+	return d.DB.Exec(d.Rebind(query), args...)
+}
+
+func (d *DB) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return d.DB.ExecContext(ctx, d.Rebind(query), args...)
+}
+
+func (d *DB) Query(query string, args ...any) (*sql.Rows, error) {
+	return d.DB.Query(d.Rebind(query), args...)
+}
+
+func (d *DB) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return d.DB.QueryContext(ctx, d.Rebind(query), args...)
+}
+
+func (d *DB) QueryRow(query string, args ...any) *sql.Row {
+	return d.DB.QueryRow(d.Rebind(query), args...)
+}
+
+func (d *DB) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	return d.DB.QueryRowContext(ctx, d.Rebind(query), args...)
+}
+
+type Tx struct {
+	*sql.Tx
+	db *DB
+}
+
+func (d *DB) Begin() (*Tx, error) {
+	tx, err := d.DB.Begin()
+	if err != nil {
+		return nil, err
+	}
+	return &Tx{Tx: tx, db: d}, nil
+}
+
+func (d *DB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
+	tx, err := d.DB.BeginTx(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &Tx{Tx: tx, db: d}, nil
+}
+
+func (tx *Tx) Exec(query string, args ...any) (sql.Result, error) {
+	return tx.Tx.Exec(tx.db.Rebind(query), args...)
+}
+
+func (tx *Tx) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return tx.Tx.ExecContext(ctx, tx.db.Rebind(query), args...)
+}
+
+func (tx *Tx) Query(query string, args ...any) (*sql.Rows, error) {
+	return tx.Tx.Query(tx.db.Rebind(query), args...)
+}
+
+func (tx *Tx) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return tx.Tx.QueryContext(ctx, tx.db.Rebind(query), args...)
+}
+
+func (tx *Tx) QueryRow(query string, args ...any) *sql.Row {
+	return tx.Tx.QueryRow(tx.db.Rebind(query), args...)
+}
+
+func (tx *Tx) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	return tx.Tx.QueryRowContext(ctx, tx.db.Rebind(query), args...)
 }
 
 // InitDB initializes database connection and migrates schema
@@ -137,6 +247,7 @@ func (d *DB) migrate() error {
 		"ALTER TABLE users ADD COLUMN featured_badge_code TEXT DEFAULT ''",
 		"ALTER TABLE users ADD COLUMN is_beta_tester BOOLEAN NOT NULL DEFAULT 0",
 		"ALTER TABLE users ADD COLUMN notify_push BOOLEAN NOT NULL DEFAULT 1",
+		"ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 1",
 	}
 	if d.DriverName == "pgx" {
 		userCols = []string{
@@ -152,6 +263,7 @@ func (d *DB) migrate() error {
 			"ALTER TABLE users ADD COLUMN IF NOT EXISTS featured_badge_code TEXT DEFAULT ''",
 			"ALTER TABLE users ADD COLUMN IF NOT EXISTS is_beta_tester BOOLEAN NOT NULL DEFAULT FALSE",
 			"ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_push BOOLEAN NOT NULL DEFAULT TRUE",
+			"ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 1",
 		}
 	}
 	for _, colStmt := range userCols {

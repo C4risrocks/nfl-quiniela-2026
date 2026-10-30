@@ -1,0 +1,15 @@
+Cookie Secure: False
+/admin: HTTP 200; bytes=330771; cierre HTML=True; error de plantilla=False
+/profile: HTTP 200; bytes=242099; cierre HTML=True; error de plantilla=False
+/leaderboard: HTTP 200; bytes=103788; cierre HTML=True; error de plantilla=False
+/live: HTTP 200; bytes=452093; cierre HTML=True; error de plantilla=False
+/teams: HTTP 200; bytes=381719; cierre HTML=True; error de plantilla=False
+/stats: HTTP 200; bytes=115626; cierre HTML=True; error de plantilla=False
+/rules: HTTP 200; bytes=69614; cierre HTML=True; error de plantilla=False
+/playoffs: HTTP 200; bytes=111604; cierre HTML=True; error de plantilla=False
+/picks: HTTP 200; bytes=83289; cierre HTML=False; error de plantilla=True
+Template execution error: template: game_card.html:438:37: executing "game_card.html" at <gt .HomeScore .AwayScore>: error calling gt: invalid type for comparison
+
+visitante /admin => http://localhost:18089/login
+visitante /profile => http://localhost:18089/login
+visitante /picks => http://localhost:18089/login

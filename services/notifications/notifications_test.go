@@ -174,6 +174,10 @@ func TestPushServiceAndPruning(t *testing.T) {
 
 	user, _ := repo.CreateUser("pusher", "pusher@test.com", "hash", "player")
 
+	// Allow loopback mock in unit test
+	AllowInsecureEndpointsForTesting = true
+	defer func() { AllowInsecureEndpointsForTesting = false }()
+
 	// 2. Mock Push Gateway server
 	var statusCode int = http.StatusCreated
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -223,5 +227,42 @@ func TestPushServiceAndPruning(t *testing.T) {
 		t.Errorf("Expected worker.PushService() to match pushSvc")
 	}
 }
+
+func TestValidatePushEndpoint_SSRFPrevention(t *testing.T) {
+	// Ensure test override is disabled during SSRF validation test
+	AllowInsecureEndpointsForTesting = false
+
+	blockedEndpoints := []string{
+		"http://127.0.0.1:8080/push",
+		"http://localhost:3000/api",
+		"https://127.0.0.1:8443/push",
+		"https://localhost/push",
+		"https://169.254.169.254/latest/meta-data",
+		"https://10.0.0.1/push",
+		"https://192.168.1.1/push",
+		"https://172.16.0.1/push",
+		"ftp://example.com/push",
+		"file:///etc/passwd",
+	}
+
+	for _, ep := range blockedEndpoints {
+		if err := ValidatePushEndpoint(ep); err == nil {
+			t.Errorf("Expected endpoint %s to be blocked by SSRF filter, but it was allowed", ep)
+		}
+	}
+
+	validEndpoints := []string{
+		"https://fcm.googleapis.com/fcm/send/xyz123",
+		"https://updates.push.services.mozilla.com/wpush/v2/abc456",
+		"https://web.push.apple.com/push/device789",
+	}
+
+	for _, ep := range validEndpoints {
+		if err := ValidatePushEndpoint(ep); err != nil {
+			t.Errorf("Expected endpoint %s to be allowed, but got error: %v", ep, err)
+		}
+	}
+}
+
 
 

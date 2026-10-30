@@ -1,0 +1,9 @@
+{
+  "database": "connected",
+  "db_path": "postgres://postgres:[REDACTED]@localhost:15439/audit?sslmode=disable",
+  "driver": "pgx",
+  "season": 2026,
+  "status": "ok",
+  "storage_writable": true,
+  "timestamp": "2026-10-30T05:23:45Z"
+}

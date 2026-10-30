@@ -1,0 +1,4 @@
+main.go:182:8: github.com/go-chi/chi/v5/middleware.RealIP is deprecated: RealIP is vulnerable to IP spoofing — it mutates r.RemoteAddr to the leftmost X-Forwarded-For value, or to True-Client-IP / X-Real-IP whether or not your infrastructure actually sets them. See GHSA-3fxj-6jh8-hvhx, GHSA-rjr7-jggh-pgcp, GHSA-9g5q-2w5x-hmxf. (SA1019)
+services/auth/auth.go:24:2: only the first constant in this group has an explicit type (SA9004)
+services/espn/client.go:851:13: strings.Title has been deprecated since Go 1.18 and an alternative has been available since Go 1.0: The rule Title uses for word boundaries does not handle Unicode punctuation properly. Use golang.org/x/text/cases instead.  (SA1019)
+services/forecasting/advisor.go:244:18: unnecessary use of fmt.Sprintf (S1039)

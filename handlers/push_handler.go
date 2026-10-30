@@ -69,6 +69,13 @@ func (h *PushHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := notifications.ValidatePushEndpoint(req.Endpoint); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Endpoint no permitido: %v", err)})
+		return
+	}
+
 	sub := &db.PushSubscription{
 		UserID:    user.ID,
 		Endpoint:  req.Endpoint,

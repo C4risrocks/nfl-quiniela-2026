@@ -132,7 +132,7 @@ func (r *Repository) SetScoringConfig(cfg *ScoringConfig) error {
 // Users
 // ----------------------------------------------------
 
-const userColumns = `id, username, email, password_hash, role, avatar_url, favorite_team_id, email_verified, verification_token, verification_sent_at, reset_token, reset_token_expires_at, notify_email, created_at, bio, featured_badge_code, notify_kickoff, notify_recap, is_beta_tester, notify_push`
+const userColumns = `id, username, email, password_hash, role, avatar_url, favorite_team_id, email_verified, verification_token, verification_sent_at, reset_token, reset_token_expires_at, notify_email, created_at, bio, featured_badge_code, notify_kickoff, notify_recap, is_beta_tester, notify_push, token_version`
 
 func scanUserRow(scanner interface{ Scan(dest ...any) error }) (*User, error) {
 	var u User
@@ -146,12 +146,14 @@ func scanUserRow(scanner interface{ Scan(dest ...any) error }) (*User, error) {
 	var notifyRecap sql.NullBool
 	var isBetaTester sql.NullBool
 	var notifyPush sql.NullBool
+	var tokenVer sql.NullInt64
 
 	err := scanner.Scan(
 		&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.Role, &u.AvatarURL, &favTeamID,
 		&u.EmailVerified, &u.VerificationToken, &verifSentAtStr,
 		&u.ResetToken, &resetExpStr, &u.NotifyEmail, &createdAtStr,
 		&bioStr, &featBadgeStr, &notifyKickoff, &notifyRecap, &isBetaTester, &notifyPush,
+		&tokenVer,
 	)
 	if err != nil {
 		return nil, err
@@ -159,6 +161,10 @@ func scanUserRow(scanner interface{ Scan(dest ...any) error }) (*User, error) {
 	if favTeamID.Valid && favTeamID.Int64 > 0 {
 		tid := favTeamID.Int64
 		u.FavoriteTeamID = &tid
+	}
+	u.TokenVersion = 1
+	if tokenVer.Valid && tokenVer.Int64 > 0 {
+		u.TokenVersion = int(tokenVer.Int64)
 	}
 	u.CreatedAt = parseTimeSafe(createdAtStr)
 	if verifSentAtStr.Valid {
@@ -226,8 +232,13 @@ func (r *Repository) CreateUserWithVerification(username, email, passwordHash, r
 		return nil, err
 	}
 	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, err
+	if err != nil || id == 0 {
+		if u, getErr := r.GetUserByUsername(username); getErr == nil && u != nil {
+			return u, nil
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 	return r.GetUserByID(id)
 }
@@ -425,13 +436,13 @@ func (r *Repository) ResetPasswordWithToken(token, newPasswordHash string) error
 	if err != nil {
 		return err
 	}
-	query := `UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires_at = NULL WHERE id = ?`
+	query := `UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires_at = NULL, token_version = token_version + 1 WHERE id = ?`
 	_, err = r.db.Exec(query, newPasswordHash, u.ID)
 	return err
 }
 
 func (r *Repository) UpdateUserPassword(userID int64, newPasswordHash string) error {
-	query := `UPDATE users SET password_hash = ? WHERE id = ?`
+	query := `UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?`
 	_, err := r.db.Exec(query, newPasswordHash, userID)
 	return err
 }
@@ -723,6 +734,9 @@ func (r *Repository) GetActiveSeason(year int) (*Season, error) {
 			return nil, err
 		}
 		id, _ := res.LastInsertId()
+		if id == 0 {
+			_ = r.db.QueryRow(`SELECT id FROM seasons WHERE year = ?`, year).Scan(&id)
+		}
 		return &Season{ID: id, Year: year, Name: fmt.Sprintf("%d NFL Season", year), IsActive: true}, nil
 	}
 	if err != nil {
@@ -925,6 +939,9 @@ func (r *Repository) CreateWeek(seasonID int64, weekNum int, name string) (*Week
 		return nil, err
 	}
 	id, _ := res.LastInsertId()
+	if id == 0 {
+		_ = r.db.QueryRow(`SELECT id FROM weeks WHERE season_id = ? AND week_number = ?`, seasonID, weekNum).Scan(&id)
+	}
 	return r.GetWeekByID(id)
 }
 
@@ -1100,8 +1117,10 @@ func (r *Repository) UpsertGameByESPNID(g *Game) error {
 		if err != nil {
 			return err
 		}
-		if id, err := res.LastInsertId(); err == nil {
+		if id, err := res.LastInsertId(); err == nil && id > 0 {
 			g.ID = id
+		} else if g.ESPNGameID != "" {
+			_ = r.db.QueryRow(`SELECT id FROM games WHERE espn_game_id = ?`, g.ESPNGameID).Scan(&g.ID)
 		}
 		return nil
 	}
@@ -1159,6 +1178,13 @@ func (r *Repository) CreateManualGame(g *Game) (*Game, error) {
 		return nil, err
 	}
 	id, _ := res.LastInsertId()
+	if id == 0 {
+		if g.ESPNGameID != "" {
+			_ = r.db.QueryRow(`SELECT id FROM games WHERE espn_game_id = ?`, g.ESPNGameID).Scan(&id)
+		} else {
+			_ = r.db.QueryRow(`SELECT id FROM games WHERE week_id = ? AND home_team_id = ? AND away_team_id = ? ORDER BY id DESC LIMIT 1`, g.WeekID, g.HomeTeamID, g.AwayTeamID).Scan(&id)
+		}
+	}
 	return r.GetGameByID(id)
 }
 
@@ -1242,6 +1268,19 @@ func (r *Repository) GetUserPickForGame(userID, gameID int64) (*Pick, error) {
 }
 
 func (r *Repository) SavePick(userID, gameID int64, pickedTeamID *int64, predHome, predAway *int) (*Pick, error) {
+	if pickedTeamID != nil {
+		game, err := r.GetGameByID(gameID)
+		if err != nil {
+			return nil, fmt.Errorf("loading game %d: %w", gameID, err)
+		}
+		if game == nil {
+			return nil, errors.New("partido no encontrado")
+		}
+		if *pickedTeamID != game.HomeTeamID && *pickedTeamID != game.AwayTeamID {
+			return nil, errors.New("equipo seleccionado no participa en este partido")
+		}
+	}
+
 	query := `
 	INSERT INTO picks (user_id, game_id, picked_team_id, predicted_home_score, predicted_away_score, updated_at)
 	VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -1656,6 +1695,12 @@ func (r *Repository) UpdatePickPoints(pickID int64, pointsEarned, bonusPoints in
 	return err
 }
 
+func (r *Repository) UpdatePickPointsTx(tx *Tx, pickID int64, pointsEarned, bonusPoints int, isCorrect *bool) error {
+	query := `UPDATE picks SET points_earned = ?, bonus_points = ?, is_correct = ? WHERE id = ?`
+	_, err := tx.Exec(query, pointsEarned, bonusPoints, isCorrect, pickID)
+	return err
+}
+
 // ----------------------------------------------------
 // Leaderboards
 // ----------------------------------------------------
@@ -1674,6 +1719,23 @@ func (r *Repository) UpsertWeeklyLeaderboard(entry *LeaderboardEntry, weekID int
 		updated_at = CURRENT_TIMESTAMP;`
 
 	_, err := r.db.Exec(query, weekID, entry.UserID, entry.TotalPoints, entry.CorrectPicks, entry.TotalPicks, entry.TiebreakerError, entry.TiebreakerWinnerCorrect, entry.Rank)
+	return err
+}
+
+func (r *Repository) UpsertWeeklyLeaderboardTx(tx *Tx, entry *LeaderboardEntry, weekID int64) error {
+	query := `
+	INSERT INTO weekly_leaderboard (week_id, user_id, total_points, correct_picks, total_picks, tiebreaker_error, tiebreaker_winner_correct, rank, updated_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	ON CONFLICT(week_id, user_id) DO UPDATE SET
+		total_points = excluded.total_points,
+		correct_picks = excluded.correct_picks,
+		total_picks = excluded.total_picks,
+		tiebreaker_error = excluded.tiebreaker_error,
+		tiebreaker_winner_correct = excluded.tiebreaker_winner_correct,
+		rank = excluded.rank,
+		updated_at = CURRENT_TIMESTAMP;`
+
+	_, err := tx.Exec(query, weekID, entry.UserID, entry.TotalPoints, entry.CorrectPicks, entry.TotalPicks, entry.TiebreakerError, entry.TiebreakerWinnerCorrect, entry.Rank)
 	return err
 }
 
@@ -1958,8 +2020,8 @@ func (r *Repository) CreateInAppNotification(userID int64, title, message, link,
 		return nil, err
 	}
 	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, err
+	if err != nil || id == 0 {
+		_ = r.db.QueryRow(`SELECT id FROM in_app_notifications WHERE user_id = ? ORDER BY id DESC LIMIT 1`, userID).Scan(&id)
 	}
 	return &InAppNotification{
 		ID:        id,
@@ -2268,7 +2330,7 @@ func (r *Repository) AdminUpdateUser(userID int64, username, email, role string,
 	}
 
 	if newPasswordHash != "" {
-		query := `UPDATE users SET username = ?, email = ?, role = ?, email_verified = ?, is_beta_tester = ?, favorite_team_id = ?, bio = ?, password_hash = ? WHERE id = ?`
+		query := `UPDATE users SET username = ?, email = ?, role = ?, email_verified = ?, is_beta_tester = ?, favorite_team_id = ?, bio = ?, password_hash = ?, token_version = token_version + 1 WHERE id = ?`
 		_, err = r.db.Exec(query, username, email, role, verifVal, betaVal, favoriteTeamID, bio, newPasswordHash, userID)
 	} else {
 		query := `UPDATE users SET username = ?, email = ?, role = ?, email_verified = ?, is_beta_tester = ?, favorite_team_id = ?, bio = ? WHERE id = ?`

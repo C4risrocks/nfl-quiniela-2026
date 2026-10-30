@@ -197,11 +197,12 @@ func GenerateRealisticSummary(game *db.Game) *db.GameDetailedSummary {
 		WinProbability:    winProbPoints,
 		CurrentHomeWinPct: curHomePct,
 		CurrentAwayWinPct: curAwayPct,
-		HasStats:          true,
-		HasPlayerStats:    true,
-		HasDrives:         len(drives) > 0,
-		HasWinProb:        len(winProbPoints) > 0,
-		HasLeaders:        len(leaders) > 0,
+		HasStats:            true,
+		HasPlayerStats:      true,
+		HasDrives:           len(drives) > 0,
+		HasWinProb:          len(winProbPoints) > 0,
+		HasLeaders:          len(leaders) > 0,
+		IsSimulatedFallback: true,
 	}
 }
 

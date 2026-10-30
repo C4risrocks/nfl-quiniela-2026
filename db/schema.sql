@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
     is_beta_tester BOOLEAN NOT NULL DEFAULT 0,
     bio TEXT DEFAULT '',
     featured_badge_code TEXT DEFAULT '',
+    token_version INTEGER NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -5,12 +5,96 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
 	"nfl-quiniela-2026/db"
 )
+
+// AllowInsecureEndpointsForTesting enables loopback endpoints only during automated tests
+var AllowInsecureEndpointsForTesting = false
+
+// ValidatePushEndpoint ensures the target push URL uses HTTPS and does not point to internal/private networks (SSRF prevention)
+func ValidatePushEndpoint(endpointStr string) error {
+	u, err := url.Parse(endpointStr)
+	if err != nil {
+		return fmt.Errorf("invalid endpoint URL: %w", err)
+	}
+
+	if u.Scheme != "https" {
+		if u.Scheme == "http" && AllowInsecureEndpointsForTesting {
+			return nil
+		}
+		return fmt.Errorf("push endpoint must use HTTPS scheme")
+	}
+
+	host := u.Hostname()
+	if host == "" {
+		return fmt.Errorf("push endpoint host is missing")
+	}
+
+	if AllowInsecureEndpointsForTesting && (host == "127.0.0.1" || host == "localhost") {
+		return nil
+	}
+
+	// Reject localhost / loopback hostnames
+	if strings.EqualFold(host, "localhost") || strings.HasSuffix(strings.ToLower(host), ".localhost") || strings.HasSuffix(strings.ToLower(host), ".local") {
+		return fmt.Errorf("push endpoint cannot target local domains: %s", host)
+	}
+
+	ip := net.ParseIP(host)
+	if ip != nil {
+		if IsPrivateOrLoopbackIP(ip) {
+			return fmt.Errorf("push endpoint targets restricted IP: %s", host)
+		}
+	} else {
+		// Resolve DNS
+		ips, err := net.LookupIP(host)
+		if err != nil {
+			return fmt.Errorf("failed to resolve push endpoint host: %w", err)
+		}
+		if len(ips) == 0 {
+			return fmt.Errorf("no IP address found for host: %s", host)
+		}
+		for _, resolved := range ips {
+			if IsPrivateOrLoopbackIP(resolved) {
+				return fmt.Errorf("push endpoint resolves to restricted IP: %s", resolved.String())
+			}
+		}
+	}
+
+	return nil
+}
+
+// IsPrivateOrLoopbackIP checks if an IP belongs to loopback, private RFC1918, or link-local ranges
+func IsPrivateOrLoopbackIP(ip net.IP) bool {
+	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsPrivate() || ip.IsUnspecified() {
+		return true
+	}
+	if ip4 := ip.To4(); ip4 != nil {
+		// 169.254.0.0/16 (Link Local / Cloud Metadata)
+		if ip4[0] == 169 && ip4[1] == 254 {
+			return true
+		}
+		// 127.0.0.0/8 (Loopback)
+		if ip4[0] == 127 {
+			return true
+		}
+		// 0.0.0.0/8
+		if ip4[0] == 0 {
+			return true
+		}
+		// 100.64.0.0/10 (Carrier-grade NAT)
+		if ip4[0] == 100 && (ip4[1]&192 == 64) {
+			return true
+		}
+	}
+	return false
+}
 
 // PushPayload represents the JSON payload dispatched to the client Service Worker
 type PushPayload struct {
@@ -59,6 +143,10 @@ func (s *PushService) IsConfigured() bool {
 func (s *PushService) SendNotification(ctx context.Context, sub *db.PushSubscription, payload PushPayload) error {
 	if !s.IsConfigured() {
 		return fmt.Errorf("webpush service is not configured with VAPID keys")
+	}
+
+	if err := ValidatePushEndpoint(sub.Endpoint); err != nil {
+		return fmt.Errorf("invalid push subscription endpoint: %w", err)
 	}
 
 	if payload.Icon == "" {

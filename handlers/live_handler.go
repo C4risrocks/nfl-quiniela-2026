@@ -649,7 +649,8 @@ func (h *LiveHandler) GameStatsModal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// For final games with valid stats already in DB, use them directly (0ms)
-	if game.Status == "final" && summary != nil && summary.HasStats {
+	// If stats were generated as a synthetic/simulated fallback, do not block fetching official ESPN stats (A15).
+	if game.Status == "final" && summary != nil && summary.HasStats && !summary.IsSimulatedFallback {
 		// Valid stats already loaded from DB
 	} else {
 		// Attempt live ESPN summary fetch

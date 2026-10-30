@@ -29,6 +29,7 @@ type User struct {
 	IsBetaTester        bool       `json:"is_beta_tester"`
 	Bio                 string           `json:"bio"`
 	FeaturedBadgeCode   string           `json:"featured_badge_code"`
+	TokenVersion        int              `json:"token_version"`
 	FavoriteTeam        *Team            `json:"favorite_team,omitempty"`
 	FeaturedBadgeTitle  string           `json:"featured_badge_title,omitempty"`
 	FeaturedBadgeIcon   string           `json:"featured_badge_icon,omitempty"`
@@ -546,6 +547,7 @@ type GameDetailedSummary struct {
 	HasDrives         bool                  `json:"has_drives"`
 	HasWinProb        bool                  `json:"has_win_prob"`
 	HasLeaders        bool                  `json:"has_leaders"`
+	IsSimulatedFallback bool                `json:"is_simulated_fallback"`
 }
 
 func (s *GameDetailedSummary) WinProbHome() int {
@@ -768,6 +770,10 @@ func (g *Game) AwayScoreVal() int {
 		return *g.AwayScore
 	}
 	return 0
+}
+
+func (g *Game) HasScores() bool {
+	return g != nil && g.HomeScore != nil && g.AwayScore != nil
 }
 
 func (g *Game) IsHomeLeading() bool {

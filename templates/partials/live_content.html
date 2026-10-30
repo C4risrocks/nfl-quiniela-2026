@@ -43,13 +43,13 @@
         </div>
 
         <!-- Week Dropdown Selector & What-If Button -->
-        <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+        <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto w-full sm:w-auto min-w-0">
             {{if hasFeatureAccess .User .FeatureFlags "live_whatif"}}
             <button type="button" 
                     @click="$dispatch('toggle-whatif'); document.getElementById('whatif-banner')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });"
                     title="Simulador interactivo de escenarios y proyección de tabla"
                     class="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-purple-600/25 to-indigo-600/25 border border-purple-500/40 hover:border-purple-400 text-purple-200 hover:text-white text-xs font-bold transition-all shadow-sm hover:scale-[1.02] cursor-pointer">
-                <i class="fa-solid fa-wand-magic-sparkles text-purple-400 text-xs animate-pulse"></i>
+                <i class="fa-solid fa-wand-magic-sparkles text-purple-400 text-xs animate-pulse motion-reduce:animate-none"></i>
                 <span>Simulador What-If</span>
                 {{if isFeatureBeta .FeatureFlags "live_whatif"}}
                     <span class="px-1.5 py-0.2 rounded text-[9px] bg-purple-500/20 text-purple-300 font-mono">BETA</span>
@@ -57,11 +57,11 @@
             </button>
             {{end}}
 
-            <div class="flex items-center space-x-2">
-                <span class="text-xs font-mono text-zinc-400 uppercase tracking-wider">Jornada:</span>
+            <div class="flex items-center space-x-2 w-full sm:w-auto min-w-0">
+                <span class="text-xs font-mono text-zinc-400 uppercase tracking-wider shrink-0">Jornada:</span>
                 <select id="live-week-select" 
                         onchange="window.location.href = '/live?week=' + this.value"
-                        class="bg-zinc-900 border border-zinc-700/80 text-white text-base sm:text-xs font-semibold rounded-xl px-3 py-2 focus:ring-1 focus:ring-white focus:border-white transition-all shadow-inner">
+                        class="w-full sm:w-auto max-w-full truncate bg-zinc-900 border border-zinc-700/80 text-white text-base sm:text-xs font-semibold rounded-xl px-3 py-2 focus:ring-1 focus:ring-white focus:border-white transition-all shadow-inner">
                     {{if .ActiveWeek}}
                     <optgroup label="⚡ Jornada en curso">
                         <option value="{{.ActiveWeek.WeekNumber}}" {{if eq .ActiveWeek.ID $.SelectedWeek.ID}}selected{{end}}>

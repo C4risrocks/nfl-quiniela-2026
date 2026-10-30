@@ -1,0 +1,39 @@
+### Result
+[{"test":"login keyboard from autofocus","order":[{"tag":"INPUT","name":"username","text":""},{"tag":"A","name":null,"text":"¿La olvidaste?"},{"tag":"INPUT","name":"password","text":""},{"tag":"BUTTON","name":null,"text":"Continuar"},{"tag":"A","name":null,"text":"Regístrate"}]},{"test":"reduced motion","matches":true,"animated":[{"tag":"I","classes":"fa-solid fa-bolt mr-1.5 text-red-500 animate-pulse","animation":"pulse"},{"tag":"I","classes":"fa-solid fa-bolt mr-2 text-red-500 animate-pulse","animation":"pulse"},{"tag":"SPAN","classes":"absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-red-500 animate-pulse","animation":"pulse"}]},{"test":"CSS zoom 200% (not native browser zoom)","zoom":"2","overflow":false,"submitRect":{"x":98,"right":292,"width":194}},{"test":"live select clipping at360","selects":[{"left":103.39999389648438,"right":364.51666259765625,"width":261.1166687011719,"viewport":360},{"left":0,"right":0,"width":0,"viewport":360},{"left":0,"right":0,"width":0,"viewport":360}]},{"test":"verified participant non beta","path":"/picks","status":200,"final":"/picks","h1":"Semana 8","bodySummary":"NFL QUINIELA 2026 Pronósticos En Vivo Posiciones Equipos Playoffs Analítica Reglamento Cargando notificaciones... a audit1793337651 Cargando notificaciones... Mis Pronósticos En Vivo (Game Center) Tabla de Posiciones Equipos y Estadísticas Cuadro de "},{"test":"verified participant non beta","path":"/profile","status":200,"final":"/profile","h1":"audit1793337651","bodySummary":"NFL QUINIELA 2026 Pronósticos En Vivo Posiciones Equipos Playoffs Analítica Reglamento Cargando notificaciones... a audit1793337651 Cargando notificaciones... Mis Pronósticos En Vivo (Game Center) Tabla de Posiciones Equipos y Estadísticas Cuadro de "},{"test":"verified participant non beta","path":"/admin","status":200,"final":"/picks","h1":"Semana 8","bodySummary":"NFL QUINIELA 2026 Pronósticos En Vivo Posiciones Equipos Playoffs Analítica Reglamento Cargando notificaciones... a audit1793337651 Cargando notificaciones... Mis Pronósticos En Vivo (Game Center) Tabla de Posiciones Equipos y Estadísticas Cuadro de "},{"test":"verified participant non beta","path":"/picks/advisor","status":200,"final":"/picks/advisor","h1":"Asistente Inteligente & Matriz de Riesgo","bodySummary":"NFL QUINIELA 2026 Pronósticos En Vivo Posiciones Equipos Playoffs Analítica Reglamento Cargando notificaciones... a audit1793337651 Cargando notificaciones... Mis Pronósticos En Vivo (Game Center) Tabla de Posiciones Equipos y Estadísticas Cuadro de "},{"test":"verified participant non beta","path":"/picks/matrix","status":200,"final":"/picks/matrix","h1":"Matriz de Pronósticos","bodySummary":"NFL QUINIELA 2026 Pronósticos En Vivo Posiciones Equipos Playoffs Analítica Reglamento Cargando notificaciones... a audit1793337651 Cargando notificaciones... Mis Pronósticos En Vivo (Game Center) Tabla de Posiciones Equipos y Estadísticas Cuadro de "}]
+### Ran Playwright code
+```js
+await (async page => {
+ const results=[];
+ await page.request.post('http://localhost:18089/logout');
+ await page.goto('http://localhost:18089/login');
+ await page.setViewportSize({width:390,height:844});
+ const order=[];
+ for(let i=0;i<5;i++){order.push(await page.evaluate(()=>({tag:document.activeElement.tagName,name:document.activeElement.getAttribute('name'),text:document.activeElement.textContent.trim().slice(0,40)}))); await page.keyboard.press('Tab');}
+ results.push({test:'login keyboard from autofocus',order});
+ await page.emulateMedia({reducedMotion:'reduce'});
+ results.push(await page.evaluate(()=>({test:'reduced motion',matches:matchMedia('(prefers-reduced-motion: reduce)').matches,animated:Array.from(document.querySelectorAll('*')).filter(e=>getComputedStyle(e).animationName!=='none').map(e=>({tag:e.tagName,classes:e.className,animation:getComputedStyle(e).animationName})).slice(0,8)})));
+ await page.evaluate(()=>document.documentElement.style.zoom='2');
+ await page.screenshot({path:'/Users/christiandejmorenomarin/Documents/nfl-quiniela-2026/docs/audit-evidence/login-css-zoom200.png'});
+ results.push(await page.evaluate(()=>({test:'CSS zoom 200% (not native browser zoom)',zoom:getComputedStyle(document.documentElement).zoom,overflow:document.documentElement.scrollWidth>innerWidth,submitRect:(()=>{const r=document.querySelector('button[type=submit]').getBoundingClientRect();return {x:r.x,right:r.right,width:r.width};})()})));
+ await page.evaluate(()=>document.documentElement.style.zoom='1');
+ await page.goto('http://localhost:18089/live');
+ await page.setViewportSize({width:360,height:900});
+ results.push(await page.evaluate(()=>({test:'live select clipping at360',selects:Array.from(document.querySelectorAll('select')).map(e=>{let r=e.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width,viewport:innerWidth}})})));
+ await page.goto('http://localhost:18089/login');
+ await page.locator('input[name=username]').fill('audit1793337651');
+ await page.locator('input[name=password]').fill('temporary-password-2');
+ await page.getByRole('button',{name:'Continuar'}).click();
+ for(const path of ['/picks','/profile','/admin','/picks/advisor','/picks/matrix']){
+ const response=await page.goto('http://localhost:18089'+path,{waitUntil:'domcontentloaded',timeout:20000});
+ results.push(await page.evaluate(({path,status})=>({test:'verified participant non beta',path,status,final:location.pathname,h1:document.querySelector('h1')?.textContent.trim(),bodySummary:document.body.textContent.trim().replace(/\s+/g,' ').slice(0,250)}),{path,status:response.status()}));
+ }
+ return results;
+}
+)(page);
+```
+### Page
+- Page URL: http://localhost:18089/picks/matrix
+- Page Title: Matriz de Pronósticos (Beta Privada) - NFL Quiniela 2026
+- Console: 0 errors, 1 warnings
+### Events
+- New console entries: .playwright-cli/console-2026-10-30T05-21-54-836Z.log#L150-L171

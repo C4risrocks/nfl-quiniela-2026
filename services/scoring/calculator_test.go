@@ -2,6 +2,7 @@ package scoring
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -518,5 +519,113 @@ func TestGhostRankingBotDoesNotDisplaceHumanPodium(t *testing.T) {
 		t.Errorf("Season: Expected Juan_3rd to be Rank 3, got %d", sMap["Juan_3rd"].Rank)
 	}
 }
+
+func TestRecalculateScores_TransactionRollback(t *testing.T) {
+	testDBPath := filepath.Join(t.TempDir(), "test_rollback.db")
+	database, err := db.InitDB("sqlite", testDBPath)
+	if err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	defer database.Close()
+
+	repo := db.NewRepository(database)
+	if err := db.SeedDatabase(repo, "auditadmin", "a@example.invalid", "fictional-password", 2026); err != nil {
+		t.Fatalf("SeedDatabase failed: %v", err)
+	}
+
+	// Create test user and verify
+	u, err := repo.CreateUser("player1", "p1@example.com", "hash", "player")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	if err := repo.SetUserEmailVerified(u.ID, true); err != nil {
+		t.Fatalf("SetUserEmailVerified failed: %v", err)
+	}
+
+	season, err := repo.GetActiveSeason(2026)
+	if err != nil {
+		t.Fatalf("GetActiveSeason failed: %v", err)
+	}
+	week, err := repo.GetWeekByNumber(season.ID, 2)
+	if err != nil {
+		t.Fatalf("GetWeekByNumber failed: %v", err)
+	}
+	kc, err := repo.GetTeamByCode("KC")
+	if err != nil {
+		t.Fatalf("GetTeamByCode KC failed: %v", err)
+	}
+	bal, err := repo.GetTeamByCode("BAL")
+	if err != nil {
+		t.Fatalf("GetTeamByCode BAL failed: %v", err)
+	}
+
+	hs, as := 24, 17
+	game, err := repo.CreateManualGame(&db.Game{
+		WeekID:      week.ID,
+		HomeTeamID:  kc.ID,
+		AwayTeamID:  bal.ID,
+		KickoffTime: time.Now().Add(-time.Hour),
+		HomeScore:   &hs,
+		AwayScore:   &as,
+		Status:      "final",
+	})
+	if err != nil {
+		t.Fatalf("CreateManualGame failed: %v", err)
+	}
+
+	// User picked KC to win (correct pick, should earn points)
+	pick, err := repo.SavePick(u.ID, game.ID, &kc.ID, &hs, &as)
+	if err != nil {
+		t.Fatalf("SavePick failed: %v", err)
+	}
+
+	// Inject write failure on picks update
+	_, err = database.Exec(`CREATE TRIGGER fail_score BEFORE UPDATE OF points_earned ON picks BEGIN SELECT RAISE(ABORT, 'audit injected disk/write failure'); END;`)
+	if err != nil {
+		t.Fatalf("Creating fail trigger failed: %v", err)
+	}
+
+	calc := NewCalculator(repo)
+	calcErr := calc.CalculateWeekScores(week.ID)
+	if calcErr == nil {
+		t.Fatalf("Expected CalculateWeekScores to FAIL due to trigger abort, but got nil (error was swallowed!)")
+	}
+
+	// Verify rollback: pick points must remain 0
+	pAfter, err := repo.GetUserPickForGame(u.ID, game.ID)
+	if err != nil {
+		t.Fatalf("GetUserPickForGame failed: %v", err)
+	}
+	if pAfter.PointsEarned != 0 {
+		t.Errorf("Expected pick points to be 0 after rollback, got %d", pAfter.PointsEarned)
+	}
+
+	// Verify rollback: weekly_leaderboard must NOT have a committed entry with points
+	var totalPts int
+	err = database.QueryRow("SELECT total_points FROM weekly_leaderboard WHERE week_id=? AND user_id=?", week.ID, u.ID).Scan(&totalPts)
+	if err == nil && totalPts > 0 {
+		t.Errorf("Expected weekly_leaderboard to have no points after rollback, but found %d points!", totalPts)
+	}
+
+	// Drop trigger and retry - should succeed idempotently
+	if _, err := database.Exec(`DROP TRIGGER fail_score;`); err != nil {
+		t.Fatalf("Dropping trigger failed: %v", err)
+	}
+
+	if err := calc.CalculateWeekScores(week.ID); err != nil {
+		t.Fatalf("Expected CalculateWeekScores to succeed on retry after trigger dropped, got: %v", err)
+	}
+
+	// Now pick and leaderboard must both reflect points
+	pFinal, err := repo.GetUserPickForGame(u.ID, game.ID)
+	if err != nil {
+		t.Fatalf("GetUserPickForGame failed: %v", err)
+	}
+	if pFinal.PointsEarned <= 0 {
+		t.Errorf("Expected pick points > 0 on successful run, got %d", pFinal.PointsEarned)
+	}
+	_ = pick
+}
+
 
 

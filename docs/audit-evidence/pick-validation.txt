@@ -1,0 +1,2 @@
+Partido manual futuro: 273; equipos participantes: (29, 25)
+Equipo tercero enviado: 5; HTTP: 200; guardado en BD: 5

@@ -1,8 +1,10 @@
 // Service Worker for NFL Quiniela 2026 PWA
-const CACHE_NAME = 'quiniela-pwa-v1';
+const CACHE_NAME = 'quiniela-pwa-v2';
+const OFFLINE_URL = '/offline';
 const STATIC_ASSETS = [
   '/static/manifest.json',
-  '/static/icons/icon.svg'
+  '/static/icons/icon.svg',
+  '/offline'
 ];
 
 self.addEventListener('install', (event) => {
@@ -25,12 +27,30 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Network-first strategy with cache fallback
+// Network-first strategy with dedicated offline fallback for navigation (A11)
 self.addEventListener('fetch', (event) => {
   // Only handle GET requests
   if (event.request.method !== 'GET') return;
   // Ignore SSE events and API sync
   if (event.request.url.includes('/events/live')) return;
+
+  // Handle HTML navigation requests with dedicated offline screen fallback
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(async () => {
+        const cache = await caches.open(CACHE_NAME);
+        const cachedOffline = await cache.match(OFFLINE_URL);
+        if (cachedOffline) {
+          return cachedOffline;
+        }
+        return new Response(
+          '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Sin conexión</title></head><body style="background:#09090b;color:#fff;font-family:sans-serif;text-align:center;padding:50px;"><h1>🏈 Sin Conexión</h1><p>Conéctate a Internet para ingresar tus pronósticos.</p><button onclick="window.location.reload()" style="background:#fff;color:#000;padding:10px 20px;border-radius:8px;font-weight:bold;cursor:pointer;">Reintentar</button></body></html>',
+          { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+        );
+      })
+    );
+    return;
+  }
 
   event.respondWith(
     fetch(event.request).catch(() => {

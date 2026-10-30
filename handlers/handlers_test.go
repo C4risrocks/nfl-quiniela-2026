@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -2833,6 +2834,82 @@ func TestActiveWeekDefaultAndDisplay(t *testing.T) {
 		t.Errorf("Expected Leaderboard to show 'Jornada en curso: Semana 6'")
 	}
 }
+
+func TestExportCSV_SanitizesFormulaInjection(t *testing.T) {
+	testDBPath := filepath.Join(t.TempDir(), "test_csv_sanitize.db")
+	database, err := db.InitDB("sqlite", testDBPath)
+	if err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	defer database.Close()
+
+	repo := db.NewRepository(database)
+	if err := db.SeedDatabase(repo, "auditadmin", "admin@example.invalid", "pass", 2026); err != nil {
+		t.Fatalf("SeedDatabase failed: %v", err)
+	}
+
+	authService := auth.NewAuthService(repo, "fictional-secret")
+	// Register user with Excel formula injection username: =1+1
+	u, err := authService.Register("=1+1", "formula@example.invalid", "securepass")
+	if err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+	_ = repo.SetUserEmailVerified(u.ID, true)
+
+	season, err := repo.GetActiveSeason(2026)
+	if err != nil {
+		t.Fatalf("GetActiveSeason failed: %v", err)
+	}
+	week, err := repo.GetWeekByNumber(season.ID, 2)
+	if err != nil {
+		t.Fatalf("GetWeekByNumber failed: %v", err)
+	}
+	kc, _ := repo.GetTeamByCode("KC")
+	bal, _ := repo.GetTeamByCode("BAL")
+	hs, as := 24, 17
+	g, err := repo.CreateManualGame(&db.Game{
+		WeekID:      week.ID,
+		HomeTeamID:  kc.ID,
+		AwayTeamID:  bal.ID,
+		KickoffTime: time.Now().Add(-time.Hour),
+		HomeScore:   &hs,
+		AwayScore:   &as,
+		Status:      "final",
+	})
+	if err != nil {
+		t.Fatalf("CreateManualGame failed: %v", err)
+	}
+
+	// Save pick for this user
+	_, err = repo.SavePick(u.ID, g.ID, &kc.ID, &hs, &as)
+	if err != nil {
+		t.Fatalf("SavePick failed: %v", err)
+	}
+
+	renderer := NewRenderer(os.DirFS("../templates"), repo)
+	adminHandler := NewAdminHandler(repo, renderer, nil, nil, nil, nil, 2026)
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/admin/picks/export?week=%d", week.ID), nil)
+	adminUser, _ := repo.GetUserByUsername("auditadmin")
+	req = req.WithContext(context.WithValue(req.Context(), auth.UserContextKey, adminUser))
+
+	rec := httptest.NewRecorder()
+	adminHandler.ExportWeekPicksCSV(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected HTTP 200 from ExportWeekPicksCSV, got %d", rec.Code)
+	}
+
+	body := rec.Body.String()
+	// A17: Verify formula was neutralized by prefixing with a single quote: '=1+1
+	if strings.Contains(body, "\n=1+1,") || strings.Contains(body, ",=1+1,") {
+		t.Fatalf("A17 regression: raw formula '=1+1' was exported unescaped in CSV!")
+	}
+	if !strings.Contains(body, "'=1+1") {
+		t.Fatalf("Expected sanitized username \"'=1+1\" in CSV output, but was not found. Output:\n%s", body)
+	}
+}
+
 
 
 

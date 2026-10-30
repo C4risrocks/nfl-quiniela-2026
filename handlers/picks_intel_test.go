@@ -2,11 +2,14 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -126,3 +129,158 @@ func TestPicksDecisionIntel_BatchEnrichmentAndRender(t *testing.T) {
 		t.Errorf("Expected activeTab state in modal body")
 	}
 }
+
+func TestPicksTemplate_BufferAndScoresComparison(t *testing.T) {
+	testDBPath := filepath.Join(t.TempDir(), "test_render_buffer.db")
+	database, err := db.InitDB("sqlite", testDBPath)
+	if err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	defer database.Close()
+
+	repo := db.NewRepository(database)
+	if err := db.SeedDatabase(repo, "admin", "admin@example.com", "secret", 2026); err != nil {
+		t.Fatalf("SeedDatabase failed: %v", err)
+	}
+
+	season, err := repo.GetActiveSeason(2026)
+	if err != nil || season == nil {
+		t.Fatalf("Failed to get active season: %v", err)
+	}
+
+	week1, err := repo.GetWeekByNumber(season.ID, 1)
+	if err != nil || week1 == nil {
+		t.Fatalf("Failed to get week 1: %v", err)
+	}
+
+	// Set scores on games in week 1 to ensure score comparisons execute in templates
+	games, err := repo.ListGamesByWeek(week1.ID)
+	if err != nil || len(games) < 2 {
+		t.Fatalf("Expected at least 2 games in week 1")
+	}
+
+	hScore1, aScore1 := 28, 24 // Home won
+	_ = repo.UpdateGameScoreAndStatus(games[0].ID, &hScore1, &aScore1, "final", "Final")
+
+	hScore2, aScore2 := 17, 31 // Away won
+	_ = repo.UpdateGameScoreAndStatus(games[1].ID, &hScore2, &aScore2, "final", "Final")
+
+	renderer := NewRenderer(os.DirFS("../templates"), repo)
+	handler := NewPicksHandler(repo, renderer, nil, 2026)
+
+	user, err := repo.GetUserByUsername("admin")
+	if err != nil || user == nil {
+		t.Fatalf("Failed to get admin user: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/picks?week=1", nil)
+	ctx := context.WithValue(req.Context(), auth.UserContextKey, user)
+	req = req.WithContext(ctx)
+
+	rec := httptest.NewRecorder()
+	handler.ShowPicks(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected HTTP 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	body := rec.Body.String()
+	// A01: Ensure template rendered completely down to the final closing tags
+	if !strings.Contains(body, "</html>") {
+		t.Fatalf("A01 regression: picks page was truncated! </html> closing tag missing.")
+	}
+	if !strings.Contains(body, "</body>") {
+		t.Fatalf("A01 regression: picks page was truncated! </body> closing tag missing.")
+	}
+}
+
+func TestPickValidation_RejectsInvalidTeam(t *testing.T) {
+	testDBPath := filepath.Join(t.TempDir(), "test_pick_validation.db")
+	database, err := db.InitDB("sqlite", testDBPath)
+	if err != nil {
+		t.Fatalf("InitDB failed: %v", err)
+	}
+	defer database.Close()
+
+	repo := db.NewRepository(database)
+	if err := db.SeedDatabase(repo, "auditadmin", "a@example.invalid", "fictional-password", 2026); err != nil {
+		t.Fatalf("SeedDatabase failed: %v", err)
+	}
+
+	u, err := repo.CreateUser("picktester", "tester@example.invalid", "hash", "player")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	_ = repo.SetUserEmailVerified(u.ID, true)
+	u, _ = repo.GetUserByID(u.ID)
+
+	season, err := repo.GetActiveSeason(2026)
+	if err != nil {
+		t.Fatalf("GetActiveSeason failed: %v", err)
+	}
+	week, err := repo.GetWeekByNumber(season.ID, 2)
+	if err != nil {
+		t.Fatalf("GetWeekByNumber failed: %v", err)
+	}
+
+	kc, err := repo.GetTeamByCode("KC")
+	if err != nil {
+		t.Fatalf("GetTeamByCode KC failed: %v", err)
+	}
+	bal, err := repo.GetTeamByCode("BAL")
+	if err != nil {
+		t.Fatalf("GetTeamByCode BAL failed: %v", err)
+	}
+	third, err := repo.GetTeamByCode("BUF")
+	if err != nil {
+		t.Fatalf("GetTeamByCode BUF failed: %v", err)
+	}
+
+	// Matchup: KC vs BAL (BUF does NOT participate)
+	game, err := repo.CreateManualGame(&db.Game{
+		WeekID:      week.ID,
+		HomeTeamID:  kc.ID,
+		AwayTeamID:  bal.ID,
+		KickoffTime: time.Now().Add(24 * time.Hour), // Future game (unlocked)
+		Status:      "scheduled",
+	})
+	if err != nil {
+		t.Fatalf("CreateManualGame failed: %v", err)
+	}
+
+	// 1. Test repository level rejection
+	hs, as := 24, 17
+	_, repoErr := repo.SavePick(u.ID, game.ID, &third.ID, &hs, &as)
+	if repoErr == nil {
+		t.Fatalf("Expected repo.SavePick to REJECT third team (BUF), but succeeded!")
+	}
+
+	// 2. Test HTTP handler level rejection
+	renderer := NewRenderer(os.DirFS("../templates"), repo)
+	handler := NewPicksHandler(repo, renderer, nil, 2026)
+
+	form := strings.NewReader(fmt.Sprintf("game_id=%d&picked_team_id=%d", game.ID, third.ID))
+	req := httptest.NewRequest(http.MethodPost, "/picks/save", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("HX-Request", "true")
+	ctx := context.WithValue(req.Context(), auth.UserContextKey, u)
+	req = req.WithContext(ctx)
+
+	rec := httptest.NewRecorder()
+	handler.SavePick(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("Expected HTTP 400 Bad Request for third team pick, got HTTP %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// 3. Ensure nothing was persisted in database
+	persistedPick, err := repo.GetUserPickForGame(u.ID, game.ID)
+	if err != nil {
+		t.Fatalf("GetUserPickForGame failed: %v", err)
+	}
+	if persistedPick != nil && persistedPick.PickedTeamID != nil {
+		t.Fatalf("Expected no pick saved for game %d, but found picked_team_id=%d", game.ID, *persistedPick.PickedTeamID)
+	}
+}
+
+

@@ -117,10 +117,18 @@ func GenerateRandomToken(nBytes int) (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// GenerateSessionToken creates a signed token format: "userID:expiry:signature"
-func (s *AuthService) GenerateSessionToken(userID int64, duration time.Duration) string {
+// GenerateSessionToken creates a signed token format: "userID:tokenVersion:expiry:signature"
+func (s *AuthService) GenerateSessionToken(userID int64, duration time.Duration, tokenVersionOpt ...int) string {
+	version := 1
+	if len(tokenVersionOpt) > 0 && tokenVersionOpt[0] > 0 {
+		version = tokenVersionOpt[0]
+	} else if s.repo != nil {
+		if u, _ := s.repo.GetUserByID(userID); u != nil && u.TokenVersion > 0 {
+			version = u.TokenVersion
+		}
+	}
 	expiry := time.Now().Add(duration).Unix()
-	payload := fmt.Sprintf("%d:%d", userID, expiry)
+	payload := fmt.Sprintf("%d:%d:%d", userID, version, expiry)
 
 	mac := hmac.New(sha256.New, s.sessionSecret)
 	mac.Write([]byte(payload))
@@ -129,42 +137,86 @@ func (s *AuthService) GenerateSessionToken(userID int64, duration time.Duration)
 	return fmt.Sprintf("%s:%s", payload, sig)
 }
 
-// ValidateSessionToken parses and validates a signed session token
-func (s *AuthService) ValidateSessionToken(token string) (int64, error) {
+// ValidateSessionToken parses and validates a signed session token, returning (userID, tokenVersion, error)
+func (s *AuthService) ValidateSessionToken(token string) (int64, int, error) {
 	parts := strings.Split(token, ":")
-	if len(parts) != 3 {
-		return 0, errors.New("token format invalid")
+	if len(parts) == 4 {
+		// New format: userID:tokenVersion:expiry:signature
+		userIDStr := parts[0]
+		versionStr := parts[1]
+		expiryStr := parts[2]
+		providedSig := parts[3]
+
+		payload := fmt.Sprintf("%s:%s:%s", userIDStr, versionStr, expiryStr)
+		mac := hmac.New(sha256.New, s.sessionSecret)
+		mac.Write([]byte(payload))
+		expectedSig := base64.URLEncoding.EncodeToString(mac.Sum(nil))
+
+		if !hmac.Equal([]byte(providedSig), []byte(expectedSig)) {
+			return 0, 0, errors.New("token signature mismatch")
+		}
+
+		expiry, err := strconv.ParseInt(expiryStr, 10, 64)
+		if err != nil || time.Now().Unix() > expiry {
+			return 0, 0, errors.New("token expired")
+		}
+
+		userID, err := strconv.ParseInt(userIDStr, 10, 64)
+		if err != nil {
+			return 0, 0, errors.New("invalid user id in token")
+		}
+
+		version, err := strconv.Atoi(versionStr)
+		if err != nil {
+			return 0, 0, errors.New("invalid token version in token")
+		}
+
+		return userID, version, nil
+	} else if len(parts) == 3 {
+		// Backward compatible legacy format: userID:expiry:signature
+		userIDStr := parts[0]
+		expiryStr := parts[1]
+		providedSig := parts[2]
+
+		payload := fmt.Sprintf("%s:%s", userIDStr, expiryStr)
+		mac := hmac.New(sha256.New, s.sessionSecret)
+		mac.Write([]byte(payload))
+		expectedSig := base64.URLEncoding.EncodeToString(mac.Sum(nil))
+
+		if !hmac.Equal([]byte(providedSig), []byte(expectedSig)) {
+			return 0, 0, errors.New("token signature mismatch")
+		}
+
+		expiry, err := strconv.ParseInt(expiryStr, 10, 64)
+		if err != nil || time.Now().Unix() > expiry {
+			return 0, 0, errors.New("token expired")
+		}
+
+		userID, err := strconv.ParseInt(userIDStr, 10, 64)
+		if err != nil {
+			return 0, 0, errors.New("invalid user id in token")
+		}
+
+		return userID, 1, nil
 	}
 
-	userIDStr := parts[0]
-	expiryStr := parts[1]
-	providedSig := parts[2]
-
-	payload := fmt.Sprintf("%s:%s", userIDStr, expiryStr)
-	mac := hmac.New(sha256.New, s.sessionSecret)
-	mac.Write([]byte(payload))
-	expectedSig := base64.URLEncoding.EncodeToString(mac.Sum(nil))
-
-	if !hmac.Equal([]byte(providedSig), []byte(expectedSig)) {
-		return 0, errors.New("token signature mismatch")
-	}
-
-	expiry, err := strconv.ParseInt(expiryStr, 10, 64)
-	if err != nil || time.Now().Unix() > expiry {
-		return 0, errors.New("token expired")
-	}
-
-	userID, err := strconv.ParseInt(userIDStr, 10, 64)
-	if err != nil {
-		return 0, errors.New("invalid user id in token")
-	}
-
-	return userID, nil
+	return 0, 0, errors.New("token format invalid")
 }
 
-// SetSessionCookie sets a secure HTTP-only cookie with the session token
-func (s *AuthService) SetSessionCookie(w http.ResponseWriter, userID int64) {
-	token := s.GenerateSessionToken(userID, 30*24*time.Hour) // 30 days
+// SetSessionCookie sets a secure HTTP-only cookie with the session token.
+// If req is provided, the Secure flag is dynamically determined based on TLS / HTTPS headers (A06).
+func (s *AuthService) SetSessionCookie(w http.ResponseWriter, userID int64, req ...*http.Request) {
+	secure := false
+	if len(req) > 0 && req[0] != nil {
+		r := req[0]
+		if r.TLS != nil ||
+			strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") ||
+			strings.EqualFold(r.Header.Get("X-Forwarded-Ssl"), "on") {
+			secure = true
+		}
+	}
+
+	token := s.GenerateSessionToken(userID, 30*24*time.Hour)
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookieName,
 		Value:    token,
@@ -172,12 +224,21 @@ func (s *AuthService) SetSessionCookie(w http.ResponseWriter, userID int64) {
 		Expires:  time.Now().Add(30 * 24 * time.Hour),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   false, // Set to true behind TLS/HTTPS in production
+		Secure:   secure,
 	})
 }
 
 // ClearSessionCookie removes the authentication cookie
-func (s *AuthService) ClearSessionCookie(w http.ResponseWriter) {
+func (s *AuthService) ClearSessionCookie(w http.ResponseWriter, req ...*http.Request) {
+	secure := false
+	if len(req) > 0 && req[0] != nil {
+		r := req[0]
+		if r.TLS != nil ||
+			strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") ||
+			strings.EqualFold(r.Header.Get("X-Forwarded-Ssl"), "on") {
+			secure = true
+		}
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     SessionCookieName,
 		Value:    "",
@@ -185,6 +246,8 @@ func (s *AuthService) ClearSessionCookie(w http.ResponseWriter) {
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
 		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   secure,
 	})
 }
 
@@ -195,13 +258,18 @@ func (s *AuthService) ExtractUserFromRequest(r *http.Request) *db.User {
 		return nil
 	}
 
-	userID, err := s.ValidateSessionToken(cookie.Value)
+	userID, tokenVersion, err := s.ValidateSessionToken(cookie.Value)
 	if err != nil {
 		return nil
 	}
 
 	user, err := s.repo.GetUserByID(userID)
-	if err != nil {
+	if err != nil || user == nil {
+		return nil
+	}
+
+	// Invalidate session if token version does not match current user token version (A05)
+	if user.TokenVersion > 0 && tokenVersion != user.TokenVersion {
 		return nil
 	}
 

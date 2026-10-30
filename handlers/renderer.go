@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
 	"io/fs"
+	"log"
 	"math"
 	"net/http"
 	"strings"
@@ -211,7 +213,8 @@ func (r *Renderer) FuncMap() template.FuncMap {
 	}
 }
 
-// RenderPage parses base layout + page template and executes it
+// RenderPage parses base layout + page template and executes it into a buffer
+// before flushing to http.ResponseWriter to prevent half-rendered HTTP 200 responses.
 func (r *Renderer) RenderPage(w http.ResponseWriter, pageFile string, data interface{}) {
 	patterns := []string{
 		"layouts/base.html",
@@ -221,17 +224,26 @@ func (r *Renderer) RenderPage(w http.ResponseWriter, pageFile string, data inter
 
 	tmpl, err := template.New("base.html").Funcs(r.FuncMap()).ParseFS(r.templatesFS, patterns...)
 	if err != nil {
+		log.Printf("[RENDER_ERROR] template parse failed (page: %s): %v", pageFile, err)
 		http.Error(w, fmt.Sprintf("Template parse error: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := tmpl.Execute(w, data); err != nil {
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		log.Printf("[RENDER_ERROR] template execution failed (page: %s): %v", pageFile, err)
 		http.Error(w, fmt.Sprintf("Template execution error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if _, err := buf.WriteTo(w); err != nil {
+		log.Printf("[RENDER_ERROR] failed to write response buffer (page: %s): %v", pageFile, err)
 	}
 }
 
-// RenderPartial parses and executes a partial with access to other partials
+// RenderPartial parses and executes a partial with access to other partials into a buffer
+// before flushing to http.ResponseWriter to prevent half-rendered HTTP 200 responses.
 func (r *Renderer) RenderPartial(w http.ResponseWriter, partialFile string, data interface{}) {
 	patterns := []string{
 		"partials/" + partialFile,
@@ -239,12 +251,20 @@ func (r *Renderer) RenderPartial(w http.ResponseWriter, partialFile string, data
 	}
 	tmpl, err := template.New(partialFile).Funcs(r.FuncMap()).ParseFS(r.templatesFS, patterns...)
 	if err != nil {
+		log.Printf("[RENDER_ERROR] partial template parse failed (partial: %s): %v", partialFile, err)
 		http.Error(w, fmt.Sprintf("Partial template parse error: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := tmpl.Execute(w, data); err != nil {
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		log.Printf("[RENDER_ERROR] partial template execution failed (partial: %s): %v", partialFile, err)
 		http.Error(w, fmt.Sprintf("Partial execution error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if _, err := buf.WriteTo(w); err != nil {
+		log.Printf("[RENDER_ERROR] failed to write partial response buffer (partial: %s): %v", partialFile, err)
 	}
 }

@@ -1,0 +1,100 @@
+2026/10/29 23:19:27 ==========================================
+2026/10/29 23:19:27 🏈 NFL Quiniela 2026 - Starting Server...
+2026/10/29 23:19:27 ==========================================
+2026/10/29 23:19:27 [Config] Loaded persistent VAPID keys from .vapid_keys.json
+2026/10/29 23:19:27 [DB] Initializing PostgreSQL database connection...
+2026/10/29 23:19:28 [DB] Database initialized and schema migrated successfully.
+2026/10/29 23:19:28 [DB] Seeding default database data...
+2026/10/29 23:19:28 [DB] Note on admin creation: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team BUF: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team MIA: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team NE: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team NYJ: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team BAL: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team CIN: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team CLE: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team PIT: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team HOU: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team IND: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team JAX: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team TEN: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team DEN: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team KC: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team LV: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team LAC: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team DAL: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team NYG: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team PHI: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team WSH: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team CHI: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team DET: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team GB: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team MIN: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team ATL: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team CAR: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team NO: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team TB: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team ARI: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team LAR: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team SF: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Error upserting team SEA: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 Warning: Seed database error: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Note on seeding power rankings for week 1: preparing power rankings statement: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Note on seeding power rankings for week 2: preparing power rankings statement: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Note on seeding power rankings for week 3: preparing power rankings statement: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Note on seeding power rankings for week 4: preparing power rankings statement: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Note on seeding power rankings for week 5: preparing power rankings statement: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Note on seeding power rankings for week 6: preparing power rankings statement: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Note on seeding power rankings for week 7: preparing power rankings statement: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [DB] Note on seeding power rankings for week 8: preparing power rankings statement: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:28 [Events] SSE Heartbeat broker started (interval 25s).
+2026/10/29 23:19:28 🚀 Server listening on http://localhost:18090
+2026/10/29 23:19:28 🔑 Default admin credentials -> User: auditadmin | Pass: [REDACTED]orary-password
+2026/10/29 23:19:28 [Syncer] Performing initial startup sync up to Week 8...
+2026/10/29 23:19:28 [Syncer] Initial sync note for Week 1: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Initial sync note for Week 2: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Initial sync note for Week 3: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Initial sync note for Week 4: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Initial sync note for Week 5: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Initial sync note for Week 6: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Initial sync note for Week 7: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Initial sync note for Week 8: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Ingesting full season schedule for 2026 (Weeks 1 to 18)...
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 1: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 2: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 3: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 4: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 5: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 6: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 7: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 8: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 9: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 10: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 11: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 12: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 13: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 14: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 15: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 16: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 17: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Schedule sync notice for Week 18: getting active season: ERROR: syntax error at or near "LIMIT" (SQLSTATE 42601)
+2026/10/29 23:19:28 [Syncer] Full season schedule ingestion complete: 0 total games ready across 18 weeks.
+2026/10/29 23:19:28 [Syncer] Performing initial Power Rankings sync for weeks 1 through 8...
+2026/10/29 23:19:29 [Syncer] Error saving power rankings for week 1: preparing power rankings statement: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:29 [Syncer] Error saving power rankings for week 2: preparing power rankings statement: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:29 [Syncer] Error saving power rankings for week 3: preparing power rankings statement: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:29 [Syncer] Error saving power rankings for week 4: preparing power rankings statement: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:30 [Syncer] Error saving power rankings for week 5: preparing power rankings statement: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:30 [Teams] Pre-warming historical standings for season 2025 from ESPN...
+2026/10/29 23:19:30 [Teams] Pre-warming historical standings for season 2024 from ESPN...
+2026/10/29 23:19:30 [Syncer] Error saving power rankings for week 6: preparing power rankings statement: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:30 [Teams] Pre-warming historical standings for season 2023 from ESPN...
+2026/10/29 23:19:30 [Syncer] Error saving power rankings for week 7: preparing power rankings statement: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:30 [Teams] Pre-warming historical standings for season 2022 from ESPN...
+2026/10/29 23:19:30 [Syncer] Error saving power rankings for week 8: preparing power rankings statement: ERROR: syntax error at or near "," (SQLSTATE 42601)
+2026/10/29 23:19:30 [Syncer] Initial Power Rankings sync complete: 0 weeks synced.
+2026/10/29 23:19:35 [Christians-MacBook-Pro.local/y9Qg4tChRm-000001] "GET http://localhost:18090/healthz HTTP/1.1" from [::1]:63522 - 200 208B in 2.911708ms
+2026/10/29 23:20:02 [Christians-MacBook-Pro.local/y9Qg4tChRm-000002] "GET http://localhost:18090/healthz HTTP/1.1" from [::1]:63565 - 200 208B in 3.012375ms
+2026/10/29 23:23:45 [Christians-MacBook-Pro.local/y9Qg4tChRm-000003] "GET http://localhost:18090/healthz HTTP/1.1" from [::1]:63894 - 200 208B in 4.21125ms
+2026/10/29 23:26:02 Shutting down server gracefully...
+2026/10/29 23:26:02 Server stopped.
