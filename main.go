@@ -171,6 +171,8 @@ func main() {
 	notificationHandler := handlers.NewNotificationHandler(repo, renderer)
 	teamStatsHandler := handlers.NewTeamStatsHandler(repo, renderer, espnClient, cfg.CurrentSeasonYear)
 	pushHandler := handlers.NewPushHandler(repo, pushService)
+	playoffsHandler := handlers.NewPlayoffsHandler(repo, renderer, cfg.CurrentSeasonYear)
+	statsHandler := handlers.NewStatsHandler(repo, renderer, cfg.CurrentSeasonYear)
 
 	// 8. Router Setup
 	r := chi.NewRouter()
@@ -274,8 +276,17 @@ func main() {
 	r.Get("/live", liveHandler.ShowLive)
 	r.Get("/live/content", liveHandler.LiveContent)
 	r.Get("/games/{gameId}/stats", liveHandler.GameStatsModal)
+	r.Get("/games/{gameId}/intel", statsHandler.MatchupIntelModal)
 	r.Get("/picks/community/{gameId}", picksHandler.CommunityPicks)
 	r.Get("/events/live", eventsHandler.StreamLiveEvents)
+
+	// Playoffs & Postseason
+	r.Get("/playoffs", playoffsHandler.ShowPlayoffs)
+	r.Get("/playoffs/bracket", playoffsHandler.PlayoffsBracketPartial)
+
+	// Advanced Analytics & Trends
+	r.Get("/stats", statsHandler.ShowStats)
+	r.Get("/stats/user/{id}", statsHandler.UserStatsPartial)
 
 	// Web Push VAPID Public Key (Client registration)
 	r.Get("/api/push/vapid-public-key", pushHandler.GetVAPIDPublicKey)
@@ -294,6 +305,7 @@ func main() {
 		player.Get("/picks/compare", picksHandler.ComparePicks)
 		player.Get("/picks/matrix", picksHandler.ShowPicksMatrix)
 		player.Get("/picks/readiness", picksHandler.PicksReadinessModal)
+		player.Post("/playoffs/bracket/save", playoffsHandler.SaveBracketPrediction)
 
 		// Profile & Preferences
 		player.Get("/profile", profileHandler.ShowProfile)

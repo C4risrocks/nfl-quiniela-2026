@@ -1,0 +1,236 @@
+<!-- NFL Teams ATS & Over/Under Matrix Partial -->
+<div class="space-y-6" x-data="{
+    confFilter: 'ALL',
+    searchQuery: '',
+    sortCol: 'ats_pct',
+    sortAsc: false,
+    teams: [
+        {{range .TeamATSTrends}}
+        {
+            id: {{.TeamID}},
+            code: '{{.TeamCode}}',
+            name: '{{.TeamName}}',
+            city: '{{.TeamCity}}',
+            logo: '{{.LogoURL}}',
+            conf: '{{.Conference}}',
+            division: '{{.Division}}',
+            games: {{.TotalGames}},
+            atsWins: {{.ATSWins}},
+            atsLosses: {{.ATSLosses}},
+            atsPushes: {{.ATSPushes}},
+            atsPct: {{.ATSPct}},
+            homeATS: '{{.HomeATSRecord}}',
+            awayATS: '{{.AwayATSRecord}}',
+            favATS: '{{.FavoriteATSRecord}}',
+            dogATS: '{{.UnderdogATSRecord}}',
+            overCount: {{.OverCount}},
+            underCount: {{.UnderCount}},
+            pushCount: {{.PushCount}},
+            overPct: {{.OverPct}}
+        },
+        {{end}}
+    ],
+    get filteredTeams() {
+        return this.teams.filter(t => {
+            const matchesConf = (this.confFilter === 'ALL' || t.conf === this.confFilter);
+            const matchesQuery = (!this.searchQuery || 
+                t.code.toLowerCase().includes(this.searchQuery.toLowerCase()) || 
+                t.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                t.city.toLowerCase().includes(this.searchQuery.toLowerCase()));
+            return matchesConf && matchesQuery;
+        }).sort((a, b) => {
+            let valA = a[this.sortCol];
+            let valB = b[this.sortCol];
+            if (typeof valA === 'string') {
+                return this.sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+            return this.sortAsc ? (valA - valB) : (valB - valA);
+        });
+    },
+    setSort(col) {
+        if (this.sortCol === col) {
+            this.sortAsc = !this.sortAsc;
+        } else {
+            this.sortCol = col;
+            this.sortAsc = false;
+        }
+    }
+}">
+
+    <!-- Informative Header & ATS Glossary Banner -->
+    <div class="vercel-card p-5 rounded-2xl border border-zinc-800 bg-zinc-950/70 shadow-sm space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+                <h2 class="text-sm font-bold text-white flex items-center">
+                    <i class="fa-solid fa-scale-balanced mr-2 text-amber-400"></i> Matriz de Cobertura de Líneas de Apuestas (ATS)
+                </h2>
+                <p class="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
+                    Récords <span class="text-white font-semibold">Against The Spread (ATS)</span> y tendencias de altas/bajas (<span class="text-white font-semibold">Over/Under</span>) calculadas con el hándicap y totales de cierre de ESPN y consenso de Las Vegas.
+                </p>
+            </div>
+            <div class="flex items-center space-x-2 text-[11px] font-mono text-zinc-400 bg-zinc-900 px-3 py-1.5 rounded-xl border border-zinc-800 shrink-0">
+                <i class="fa-solid fa-circle-info text-amber-400"></i>
+                <span>Cubrir spread = ganar por margen mayor a la línea</span>
+            </div>
+        </div>
+
+        <!-- Mini Insights Strip -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-zinc-900 text-xs">
+            <div class="p-2.5 rounded-xl bg-zinc-900/40 border border-zinc-850">
+                <span class="text-[10px] font-mono text-zinc-500 uppercase block">Fórmula ATS</span>
+                <span class="font-mono text-zinc-300 font-bold text-[11px]">Margen > Spread</span>
+            </div>
+            <div class="p-2.5 rounded-xl bg-zinc-900/40 border border-zinc-850">
+                <span class="text-[10px] font-mono text-zinc-500 uppercase block">Línea Cerrada (Push)</span>
+                <span class="font-mono text-zinc-300 font-bold text-[11px]">Empate exacto con línea</span>
+            </div>
+            <div class="p-2.5 rounded-xl bg-zinc-900/40 border border-zinc-850">
+                <span class="text-[10px] font-mono text-zinc-500 uppercase block">Altas (Over)</span>
+                <span class="font-mono text-zinc-300 font-bold text-[11px]">Puntos totales > Línea O/U</span>
+            </div>
+            <div class="p-2.5 rounded-xl bg-zinc-900/40 border border-zinc-850">
+                <span class="text-[10px] font-mono text-zinc-500 uppercase block">Bajas (Under)</span>
+                <span class="font-mono text-zinc-300 font-bold text-[11px]">Puntos totales < Línea O/U</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters & Search Toolbar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-950 p-3 rounded-2xl border border-zinc-800">
+        <!-- Conference Filters -->
+        <div class="flex items-center space-x-1">
+            <button type="button"
+                    @click="confFilter = 'ALL'"
+                    :class="confFilter === 'ALL' ? 'bg-white text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                    class="px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer">
+                Todas (32)
+            </button>
+            <button type="button"
+                    @click="confFilter = 'AFC'"
+                    :class="confFilter === 'AFC' ? 'bg-red-500/20 text-red-300 font-bold border border-red-500/40' : 'text-zinc-400 hover:text-white'"
+                    class="px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer">
+                AFC (16)
+            </button>
+            <button type="button"
+                    @click="confFilter = 'NFC'"
+                    :class="confFilter === 'NFC' ? 'bg-blue-500/20 text-blue-300 font-bold border border-blue-500/40' : 'text-zinc-400 hover:text-white'"
+                    class="px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer">
+                NFC (16)
+            </button>
+        </div>
+
+        <!-- Search Input -->
+        <div class="relative w-full sm:w-64">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs"></i>
+            <input type="text"
+                   x-model="searchQuery"
+                   placeholder="Buscar equipo o ciudad..."
+                   class="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-cyan-500 transition-colors">
+        </div>
+    </div>
+
+    <!-- ATS Matrix Table -->
+    <div class="vercel-card rounded-2xl border border-zinc-800 bg-zinc-950 overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                    <tr class="border-b border-zinc-800 bg-zinc-900/50 text-[10px] font-mono text-zinc-400 uppercase tracking-wider select-none">
+                        <th class="p-3 sm:px-4 py-3 cursor-pointer hover:text-white" @click="setSort('name')">
+                            <div class="flex items-center space-x-1.5">
+                                <span>Equipo</span>
+                                <i class="fa-solid fa-sort text-[8px]" :class="sortCol === 'name' ? 'text-cyan-400' : 'opacity-40'"></i>
+                            </div>
+                        </th>
+                        <th class="px-3 py-3 text-center cursor-pointer hover:text-white" @click="setSort('atsPct')">
+                            <div class="flex items-center justify-center space-x-1.5">
+                                <span>Récord ATS</span>
+                                <i class="fa-solid fa-sort text-[8px]" :class="sortCol === 'atsPct' ? 'text-cyan-400' : 'opacity-40'"></i>
+                            </div>
+                        </th>
+                        <th class="px-3 py-3 text-center cursor-pointer hover:text-white" @click="setSort('atsPct')">
+                            <div class="flex items-center justify-center space-x-1.5">
+                                <span>% Cobertura</span>
+                                <i class="fa-solid fa-sort text-[8px]" :class="sortCol === 'atsPct' ? 'text-cyan-400' : 'opacity-40'"></i>
+                            </div>
+                        </th>
+                        <th class="px-3 py-3 text-center hidden md:table-cell">Casa ATS</th>
+                        <th class="px-3 py-3 text-center hidden md:table-cell">Visita ATS</th>
+                        <th class="px-3 py-3 text-center hidden lg:table-cell">Como Fav</th>
+                        <th class="px-3 py-3 text-center hidden lg:table-cell">Como Underdog</th>
+                        <th class="px-3 py-3 text-center cursor-pointer hover:text-white" @click="setSort('overPct')">
+                            <div class="flex items-center justify-center space-x-1.5">
+                                <span>Altas / Bajas (O-U)</span>
+                                <i class="fa-solid fa-sort text-[8px]" :class="sortCol === 'overPct' ? 'text-amber-400' : 'opacity-40'"></i>
+                            </div>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-900 text-zinc-300">
+                    <template x-for="t in filteredTeams" :key="t.id">
+                        <tr class="hover:bg-zinc-900/30 transition-colors">
+                            <!-- Team Brand Info -->
+                            <td class="p-3 sm:px-4 py-2.5">
+                                <div class="flex items-center space-x-3">
+                                    <img :src="t.logo" :alt="t.code" class="w-7 h-7 object-contain drop-shadow shrink-0" loading="lazy">
+                                    <div class="min-w-0">
+                                        <div class="flex items-center space-x-1.5">
+                                            <span class="font-bold text-white" x-text="t.name"></span>
+                                            <span class="font-mono text-[10px] text-zinc-500" x-text="t.code"></span>
+                                        </div>
+                                        <div class="text-[10px] text-zinc-400 truncate" x-text="t.conf + ' ' + t.division"></div>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- ATS Record (W-L-P) -->
+                            <td class="px-3 py-2.5 text-center font-mono font-bold text-white">
+                                <span x-text="t.atsWins + '-' + t.atsLosses + '-' + t.atsPushes"></span>
+                            </td>
+
+                            <!-- ATS Percentage Badge -->
+                            <td class="px-3 py-2.5 text-center font-mono">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold"
+                                      :class="{
+                                          'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40': t.atsPct >= 60.0,
+                                          'bg-rose-500/20 text-rose-300 border border-rose-500/40': t.atsPct <= 40.0 && t.games > 0,
+                                          'bg-zinc-800 text-zinc-300 border border-zinc-700': t.atsPct > 40.0 && t.atsPct < 60.0,
+                                          'bg-zinc-900 text-zinc-500': t.games === 0
+                                      }"
+                                      x-text="t.atsPct.toFixed(1) + '%'">
+                                </span>
+                            </td>
+
+                            <!-- Home ATS -->
+                            <td class="px-3 py-2.5 text-center font-mono text-xs text-zinc-400 hidden md:table-cell" x-text="t.homeATS"></td>
+
+                            <!-- Away ATS -->
+                            <td class="px-3 py-2.5 text-center font-mono text-xs text-zinc-400 hidden md:table-cell" x-text="t.awayATS"></td>
+
+                            <!-- Favorite ATS -->
+                            <td class="px-3 py-2.5 text-center font-mono text-xs text-zinc-400 hidden lg:table-cell" x-text="t.favATS"></td>
+
+                            <!-- Underdog ATS -->
+                            <td class="px-3 py-2.5 text-center font-mono text-xs text-zinc-400 hidden lg:table-cell" x-text="t.dogATS"></td>
+
+                            <!-- Over / Under Record & Pct -->
+                            <td class="px-3 py-2.5 text-center font-mono">
+                                <div class="flex flex-col items-center">
+                                    <span class="text-zinc-300 font-bold" x-text="t.overCount + '-' + t.underCount + (t.pushCount > 0 ? '-' + t.pushCount : '')"></span>
+                                    <span class="text-[10px] text-zinc-500" x-text="t.overPct.toFixed(1) + '% Altas'"></span>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Empty Results -->
+        <template x-if="filteredTeams.length === 0">
+            <div class="p-8 text-center text-xs text-zinc-500">
+                No se encontraron franquicias con los filtros seleccionados.
+            </div>
+        </template>
+    </div>
+
+</div>

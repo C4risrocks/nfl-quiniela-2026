@@ -1,0 +1,749 @@
+<!-- Playoffs Bracket Interactive Component -->
+<div x-data="{
+    viewTab: 'all',
+    afcSeeds: [
+        {{range .BracketData.AFCSeeds}}
+        { seed: {{.Seed}}, code: '{{.TeamCode}}', name: '{{.TeamName}}', city: '{{.TeamCity}}', logo: '{{.LogoURL}}', rec: '{{.Record}}' },
+        {{end}}
+    ],
+    nfcSeeds: [
+        {{range .BracketData.NFCSeeds}}
+        { seed: {{.Seed}}, code: '{{.TeamCode}}', name: '{{.TeamName}}', city: '{{.TeamCity}}', logo: '{{.LogoURL}}', rec: '{{.Record}}' },
+        {{end}}
+    ],
+    wcPicks: {
+        'AFC_2v7': '',
+        'AFC_3v6': '',
+        'AFC_4v5': '',
+        'NFC_2v7': '',
+        'NFC_3v6': '',
+        'NFC_4v5': ''
+    },
+    divPicks: {
+        'AFC_1vLow': '',
+        'AFC_Other': '',
+        'NFC_1vLow': '',
+        'NFC_Other': ''
+    },
+    confPicks: {
+        'AFC': '',
+        'NFC': ''
+    },
+    sbWinner: '',
+    tiebreakerPts: 51,
+    savedBadge: false,
+
+    init() {
+        {{if .BracketData.UserBracket}}
+        try {
+            const rawWC = '{{.BracketData.UserBracket.WildCardPicks}}';
+            if (rawWC && rawWC !== '{}') this.wcPicks = Object.assign(this.wcPicks, JSON.parse(rawWC));
+            const rawDiv = '{{.BracketData.UserBracket.DivisionalPicks}}';
+            if (rawDiv && rawDiv !== '{}') this.divPicks = Object.assign(this.divPicks, JSON.parse(rawDiv));
+            const rawConf = '{{.BracketData.UserBracket.ConferencePicks}}';
+            if (rawConf && rawConf !== '{}') this.confPicks = Object.assign(this.confPicks, JSON.parse(rawConf));
+            const rawSB = '{{.BracketData.UserBracket.SuperBowlPick}}';
+            if (rawSB && rawSB !== '{}') {
+                const sbObj = JSON.parse(rawSB);
+                this.sbWinner = sbObj.winner || '';
+            }
+            {{if gt .BracketData.UserBracket.TiebreakerPoints 0}}
+            this.tiebreakerPts = {{.BracketData.UserBracket.TiebreakerPoints}};
+            {{end}}
+        } catch(e) {
+            console.error('Error parsing saved bracket:', e);
+        }
+        {{end}}
+    },
+
+    getTeam(code) {
+        if (!code) return null;
+        for (let t of this.afcSeeds) if (t.code === code) return t;
+        for (let t of this.nfcSeeds) if (t.code === code) return t;
+        return null;
+    },
+
+    pickWC(matchup, teamCode) {
+        this.wcPicks[matchup] = teamCode;
+        // Invalidate downstream picks when upstream changes
+        if (matchup.startsWith('AFC')) {
+            this.divPicks['AFC_1vLow'] = '';
+            this.divPicks['AFC_Other'] = '';
+            this.confPicks['AFC'] = '';
+            if (this.sbWinner && this.getTeam(this.sbWinner)?.code === teamCode) this.sbWinner = '';
+        } else {
+            this.divPicks['NFC_1vLow'] = '';
+            this.divPicks['NFC_Other'] = '';
+            this.confPicks['NFC'] = '';
+            if (this.sbWinner && this.getTeam(this.sbWinner)?.code === teamCode) this.sbWinner = '';
+        }
+    },
+
+    getAFCDivisionalMatchups() {
+        const w2 = this.getTeam(this.wcPicks['AFC_2v7']);
+        const w3 = this.getTeam(this.wcPicks['AFC_3v6']);
+        const w4 = this.getTeam(this.wcPicks['AFC_4v5']);
+        if (!w2 || !w3 || !w4) return null;
+
+        const winners = [w2, w3, w4].sort((a, b) => b.seed - a.seed); // Sort desc (e.g. 7, 6, 3)
+        const lowestSeed = winners[0]; // Lowest seed (highest number) plays Seed 1
+        const otherTwo = [winners[1], winners[2]].sort((a, b) => a.seed - b.seed); // High seed hosts
+
+        return {
+            game1: { high: this.afcSeeds[0], low: lowestSeed, key: 'AFC_1vLow' },
+            game2: { high: otherTwo[0], low: otherTwo[1], key: 'AFC_Other' }
+        };
+    },
+
+    getNFCDivisionalMatchups() {
+        const w2 = this.getTeam(this.wcPicks['NFC_2v7']);
+        const w3 = this.getTeam(this.wcPicks['NFC_3v6']);
+        const w4 = this.getTeam(this.wcPicks['NFC_4v5']);
+        if (!w2 || !w3 || !w4) return null;
+
+        const winners = [w2, w3, w4].sort((a, b) => b.seed - a.seed);
+        const lowestSeed = winners[0];
+        const otherTwo = [winners[1], winners[2]].sort((a, b) => a.seed - b.seed);
+
+        return {
+            game1: { high: this.nfcSeeds[0], low: lowestSeed, key: 'NFC_1vLow' },
+            game2: { high: otherTwo[0], low: otherTwo[1], key: 'NFC_Other' }
+        };
+    },
+
+    getAFCChampMatchup() {
+        const g1 = this.getTeam(this.divPicks['AFC_1vLow']);
+        const g2 = this.getTeam(this.divPicks['AFC_Other']);
+        if (!g1 || !g2) return null;
+        const sorted = [g1, g2].sort((a, b) => a.seed - b.seed);
+        return { high: sorted[0], low: sorted[1] };
+    },
+
+    getNFCChampMatchup() {
+        const g1 = this.getTeam(this.divPicks['NFC_1vLow']);
+        const g2 = this.getTeam(this.divPicks['NFC_Other']);
+        if (!g1 || !g2) return null;
+        const sorted = [g1, g2].sort((a, b) => a.seed - b.seed);
+        return { high: sorted[0], low: sorted[1] };
+    },
+
+    getSuperBowlMatchup() {
+        const afc = this.getTeam(this.confPicks['AFC']);
+        const nfc = this.getTeam(this.confPicks['NFC']);
+        if (!afc || !nfc) return null;
+        return { afc, nfc };
+    },
+
+    resetBracket() {
+        this.wcPicks = { 'AFC_2v7': '', 'AFC_3v6': '', 'AFC_4v5': '', 'NFC_2v7': '', 'NFC_3v6': '', 'NFC_4v5': '' };
+        this.divPicks = { 'AFC_1vLow': '', 'AFC_Other': '', 'NFC_1vLow': '', 'NFC_Other': '' };
+        this.confPicks = { 'AFC': '', 'NFC': '' };
+        this.sbWinner = '';
+        this.tiebreakerPts = 51;
+    }
+}" class="space-y-6">
+
+    <!-- Action Bar & View Switcher -->
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-zinc-950/80 p-3.5 rounded-2xl border border-zinc-800 shadow-sm">
+        
+        <!-- Mobile/Desktop Segmented View Switcher -->
+        <div class="flex items-center space-x-1 bg-zinc-900 p-1 rounded-xl border border-zinc-800 text-xs overflow-x-auto no-scrollbar">
+            <button type="button"
+                    @click="viewTab = 'all'"
+                    :class="viewTab === 'all' ? 'bg-white text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                    class="px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap">
+                <i class="fa-solid fa-expand mr-1.5"></i> Cuadro Completo
+            </button>
+            <button type="button"
+                    @click="viewTab = 'afc'"
+                    :class="viewTab === 'afc' ? 'bg-red-500 text-white font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                    class="px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap">
+                <i class="fa-solid fa-shield-halved mr-1.5 text-red-200"></i> AFC
+            </button>
+            <button type="button"
+                    @click="viewTab = 'sb'"
+                    :class="viewTab === 'sb' ? 'bg-amber-500 text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                    class="px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap">
+                <i class="fa-solid fa-trophy mr-1.5 text-amber-200"></i> Super Bowl
+            </button>
+            <button type="button"
+                    @click="viewTab = 'nfc'"
+                    :class="viewTab === 'nfc' ? 'bg-blue-500 text-white font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                    class="px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap">
+                <i class="fa-solid fa-shield-halved mr-1.5 text-blue-200"></i> NFC
+            </button>
+        </div>
+
+        <!-- Controls: Save & Reset Buttons -->
+        <div class="flex items-center space-x-2 shrink-0">
+            <button type="button"
+                    @click="resetBracket()"
+                    class="px-3 py-1.5 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white hover:bg-zinc-900 border border-zinc-800 transition-colors cursor-pointer"
+                    title="Reiniciar selecciones del bracket">
+                <i class="fa-solid fa-rotate-left mr-1"></i> Reiniciar
+            </button>
+
+            {{if .User}}
+            <!-- Form to persist bracket predictions -->
+            <form hx-post="/playoffs/bracket/save"
+                  hx-swap="innerHTML"
+                  hx-target="#save-feedback"
+                  class="inline-flex items-center">
+                <input type="hidden" name="wild_card_picks" :value="JSON.stringify(wcPicks)">
+                <input type="hidden" name="divisional_picks" :value="JSON.stringify(divPicks)">
+                <input type="hidden" name="conference_picks" :value="JSON.stringify(confPicks)">
+                <input type="hidden" name="super_bowl_pick" :value="JSON.stringify({ winner: sbWinner })">
+                <input type="hidden" name="tiebreaker_points" :value="tiebreakerPts">
+
+                <button type="submit"
+                        class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black shadow-md transition-all cursor-pointer flex items-center space-x-1.5">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>Guardar mi Bracket</span>
+                </button>
+            </form>
+            <span id="save-feedback" class="ml-2"></span>
+            {{else}}
+            <a href="/login" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 transition-all">
+                <i class="fa-solid fa-arrow-right-to-bracket mr-1"></i> Inicia Sesión para Guardar
+            </a>
+            {{end}}
+        </div>
+    </div>
+
+    <!-- Main Bracket Board: Multi-Column Eliminator Grid -->
+    <div class="vercel-card p-4 sm:p-6 rounded-2xl border border-zinc-800 bg-black/60 overflow-x-auto no-scrollbar">
+        
+        <div class="min-w-[1100px] grid grid-cols-7 gap-4 items-center">
+
+            <!-- ========================================== -->
+            <!-- COLUMN 1: AFC WILD CARD (Semana 19)        -->
+            <!-- ========================================== -->
+            <div x-show="viewTab === 'all' || viewTab === 'afc'" class="space-y-4">
+                <div class="text-center pb-2 border-b border-red-500/30">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+                        AFC · Wild Card
+                    </span>
+                    <p class="text-[10px] text-zinc-500 font-mono mt-0.5">Semana 19 (1x pts)</p>
+                </div>
+
+                <!-- Matchup 1: 2 vs 7 -->
+                <div class="bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 hover:border-red-500/40 transition-colors shadow-sm space-y-1.5">
+                    <div class="text-[9px] font-mono uppercase text-zinc-500 flex justify-between">
+                        <span>#2 vs #7</span>
+                        <span class="text-zinc-600">AFC</span>
+                    </div>
+                    <button type="button"
+                            @click="pickWC('AFC_2v7', afcSeeds[1]?.code)"
+                            :class="wcPicks['AFC_2v7'] === afcSeeds[1]?.code ? 'bg-red-500/20 border-red-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800/80 text-zinc-300 hover:bg-zinc-800'"
+                            class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono text-zinc-500">#2</span>
+                            <img :src="afcSeeds[1]?.logo" class="w-4 h-4 object-contain">
+                            <span x-text="afcSeeds[1]?.city + ' ' + afcSeeds[1]?.name"></span>
+                        </div>
+                        <span class="text-[10px] font-mono text-zinc-500" x-text="afcSeeds[1]?.rec"></span>
+                    </button>
+                    <button type="button"
+                            @click="pickWC('AFC_2v7', afcSeeds[6]?.code)"
+                            :class="wcPicks['AFC_2v7'] === afcSeeds[6]?.code ? 'bg-red-500/20 border-red-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800/80 text-zinc-300 hover:bg-zinc-800'"
+                            class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono text-zinc-500">#7</span>
+                            <img :src="afcSeeds[6]?.logo" class="w-4 h-4 object-contain">
+                            <span x-text="afcSeeds[6]?.city + ' ' + afcSeeds[6]?.name"></span>
+                        </div>
+                        <span class="text-[10px] font-mono text-zinc-500" x-text="afcSeeds[6]?.rec"></span>
+                    </button>
+                </div>
+
+                <!-- Matchup 2: 3 vs 6 -->
+                <div class="bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 hover:border-red-500/40 transition-colors shadow-sm space-y-1.5">
+                    <div class="text-[9px] font-mono uppercase text-zinc-500 flex justify-between">
+                        <span>#3 vs #6</span>
+                        <span class="text-zinc-600">AFC</span>
+                    </div>
+                    <button type="button"
+                            @click="pickWC('AFC_3v6', afcSeeds[2]?.code)"
+                            :class="wcPicks['AFC_3v6'] === afcSeeds[2]?.code ? 'bg-red-500/20 border-red-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800/80 text-zinc-300 hover:bg-zinc-800'"
+                            class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono text-zinc-500">#3</span>
+                            <img :src="afcSeeds[2]?.logo" class="w-4 h-4 object-contain">
+                            <span x-text="afcSeeds[2]?.city + ' ' + afcSeeds[2]?.name"></span>
+                        </div>
+                        <span class="text-[10px] font-mono text-zinc-500" x-text="afcSeeds[2]?.rec"></span>
+                    </button>
+                    <button type="button"
+                            @click="pickWC('AFC_3v6', afcSeeds[5]?.code)"
+                            :class="wcPicks['AFC_3v6'] === afcSeeds[5]?.code ? 'bg-red-500/20 border-red-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800/80 text-zinc-300 hover:bg-zinc-800'"
+                            class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono text-zinc-500">#6</span>
+                            <img :src="afcSeeds[5]?.logo" class="w-4 h-4 object-contain">
+                            <span x-text="afcSeeds[5]?.city + ' ' + afcSeeds[5]?.name"></span>
+                        </div>
+                        <span class="text-[10px] font-mono text-zinc-500" x-text="afcSeeds[5]?.rec"></span>
+                    </button>
+                </div>
+
+                <!-- Matchup 3: 4 vs 5 -->
+                <div class="bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 hover:border-red-500/40 transition-colors shadow-sm space-y-1.5">
+                    <div class="text-[9px] font-mono uppercase text-zinc-500 flex justify-between">
+                        <span>#4 vs #5</span>
+                        <span class="text-zinc-600">AFC</span>
+                    </div>
+                    <button type="button"
+                            @click="pickWC('AFC_4v5', afcSeeds[3]?.code)"
+                            :class="wcPicks['AFC_4v5'] === afcSeeds[3]?.code ? 'bg-red-500/20 border-red-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800/80 text-zinc-300 hover:bg-zinc-800'"
+                            class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono text-zinc-500">#4</span>
+                            <img :src="afcSeeds[3]?.logo" class="w-4 h-4 object-contain">
+                            <span x-text="afcSeeds[3]?.city + ' ' + afcSeeds[3]?.name"></span>
+                        </div>
+                        <span class="text-[10px] font-mono text-zinc-500" x-text="afcSeeds[3]?.rec"></span>
+                    </button>
+                    <button type="button"
+                            @click="pickWC('AFC_4v5', afcSeeds[4]?.code)"
+                            :class="wcPicks['AFC_4v5'] === afcSeeds[4]?.code ? 'bg-red-500/20 border-red-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800/80 text-zinc-300 hover:bg-zinc-800'"
+                            class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono text-zinc-500">#5</span>
+                            <img :src="afcSeeds[4]?.logo" class="w-4 h-4 object-contain">
+                            <span x-text="afcSeeds[4]?.city + ' ' + afcSeeds[4]?.name"></span>
+                        </div>
+                        <span class="text-[10px] font-mono text-zinc-500" x-text="afcSeeds[4]?.rec"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- COLUMN 2: AFC DIVISIONAL (Semana 20)       -->
+            <!-- ========================================== -->
+            <div x-show="viewTab === 'all' || viewTab === 'afc'" class="space-y-6">
+                <div class="text-center pb-2 border-b border-red-500/30">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                        AFC · Divisional
+                    </span>
+                    <p class="text-[10px] text-zinc-500 font-mono mt-0.5">Semana 20 (2x pts)</p>
+                </div>
+
+                <template x-if="getAFCDivisionalMatchups()">
+                    <div class="space-y-4">
+                        <!-- Game 1: Seed 1 vs Lowest Seed -->
+                        <div class="bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 shadow-sm space-y-1.5">
+                            <div class="text-[9px] font-mono uppercase text-amber-400 flex justify-between">
+                                <span>#1 vs Sembrado Más Bajo</span>
+                                <i class="fa-solid fa-arrows-split-up-and-left text-zinc-500"></i>
+                            </div>
+                            <button type="button"
+                                    @click="divPicks['AFC_1vLow'] = afcSeeds[0]?.code; confPicks['AFC'] = ''"
+                                    :class="divPicks['AFC_1vLow'] === afcSeeds[0]?.code ? 'bg-red-500/20 border-red-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'"
+                                    class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[10px] font-mono text-amber-400 font-bold">#1 BYE</span>
+                                    <img :src="afcSeeds[0]?.logo" class="w-4 h-4 object-contain">
+                                    <span x-text="afcSeeds[0]?.city + ' ' + afcSeeds[0]?.name"></span>
+                                </div>
+                            </button>
+                            <button type="button"
+                                    @click="divPicks['AFC_1vLow'] = getAFCDivisionalMatchups().game1.low?.code; confPicks['AFC'] = ''"
+                                    :class="divPicks['AFC_1vLow'] === getAFCDivisionalMatchups().game1.low?.code ? 'bg-red-500/20 border-red-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'"
+                                    class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[10px] font-mono text-zinc-500" x-text="'#' + getAFCDivisionalMatchups().game1.low?.seed"></span>
+                                    <img :src="getAFCDivisionalMatchups().game1.low?.logo" class="w-4 h-4 object-contain">
+                                    <span x-text="getAFCDivisionalMatchups().game1.low?.city + ' ' + getAFCDivisionalMatchups().game1.low?.name"></span>
+                                </div>
+                            </button>
+                        </div>
+
+                        <!-- Game 2: Other Two Survivors -->
+                        <div class="bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 shadow-sm space-y-1.5">
+                            <div class="text-[9px] font-mono uppercase text-zinc-500 flex justify-between">
+                                <span>Sobrevivientes WC</span>
+                                <span class="text-zinc-600">AFC</span>
+                            </div>
+                            <button type="button"
+                                    @click="divPicks['AFC_Other'] = getAFCDivisionalMatchups().game2.high?.code; confPicks['AFC'] = ''"
+                                    :class="divPicks['AFC_Other'] === getAFCDivisionalMatchups().game2.high?.code ? 'bg-red-500/20 border-red-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'"
+                                    class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[10px] font-mono text-zinc-500" x-text="'#' + getAFCDivisionalMatchups().game2.high?.seed"></span>
+                                    <img :src="getAFCDivisionalMatchups().game2.high?.logo" class="w-4 h-4 object-contain">
+                                    <span x-text="getAFCDivisionalMatchups().game2.high?.city + ' ' + getAFCDivisionalMatchups().game2.high?.name"></span>
+                                </div>
+                            </button>
+                            <button type="button"
+                                    @click="divPicks['AFC_Other'] = getAFCDivisionalMatchups().game2.low?.code; confPicks['AFC'] = ''"
+                                    :class="divPicks['AFC_Other'] === getAFCDivisionalMatchups().game2.low?.code ? 'bg-red-500/20 border-red-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'"
+                                    class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[10px] font-mono text-zinc-500" x-text="'#' + getAFCDivisionalMatchups().game2.low?.seed"></span>
+                                    <img :src="getAFCDivisionalMatchups().game2.low?.logo" class="w-4 h-4 object-contain">
+                                    <span x-text="getAFCDivisionalMatchups().game2.low?.city + ' ' + getAFCDivisionalMatchups().game2.low?.name"></span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </template>
+
+                <template x-if="!getAFCDivisionalMatchups()">
+                    <div class="p-5 border border-dashed border-zinc-800 rounded-xl text-center text-xs text-zinc-500">
+                        <i class="fa-solid fa-hand-pointer mb-1 text-zinc-600 block"></i>
+                        Elige los 3 ganadores de Comodines para desbloquear la Ronda Divisional
+                    </div>
+                </template>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- COLUMN 3: AFC CHAMPIONSHIP (Semana 21)     -->
+            <!-- ========================================== -->
+            <div x-show="viewTab === 'all' || viewTab === 'afc'" class="space-y-4">
+                <div class="text-center pb-2 border-b border-red-500/30">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                        Final AFC
+                    </span>
+                    <p class="text-[10px] text-zinc-500 font-mono mt-0.5">Semana 21 (3x pts)</p>
+                </div>
+
+                <template x-if="getAFCChampMatchup()">
+                    <div class="bg-zinc-950 p-3 rounded-xl border border-red-500/40 shadow-md space-y-2">
+                        <div class="text-[9px] font-mono uppercase text-red-400 flex justify-between">
+                            <span>Trofeo Lamar Hunt</span>
+                            <i class="fa-solid fa-trophy"></i>
+                        </div>
+                        <button type="button"
+                                @click="confPicks['AFC'] = getAFCChampMatchup().high?.code; if (sbWinner && getTeam(sbWinner)?.conference === 'AFC') sbWinner = getAFCChampMatchup().high?.code"
+                                :class="confPicks['AFC'] === getAFCChampMatchup().high?.code ? 'bg-red-500 text-white font-bold shadow-md' : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'"
+                                class="w-full flex items-center justify-between p-2.5 rounded-lg border text-xs transition-all cursor-pointer">
+                            <div class="flex items-center space-x-2">
+                                <img :src="getAFCChampMatchup().high?.logo" class="w-5 h-5 object-contain">
+                                <span x-text="getAFCChampMatchup().high?.city + ' ' + getAFCChampMatchup().high?.name"></span>
+                            </div>
+                        </button>
+                        <button type="button"
+                                @click="confPicks['AFC'] = getAFCChampMatchup().low?.code; if (sbWinner && getTeam(sbWinner)?.conference === 'AFC') sbWinner = getAFCChampMatchup().low?.code"
+                                :class="confPicks['AFC'] === getAFCChampMatchup().low?.code ? 'bg-red-500 text-white font-bold shadow-md' : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'"
+                                class="w-full flex items-center justify-between p-2.5 rounded-lg border text-xs transition-all cursor-pointer">
+                            <div class="flex items-center space-x-2">
+                                <img :src="getAFCChampMatchup().low?.logo" class="w-5 h-5 object-contain">
+                                <span x-text="getAFCChampMatchup().low?.city + ' ' + getAFCChampMatchup().low?.name"></span>
+                            </div>
+                        </button>
+                    </div>
+                </template>
+
+                <template x-if="!getAFCChampMatchup()">
+                    <div class="p-5 border border-dashed border-zinc-800 rounded-xl text-center text-xs text-zinc-500">
+                        <i class="fa-solid fa-lock mb-1 text-zinc-600 block"></i>
+                        Pendiente de ganadores divisionales
+                    </div>
+                </template>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- COLUMN 4: SUPER BOWL LXI (Semana 22)       -->
+            <!-- ========================================== -->
+            <div x-show="viewTab === 'all' || viewTab === 'sb'" class="space-y-4 col-span-1">
+                <div class="text-center pb-2 border-b border-amber-500/40">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded text-[10px] font-mono font-black bg-amber-500 text-black shadow-md">
+                        SUPER BOWL LXI
+                    </span>
+                    <p class="text-[10px] text-zinc-400 font-mono mt-0.5">Semana 22 (5x pts)</p>
+                </div>
+
+                <template x-if="getSuperBowlMatchup()">
+                    <div class="bg-gradient-to-b from-zinc-900 via-zinc-950 to-amber-950/30 p-4 rounded-2xl border-2 border-amber-500/50 shadow-2xl text-center space-y-3">
+                        <i class="fa-solid fa-trophy text-amber-400 text-3xl drop-shadow-md"></i>
+                        <h3 class="text-xs font-black uppercase text-white tracking-widest">Trofeo Vince Lombardi</h3>
+
+                        <!-- AFC Champion -->
+                        <button type="button"
+                                @click="sbWinner = getSuperBowlMatchup().afc?.code"
+                                :class="sbWinner === getSuperBowlMatchup().afc?.code ? 'bg-amber-500 text-black font-black shadow-lg scale-102 border-amber-400' : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'"
+                                class="w-full flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all cursor-pointer">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-red-500/20 text-red-300">AFC</span>
+                                <img :src="getSuperBowlMatchup().afc?.logo" class="w-5 h-5 object-contain">
+                                <span x-text="getSuperBowlMatchup().afc?.name"></span>
+                            </div>
+                            <i x-show="sbWinner === getSuperBowlMatchup().afc?.code" class="fa-solid fa-crown text-black text-xs"></i>
+                        </button>
+
+                        <div class="text-[10px] font-mono text-zinc-500 uppercase font-bold tracking-wider">VS</div>
+
+                        <!-- NFC Champion -->
+                        <button type="button"
+                                @click="sbWinner = getSuperBowlMatchup().nfc?.code"
+                                :class="sbWinner === getSuperBowlMatchup().nfc?.code ? 'bg-amber-500 text-black font-black shadow-lg scale-102 border-amber-400' : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'"
+                                class="w-full flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all cursor-pointer">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">NFC</span>
+                                <img :src="getSuperBowlMatchup().nfc?.logo" class="w-5 h-5 object-contain">
+                                <span x-text="getSuperBowlMatchup().nfc?.name"></span>
+                            </div>
+                            <i x-show="sbWinner === getSuperBowlMatchup().nfc?.code" class="fa-solid fa-crown text-black text-xs"></i>
+                        </button>
+
+                        <!-- Tiebreaker Total Score Selector -->
+                        <div class="pt-2 border-t border-zinc-800 text-left">
+                            <label class="text-[10px] font-mono uppercase text-zinc-400 block mb-1">
+                                Puntos Totales de Desempate:
+                            </label>
+                            <input type="number"
+                                   x-model="tiebreakerPts"
+                                   min="20" max="100"
+                                   class="w-full bg-zinc-900 border border-zinc-800 rounded-lg text-center py-1.5 text-xs text-white font-mono font-bold focus:border-amber-500 focus:outline-none">
+                        </div>
+
+                        <!-- Champion Announcement Box -->
+                        <template x-if="sbWinner">
+                            <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-black animate-fade-in flex items-center justify-center space-x-2">
+                                <i class="fa-solid fa-crown text-amber-400"></i>
+                                <span>CAMPEÓN: <span x-text="getTeam(sbWinner)?.city + ' ' + getTeam(sbWinner)?.name"></span></span>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <template x-if="!getSuperBowlMatchup()">
+                    <div class="p-6 border border-dashed border-amber-500/30 rounded-2xl text-center text-xs text-zinc-500 space-y-2">
+                        <i class="fa-solid fa-trophy text-zinc-700 text-2xl"></i>
+                        <p>Completa las Finales de Conferencia para disputar el Super Bowl</p>
+                    </div>
+                </template>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- COLUMN 5: NFC CHAMPIONSHIP (Semana 21)     -->
+            <!-- ========================================== -->
+            <div x-show="viewTab === 'all' || viewTab === 'nfc'" class="space-y-4">
+                <div class="text-center pb-2 border-b border-blue-500/30">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                        Final NFC
+                    </span>
+                    <p class="text-[10px] text-zinc-500 font-mono mt-0.5">Semana 21 (3x pts)</p>
+                </div>
+
+                <template x-if="getNFCChampMatchup()">
+                    <div class="bg-zinc-950 p-3 rounded-xl border border-blue-500/40 shadow-md space-y-2">
+                        <div class="text-[9px] font-mono uppercase text-blue-400 flex justify-between">
+                            <span>Trofeo George Halas</span>
+                            <i class="fa-solid fa-trophy"></i>
+                        </div>
+                        <button type="button"
+                                @click="confPicks['NFC'] = getNFCChampMatchup().high?.code; if (sbWinner && getTeam(sbWinner)?.conference === 'NFC') sbWinner = getNFCChampMatchup().high?.code"
+                                :class="confPicks['NFC'] === getNFCChampMatchup().high?.code ? 'bg-blue-500 text-white font-bold shadow-md' : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'"
+                                class="w-full flex items-center justify-between p-2.5 rounded-lg border text-xs transition-all cursor-pointer">
+                            <div class="flex items-center space-x-2">
+                                <img :src="getNFCChampMatchup().high?.logo" class="w-5 h-5 object-contain">
+                                <span x-text="getNFCChampMatchup().high?.city + ' ' + getNFCChampMatchup().high?.name"></span>
+                            </div>
+                        </button>
+                        <button type="button"
+                                @click="confPicks['NFC'] = getNFCChampMatchup().low?.code; if (sbWinner && getTeam(sbWinner)?.conference === 'NFC') sbWinner = getNFCChampMatchup().low?.code"
+                                :class="confPicks['NFC'] === getNFCChampMatchup().low?.code ? 'bg-blue-500 text-white font-bold shadow-md' : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'"
+                                class="w-full flex items-center justify-between p-2.5 rounded-lg border text-xs transition-all cursor-pointer">
+                            <div class="flex items-center space-x-2">
+                                <img :src="getNFCChampMatchup().low?.logo" class="w-5 h-5 object-contain">
+                                <span x-text="getNFCChampMatchup().low?.city + ' ' + getNFCChampMatchup().low?.name"></span>
+                            </div>
+                        </button>
+                    </div>
+                </template>
+
+                <template x-if="!getNFCChampMatchup()">
+                    <div class="p-5 border border-dashed border-zinc-800 rounded-xl text-center text-xs text-zinc-500">
+                        <i class="fa-solid fa-lock mb-1 text-zinc-600 block"></i>
+                        Pendiente de ganadores divisionales
+                    </div>
+                </template>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- COLUMN 6: NFC DIVISIONAL (Semana 20)       -->
+            <!-- ========================================== -->
+            <div x-show="viewTab === 'all' || viewTab === 'nfc'" class="space-y-6">
+                <div class="text-center pb-2 border-b border-blue-500/30">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                        NFC · Divisional
+                    </span>
+                    <p class="text-[10px] text-zinc-500 font-mono mt-0.5">Semana 20 (2x pts)</p>
+                </div>
+
+                <template x-if="getNFCDivisionalMatchups()">
+                    <div class="space-y-4">
+                        <!-- Game 1: Seed 1 vs Lowest Seed -->
+                        <div class="bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 shadow-sm space-y-1.5">
+                            <div class="text-[9px] font-mono uppercase text-amber-400 flex justify-between">
+                                <span>#1 vs Sembrado Más Bajo</span>
+                                <i class="fa-solid fa-arrows-split-up-and-left text-zinc-500"></i>
+                            </div>
+                            <button type="button"
+                                    @click="divPicks['NFC_1vLow'] = nfcSeeds[0]?.code; confPicks['NFC'] = ''"
+                                    :class="divPicks['NFC_1vLow'] === nfcSeeds[0]?.code ? 'bg-blue-500/20 border-blue-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'"
+                                    class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[10px] font-mono text-amber-400 font-bold">#1 BYE</span>
+                                    <img :src="nfcSeeds[0]?.logo" class="w-4 h-4 object-contain">
+                                    <span x-text="nfcSeeds[0]?.city + ' ' + nfcSeeds[0]?.name"></span>
+                                </div>
+                            </button>
+                            <button type="button"
+                                    @click="divPicks['NFC_1vLow'] = getNFCDivisionalMatchups().game1.low?.code; confPicks['NFC'] = ''"
+                                    :class="divPicks['NFC_1vLow'] === getNFCDivisionalMatchups().game1.low?.code ? 'bg-blue-500/20 border-blue-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'"
+                                    class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[10px] font-mono text-zinc-500" x-text="'#' + getNFCDivisionalMatchups().game1.low?.seed"></span>
+                                    <img :src="getNFCDivisionalMatchups().game1.low?.logo" class="w-4 h-4 object-contain">
+                                    <span x-text="getNFCDivisionalMatchups().game1.low?.city + ' ' + getNFCDivisionalMatchups().game1.low?.name"></span>
+                                </div>
+                            </button>
+                        </div>
+
+                        <!-- Game 2: Other Two Survivors -->
+                        <div class="bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 shadow-sm space-y-1.5">
+                            <div class="text-[9px] font-mono uppercase text-zinc-500 flex justify-between">
+                                <span>Sobrevivientes WC</span>
+                                <span class="text-zinc-600">NFC</span>
+                            </div>
+                            <button type="button"
+                                    @click="divPicks['NFC_Other'] = getNFCDivisionalMatchups().game2.high?.code; confPicks['NFC'] = ''"
+                                    :class="divPicks['NFC_Other'] === getNFCDivisionalMatchups().game2.high?.code ? 'bg-blue-500/20 border-blue-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'"
+                                    class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[10px] font-mono text-zinc-500" x-text="'#' + getNFCDivisionalMatchups().game2.high?.seed"></span>
+                                    <img :src="getNFCDivisionalMatchups().game2.high?.logo" class="w-4 h-4 object-contain">
+                                    <span x-text="getNFCDivisionalMatchups().game2.high?.city + ' ' + getNFCDivisionalMatchups().game2.high?.name"></span>
+                                </div>
+                            </button>
+                            <button type="button"
+                                    @click="divPicks['NFC_Other'] = getNFCDivisionalMatchups().game2.low?.code; confPicks['NFC'] = ''"
+                                    :class="divPicks['NFC_Other'] === getNFCDivisionalMatchups().game2.low?.code ? 'bg-blue-500/20 border-blue-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'"
+                                    class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[10px] font-mono text-zinc-500" x-text="'#' + getNFCDivisionalMatchups().game2.low?.seed"></span>
+                                    <img :src="getNFCDivisionalMatchups().game2.low?.logo" class="w-4 h-4 object-contain">
+                                    <span x-text="getNFCDivisionalMatchups().game2.low?.city + ' ' + getNFCDivisionalMatchups().game2.low?.name"></span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </template>
+
+                <template x-if="!getNFCDivisionalMatchups()">
+                    <div class="p-5 border border-dashed border-zinc-800 rounded-xl text-center text-xs text-zinc-500">
+                        <i class="fa-solid fa-hand-pointer mb-1 text-zinc-600 block"></i>
+                        Elige los 3 ganadores de Comodines para desbloquear la Ronda Divisional
+                    </div>
+                </template>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- COLUMN 7: NFC WILD CARD (Semana 19)        -->
+            <!-- ========================================== -->
+            <div x-show="viewTab === 'all' || viewTab === 'nfc'" class="space-y-4">
+                <div class="text-center pb-2 border-b border-blue-500/30">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                        NFC · Wild Card
+                    </span>
+                    <p class="text-[10px] text-zinc-500 font-mono mt-0.5">Semana 19 (1x pts)</p>
+                </div>
+
+                <!-- Matchup 1: 2 vs 7 -->
+                <div class="bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 hover:border-blue-500/40 transition-colors shadow-sm space-y-1.5">
+                    <div class="text-[9px] font-mono uppercase text-zinc-500 flex justify-between">
+                        <span>#2 vs #7</span>
+                        <span class="text-zinc-600">NFC</span>
+                    </div>
+                    <button type="button"
+                            @click="pickWC('NFC_2v7', nfcSeeds[1]?.code)"
+                            :class="wcPicks['NFC_2v7'] === nfcSeeds[1]?.code ? 'bg-blue-500/20 border-blue-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800/80 text-zinc-300 hover:bg-zinc-800'"
+                            class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono text-zinc-500">#2</span>
+                            <img :src="nfcSeeds[1]?.logo" class="w-4 h-4 object-contain">
+                            <span x-text="nfcSeeds[1]?.city + ' ' + nfcSeeds[1]?.name"></span>
+                        </div>
+                        <span class="text-[10px] font-mono text-zinc-500" x-text="nfcSeeds[1]?.rec"></span>
+                    </button>
+                    <button type="button"
+                            @click="pickWC('NFC_2v7', nfcSeeds[6]?.code)"
+                            :class="wcPicks['NFC_2v7'] === nfcSeeds[6]?.code ? 'bg-blue-500/20 border-blue-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800/80 text-zinc-300 hover:bg-zinc-800'"
+                            class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono text-zinc-500">#7</span>
+                            <img :src="nfcSeeds[6]?.logo" class="w-4 h-4 object-contain">
+                            <span x-text="nfcSeeds[6]?.city + ' ' + nfcSeeds[6]?.name"></span>
+                        </div>
+                        <span class="text-[10px] font-mono text-zinc-500" x-text="nfcSeeds[6]?.rec"></span>
+                    </button>
+                </div>
+
+                <!-- Matchup 2: 3 vs 6 -->
+                <div class="bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 hover:border-blue-500/40 transition-colors shadow-sm space-y-1.5">
+                    <div class="text-[9px] font-mono uppercase text-zinc-500 flex justify-between">
+                        <span>#3 vs #6</span>
+                        <span class="text-zinc-600">NFC</span>
+                    </div>
+                    <button type="button"
+                            @click="pickWC('NFC_3v6', nfcSeeds[2]?.code)"
+                            :class="wcPicks['NFC_3v6'] === nfcSeeds[2]?.code ? 'bg-blue-500/20 border-blue-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800/80 text-zinc-300 hover:bg-zinc-800'"
+                            class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono text-zinc-500">#3</span>
+                            <img :src="nfcSeeds[2]?.logo" class="w-4 h-4 object-contain">
+                            <span x-text="nfcSeeds[2]?.city + ' ' + nfcSeeds[2]?.name"></span>
+                        </div>
+                        <span class="text-[10px] font-mono text-zinc-500" x-text="nfcSeeds[2]?.rec"></span>
+                    </button>
+                    <button type="button"
+                            @click="pickWC('NFC_3v6', nfcSeeds[5]?.code)"
+                            :class="wcPicks['NFC_3v6'] === nfcSeeds[5]?.code ? 'bg-blue-500/20 border-blue-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800/80 text-zinc-300 hover:bg-zinc-800'"
+                            class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono text-zinc-500">#6</span>
+                            <img :src="nfcSeeds[5]?.logo" class="w-4 h-4 object-contain">
+                            <span x-text="nfcSeeds[5]?.city + ' ' + nfcSeeds[5]?.name"></span>
+                        </div>
+                        <span class="text-[10px] font-mono text-zinc-500" x-text="nfcSeeds[5]?.rec"></span>
+                    </button>
+                </div>
+
+                <!-- Matchup 3: 4 vs 5 -->
+                <div class="bg-zinc-950 p-2.5 rounded-xl border border-zinc-800 hover:border-blue-500/40 transition-colors shadow-sm space-y-1.5">
+                    <div class="text-[9px] font-mono uppercase text-zinc-500 flex justify-between">
+                        <span>#4 vs #5</span>
+                        <span class="text-zinc-600">NFC</span>
+                    </div>
+                    <button type="button"
+                            @click="pickWC('NFC_4v5', nfcSeeds[3]?.code)"
+                            :class="wcPicks['NFC_4v5'] === nfcSeeds[3]?.code ? 'bg-blue-500/20 border-blue-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800/80 text-zinc-300 hover:bg-zinc-800'"
+                            class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono text-zinc-500">#4</span>
+                            <img :src="nfcSeeds[3]?.logo" class="w-4 h-4 object-contain">
+                            <span x-text="nfcSeeds[3]?.city + ' ' + nfcSeeds[3]?.name"></span>
+                        </div>
+                        <span class="text-[10px] font-mono text-zinc-500" x-text="nfcSeeds[3]?.rec"></span>
+                    </button>
+                    <button type="button"
+                            @click="pickWC('NFC_4v5', nfcSeeds[4]?.code)"
+                            :class="wcPicks['NFC_4v5'] === nfcSeeds[4]?.code ? 'bg-blue-500/20 border-blue-500 text-white font-bold' : 'bg-zinc-900 border-zinc-800/80 text-zinc-300 hover:bg-zinc-800'"
+                            class="w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all cursor-pointer">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono text-zinc-500">#5</span>
+                            <img :src="nfcSeeds[4]?.logo" class="w-4 h-4 object-contain">
+                            <span x-text="nfcSeeds[4]?.city + ' ' + nfcSeeds[4]?.name"></span>
+                        </div>
+                        <span class="text-[10px] font-mono text-zinc-500" x-text="nfcSeeds[4]?.rec"></span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>

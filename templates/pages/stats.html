@@ -1,0 +1,142 @@
+{{template "base.html" .}}
+
+{{define "title"}}📈 Estadísticas Avanzadas, Analítica & Tendencias ATS - NFL Quiniela 2026{{end}}
+
+{{define "meta_description"}}Analítica de quinieleros en tiempo real: trayectoria de posiciones, equipo talismán, némesis, efectividad por franja horaria y tendencias de apuestas ATS de la NFL.{{end}}
+
+{{define "og_title"}}📈 Analítica de Quiniela & Tendencias ATS NFL 2026{{end}}
+{{define "og_description"}}Descubre tu perfil de pronosticador, tu equipo talismán y némesis, y analiza el récord contra el spread (ATS) de las 32 franquicias de la NFL.{{end}}
+
+{{define "content"}}
+<div class="space-y-6" x-data="{ currentTab: '{{.Data.ActiveTab}}' }">
+
+    <!-- Header & Dashboard Controls -->
+    <div class="vercel-card p-5 sm:p-6 rounded-2xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-950 to-cyan-950/20 shadow-sm">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+            <div>
+                <div class="flex items-center space-x-2 mb-2">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                        <i class="fa-solid fa-chart-line mr-1.5 text-cyan-400"></i> Quiniela Intelligence & ATS
+                    </span>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-zinc-800 text-zinc-300 border border-zinc-700/60">
+                        Temporada {{.Data.SeasonYear}}
+                    </span>
+                </div>
+                <h1 class="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center">
+                    <i class="fa-solid fa-chart-pie mr-2.5 text-cyan-400"></i> Estadísticas Avanzadas & Analítica
+                </h1>
+                <p class="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
+                    Métricas de precisión de los participantes, curva de evolución en el Leaderboard, perfil táctico (talismán, némesis, efectividad horaria) y matriz de cobertura de líneas de apuestas (ATS) para las 32 franquicias.
+                </p>
+            </div>
+
+            <!-- View Switcher Tabs -->
+            <div class="flex items-center space-x-1.5 bg-zinc-950 p-1.5 rounded-xl border border-zinc-800 shrink-0">
+                <button type="button"
+                        @click="currentTab = 'users'"
+                        :class="currentTab === 'users' ? 'bg-white text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer">
+                    <i class="fa-solid fa-users mr-1.5 text-cyan-500"></i> Quinieleros
+                </button>
+                <button type="button"
+                        @click="currentTab = 'teams_ats'"
+                        :class="currentTab === 'teams_ats' ? 'bg-white text-black font-bold shadow-sm' : 'text-zinc-400 hover:text-white'"
+                        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer">
+                    <i class="fa-solid fa-coins mr-1.5 text-amber-500"></i> Tendencias ATS
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 1: User Analytics & Trajectory -->
+    <div x-show="currentTab === 'users'" class="space-y-6">
+
+        <!-- User Selector & Trajectory Chart Card -->
+        <div class="vercel-card p-5 sm:p-6 rounded-2xl border border-zinc-800 bg-zinc-950/70 shadow-sm space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
+                <div>
+                    <h2 class="text-sm font-bold text-white flex items-center">
+                        <i class="fa-solid fa-chart-area mr-2 text-cyan-400"></i> Curva de Evolución en el Leaderboard
+                    </h2>
+                    <p class="text-[11px] text-zinc-500 mt-0.5">
+                        Puntos acumulados y posición semana a semana a lo largo de la temporada.
+                    </p>
+                </div>
+
+                <!-- Select Player to Inspect -->
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs font-mono text-zinc-400">Jugador:</span>
+                    <select class="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-white font-medium focus:outline-none focus:border-cyan-500 cursor-pointer"
+                            hx-get="/stats/user/"
+                            hx-target="#user-stats-container"
+                            hx-trigger="change"
+                            hx-push-url="false"
+                            onchange="this.setAttribute('hx-get', '/stats/user/' + this.value); htmx.process(this);">
+                        {{range .Data.Users}}
+                        <option value="{{.ID}}" {{if $.Data.TargetUser}}{{if eq .ID $.Data.TargetUser.ID}}selected{{end}}{{end}}>
+                            {{.Username}}
+                        </option>
+                        {{end}}
+                    </select>
+                </div>
+            </div>
+
+            <!-- SVG Multi-Week Trajectory Chart -->
+            {{if .Data.LeaderboardEvolution}}
+            <div class="overflow-x-auto no-scrollbar pt-2">
+                <div class="min-w-[650px] space-y-2">
+                    <!-- SVG Chart Container -->
+                    <div class="h-44 w-full bg-zinc-900/40 rounded-xl border border-zinc-850 p-3 relative flex flex-col justify-between">
+                        <div class="text-[10px] font-mono text-zinc-500 flex justify-between px-2">
+                            <span>#1 LÍDER</span>
+                            <span>EVOLUCIÓN SEMANA A SEMANA</span>
+                            <span>#{{len .Data.Users}} ÚLTIMO</span>
+                        </div>
+
+                        <!-- Sparklines / Visual Bars representing progression -->
+                        <div class="grid grid-cols-{{len (index .Data.LeaderboardEvolution 0).Weeks}} gap-3 items-end h-28 px-2">
+                            {{range $wIdx, $wNum := (index .Data.LeaderboardEvolution 0).Weeks}}
+                            <div class="flex flex-col items-center h-full justify-end space-y-1">
+                                <div class="w-full flex items-end justify-center space-x-1 h-20">
+                                    {{range $.Data.LeaderboardEvolution}}
+                                    {{$pts := index .PointsHistory $wIdx}}
+                                    {{$rnk := index .RanksHistory $wIdx}}
+                                    <div class="w-2.5 rounded-t transition-all group relative cursor-pointer {{if eq .UserID $.Data.TargetUser.ID}}bg-cyan-400 h-[{{$pts}}%]{{else}}bg-zinc-700/60 hover:bg-zinc-500 h-[{{$pts}}%]{{end}}"
+                                         style="height: {{if gt $pts 0}}{{if lt $pts 15}}15{{else if gt $pts 100}}100{{else}}{{$pts}}{{end}}{{else}}8{{end}}%;">
+                                        <!-- Tooltip -->
+                                        <div class="opacity-0 group-hover:opacity-100 absolute bottom-full mb-1 left-1/2 -translate-x-1/2 px-2 py-1 bg-black border border-zinc-700 text-[10px] font-mono rounded text-white whitespace-nowrap z-30 pointer-events-none transition-opacity">
+                                            {{.Username}}: {{$pts}} pts (Rank #{{$rnk}})
+                                        </div>
+                                    </div>
+                                    {{end}}
+                                </div>
+                                <span class="text-[10px] font-mono text-zinc-400">Sem {{$wNum}}</span>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {{else}}
+            <div class="p-6 text-center text-xs text-zinc-500 border border-dashed border-zinc-800 rounded-xl">
+                Aún no hay semanas completadas para trazar la curva de evolución histórica.
+            </div>
+            {{end}}
+        </div>
+
+        <!-- Dynamic User Deep Stats Partial Container -->
+        <div id="user-stats-container">
+            {{if .Data.TargetUserAnalytics}}
+                {{template "stats_user_tab.html" (dict "Analytics" .Data.TargetUserAnalytics)}}
+            {{end}}
+        </div>
+
+    </div>
+
+    <!-- TAB 2: NFL Teams ATS & Over/Under Trends -->
+    <div x-show="currentTab === 'teams_ats'" class="space-y-6">
+        {{template "stats_teams_ats_tab.html" (dict "TeamATSTrends" .Data.TeamATSTrends "SeasonYear" .Data.SeasonYear)}}
+    </div>
+
+</div>
+{{end}}

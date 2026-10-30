@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -4742,6 +4743,806 @@ func parseFlexibleTime(s string) time.Time {
 		}
 	}
 	return time.Time{}
+}
+
+// ----------------------------------------------------
+// Playoff Bracket Repository Methods
+// ----------------------------------------------------
+
+// SaveUserPlayoffBracket inserts or updates a user's playoff bracket simulation
+func (r *Repository) SaveUserPlayoffBracket(bracket *UserPlayoffBracket) error {
+	query := `
+	INSERT INTO user_playoff_brackets (
+		user_id, season_year, wild_card_picks, divisional_picks, conference_picks, super_bowl_pick, tiebreaker_points, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	ON CONFLICT(user_id, season_year) DO UPDATE SET
+		wild_card_picks = excluded.wild_card_picks,
+		divisional_picks = excluded.divisional_picks,
+		conference_picks = excluded.conference_picks,
+		super_bowl_pick = excluded.super_bowl_pick,
+		tiebreaker_points = excluded.tiebreaker_points,
+		updated_at = CURRENT_TIMESTAMP;`
+
+	_, err := r.db.Exec(query,
+		bracket.UserID, bracket.SeasonYear,
+		bracket.WildCardPicks, bracket.DivisionalPicks,
+		bracket.ConferencePicks, bracket.SuperBowlPick,
+		bracket.TiebreakerPoints,
+	)
+	return err
+}
+
+// GetUserPlayoffBracket retrieves a user's playoff bracket prediction for a season
+func (r *Repository) GetUserPlayoffBracket(userID int64, seasonYear int) (*UserPlayoffBracket, error) {
+	query := `
+	SELECT id, user_id, season_year, wild_card_picks, divisional_picks, conference_picks, super_bowl_pick, tiebreaker_points, created_at, updated_at
+	FROM user_playoff_brackets
+	WHERE user_id = ? AND season_year = ?`
+
+	var b UserPlayoffBracket
+	var createdStr, updatedStr string
+	err := r.db.QueryRow(query, userID, seasonYear).Scan(
+		&b.ID, &b.UserID, &b.SeasonYear,
+		&b.WildCardPicks, &b.DivisionalPicks,
+		&b.ConferencePicks, &b.SuperBowlPick,
+		&b.TiebreakerPoints, &createdStr, &updatedStr,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	b.CreatedAt = parseFlexibleTime(createdStr)
+	b.UpdatedAt = parseFlexibleTime(updatedStr)
+	return &b, nil
+}
+
+// ----------------------------------------------------
+// Advanced Analytics & Trends Repository Methods
+// ----------------------------------------------------
+
+// GetLeaderboardEvolution returns weekly rank & points trajectories for all players in a season
+func (r *Repository) GetLeaderboardEvolution(seasonYear int) ([]*LeaderboardTrajectory, error) {
+	weeksQuery := `
+	SELECT w.week_number
+	FROM weeks w
+	JOIN seasons s ON w.season_id = s.id
+	WHERE s.year = ? AND w.status = 'completed'
+	ORDER BY w.week_number ASC`
+	rows, err := r.db.Query(weeksQuery, seasonYear)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var weekNums []int
+	for rows.Next() {
+		var wn int
+		if err := rows.Scan(&wn); err == nil {
+			weekNums = append(weekNums, wn)
+		}
+	}
+
+	if len(weekNums) == 0 {
+		return nil, nil
+	}
+
+	trajMap := make(map[int64]*LeaderboardTrajectory)
+	userOrder := make([]int64, 0)
+
+	query := `
+	SELECT wl.user_id, u.username, COALESCE(u.avatar_url, ''),
+	       w.week_number, wl.rank, wl.total_points
+	FROM weekly_leaderboard wl
+	JOIN users u ON wl.user_id = u.id
+	JOIN weeks w ON wl.week_id = w.id
+	JOIN seasons s ON w.season_id = s.id
+	WHERE s.year = ? AND w.status = 'completed'
+	ORDER BY w.week_number ASC, wl.rank ASC`
+
+	lRows, err := r.db.Query(query, seasonYear)
+	if err != nil {
+		return nil, err
+	}
+	defer lRows.Close()
+
+	for lRows.Next() {
+		var uid int64
+		var uname, avatar string
+		var wn, rank, pts int
+		if err := lRows.Scan(&uid, &uname, &avatar, &wn, &rank, &pts); err != nil {
+			continue
+		}
+		traj, exists := trajMap[uid]
+		if !exists {
+			traj = &LeaderboardTrajectory{
+				UserID:        uid,
+				Username:      uname,
+				DisplayName:   uname,
+				AvatarURL:     avatar,
+				PointsHistory: make([]int, len(weekNums)),
+				RanksHistory:  make([]int, len(weekNums)),
+				Weeks:         weekNums,
+			}
+			trajMap[uid] = traj
+			userOrder = append(userOrder, uid)
+		}
+		for i, w := range weekNums {
+			if w == wn {
+				traj.PointsHistory[i] = pts
+				traj.RanksHistory[i] = rank
+				break
+			}
+		}
+	}
+
+	trajectories := make([]*LeaderboardTrajectory, 0, len(userOrder))
+	for _, uid := range userOrder {
+		trajectories = append(trajectories, trajMap[uid])
+	}
+
+	return trajectories, nil
+}
+
+// GetUserAnalytics compiles deep performance metrics for a specific user in a season
+func (r *Repository) GetUserAnalytics(userID int64, seasonYear int) (*UserAnalytics, error) {
+	user, err := r.GetUserByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("loading user: %w", err)
+	}
+	if user == nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	teams, err := r.ListTeams()
+	if err != nil {
+		return nil, fmt.Errorf("loading teams: %w", err)
+	}
+	teamMap := make(map[int64]*Team, len(teams))
+	for _, t := range teams {
+		teamMap[t.ID] = t
+	}
+
+	loc, err := time.LoadLocation("America/Mexico_City")
+	if err != nil {
+		loc = time.FixedZone("CST", -6*3600)
+	}
+
+	query := `
+	SELECT p.id, p.game_id, p.picked_team_id, p.is_correct, p.points_earned,
+	       g.kickoff_time, g.home_team_id, g.away_team_id, g.home_score, g.away_score, g.status,
+	       w.week_number,
+	       COALESCE(gf.predicted_winner_id, 0),
+	       COALESCE(gf.vegas_favorite_id, 0)
+	FROM picks p
+	JOIN games g ON p.game_id = g.id
+	JOIN weeks w ON g.week_id = w.id
+	JOIN seasons s ON w.season_id = s.id
+	LEFT JOIN game_forecasts gf ON g.id = gf.game_id
+	WHERE p.user_id = ? AND s.year = ? AND g.status = 'final' AND p.is_correct IS NOT NULL
+	ORDER BY g.kickoff_time ASC`
+
+	rows, err := r.db.Query(query, userID, seasonYear)
+	if err != nil {
+		return nil, fmt.Errorf("querying user picks: %w", err)
+	}
+
+	type teamTally struct {
+		team    *Team
+		picks   int
+		correct int
+	}
+	teamStats := make(map[int64]*teamTally)
+
+	timeSlotCounts := map[string]*TimeSlotStat{
+		"TNF (Jueves)":        {Slot: "TNF (Jueves)"},
+		"Domingo Mediodía":    {Slot: "Domingo Mediodía"},
+		"Domingo Tarde":       {Slot: "Domingo Tarde"},
+		"SNF (Domingo Noche)": {Slot: "SNF (Domingo Noche)"},
+		"MNF (Lunes)":         {Slot: "MNF (Lunes)"},
+		"Otros / Playoffs":    {Slot: "Otros / Playoffs"},
+	}
+
+	totalPicks := 0
+	totalCorrect := 0
+	favPicks, favCorrect := 0, 0
+	dogPicks, dogCorrect := 0, 0
+	contrarianPicks, contrarianCorrect, contrarianPts := 0, 0, 0
+
+	gamePicksCount := make(map[int64]map[int64]int)
+	gameTotalPicks := make(map[int64]int)
+
+	type userPickRecord struct {
+		gameID       int64
+		pickedTeamID *int64
+		isCorrect    bool
+		pointsEarned int
+		kickoffTime  time.Time
+		weekNum      int
+		predWinnerID int64
+		vegasFavID   int64
+	}
+	var pickRecords []userPickRecord
+
+	for rows.Next() {
+		var pID, gID int64
+		var pickedID *int64
+		var isCorrect *bool
+		var pts int
+		var koStr string
+		var hID, aID int64
+		var hScore, aScore *int
+		var status string
+		var wNum int
+		var predWinID, vegFavID int64
+
+		if err := rows.Scan(
+			&pID, &gID, &pickedID, &isCorrect, &pts,
+			&koStr, &hID, &aID, &hScore, &aScore, &status,
+			&wNum, &predWinID, &vegFavID,
+		); err != nil {
+			continue
+		}
+
+		corr := isCorrect != nil && *isCorrect
+		pickRecords = append(pickRecords, userPickRecord{
+			gameID:       gID,
+			pickedTeamID: pickedID,
+			isCorrect:    corr,
+			pointsEarned: pts,
+			kickoffTime:  parseFlexibleTime(koStr),
+			weekNum:      wNum,
+			predWinnerID: predWinID,
+			vegasFavID:   vegFavID,
+		})
+	}
+	rows.Close()
+
+	if len(pickRecords) > 0 {
+		cQuery := `
+		SELECT p.game_id, p.picked_team_id, COUNT(*)
+		FROM picks p
+		JOIN games g ON p.game_id = g.id
+		JOIN weeks w ON g.week_id = w.id
+		JOIN seasons s ON w.season_id = s.id
+		WHERE s.year = ? AND p.picked_team_id IS NOT NULL
+		GROUP BY p.game_id, p.picked_team_id`
+		cRows, err := r.db.Query(cQuery, seasonYear)
+		if err == nil {
+			defer cRows.Close()
+			for cRows.Next() {
+				var gID, tID int64
+				var cnt int
+				if err := cRows.Scan(&gID, &tID, &cnt); err == nil {
+					if gamePicksCount[gID] == nil {
+						gamePicksCount[gID] = make(map[int64]int)
+					}
+					gamePicksCount[gID][tID] = cnt
+					gameTotalPicks[gID] += cnt
+				}
+			}
+		}
+	}
+
+	for _, pr := range pickRecords {
+		totalPicks++
+		if pr.isCorrect {
+			totalCorrect++
+		}
+
+		if pr.pickedTeamID != nil {
+			tid := *pr.pickedTeamID
+			if t, ok := teamMap[tid]; ok {
+				tally, exists := teamStats[tid]
+				if !exists {
+					tally = &teamTally{team: t}
+					teamStats[tid] = tally
+				}
+				tally.picks++
+				if pr.isCorrect {
+					tally.correct++
+				}
+			}
+		}
+
+		// Time Slot breakdown in local Mexico City time
+		localKO := pr.kickoffTime.In(loc)
+		var slotKey string
+		if pr.weekNum >= 19 {
+			slotKey = "Otros / Playoffs"
+		} else {
+			switch localKO.Weekday() {
+			case time.Thursday:
+				slotKey = "TNF (Jueves)"
+			case time.Sunday:
+				hr := localKO.Hour()
+				if hr < 14 {
+					slotKey = "Domingo Mediodía"
+				} else if hr >= 14 && hr < 18 {
+					slotKey = "Domingo Tarde"
+				} else {
+					slotKey = "SNF (Domingo Noche)"
+				}
+			case time.Monday:
+				slotKey = "MNF (Lunes)"
+			default:
+				slotKey = "Otros / Playoffs"
+			}
+		}
+
+		if ts, ok := timeSlotCounts[slotKey]; ok {
+			ts.TotalPicks++
+			if pr.isCorrect {
+				ts.CorrectPicks++
+			}
+		}
+
+		// Favorite vs Underdog
+		favoriteID := pr.vegasFavID
+		if favoriteID == 0 {
+			favoriteID = pr.predWinnerID
+		}
+		if favoriteID > 0 && pr.pickedTeamID != nil {
+			if *pr.pickedTeamID == favoriteID {
+				favPicks++
+				if pr.isCorrect {
+					favCorrect++
+				}
+			} else {
+				dogPicks++
+				if pr.isCorrect {
+					dogCorrect++
+				}
+			}
+		}
+
+		// Contrarian pick (<= 35% of community on this team)
+		if pr.pickedTeamID != nil && gameTotalPicks[pr.gameID] > 0 {
+			teamPicks := gamePicksCount[pr.gameID][*pr.pickedTeamID]
+			pct := float64(teamPicks) / float64(gameTotalPicks[pr.gameID])
+			if pct <= 0.35 {
+				contrarianPicks++
+				if pr.isCorrect {
+					contrarianCorrect++
+					contrarianPts += pr.pointsEarned
+				}
+			}
+		}
+	}
+
+	orderedSlots := []string{
+		"TNF (Jueves)", "Domingo Mediodía", "Domingo Tarde", "SNF (Domingo Noche)", "MNF (Lunes)", "Otros / Playoffs",
+	}
+	var timeSlots []TimeSlotStat
+	for _, k := range orderedSlots {
+		ts := timeSlotCounts[k]
+		if ts.TotalPicks > 0 {
+			ts.AccuracyPct = math.Round((float64(ts.CorrectPicks)/float64(ts.TotalPicks))*1000) / 10
+		}
+		timeSlots = append(timeSlots, *ts)
+	}
+
+	var talisman *TeamPickStat
+	var nemesis *TeamPickStat
+
+	var candidateTallies []*teamTally
+	for _, t := range teamStats {
+		candidateTallies = append(candidateTallies, t)
+	}
+
+	sort.Slice(candidateTallies, func(i, j int) bool {
+		rI := float64(candidateTallies[i].correct) / float64(candidateTallies[i].picks)
+		rJ := float64(candidateTallies[j].correct) / float64(candidateTallies[j].picks)
+		if rI != rJ {
+			return rI > rJ
+		}
+		return candidateTallies[i].picks > candidateTallies[j].picks
+	})
+
+	for _, cand := range candidateTallies {
+		if cand.picks >= 2 && cand.correct > 0 {
+			acc := math.Round((float64(cand.correct)/float64(cand.picks))*1000) / 10
+			talisman = &TeamPickStat{
+				TeamID:       cand.team.ID,
+				TeamCode:     cand.team.Code,
+				TeamName:     cand.team.Name,
+				TeamCity:     cand.team.City,
+				LogoURL:      cand.team.LogoURL,
+				PrimaryColor: cand.team.PrimaryColor,
+				TotalPicks:   cand.picks,
+				CorrectPicks: cand.correct,
+				AccuracyPct:  acc,
+			}
+			break
+		}
+	}
+
+	for i := len(candidateTallies) - 1; i >= 0; i-- {
+		cand := candidateTallies[i]
+		if cand.picks >= 2 && cand.correct < cand.picks {
+			acc := math.Round((float64(cand.correct)/float64(cand.picks))*1000) / 10
+			nemesis = &TeamPickStat{
+				TeamID:       cand.team.ID,
+				TeamCode:     cand.team.Code,
+				TeamName:     cand.team.Name,
+				TeamCity:     cand.team.City,
+				LogoURL:      cand.team.LogoURL,
+				PrimaryColor: cand.team.PrimaryColor,
+				TotalPicks:   cand.picks,
+				CorrectPicks: cand.correct,
+				AccuracyPct:  acc,
+			}
+			break
+		}
+	}
+
+	overallAcc := 0.0
+	if totalPicks > 0 {
+		overallAcc = math.Round((float64(totalCorrect)/float64(totalPicks))*1000) / 10
+	}
+
+	favAcc := 0.0
+	if favPicks > 0 {
+		favAcc = math.Round((float64(favCorrect)/float64(favPicks))*1000) / 10
+	}
+
+	dogAcc := 0.0
+	if dogPicks > 0 {
+		dogAcc = math.Round((float64(dogCorrect)/float64(dogPicks))*1000) / 10
+	}
+
+	contrarianRate := 0.0
+	if totalPicks > 0 {
+		contrarianRate = math.Round((float64(contrarianPicks)/float64(totalPicks))*1000) / 10
+	}
+
+	return &UserAnalytics{
+		UserID:                 user.ID,
+		Username:               user.Username,
+		DisplayName:            user.Username,
+		AvatarURL:              user.AvatarURL,
+		SeasonYear:             seasonYear,
+		TotalPicks:             totalPicks,
+		TotalCorrect:           totalCorrect,
+		OverallAccuracy:        overallAcc,
+		TalismanTeam:           talisman,
+		NemesisTeam:            nemesis,
+		TimeSlots:              timeSlots,
+		FavoritePicks:          favPicks,
+		FavoriteCorrect:        favCorrect,
+		FavoriteAccuracy:       favAcc,
+		UnderdogPicks:          dogPicks,
+		UnderdogCorrect:        dogCorrect,
+		UnderdogAccuracy:       dogAcc,
+		ContrarianPicks:        contrarianPicks,
+		ContrarianCorrect:      contrarianCorrect,
+		ContrarianPointsEarned: contrarianPts,
+		ContrarianRate:         contrarianRate,
+	}, nil
+}
+
+// GetTeamATSTrends computes Against-The-Spread and Over/Under records for all 32 franchises
+func (r *Repository) GetTeamATSTrends(seasonYear int) ([]*TeamATSRecord, error) {
+	teams, err := r.ListTeams()
+	if err != nil {
+		return nil, fmt.Errorf("listing teams: %w", err)
+	}
+
+	type teamAccumulator struct {
+		rec                              *TeamATSRecord
+		homeWins, homeLosses, homePushes int
+		awayWins, awayLosses, awayPushes int
+		favWins, favLosses, favPushes    int
+		dogWins, dogLosses, dogPushes    int
+	}
+
+	accum := make(map[string]*teamAccumulator, len(teams))
+	for _, t := range teams {
+		accum[t.Code] = &teamAccumulator{
+			rec: &TeamATSRecord{
+				TeamID:       t.ID,
+				TeamCode:     t.Code,
+				TeamName:     t.Name,
+				TeamCity:     t.City,
+				LogoURL:      t.LogoURL,
+				PrimaryColor: t.PrimaryColor,
+				Conference:   t.Conference,
+				Division:     t.Division,
+			},
+		}
+	}
+
+	query := `
+	SELECT g.home_team_id, g.away_team_id, g.home_score, g.away_score,
+	       COALESCE(gf.vegas_spread, gf.elo_spread),
+	       COALESCE(gf.proj_home_score, 0),
+	       COALESCE(gf.proj_away_score, 0)
+	FROM games g
+	JOIN weeks w ON g.week_id = w.id
+	JOIN seasons s ON w.season_id = s.id
+	LEFT JOIN game_forecasts gf ON g.id = gf.game_id
+	WHERE s.year = ? AND g.status = 'final' AND g.home_score IS NOT NULL AND g.away_score IS NOT NULL`
+
+	rows, err := r.db.Query(query, seasonYear)
+	if err != nil {
+		return nil, fmt.Errorf("querying completed games for ATS: %w", err)
+	}
+	defer rows.Close()
+
+	teamIDToCode := make(map[int64]string, len(teams))
+	for _, t := range teams {
+		teamIDToCode[t.ID] = t.Code
+	}
+
+	for rows.Next() {
+		var hID, aID int64
+		var hScore, aScore int
+		var spread float64
+		var pHome, pAway int
+
+		if err := rows.Scan(&hID, &aID, &hScore, &aScore, &spread, &pHome, &pAway); err != nil {
+			continue
+		}
+
+		hCode, hOk := teamIDToCode[hID]
+		aCode, aOk := teamIDToCode[aID]
+		if !hOk || !aOk {
+			continue
+		}
+
+		hAcc, hAccOk := accum[hCode]
+		aAcc, aAccOk := accum[aCode]
+		if !hAccOk || !aAccOk {
+			continue
+		}
+
+		hAcc.rec.TotalGames++
+		aAcc.rec.TotalGames++
+
+		// Home covers if (hScore + spread) > aScore
+		hAdjusted := float64(hScore) + spread
+		aDiff := float64(aScore)
+
+		var hATSResult, aATSResult string
+		if hAdjusted > aDiff {
+			hATSResult = "W"
+			aATSResult = "L"
+		} else if hAdjusted < aDiff {
+			hATSResult = "L"
+			aATSResult = "W"
+		} else {
+			hATSResult = "P"
+			aATSResult = "P"
+		}
+
+		if hATSResult == "W" {
+			hAcc.rec.ATSWins++
+			hAcc.homeWins++
+		} else if hATSResult == "L" {
+			hAcc.rec.ATSLosses++
+			hAcc.homeLosses++
+		} else {
+			hAcc.rec.ATSPushes++
+			hAcc.homePushes++
+		}
+
+		if aATSResult == "W" {
+			aAcc.rec.ATSWins++
+			aAcc.awayWins++
+		} else if aATSResult == "L" {
+			aAcc.rec.ATSLosses++
+			aAcc.awayLosses++
+		} else {
+			aAcc.rec.ATSPushes++
+			aAcc.awayPushes++
+		}
+
+		if spread < 0 {
+			if hATSResult == "W" {
+				hAcc.favWins++
+			} else if hATSResult == "L" {
+				hAcc.favLosses++
+			} else {
+				hAcc.favPushes++
+			}
+
+			if aATSResult == "W" {
+				aAcc.dogWins++
+			} else if aATSResult == "L" {
+				aAcc.dogLosses++
+			} else {
+				aAcc.dogPushes++
+			}
+		} else if spread > 0 {
+			if aATSResult == "W" {
+				aAcc.favWins++
+			} else if aATSResult == "L" {
+				aAcc.favLosses++
+			} else {
+				aAcc.favPushes++
+			}
+
+			if hATSResult == "W" {
+				hAcc.dogWins++
+			} else if hATSResult == "L" {
+				hAcc.dogLosses++
+			} else {
+				hAcc.dogPushes++
+			}
+		}
+
+		totalPts := float64(hScore + aScore)
+		line := float64(pHome + pAway)
+		if line <= 0 {
+			line = 44.5
+		}
+
+		if totalPts > line {
+			hAcc.rec.OverCount++
+			aAcc.rec.OverCount++
+		} else if totalPts < line {
+			hAcc.rec.UnderCount++
+			aAcc.rec.UnderCount++
+		} else {
+			hAcc.rec.PushCount++
+			aAcc.rec.PushCount++
+		}
+	}
+
+	result := make([]*TeamATSRecord, 0, len(teams))
+	for _, a := range accum {
+		rec := a.rec
+		if rec.ATSWins+rec.ATSLosses > 0 {
+			rec.ATSPct = math.Round((float64(rec.ATSWins)/float64(rec.ATSWins+rec.ATSLosses))*1000) / 10
+		}
+		if rec.OverCount+rec.UnderCount > 0 {
+			rec.OverPct = math.Round((float64(rec.OverCount)/float64(rec.OverCount+rec.UnderCount))*1000) / 10
+		}
+		rec.HomeATSRecord = fmt.Sprintf("%d-%d-%d", a.homeWins, a.homeLosses, a.homePushes)
+		rec.AwayATSRecord = fmt.Sprintf("%d-%d-%d", a.awayWins, a.awayLosses, a.awayPushes)
+		rec.FavoriteATSRecord = fmt.Sprintf("%d-%d-%d", a.favWins, a.favLosses, a.favPushes)
+		rec.UnderdogATSRecord = fmt.Sprintf("%d-%d-%d", a.dogWins, a.dogLosses, a.dogPushes)
+
+		result = append(result, rec)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].ATSPct != result[j].ATSPct {
+			return result[i].ATSPct > result[j].ATSPct
+		}
+		return result[i].ATSWins > result[j].ATSWins
+	})
+
+	return result, nil
+}
+
+// GetMatchupIntel provides comparative analytics for a given game
+func (r *Repository) GetMatchupIntel(gameID int64) (*MatchupIntel, error) {
+	game, err := r.GetGameByID(gameID)
+	if err != nil {
+		return nil, fmt.Errorf("loading game: %w", err)
+	}
+	if game == nil {
+		return nil, fmt.Errorf("game not found")
+	}
+
+	var seasonYear int
+	sQuery := `SELECT s.year FROM weeks w JOIN seasons s ON w.season_id = s.id WHERE w.id = ? LIMIT 1`
+	if err := r.db.QueryRow(sQuery, game.WeekID).Scan(&seasonYear); err != nil {
+		seasonYear = 2026
+	}
+
+	forecast, _ := r.GetGameForecast(gameID)
+
+	standings, _ := r.GetSeasonStandings(seasonYear)
+	var homeStanding, awayStanding *TeamStanding
+	if standings != nil {
+		for _, s := range standings.League {
+			if s.TeamCode == game.HomeTeam.Code {
+				homeStanding = s
+			}
+			if s.TeamCode == game.AwayTeam.Code {
+				awayStanding = s
+			}
+		}
+	}
+
+	atsTrends, _ := r.GetTeamATSTrends(seasonYear)
+	var homeATS, awayATS *TeamATSRecord
+	for _, ats := range atsTrends {
+		if ats.TeamCode == game.HomeTeam.Code {
+			homeATS = ats
+		}
+		if ats.TeamCode == game.AwayTeam.Code {
+			awayATS = ats
+		}
+	}
+
+	teams, _ := r.ListTeams()
+	teamMap := make(map[int64]*Team, len(teams))
+	for _, t := range teams {
+		teamMap[t.ID] = t
+	}
+
+	// Recent head-to-head encounters between these two franchises
+	h2hQuery := `
+	SELECT id, week_id, espn_game_id, home_team_id, away_team_id, kickoff_time,
+	       home_score, away_score, status, status_detail, broadcast, situation,
+	       linescores, stats_json, is_tiebreaker, is_locked, created_at
+	FROM games
+	WHERE ((home_team_id = ? AND away_team_id = ?) OR (home_team_id = ? AND away_team_id = ?))
+	  AND status = 'final' AND id != ?
+	ORDER BY kickoff_time DESC
+	LIMIT 5`
+
+	hRows, err := r.db.Query(h2hQuery, game.HomeTeamID, game.AwayTeamID, game.AwayTeamID, game.HomeTeamID, game.ID)
+	var recentGames []*Game
+	if err == nil {
+		defer hRows.Close()
+		for hRows.Next() {
+			var g Game
+			var hScore, aScore *int
+			var linescores, statsJSON sql.NullString
+			var createdStr string
+			if err := hRows.Scan(
+				&g.ID, &g.WeekID, &g.ESPNGameID, &g.HomeTeamID, &g.AwayTeamID, &g.KickoffTime,
+				&hScore, &aScore, &g.Status, &g.StatusDetail, &g.Broadcast, &g.Situation,
+				&linescores, &statsJSON, &g.IsTiebreaker, &g.IsLocked, &createdStr,
+			); err == nil {
+				g.HomeScore = hScore
+				g.AwayScore = aScore
+				g.HomeTeam = teamMap[g.HomeTeamID]
+				g.AwayTeam = teamMap[g.AwayTeamID]
+				recentGames = append(recentGames, &g)
+			}
+		}
+	}
+
+	// Community pick percentages
+	cQuery := `
+	SELECT picked_team_id, COUNT(*)
+	FROM picks
+	WHERE game_id = ? AND picked_team_id IS NOT NULL
+	GROUP BY picked_team_id`
+
+	cRows, err := r.db.Query(cQuery, gameID)
+	homePickCnt, awayPickCnt, totalPickCnt := 0, 0, 0
+	if err == nil {
+		defer cRows.Close()
+		for cRows.Next() {
+			var tid int64
+			var cnt int
+			if err := cRows.Scan(&tid, &cnt); err == nil {
+				totalPickCnt += cnt
+				if tid == game.HomeTeamID {
+					homePickCnt += cnt
+				} else if tid == game.AwayTeamID {
+					awayPickCnt += cnt
+				}
+			}
+		}
+	}
+
+	homeCommunityPct, awayCommunityPct := 50.0, 50.0
+	if totalPickCnt > 0 {
+		homeCommunityPct = math.Round((float64(homePickCnt)/float64(totalPickCnt))*1000) / 10
+		awayCommunityPct = math.Round((float64(awayPickCnt)/float64(totalPickCnt))*1000) / 10
+	}
+
+	return &MatchupIntel{
+		GameID:           game.ID,
+		HomeTeam:         game.HomeTeam,
+		AwayTeam:         game.AwayTeam,
+		HomeStanding:     homeStanding,
+		AwayStanding:     awayStanding,
+		HomeATS:          homeATS,
+		AwayATS:          awayATS,
+		Forecast:         forecast,
+		HeadToHeadRecent: recentGames,
+		CommunityHomePct: homeCommunityPct,
+		CommunityAwayPct: awayCommunityPct,
+	}, nil
 }
 
 

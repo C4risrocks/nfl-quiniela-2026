@@ -106,12 +106,8 @@ func (s *Syncer) SyncWeek(weekNum int) (count int, err error) {
 		return 0, fmt.Errorf("getting week %d: %w", weekNum, err)
 	}
 
-	seasonType := 2 // Regular season
-	if weekNum > 18 {
-		seasonType = 3 // Postseason
-	}
-
-	sb, err := s.client.FetchWeekScoreboard(s.seasonYear, weekNum, seasonType)
+	espnWeek, seasonType := MapQuinielaWeekToESPNWeek(weekNum)
+	sb, err := s.client.FetchWeekScoreboard(s.seasonYear, espnWeek, seasonType)
 	if err != nil {
 		return 0, fmt.Errorf("fetching espn week %d: %w", weekNum, err)
 	}

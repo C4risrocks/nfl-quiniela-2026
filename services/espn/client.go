@@ -46,6 +46,31 @@ func NewClientWithCustomURL(standingsURL, scheduleURL string) *Client {
 	}
 }
 
+// MapQuinielaWeekToESPNWeek maps quiniela week numbers (1 to 22) to ESPN API parameters (espnWeek, seasonType).
+// Regular season: weeks 1-18 -> seasontype=2, week=1-18.
+// Postseason:
+//   - week 19 (Wild Card) -> seasontype=3, week=1
+//   - week 20 (Divisional) -> seasontype=3, week=2
+//   - week 21 (Conference Championship) -> seasontype=3, week=3
+//   - week 22 (Super Bowl) -> seasontype=3, week=5 (skips ESPN week 4 Pro Bowl)
+func MapQuinielaWeekToESPNWeek(weekNum int) (espnWeek int, seasonType int) {
+	if weekNum <= 18 {
+		return weekNum, 2
+	}
+	switch weekNum {
+	case 19:
+		return 1, 3
+	case 20:
+		return 2, 3
+	case 21:
+		return 3, 3
+	case 22:
+		return 5, 3
+	default:
+		return 1, 3
+	}
+}
+
 // FetchWeekScoreboard fetches games for a specific season, week, and seasonType (2 = regular season, 3 = postseason)
 func (c *Client) FetchWeekScoreboard(year, weekNum, seasonType int) (*ESPNScoreboardResponse, error) {
 	url := fmt.Sprintf("%s?dates=%d&seasontype=%d&week=%d", c.baseURL, year, seasonType, weekNum)

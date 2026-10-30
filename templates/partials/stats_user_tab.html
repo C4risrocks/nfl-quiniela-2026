@@ -1,0 +1,169 @@
+<!-- Player Deep Analytics View Partial -->
+<div class="space-y-6">
+
+    <!-- Overview Stat Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Card 1: Precision Global -->
+        <div class="vercel-card p-4 rounded-2xl border border-zinc-800 bg-zinc-950/80 shadow-sm flex items-center space-x-3.5">
+            <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center text-lg shrink-0">
+                <i class="fa-solid fa-bullseye"></i>
+            </div>
+            <div>
+                <p class="text-[10px] font-mono uppercase text-zinc-500">Precisión Global</p>
+                <div class="flex items-baseline space-x-1.5 mt-0.5">
+                    <span class="text-xl font-black text-white font-mono">{{.Analytics.OverallAccuracy}}%</span>
+                    <span class="text-[10px] text-zinc-500 font-mono">({{.Analytics.TotalCorrect}}/{{.Analytics.TotalPicks}})</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Favoritos -->
+        <div class="vercel-card p-4 rounded-2xl border border-zinc-800 bg-zinc-950/80 shadow-sm flex items-center space-x-3.5">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg shrink-0">
+                <i class="fa-solid fa-shield-check"></i>
+            </div>
+            <div>
+                <p class="text-[10px] font-mono uppercase text-zinc-500">Con el Favorito</p>
+                <div class="flex items-baseline space-x-1.5 mt-0.5">
+                    <span class="text-xl font-black text-emerald-400 font-mono">{{.Analytics.FavoriteAccuracy}}%</span>
+                    <span class="text-[10px] text-zinc-500 font-mono">({{.Analytics.FavoriteCorrect}}/{{.Analytics.FavoritePicks}})</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Sorpresas (Underdogs) -->
+        <div class="vercel-card p-4 rounded-2xl border border-zinc-800 bg-zinc-950/80 shadow-sm flex items-center space-x-3.5">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center text-lg shrink-0">
+                <i class="fa-solid fa-bolt"></i>
+            </div>
+            <div>
+                <p class="text-[10px] font-mono uppercase text-zinc-500">Con Sorpresas</p>
+                <div class="flex items-baseline space-x-1.5 mt-0.5">
+                    <span class="text-xl font-black text-amber-400 font-mono">{{.Analytics.UnderdogAccuracy}}%</span>
+                    <span class="text-[10px] text-zinc-500 font-mono">({{.Analytics.UnderdogCorrect}}/{{.Analytics.UnderdogPicks}})</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: Contrarian Score -->
+        <div class="vercel-card p-4 rounded-2xl border border-zinc-800 bg-zinc-950/80 shadow-sm flex items-center space-x-3.5">
+            <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center text-lg shrink-0">
+                <i class="fa-solid fa-masks-theater"></i>
+            </div>
+            <div>
+                <p class="text-[10px] font-mono uppercase text-zinc-500">Índice Contrarian</p>
+                <div class="flex items-baseline space-x-1.5 mt-0.5">
+                    <span class="text-xl font-black text-purple-400 font-mono">{{.Analytics.ContrarianRate}}%</span>
+                    <span class="text-[10px] text-zinc-500 font-mono">(+{{.Analytics.ContrarianPointsEarned}} pts)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Talisman & Nemesis Team Showcase -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- Talisman Team Card -->
+        <div class="vercel-card p-5 rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/20 via-zinc-950 to-zinc-950 shadow-sm">
+            <div class="flex items-center space-x-2 text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400 mb-3">
+                <i class="fa-solid fa-gem text-emerald-400"></i>
+                <span>Equipo Talismán (Mayor Efectividad)</span>
+            </div>
+
+            {{if .Analytics.TalismanTeam}}
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3.5">
+                    <img src="{{.Analytics.TalismanTeam.LogoURL}}" class="w-12 h-12 object-contain drop-shadow" alt="{{.Analytics.TalismanTeam.TeamName}}">
+                    <div>
+                        <h3 class="text-base font-black text-white">
+                            {{.Analytics.TalismanTeam.TeamCity}} {{.Analytics.TalismanTeam.TeamName}}
+                        </h3>
+                        <p class="text-xs text-zinc-400 font-mono">
+                            {{.Analytics.TalismanTeam.CorrectPicks}} aciertos en {{.Analytics.TalismanTeam.TotalPicks}} picks
+                        </p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="text-2xl font-black font-mono text-emerald-400">{{.Analytics.TalismanTeam.AccuracyPct}}%</span>
+                    <p class="text-[10px] font-mono text-zinc-500 uppercase">Efectividad</p>
+                </div>
+            </div>
+            {{else}}
+            <div class="py-4 text-center text-xs text-zinc-500">
+                Se requieren al menos 2 picks hacia una misma franquicia para definir al talismán.
+            </div>
+            {{end}}
+        </div>
+
+        <!-- Nemesis Team Card -->
+        <div class="vercel-card p-5 rounded-2xl border border-rose-500/30 bg-gradient-to-br from-rose-950/20 via-zinc-950 to-zinc-950 shadow-sm">
+            <div class="flex items-center space-x-2 text-[10px] font-mono font-bold uppercase tracking-wider text-rose-400 mb-3">
+                <i class="fa-solid fa-skull text-rose-400"></i>
+                <span>Equipo Némesis (Mayor Tasa de Tropiezos)</span>
+            </div>
+
+            {{if .Analytics.NemesisTeam}}
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3.5">
+                    <img src="{{.Analytics.NemesisTeam.LogoURL}}" class="w-12 h-12 object-contain drop-shadow" alt="{{.Analytics.NemesisTeam.TeamName}}">
+                    <div>
+                        <h3 class="text-base font-black text-white">
+                            {{.Analytics.NemesisTeam.TeamCity}} {{.Analytics.NemesisTeam.TeamName}}
+                        </h3>
+                        <p class="text-xs text-zinc-400 font-mono">
+                            Solo {{.Analytics.NemesisTeam.CorrectPicks}} acierto(s) en {{.Analytics.NemesisTeam.TotalPicks}} picks
+                        </p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="text-2xl font-black font-mono text-rose-400">{{.Analytics.NemesisTeam.AccuracyPct}}%</span>
+                    <p class="text-[10px] font-mono text-zinc-500 uppercase">Efectividad</p>
+                </div>
+            </div>
+            {{else}}
+            <div class="py-4 text-center text-xs text-zinc-500">
+                Aún no hay suficiente historial de tropiezos repetidos con un mismo equipo.
+            </div>
+            {{end}}
+        </div>
+
+    </div>
+
+    <!-- Kickoff Time Slots Performance Breakdown -->
+    <div class="vercel-card p-5 sm:p-6 rounded-2xl border border-zinc-800 bg-zinc-950/80 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-zinc-800">
+            <div>
+                <h3 class="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center">
+                    <i class="fa-regular fa-clock mr-2 text-cyan-400"></i> Precisión por Franja Horaria (Hora CDMX)
+                </h3>
+                <p class="text-[11px] text-zinc-500 mt-0.5">
+                    Comportamiento del pronosticador según el día y horario del partido.
+                </p>
+            </div>
+            <span class="text-[10px] font-mono text-zinc-500">Zona horaria: America/Mexico_City</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {{range .Analytics.TimeSlots}}
+            <div class="bg-zinc-900/60 p-3.5 rounded-xl border border-zinc-800/80 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-white font-mono">{{.Slot}}</span>
+                    <span class="text-xs font-black font-mono {{if ge .AccuracyPct 60.0}}text-emerald-400{{else if ge .AccuracyPct 40.0}}text-cyan-400{{else}}text-zinc-400{{end}}">
+                        {{.AccuracyPct}}%
+                    </span>
+                </div>
+                <!-- Progress Bar -->
+                <div class="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full transition-all {{if ge .AccuracyPct 60.0}}bg-emerald-500{{else if ge .AccuracyPct 40.0}}bg-cyan-500{{else}}bg-zinc-600{{end}}"
+                         style="width: {{.AccuracyPct}}%;"></div>
+                </div>
+                <div class="flex justify-between text-[10px] font-mono text-zinc-500">
+                    <span>Aciertos:</span>
+                    <span>{{.CorrectPicks}} de {{.TotalPicks}}</span>
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </div>
+
+</div>

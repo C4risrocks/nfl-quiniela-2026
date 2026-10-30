@@ -1,0 +1,354 @@
+<div class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200 overflow-y-auto overscroll-contain"
+     id="game-stats-modal-wrapper"
+     data-close-modal="backdrop"
+     @click.self="window.closeGameStatsModal()"
+     @keydown.escape.window="window.closeGameStatsModal()"
+     x-data="{ activeTab: 'overview' }"
+     x-init="document.body.classList.add('overflow-hidden')">
+
+    <div class="vercel-card w-full max-w-3xl max-h-[92dvh] my-auto rounded-2xl flex flex-col overflow-hidden shadow-2xl border border-zinc-800 bg-zinc-950"
+         @click.stop>
+
+        <!-- 1. Header (Teams Banner & Close Button) -->
+        <div class="shrink-0 p-4 sm:p-5 border-b border-zinc-800/80 bg-gradient-to-r from-zinc-950 via-zinc-900/60 to-zinc-950 flex flex-col space-y-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 uppercase tracking-wider">
+                        <i class="fa-solid fa-crosshairs mr-1 text-cyan-400"></i> Matchup Intel
+                    </span>
+                    <span class="text-xs font-mono text-zinc-400">
+                        Previa Analítica & Tendencias
+                    </span>
+                </div>
+                <button type="button"
+                        onclick="window.closeGameStatsModal()"
+                        class="w-7 h-7 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center text-sm transition-colors cursor-pointer"
+                        title="Cerrar ventana">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Teams Clash Display -->
+            <div class="grid grid-cols-11 items-center gap-2 sm:gap-4 py-1">
+                <!-- Away Team -->
+                <div class="col-span-5 flex items-center space-x-3">
+                    <img src="{{.Intel.AwayTeam.LogoURL}}" alt="{{.Intel.AwayTeam.Code}}" class="w-12 h-12 sm:w-14 sm:h-14 object-contain drop-shadow shrink-0">
+                    <div class="min-w-0">
+                        <span class="text-[10px] font-mono uppercase text-zinc-500 block">{{.Intel.AwayTeam.City}}</span>
+                        <h3 class="text-base sm:text-lg font-black text-white truncate leading-tight">{{.Intel.AwayTeam.Name}}</h3>
+                        {{if .Intel.AwayStanding}}
+                        <span class="text-[11px] font-mono text-cyan-400 font-semibold">
+                            {{.Intel.AwayStanding.Wins}}-{{.Intel.AwayStanding.Losses}}{{if gt .Intel.AwayStanding.Ties 0}}-{{.Intel.AwayStanding.Ties}}{{end}} ({{.Intel.AwayStanding.Conference}} {{.Intel.AwayStanding.Division}})
+                        </span>
+                        {{end}}
+                    </div>
+                </div>
+
+                <!-- VS Divider -->
+                <div class="col-span-1 text-center">
+                    <span class="text-xs font-mono font-bold text-zinc-600 bg-zinc-900/80 px-2 py-1 rounded-full border border-zinc-800">@</span>
+                </div>
+
+                <!-- Home Team -->
+                <div class="col-span-5 flex items-center justify-end space-x-3 text-right">
+                    <div class="min-w-0">
+                        <span class="text-[10px] font-mono uppercase text-zinc-500 block">{{.Intel.HomeTeam.City}}</span>
+                        <h3 class="text-base sm:text-lg font-black text-white truncate leading-tight">{{.Intel.HomeTeam.Name}}</h3>
+                        {{if .Intel.HomeStanding}}
+                        <span class="text-[11px] font-mono text-amber-400 font-semibold">
+                            {{.Intel.HomeStanding.Wins}}-{{.Intel.HomeStanding.Losses}}{{if gt .Intel.HomeStanding.Ties 0}}-{{.Intel.HomeStanding.Ties}}{{end}} ({{.Intel.HomeStanding.Conference}} {{.Intel.HomeStanding.Division}})
+                        </span>
+                        {{end}}
+                    </div>
+                    <img src="{{.Intel.HomeTeam.LogoURL}}" alt="{{.Intel.HomeTeam.Code}}" class="w-12 h-12 sm:w-14 sm:h-14 object-contain drop-shadow shrink-0">
+                </div>
+            </div>
+
+            <!-- Tab Navigation Bar -->
+            <div class="flex items-center space-x-1 border-t border-zinc-850 pt-2.5">
+                <button type="button"
+                        @click="activeTab = 'overview'"
+                        :class="activeTab === 'overview' ? 'bg-zinc-800 text-white font-bold' : 'text-zinc-400 hover:text-white'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer">
+                    <i class="fa-solid fa-chart-simple mr-1.5 text-cyan-400"></i> Comparativa
+                </button>
+                <button type="button"
+                        @click="activeTab = 'ats'"
+                        :class="activeTab === 'ats' ? 'bg-zinc-800 text-white font-bold' : 'text-zinc-400 hover:text-white'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer">
+                    <i class="fa-solid fa-coins mr-1.5 text-amber-400"></i> Tendencias ATS
+                </button>
+                <button type="button"
+                        @click="activeTab = 'forecast'"
+                        :class="activeTab === 'forecast' ? 'bg-zinc-800 text-white font-bold' : 'text-zinc-400 hover:text-white'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer">
+                    <i class="fa-solid fa-brain mr-1.5 text-indigo-400"></i> Pronóstico & Comunidad
+                </button>
+                <button type="button"
+                        @click="activeTab = 'h2h'"
+                        :class="activeTab === 'h2h' ? 'bg-zinc-800 text-white font-bold' : 'text-zinc-400 hover:text-white'"
+                        class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer">
+                    <i class="fa-solid fa-history mr-1.5 text-emerald-400"></i> Cara a Cara
+                </button>
+            </div>
+        </div>
+
+        <!-- 2. Scrollable Body Content -->
+        <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+
+            <!-- TAB 1: OVERVIEW & STANDINGS COMPARISON -->
+            <div x-show="activeTab === 'overview'" class="space-y-4">
+                <h4 class="text-xs font-mono uppercase text-zinc-400 font-bold tracking-wider flex items-center">
+                    <i class="fa-solid fa-scale-balanced mr-2 text-cyan-400"></i> Balance Estadístico de la Temporada
+                </h4>
+
+                <div class="space-y-3">
+                    <!-- Metric 1: Record & Posición -->
+                    <div class="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800 flex items-center justify-between text-xs">
+                        <div class="font-mono font-bold text-cyan-300 text-left w-1/3">
+                            {{if .Intel.AwayStanding}}{{.Intel.AwayStanding.Wins}}-{{.Intel.AwayStanding.Losses}} ({{.Intel.AwayStanding.WinPercentFormatted}}){{else}}--{{end}}
+                        </div>
+                        <div class="text-[10px] font-mono uppercase text-zinc-400 text-center w-1/3 font-semibold">
+                            Récord General
+                        </div>
+                        <div class="font-mono font-bold text-amber-300 text-right w-1/3">
+                            {{if .Intel.HomeStanding}}{{.Intel.HomeStanding.Wins}}-{{.Intel.HomeStanding.Losses}} ({{.Intel.HomeStanding.WinPercentFormatted}}){{else}}--{{end}}
+                        </div>
+                    </div>
+
+                    <!-- Metric 2: Ofensiva PPG -->
+                    <div class="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800 flex items-center justify-between text-xs">
+                        <div class="font-mono font-bold text-white text-left w-1/3">
+                            {{if .Intel.AwayStanding}}{{printf "%.1f" .Intel.AwayStanding.OffensivePPG}} pts{{else}}--{{end}}
+                        </div>
+                        <div class="text-[10px] font-mono uppercase text-zinc-400 text-center w-1/3 font-semibold">
+                            Puntos Anotados / Juego
+                        </div>
+                        <div class="font-mono font-bold text-white text-right w-1/3">
+                            {{if .Intel.HomeStanding}}{{printf "%.1f" .Intel.HomeStanding.OffensivePPG}} pts{{else}}--{{end}}
+                        </div>
+                    </div>
+
+                    <!-- Metric 3: Defensiva PPG (Menor es mejor) -->
+                    <div class="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800 flex items-center justify-between text-xs">
+                        <div class="font-mono font-bold text-white text-left w-1/3">
+                            {{if .Intel.AwayStanding}}{{printf "%.1f" .Intel.AwayStanding.DefensivePPG}} pts{{else}}--{{end}}
+                        </div>
+                        <div class="text-[10px] font-mono uppercase text-zinc-400 text-center w-1/3 font-semibold">
+                            Puntos Permitidos / Juego
+                        </div>
+                        <div class="font-mono font-bold text-white text-right w-1/3">
+                            {{if .Intel.HomeStanding}}{{printf "%.1f" .Intel.HomeStanding.DefensivePPG}} pts{{else}}--{{end}}
+                        </div>
+                    </div>
+
+                    <!-- Metric 4: Diferencial de Puntos -->
+                    <div class="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800 flex items-center justify-between text-xs">
+                        <div class="font-mono font-bold text-left w-1/3 {{if .Intel.AwayStanding}}{{if gt .Intel.AwayStanding.PointDiff 0}}text-emerald-400{{else}}text-rose-400{{end}}{{end}}">
+                            {{if .Intel.AwayStanding}}{{if gt .Intel.AwayStanding.PointDiff 0}}+{{end}}{{.Intel.AwayStanding.PointDiff}}{{else}}--{{end}}
+                        </div>
+                        <div class="text-[10px] font-mono uppercase text-zinc-400 text-center w-1/3 font-semibold">
+                            Diferencial de Puntos (+/-)
+                        </div>
+                        <div class="font-mono font-bold text-right w-1/3 {{if .Intel.HomeStanding}}{{if gt .Intel.HomeStanding.PointDiff 0}}text-emerald-400{{else}}text-rose-400{{end}}{{end}}">
+                            {{if .Intel.HomeStanding}}{{if gt .Intel.HomeStanding.PointDiff 0}}+{{end}}{{.Intel.HomeStanding.PointDiff}}{{else}}--{{end}}
+                        </div>
+                    </div>
+
+                    <!-- Metric 5: Racha Actual -->
+                    <div class="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800 flex items-center justify-between text-xs">
+                        <div class="font-mono font-bold text-white text-left w-1/3">
+                            {{if .Intel.AwayStanding}}{{.Intel.AwayStanding.Streak}}{{else}}--{{end}}
+                        </div>
+                        <div class="text-[10px] font-mono uppercase text-zinc-400 text-center w-1/3 font-semibold">
+                            Racha Vigente
+                        </div>
+                        <div class="font-mono font-bold text-white text-right w-1/3">
+                            {{if .Intel.HomeStanding}}{{.Intel.HomeStanding.Streak}}{{else}}--{{end}}
+                        </div>
+                    </div>
+
+                    <!-- Metric 6: Casa / Visita -->
+                    <div class="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800 flex items-center justify-between text-xs">
+                        <div class="font-mono text-zinc-300 text-left w-1/3">
+                            {{if .Intel.AwayStanding}}{{.Intel.AwayStanding.AwayRecord}} como visita{{else}}--{{end}}
+                        </div>
+                        <div class="text-[10px] font-mono uppercase text-zinc-400 text-center w-1/3 font-semibold">
+                            Condición (Visita / Local)
+                        </div>
+                        <div class="font-mono text-zinc-300 text-right w-1/3">
+                            {{if .Intel.HomeStanding}}{{.Intel.HomeStanding.HomeRecord}} como local{{else}}--{{end}}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: ATS BETTING TRENDS -->
+            <div x-show="activeTab === 'ats'" class="space-y-4">
+                <h4 class="text-xs font-mono uppercase text-zinc-400 font-bold tracking-wider flex items-center">
+                    <i class="fa-solid fa-coins mr-2 text-amber-400"></i> Desempeño Contra la Línea (ATS)
+                </h4>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- Away Team ATS Card -->
+                    <div class="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-3">
+                        <div class="flex items-center space-x-2">
+                            <img src="{{.Intel.AwayTeam.LogoURL}}" class="w-6 h-6 object-contain" alt="">
+                            <span class="font-bold text-white text-xs">{{.Intel.AwayTeam.Name}}</span>
+                        </div>
+                        {{if .Intel.AwayATS}}
+                        <div class="space-y-2 text-xs">
+                            <div class="flex justify-between items-center">
+                                <span class="text-zinc-500 font-mono text-[11px]">Récord ATS:</span>
+                                <span class="font-mono font-bold text-white">{{.Intel.AwayATS.ATSWins}}-{{.Intel.AwayATS.ATSLosses}}-{{.Intel.AwayATS.ATSPushes}} ({{printf "%.1f" .Intel.AwayATS.ATSPct}}%)</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-zinc-500 font-mono text-[11px]">ATS de Visita:</span>
+                                <span class="font-mono text-zinc-300">{{.Intel.AwayATS.AwayATSRecord}}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-zinc-500 font-mono text-[11px]">Como Underdog:</span>
+                                <span class="font-mono text-zinc-300">{{.Intel.AwayATS.UnderdogATSRecord}}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-zinc-500 font-mono text-[11px]">Altas/Bajas (O/U):</span>
+                                <span class="font-mono text-zinc-300">{{.Intel.AwayATS.OverCount}}O - {{.Intel.AwayATS.UnderCount}}U ({{printf "%.1f" .Intel.AwayATS.OverPct}}% Over)</span>
+                            </div>
+                        </div>
+                        {{else}}
+                        <p class="text-xs text-zinc-500">Sin datos de apuestas disponibles.</p>
+                        {{end}}
+                    </div>
+
+                    <!-- Home Team ATS Card -->
+                    <div class="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-3">
+                        <div class="flex items-center space-x-2">
+                            <img src="{{.Intel.HomeTeam.LogoURL}}" class="w-6 h-6 object-contain" alt="">
+                            <span class="font-bold text-white text-xs">{{.Intel.HomeTeam.Name}}</span>
+                        </div>
+                        {{if .Intel.HomeATS}}
+                        <div class="space-y-2 text-xs">
+                            <div class="flex justify-between items-center">
+                                <span class="text-zinc-500 font-mono text-[11px]">Récord ATS:</span>
+                                <span class="font-mono font-bold text-white">{{.Intel.HomeATS.ATSWins}}-{{.Intel.HomeATS.ATSLosses}}-{{.Intel.HomeATS.ATSPushes}} ({{printf "%.1f" .Intel.HomeATS.ATSPct}}%)</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-zinc-500 font-mono text-[11px]">ATS de Local:</span>
+                                <span class="font-mono text-zinc-300">{{.Intel.HomeATS.HomeATSRecord}}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-zinc-500 font-mono text-[11px]">Como Favorito:</span>
+                                <span class="font-mono text-zinc-300">{{.Intel.HomeATS.FavoriteATSRecord}}</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-zinc-500 font-mono text-[11px]">Altas/Bajas (O/U):</span>
+                                <span class="font-mono text-zinc-300">{{.Intel.HomeATS.OverCount}}O - {{.Intel.HomeATS.UnderCount}}U ({{printf "%.1f" .Intel.HomeATS.OverPct}}% Over)</span>
+                            </div>
+                        </div>
+                        {{else}}
+                        <p class="text-xs text-zinc-500">Sin datos de apuestas disponibles.</p>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: PROJECTIONS & COMMUNITY SPREAD -->
+            <div x-show="activeTab === 'forecast'" class="space-y-5">
+                <!-- AI Forecast Simulation -->
+                {{if .Intel.Forecast}}
+                <div class="p-4 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-mono font-bold uppercase tracking-wider text-indigo-300 flex items-center">
+                            <i class="fa-solid fa-microchip mr-1.5 text-indigo-400"></i> Proyección Modelo Analítico ELO
+                        </span>
+                        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-zinc-300 border border-zinc-800">
+                            {{.Intel.Forecast.ConsensusLabel}}
+                        </span>
+                    </div>
+
+                    <div class="flex items-center justify-around py-2">
+                        <div class="text-center">
+                            <span class="text-[10px] font-mono text-zinc-400 block">{{.Intel.AwayTeam.Code}} Proyectado</span>
+                            <span class="text-2xl font-black font-mono text-white">{{.Intel.Forecast.ProjAwayScore}}</span>
+                            <span class="text-[11px] font-mono text-indigo-300 block">{{printf "%.1f" (mulF .Intel.Forecast.AwayWinProb 100)}}% Victoria</span>
+                        </div>
+                        <span class="text-zinc-600 font-black text-lg">-</span>
+                        <div class="text-center">
+                            <span class="text-[10px] font-mono text-zinc-400 block">{{.Intel.HomeTeam.Code}} Proyectado</span>
+                            <span class="text-2xl font-black font-mono text-white">{{.Intel.Forecast.ProjHomeScore}}</span>
+                            <span class="text-[11px] font-mono text-indigo-300 block">{{printf "%.1f" (mulF .Intel.Forecast.HomeWinProb 100)}}% Victoria</span>
+                        </div>
+                    </div>
+                </div>
+                {{end}}
+
+                <!-- Community Quiniela Picks Distribution -->
+                <div class="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-2">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-mono text-zinc-400 flex items-center">
+                            <i class="fa-solid fa-users mr-1.5 text-zinc-500"></i> Tendencia de la Quiniela:
+                        </span>
+                        <div class="font-mono font-bold text-zinc-200">
+                            {{.Intel.AwayTeam.Code}} {{printf "%.0f" .Intel.CommunityAwayPct}}% vs {{printf "%.0f" .Intel.CommunityHomePct}}% {{.Intel.HomeTeam.Code}}
+                        </div>
+                    </div>
+                    <div class="w-full h-2 bg-zinc-900 rounded-full overflow-hidden flex border border-zinc-800">
+                        <div class="bg-cyan-500 h-full transition-all" style="width: {{.Intel.CommunityAwayPct}}%;"></div>
+                        <div class="bg-amber-500 h-full transition-all" style="width: {{.Intel.CommunityHomePct}}%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: HEAD TO HEAD HISTORY -->
+            <div x-show="activeTab === 'h2h'" class="space-y-4">
+                <h4 class="text-xs font-mono uppercase text-zinc-400 font-bold tracking-wider flex items-center">
+                    <i class="fa-solid fa-clock-rotate-left mr-2 text-emerald-400"></i> Últimos Enfrentamientos Directos
+                </h4>
+
+                {{if .Intel.HeadToHeadRecent}}
+                <div class="space-y-2">
+                    {{range .Intel.HeadToHeadRecent}}
+                    <div class="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800 flex items-center justify-between text-xs">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-mono text-zinc-500">{{.KickoffTime.Format "02/Jan/2006"}}</span>
+                            <span class="font-bold text-white">{{.AwayTeam.Code}} {{if .AwayScore}}{{.AwayScore}}{{end}}</span>
+                            <span class="text-zinc-600 font-mono">@</span>
+                            <span class="font-bold text-white">{{.HomeTeam.Code}} {{if .HomeScore}}{{.HomeScore}}{{end}}</span>
+                        </div>
+                        <div>
+                            {{if and .HomeScore .AwayScore}}
+                                {{if gt .HomeScore .AwayScore}}
+                                    <span class="text-[10px] font-mono font-bold text-emerald-400">Ganó {{.HomeTeam.Code}}</span>
+                                {{else if gt .AwayScore .HomeScore}}
+                                    <span class="text-[10px] font-mono font-bold text-emerald-400">Ganó {{.AwayTeam.Code}}</span>
+                                {{else}}
+                                    <span class="text-[10px] font-mono text-zinc-400">Empate</span>
+                                {{end}}
+                            {{else}}
+                                <span class="text-[10px] font-mono text-zinc-500">Finalizado</span>
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{else}}
+                <div class="p-6 text-center text-xs text-zinc-500 border border-dashed border-zinc-850 rounded-xl">
+                    No se registran enfrentamientos previos recientes entre ambas franquicias en la base de datos.
+                </div>
+                {{end}}
+            </div>
+
+        </div>
+
+        <!-- 3. Modal Footer -->
+        <div class="shrink-0 p-3 sm:px-5 border-t border-zinc-850 bg-zinc-900/40 flex justify-between items-center text-[11px] font-mono text-zinc-500">
+            <span>NFL Quiniela 2026 &bull; Matchup Analytics</span>
+            <button type="button"
+                    onclick="window.closeGameStatsModal()"
+                    class="px-4 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors font-sans font-semibold cursor-pointer">
+                Cerrar
+            </button>
+        </div>
+
+    </div>
+</div>

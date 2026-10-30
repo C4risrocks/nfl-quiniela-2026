@@ -2213,5 +2213,125 @@ type AdvisorWeeklyOverview struct {
 	CoinTossesCount  int                      `json:"coin_tosses_count"`
 }
 
+// ----------------------------------------------------
+// Playoffs & Postseason Models
+// ----------------------------------------------------
+
+// UserPlayoffBracket represents a user's full post-season bracket simulation / prediction
+type UserPlayoffBracket struct {
+	ID               int64     `json:"id"`
+	UserID           int64     `json:"user_id"`
+	SeasonYear       int       `json:"season_year"`
+	WildCardPicks    string    `json:"wild_card_picks"`   // JSON map of game/matchup -> picked team code/id
+	DivisionalPicks  string    `json:"divisional_picks"`  // JSON map
+	ConferencePicks  string    `json:"conference_picks"`  // JSON map
+	SuperBowlPick    string    `json:"super_bowl_pick"`   // JSON map { "winner": "KC", "opponent": "SF" }
+	TiebreakerPoints int       `json:"tiebreaker_points"` // e.g. 48 total points
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+// ----------------------------------------------------
+// Advanced Analytics & Trends Models
+// ----------------------------------------------------
+
+// LeaderboardTrajectory models a player's rank and points across each completed week
+type LeaderboardTrajectory struct {
+	UserID        int64   `json:"user_id"`
+	Username      string  `json:"username"`
+	DisplayName   string  `json:"display_name"`
+	AvatarURL     string  `json:"avatar_url"`
+	PointsHistory []int   `json:"points_history"`
+	RanksHistory  []int   `json:"ranks_history"`
+	Weeks         []int   `json:"weeks"`
+}
+
+// TimeSlotStat represents pick accuracy broken down by kickoff time window
+type TimeSlotStat struct {
+	Slot         string  `json:"slot"` // "TNF", "Domingo Mediodía", "Domingo Tarde", "SNF", "MNF", "Playoffs"
+	TotalPicks   int     `json:"total_picks"`
+	CorrectPicks int     `json:"correct_picks"`
+	AccuracyPct  float64 `json:"accuracy_pct"`
+}
+
+// TeamPickStat represents player affinity and accuracy with a specific NFL franchise
+type TeamPickStat struct {
+	TeamID       int64   `json:"team_id"`
+	TeamCode     string  `json:"team_code"`
+	TeamName     string  `json:"team_name"`
+	TeamCity     string  `json:"team_city"`
+	LogoURL      string  `json:"logo_url"`
+	PrimaryColor string  `json:"primary_color"`
+	TotalPicks   int     `json:"total_picks"`
+	CorrectPicks int     `json:"correct_picks"`
+	AccuracyPct  float64 `json:"accuracy_pct"`
+}
+
+// UserAnalytics encapsulates deep performance indicators for a single player
+type UserAnalytics struct {
+	UserID                 int64           `json:"user_id"`
+	Username               string          `json:"username"`
+	DisplayName            string          `json:"display_name"`
+	AvatarURL              string          `json:"avatar_url"`
+	SeasonYear             int             `json:"season_year"`
+	TotalPicks             int             `json:"total_picks"`
+	TotalCorrect           int             `json:"total_correct"`
+	OverallAccuracy        float64         `json:"overall_accuracy"`
+	TalismanTeam           *TeamPickStat   `json:"talisman_team,omitempty"`
+	NemesisTeam            *TeamPickStat   `json:"nemesis_team,omitempty"`
+	TimeSlots              []TimeSlotStat  `json:"time_slots"`
+	FavoritePicks          int             `json:"favorite_picks"`
+	FavoriteCorrect        int             `json:"favorite_correct"`
+	FavoriteAccuracy       float64         `json:"favorite_accuracy"`
+	UnderdogPicks          int             `json:"underdog_picks"`
+	UnderdogCorrect        int             `json:"underdog_correct"`
+	UnderdogAccuracy       float64         `json:"underdog_accuracy"`
+	ContrarianPicks        int             `json:"contrarian_picks"`
+	ContrarianCorrect      int             `json:"contrarian_correct"`
+	ContrarianPointsEarned int             `json:"contrarian_points_earned"`
+	ContrarianRate         float64         `json:"contrarian_rate"`
+}
+
+// TeamATSRecord holds against-the-spread (ATS) and Over/Under trends for an NFL team
+type TeamATSRecord struct {
+	TeamID            int64   `json:"team_id"`
+	TeamCode          string  `json:"team_code"`
+	TeamName          string  `json:"team_name"`
+	TeamCity          string  `json:"team_city"`
+	LogoURL           string  `json:"logo_url"`
+	PrimaryColor      string  `json:"primary_color"`
+	Conference        string  `json:"conference"`
+	Division          string  `json:"division"`
+	TotalGames        int     `json:"total_games"`
+	ATSWins           int     `json:"ats_wins"`
+	ATSLosses         int     `json:"ats_losses"`
+	ATSPushes         int     `json:"ats_pushes"`
+	ATSPct            float64 `json:"ats_pct"`
+	HomeATSRecord     string  `json:"home_ats_record"`
+	AwayATSRecord     string  `json:"away_ats_record"`
+	FavoriteATSRecord string  `json:"favorite_ats_record"`
+	UnderdogATSRecord string  `json:"underdog_ats_record"`
+	OverCount         int     `json:"over_count"`
+	UnderCount        int     `json:"under_count"`
+	PushCount         int     `json:"push_count"`
+	OverPct           float64 `json:"over_pct"`
+}
+
+// MatchupIntel represents pre-game head-to-head intelligence for matchup cards
+type MatchupIntel struct {
+	GameID           int64              `json:"game_id"`
+	HomeTeam         *Team              `json:"home_team"`
+	AwayTeam         *Team              `json:"away_team"`
+	HomeStanding     *TeamStanding      `json:"home_standing"`
+	AwayStanding     *TeamStanding      `json:"away_standing"`
+	HomeATS          *TeamATSRecord     `json:"home_ats"`
+	AwayATS          *TeamATSRecord     `json:"away_ats"`
+	Forecast         *GameForecast      `json:"forecast"`
+	HeadToHeadRecent []*Game            `json:"head_to_head_recent"`
+	CommunityHomePct float64            `json:"community_home_pct"`
+	CommunityAwayPct float64            `json:"community_away_pct"`
+}
+
+
 
 

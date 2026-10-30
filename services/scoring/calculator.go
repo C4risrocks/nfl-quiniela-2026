@@ -17,11 +17,37 @@ func NewCalculator(repo *db.Repository) *Calculator {
 	return &Calculator{repo: repo}
 }
 
-// CalculatePickScores calculates points for a single pick on a finished game
-func (c *Calculator) CalculatePickScores(pick *db.Pick, game *db.Game, cfg *db.ScoringConfig) (pointsEarned int, bonusPoints int, isCorrect *bool) {
+// GetPlayoffMultiplier returns the point multiplier for the given week:
+// Weeks 1-18 (Regular Season): 1x
+// Week 19 (Wild Card): 1x
+// Week 20 (Divisional Round): 2x
+// Week 21 (Conference Championship): 3x
+// Week 22 (Super Bowl): 5x
+func GetPlayoffMultiplier(weekNumber int) int {
+	switch weekNumber {
+	case 20:
+		return 2
+	case 21:
+		return 3
+	case 22:
+		return 5
+	default:
+		return 1
+	}
+}
+
+// CalculatePickScores calculates points for a single pick on a finished game,
+// applying progressive playoff multipliers if weekNumberOpt is specified.
+func (c *Calculator) CalculatePickScores(pick *db.Pick, game *db.Game, cfg *db.ScoringConfig, weekNumberOpt ...int) (pointsEarned int, bonusPoints int, isCorrect *bool) {
 	if game.Status != "final" || game.HomeScore == nil || game.AwayScore == nil {
 		return 0, 0, nil
 	}
+
+	weekNum := 1
+	if len(weekNumberOpt) > 0 {
+		weekNum = weekNumberOpt[0]
+	}
+	mult := GetPlayoffMultiplier(weekNum)
 
 	actualHome := *game.HomeScore
 	actualAway := *game.AwayScore
@@ -31,7 +57,7 @@ func (c *Calculator) CalculatePickScores(pick *db.Pick, game *db.Game, cfg *db.S
 	var winnerCorrect bool
 	if winningTeamID != nil && pick.PickedTeamID != nil && *pick.PickedTeamID == *winningTeamID {
 		winnerCorrect = true
-		pointsEarned = cfg.WinnerPoints
+		pointsEarned = cfg.WinnerPoints * mult
 	} else {
 		winnerCorrect = false
 		pointsEarned = 0
@@ -46,14 +72,14 @@ func (c *Calculator) CalculatePickScores(pick *db.Pick, game *db.Game, cfg *db.S
 
 		// Exact score bonus
 		if predHome == actualHome && predAway == actualAway {
-			bonusPoints += cfg.ExactScoreBonus
+			bonusPoints += cfg.ExactScoreBonus * mult
 		}
 
 		// Exact margin of victory bonus
 		actualDiff := actualHome - actualAway
 		predDiff := predHome - predAway
 		if actualDiff == predDiff {
-			bonusPoints += cfg.ExactMarginBonus
+			bonusPoints += cfg.ExactMarginBonus * mult
 		}
 	}
 
@@ -65,6 +91,12 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 	cfg, err := c.repo.GetScoringConfig()
 	if err != nil {
 		return fmt.Errorf("loading scoring config: %w", err)
+	}
+
+	week, _ := c.repo.GetWeekByID(weekID)
+	weekNum := 1
+	if week != nil {
+		weekNum = week.WeekNumber
 	}
 
 	games, err := c.repo.ListGamesByWeek(weekID)
@@ -94,7 +126,7 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 			continue
 		}
 
-		pts, bonus, isCorrect := c.CalculatePickScores(p, game, cfg)
+		pts, bonus, isCorrect := c.CalculatePickScores(p, game, cfg, weekNum)
 		if err := c.repo.UpdatePickPoints(p.ID, pts, bonus, isCorrect); err != nil {
 			log.Printf("[Scoring] Error updating pick #%d points: %v", p.ID, err)
 		}
@@ -265,8 +297,10 @@ func (c *Calculator) CalculateWeekScores(weekID int64) error {
 	}
 
 	// Evaluate gamification achievements
-	week, err := c.repo.GetWeekByID(weekID)
-	if err != nil {
+	if week == nil {
+		week, err = c.repo.GetWeekByID(weekID)
+	}
+	if week == nil {
 		log.Printf("[Scoring] Warning: could not load week #%d for achievements: %v", weekID, err)
 	} else {
 		c.evaluateAchievements(week, games, leaderboardEntries, userPicks)

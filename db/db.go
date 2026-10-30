@@ -426,6 +426,29 @@ func (d *DB) migrate() error {
 	}
 	_, _ = d.Exec(`CREATE INDEX IF NOT EXISTS idx_push_user_id ON push_subscriptions(user_id)`)
 
+	// Create user_playoff_brackets table if not exists
+	createBracketsTable := `
+	CREATE TABLE IF NOT EXISTS user_playoff_brackets (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		season_year INTEGER NOT NULL,
+		wild_card_picks TEXT NOT NULL DEFAULT '{}',
+		divisional_picks TEXT NOT NULL DEFAULT '{}',
+		conference_picks TEXT NOT NULL DEFAULT '{}',
+		super_bowl_pick TEXT NOT NULL DEFAULT '{}',
+		tiebreaker_points INTEGER DEFAULT 0,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(user_id, season_year)
+	);`
+	if d.DriverName == "pgx" {
+		createBracketsTable = strings.ReplaceAll(createBracketsTable, "INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+	}
+	if _, err := d.Exec(createBracketsTable); err != nil {
+		log.Printf("[DB] Warning creating user_playoff_brackets table: %v", err)
+	}
+	_, _ = d.Exec(`CREATE INDEX IF NOT EXISTS idx_user_brackets_user_season ON user_playoff_brackets(user_id, season_year)`)
+
 	return nil
 }
 

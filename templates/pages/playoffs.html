@@ -1,0 +1,59 @@
+{{template "base.html" .}}
+
+{{define "title"}}🏆 Cuadro de Playoffs & Bracket Interactivo - NFL Quiniela 2026{{end}}
+
+{{define "meta_description"}}Simulador interactivo del cuadro de postemporada de la NFL 2026. Pronostica desde la ronda de Comodines hasta el Super Bowl LXI con reglas de re-seeding oficiales.{{end}}
+
+{{define "og_title"}}🏆 Bracket Interactivo de Playoffs NFL 2026 | Quiniela{{end}}
+{{define "og_description"}}Pronostica los 14 equipos de postemporada, simula las llaves eliminatorias con re-seeding oficial de la NFL y corona a tu campeón de Super Bowl.{{end}}
+
+{{define "content"}}
+<div class="space-y-6">
+
+    <!-- Hero Header & Controls -->
+    <div class="vercel-card p-5 sm:p-6 rounded-2xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-950 to-amber-950/20 shadow-sm">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+            <div>
+                <div class="flex items-center space-x-2 mb-2">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                        <i class="fa-solid fa-trophy mr-1.5 text-amber-400"></i> NFL Postseason Bracket
+                    </span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-zinc-800 text-zinc-300 border border-zinc-700/60">
+                        14 Equipos · Semanas 19 a 22
+                    </span>
+                    {{if .BracketData.IsPostseason}}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 animate-pulse">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"></span> Postemporada Activa
+                    </span>
+                    {{else}}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800">
+                        Proyección basada en Semana {{.BracketData.ActiveWeekNum}}
+                    </span>
+                    {{end}}
+                </div>
+                <h1 class="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center">
+                    <i class="fa-solid fa-diagram-project mr-2.5 text-amber-400"></i> Cuadro Eliminatorio & Bracket Challenge
+                </h1>
+                <p class="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
+                    Visualiza y simula las rondas de Wild Card, Divisional, Campeonatos de Conferencia y el Super Bowl LXI. El simulador aplica automáticamente el criterio oficial de <strong>re-seeding de la NFL</strong> (el sembrado sobreviviente más bajo siempre visita al sembrado #1).
+                </p>
+            </div>
+
+            <!-- Rules & Points Multiplier Info Badge -->
+            <div class="flex flex-wrap items-center gap-2 bg-zinc-900/90 p-3 rounded-xl border border-zinc-800 text-[11px] font-mono shrink-0">
+                <span class="text-zinc-500 uppercase">Puntos Quiniela:</span>
+                <span class="px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700" title="Wild Card">WC: 1x</span>
+                <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 font-bold" title="Ronda Divisional">DIV: 2x</span>
+                <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold" title="Finales de Conferencia">CONF: 3x</span>
+                <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold" title="Super Bowl">SB: 5x</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bracket Interactive Container -->
+    <div id="playoffs-bracket-container">
+        {{template "playoffs_bracket.html" .}}
+    </div>
+
+</div>
+{{end}}
