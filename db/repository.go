@@ -5530,20 +5530,308 @@ func (r *Repository) GetMatchupIntel(gameID int64) (*MatchupIntel, error) {
 		awayCommunityPct = math.Round((float64(awayPickCnt)/float64(totalPickCnt))*1000) / 10
 	}
 
-	return &MatchupIntel{
-		GameID:           game.ID,
-		HomeTeam:         game.HomeTeam,
-		AwayTeam:         game.AwayTeam,
-		HomeStanding:     homeStanding,
-		AwayStanding:     awayStanding,
-		HomeATS:          homeATS,
-		AwayATS:          awayATS,
-		Forecast:         forecast,
-		HeadToHeadRecent: recentGames,
-		CommunityHomePct: homeCommunityPct,
-		CommunityAwayPct: awayCommunityPct,
-	}, nil
+	homeInjuries, _ := r.GetTeamInjuries(game.HomeTeam.Code)
+	awayInjuries, _ := r.GetTeamInjuries(game.AwayTeam.Code)
+
+	var keyHomeInjuries, keyAwayInjuries []*TeamInjury
+	for _, inj := range homeInjuries {
+		if inj.Status == "Out" || inj.Status == "Doubtful" || inj.Status == "Questionable" || inj.Status == "Injured Reserve" {
+			keyHomeInjuries = append(keyHomeInjuries, inj)
+			if len(keyHomeInjuries) >= 5 {
+				break
+			}
+		}
+	}
+	for _, inj := range awayInjuries {
+		if inj.Status == "Out" || inj.Status == "Doubtful" || inj.Status == "Questionable" || inj.Status == "Injured Reserve" {
+			keyAwayInjuries = append(keyAwayInjuries, inj)
+			if len(keyAwayInjuries) >= 5 {
+				break
+			}
+		}
+	}
+
+	return r.assembleMatchupIntel(
+		game,
+		homeStanding,
+		awayStanding,
+		homeATS,
+		awayATS,
+		forecast,
+		recentGames,
+		homeCommunityPct,
+		awayCommunityPct,
+		keyHomeInjuries,
+		keyAwayInjuries,
+	), nil
 }
+
+// GetWeekMatchupIntel batch-loads and constructs MatchupIntel for every game in a week
+func (r *Repository) GetWeekMatchupIntel(weekID int64, seasonYear int) (map[int64]*MatchupIntel, error) {
+	games, err := r.ListGamesByWeek(weekID)
+	if err != nil {
+		return nil, fmt.Errorf("listing games for week %d: %w", weekID, err)
+	}
+	if len(games) == 0 {
+		return make(map[int64]*MatchupIntel), nil
+	}
+
+	// 1. Season Standings (All 32 teams)
+	standings, _ := r.GetSeasonStandings(seasonYear)
+	standingsMap := make(map[string]*TeamStanding)
+	if standings != nil {
+		for _, s := range standings.League {
+			standingsMap[s.TeamCode] = s
+		}
+	}
+
+	// 2. ATS Trends (All 32 teams)
+	atsTrends, _ := r.GetTeamATSTrends(seasonYear)
+	atsMap := make(map[string]*TeamATSRecord)
+	for _, ats := range atsTrends {
+		atsMap[ats.TeamCode] = ats
+	}
+
+	// 3. AI Forecasts for the week
+	forecasts, _ := r.GetWeekForecasts(weekID)
+
+	// 4. Community picks stats for the week
+	communityStats, _ := r.GetWeekCommunityStats(weekID)
+
+	// 5. Injuries across league
+	allInjuries, _ := r.GetAllInjuries()
+	injuriesByTeam := make(map[string][]*TeamInjury)
+	for _, inj := range allInjuries {
+		if inj.Status == "Out" || inj.Status == "Doubtful" || inj.Status == "Questionable" || inj.Status == "Injured Reserve" {
+			if len(injuriesByTeam[inj.TeamCode]) < 5 {
+				injuriesByTeam[inj.TeamCode] = append(injuriesByTeam[inj.TeamCode], inj)
+			}
+		}
+	}
+
+	// 6. Recent H2H encounters between teams in this week
+	teams, _ := r.ListTeams()
+	teamMap := make(map[int64]*Team, len(teams))
+	for _, t := range teams {
+		teamMap[t.ID] = t
+	}
+
+	h2hQuery := `
+	SELECT id, week_id, espn_game_id, home_team_id, away_team_id, kickoff_time,
+	       home_score, away_score, status, status_detail, broadcast, situation,
+	       linescores, stats_json, is_tiebreaker, is_locked, created_at
+	FROM games
+	WHERE status = 'final'
+	ORDER BY kickoff_time DESC
+	LIMIT 300`
+
+	recentGamesByPair := make(map[string][]*Game)
+	if hRows, err := r.db.Query(h2hQuery); err == nil {
+		defer hRows.Close()
+		for hRows.Next() {
+			var g Game
+			var hScore, aScore *int
+			var linescores, statsJSON sql.NullString
+			var createdStr string
+			if err := hRows.Scan(
+				&g.ID, &g.WeekID, &g.ESPNGameID, &g.HomeTeamID, &g.AwayTeamID, &g.KickoffTime,
+				&hScore, &aScore, &g.Status, &g.StatusDetail, &g.Broadcast, &g.Situation,
+				&linescores, &statsJSON, &g.IsTiebreaker, &g.IsLocked, &createdStr,
+			); err == nil {
+				g.HomeScore = hScore
+				g.AwayScore = aScore
+				g.HomeTeam = teamMap[g.HomeTeamID]
+				g.AwayTeam = teamMap[g.AwayTeamID]
+
+				pairKey1 := fmt.Sprintf("%d_%d", g.HomeTeamID, g.AwayTeamID)
+				pairKey2 := fmt.Sprintf("%d_%d", g.AwayTeamID, g.HomeTeamID)
+
+				if len(recentGamesByPair[pairKey1]) < 5 {
+					recentGamesByPair[pairKey1] = append(recentGamesByPair[pairKey1], &g)
+				}
+				if len(recentGamesByPair[pairKey2]) < 5 {
+					recentGamesByPair[pairKey2] = append(recentGamesByPair[pairKey2], &g)
+				}
+			}
+		}
+	}
+
+	result := make(map[int64]*MatchupIntel, len(games))
+	for _, g := range games {
+		if g.HomeTeam == nil || g.AwayTeam == nil {
+			continue
+		}
+
+		homeStanding := standingsMap[g.HomeTeam.Code]
+		awayStanding := standingsMap[g.AwayTeam.Code]
+		homeATS := atsMap[g.HomeTeam.Code]
+		awayATS := atsMap[g.AwayTeam.Code]
+
+		var fcast *GameForecast
+		if forecasts != nil {
+			fcast = forecasts[g.ID]
+		}
+
+		homeCommPct, awayCommPct := 50.0, 50.0
+		if communityStats != nil {
+			if cs, ok := communityStats[g.ID]; ok && cs != nil && cs.TotalPicks > 0 {
+				homeCommPct = math.Round((float64(cs.HomePicksCount)/float64(cs.TotalPicks))*1000) / 10
+				awayCommPct = math.Round((float64(cs.AwayPicksCount)/float64(cs.TotalPicks))*1000) / 10
+			}
+		}
+
+		pairKey := fmt.Sprintf("%d_%d", g.HomeTeamID, g.AwayTeamID)
+		h2hGames := recentGamesByPair[pairKey]
+
+		intel := r.assembleMatchupIntel(
+			g,
+			homeStanding,
+			awayStanding,
+			homeATS,
+			awayATS,
+			fcast,
+			h2hGames,
+			homeCommPct,
+			awayCommPct,
+			injuriesByTeam[g.HomeTeam.Code],
+			injuriesByTeam[g.AwayTeam.Code],
+		)
+		result[g.ID] = intel
+	}
+
+	return result, nil
+}
+
+func (r *Repository) assembleMatchupIntel(
+	game *Game,
+	homeStanding, awayStanding *TeamStanding,
+	homeATS, awayATS *TeamATSRecord,
+	forecast *GameForecast,
+	recentGames []*Game,
+	homeCommPct, awayCommPct float64,
+	homeInjuries, awayInjuries []*TeamInjury,
+) *MatchupIntel {
+	h2hHomeWins, h2hAwayWins, h2hTies := 0, 0, 0
+	for _, h2h := range recentGames {
+		if h2h.HomeScore != nil && h2h.AwayScore != nil {
+			if *h2h.HomeScore == *h2h.AwayScore {
+				h2hTies++
+			} else {
+				var winnerID int64
+				if *h2h.HomeScore > *h2h.AwayScore {
+					winnerID = h2h.HomeTeamID
+				} else {
+					winnerID = h2h.AwayTeamID
+				}
+				if winnerID == game.HomeTeamID {
+					h2hHomeWins++
+				} else if winnerID == game.AwayTeamID {
+					h2hAwayWins++
+				}
+			}
+		}
+	}
+
+	var h2hSummary string
+	if len(recentGames) == 0 {
+		h2hSummary = "Sin duelos recientes registrados"
+	} else if h2hAwayWins > h2hHomeWins {
+		h2hSummary = fmt.Sprintf("%s lidera %d-%d en últimos %d", game.AwayTeam.Code, h2hAwayWins, h2hHomeWins, len(recentGames))
+	} else if h2hHomeWins > h2hAwayWins {
+		h2hSummary = fmt.Sprintf("%s lidera %d-%d en últimos %d", game.HomeTeam.Code, h2hHomeWins, h2hAwayWins, len(recentGames))
+	} else {
+		h2hSummary = fmt.Sprintf("Serie empatada %d-%d en últimos %d", h2hAwayWins, h2hHomeWins, len(recentGames))
+	}
+
+	homeWinProbPct, awayWinProbPct := 50, 50
+	specialistConsensusText := "Pick parejo (50/50)"
+	if forecast != nil {
+		if forecast.EloHomeProb > 0 || forecast.EloAwayProb > 0 {
+			homeWinProbPct = int(math.Round(forecast.EloHomeProb * 100))
+			awayWinProbPct = 100 - homeWinProbPct
+		}
+		if forecast.VegasSpread != nil && *forecast.VegasSpread != 0 {
+			spread := *forecast.VegasSpread
+			favCode := ""
+			if forecast.VegasFavoriteID != nil {
+				if *forecast.VegasFavoriteID == game.HomeTeamID {
+					favCode = game.HomeTeam.Code
+				} else if *forecast.VegasFavoriteID == game.AwayTeamID {
+					favCode = game.AwayTeam.Code
+				}
+			}
+			if favCode != "" {
+				specialistConsensusText = fmt.Sprintf("%s -%.1f pts", favCode, math.Abs(spread))
+			} else if spread < 0 {
+				specialistConsensusText = fmt.Sprintf("%s -%.1f pts", game.HomeTeam.Code, math.Abs(spread))
+			} else {
+				specialistConsensusText = fmt.Sprintf("%s -%.1f pts", game.AwayTeam.Code, spread)
+			}
+		} else if forecast.EloSpread != 0 {
+			if forecast.EloSpread < 0 {
+				specialistConsensusText = fmt.Sprintf("%s por %.1f pts (Elo)", game.HomeTeam.Code, math.Abs(forecast.EloSpread))
+			} else {
+				specialistConsensusText = fmt.Sprintf("%s por %.1f pts (Elo)", game.AwayTeam.Code, forecast.EloSpread)
+			}
+		}
+	}
+
+	var insights []string
+	if homeStanding != nil && awayStanding != nil {
+		if homeStanding.Streak != "" && strings.HasPrefix(homeStanding.Streak, "W") {
+			insights = append(insights, fmt.Sprintf("%s llega encendido con racha de %s.", game.HomeTeam.Name, homeStanding.Streak))
+		} else if awayStanding.Streak != "" && strings.HasPrefix(awayStanding.Streak, "W") {
+			insights = append(insights, fmt.Sprintf("%s llega encendido con racha de %s.", game.AwayTeam.Name, awayStanding.Streak))
+		}
+
+		if homeStanding.OffensivePPG > 0 && awayStanding.DefensivePPG > 0 {
+			if homeStanding.OffensivePPG > awayStanding.DefensivePPG+4.0 {
+				insights = append(insights, fmt.Sprintf("Ventaja ofensiva para %s (%.1f PPG anotados vs %.1f permitidos de %s).", game.HomeTeam.Code, homeStanding.OffensivePPG, awayStanding.DefensivePPG, game.AwayTeam.Code))
+			}
+		}
+		if homeStanding.HomeRecord != "" {
+			insights = append(insights, fmt.Sprintf("%s tiene récord de %s en casa.", game.HomeTeam.Code, homeStanding.HomeRecord))
+		}
+		if awayStanding.AwayRecord != "" {
+			insights = append(insights, fmt.Sprintf("%s tiene récord de %s de visita.", game.AwayTeam.Code, awayStanding.AwayRecord))
+		}
+	}
+
+	if homeATS != nil && homeATS.ATSPct >= 60.0 {
+		insights = append(insights, fmt.Sprintf("%s cubre el spread con alta efectividad (%.1f%% ATS).", game.HomeTeam.Code, homeATS.ATSPct))
+	} else if awayATS != nil && awayATS.ATSPct >= 60.0 {
+		insights = append(insights, fmt.Sprintf("%s cubre el spread con alta efectividad (%.1f%% ATS).", game.AwayTeam.Code, awayATS.ATSPct))
+	}
+
+	if len(recentGames) > 0 && h2hSummary != "" {
+		insights = append(insights, fmt.Sprintf("Cara a Cara: %s.", h2hSummary))
+	}
+
+	return &MatchupIntel{
+		GameID:                  game.ID,
+		HomeTeam:                game.HomeTeam,
+		AwayTeam:                game.AwayTeam,
+		HomeStanding:            homeStanding,
+		AwayStanding:            awayStanding,
+		HomeATS:                 homeATS,
+		AwayATS:                 awayATS,
+		Forecast:                forecast,
+		HeadToHeadRecent:        recentGames,
+		CommunityHomePct:        homeCommPct,
+		CommunityAwayPct:        awayCommPct,
+		H2HSummary:              h2hSummary,
+		H2HHomeWins:             h2hHomeWins,
+		H2HAwayWins:             h2hAwayWins,
+		H2HTies:                 h2hTies,
+		HomeInjuries:            homeInjuries,
+		AwayInjuries:            awayInjuries,
+		KeyInsights:             insights,
+		HomeWinProbPct:          homeWinProbPct,
+		AwayWinProbPct:          awayWinProbPct,
+		SpecialistConsensusText: specialistConsensusText,
+	}
+}
+
 
 
 

@@ -112,14 +112,19 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 
 	var weekCommunityStats map[int64]*db.GameCommunityStats
 	var weekForecasts map[int64]*db.GameForecast
+	var weekIntel map[int64]*db.MatchupIntel
 	if selectedWeek != nil {
 		weekCommunityStats, _ = h.repo.GetWeekCommunityStats(selectedWeek.ID)
 		weekForecasts, _ = h.repo.GetWeekForecasts(selectedWeek.ID)
+		weekIntel, _ = h.repo.GetWeekMatchupIntel(selectedWeek.ID, h.seasonYear)
 	}
 
 	for _, g := range games {
 		if weekForecasts != nil {
 			g.Forecast = weekForecasts[g.ID]
+		}
+		if weekIntel != nil {
+			g.Intel = weekIntel[g.ID]
 		}
 		if weekCommunityStats != nil {
 			if cs, exists := weekCommunityStats[g.ID]; exists && cs != nil {
@@ -302,6 +307,7 @@ func (h *PicksHandler) SavePick(w http.ResponseWriter, r *http.Request) {
 
 	pick.InferWinnerFromScores(game)
 	game.UserPick = pick
+	game.Intel, _ = h.repo.GetMatchupIntel(game.ID)
 
 	w.Header().Set("HX-Trigger", `{"show-toast": {"message": "¡Pronóstico guardado exitosamente!", "type": "success"}}`)
 
@@ -312,6 +318,9 @@ func (h *PicksHandler) SavePick(w http.ResponseWriter, r *http.Request) {
 		"FormattedKickoff": h.formatKickoff(game.KickoffTime),
 		"LockMode":         scoringCfg.LockMode,
 		"FirstKickoff":     firstKickoff,
+		"ScoringMode":      scoringCfg.ScoringMode,
+		"ScoringConfig":    scoringCfg,
+		"User":             user,
 	})
 }
 
@@ -387,6 +396,7 @@ func (h *PicksHandler) SaveScore(w http.ResponseWriter, r *http.Request) {
 
 	pick.InferWinnerFromScores(game)
 	game.UserPick = pick
+	game.Intel, _ = h.repo.GetMatchupIntel(game.ID)
 
 	w.Header().Set("HX-Trigger", `{"show-toast": {"message": "¡Marcador guardado exitosamente!", "type": "success"}}`)
 
@@ -396,6 +406,9 @@ func (h *PicksHandler) SaveScore(w http.ResponseWriter, r *http.Request) {
 		"FormattedKickoff": h.formatKickoff(game.KickoffTime),
 		"LockMode":         scoringCfg.LockMode,
 		"FirstKickoff":     firstKickoff,
+		"ScoringMode":      scoringCfg.ScoringMode,
+		"ScoringConfig":    scoringCfg,
+		"User":             user,
 	})
 }
 

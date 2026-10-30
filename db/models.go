@@ -208,6 +208,9 @@ type Game struct {
 
 	// AI forecast and odds consensus
 	Forecast *GameForecast `json:"forecast,omitempty"`
+
+	// Decision & Matchup Intelligence
+	Intel *MatchupIntel `json:"intel,omitempty"`
 }
 
 // LinescoreMatrix represents quarters breakdown for matchcast
@@ -2319,18 +2322,41 @@ type TeamATSRecord struct {
 
 // MatchupIntel represents pre-game head-to-head intelligence for matchup cards
 type MatchupIntel struct {
-	GameID           int64              `json:"game_id"`
-	HomeTeam         *Team              `json:"home_team"`
-	AwayTeam         *Team              `json:"away_team"`
-	HomeStanding     *TeamStanding      `json:"home_standing"`
-	AwayStanding     *TeamStanding      `json:"away_standing"`
-	HomeATS          *TeamATSRecord     `json:"home_ats"`
-	AwayATS          *TeamATSRecord     `json:"away_ats"`
-	Forecast         *GameForecast      `json:"forecast"`
-	HeadToHeadRecent []*Game            `json:"head_to_head_recent"`
-	CommunityHomePct float64            `json:"community_home_pct"`
-	CommunityAwayPct float64            `json:"community_away_pct"`
+	GameID                  int64          `json:"game_id"`
+	HomeTeam                *Team          `json:"home_team"`
+	AwayTeam                *Team          `json:"away_team"`
+	HomeStanding            *TeamStanding  `json:"home_standing"`
+	AwayStanding            *TeamStanding  `json:"away_standing"`
+	HomeATS                 *TeamATSRecord `json:"home_ats"`
+	AwayATS                 *TeamATSRecord `json:"away_ats"`
+	Forecast                *GameForecast  `json:"forecast"`
+	HeadToHeadRecent        []*Game        `json:"head_to_head_recent"`
+	CommunityHomePct        float64        `json:"community_home_pct"`
+	CommunityAwayPct        float64        `json:"community_away_pct"`
+	H2HSummary              string         `json:"h2h_summary"`
+	H2HHomeWins             int            `json:"h2h_home_wins"`
+	H2HAwayWins             int            `json:"h2h_away_wins"`
+	H2HTies                 int            `json:"h2h_ties"`
+	HomeInjuries            []*TeamInjury  `json:"home_injuries,omitempty"`
+	AwayInjuries            []*TeamInjury  `json:"away_injuries,omitempty"`
+	KeyInsights             []string       `json:"key_insights,omitempty"`
+	HomeWinProbPct          int            `json:"home_win_prob_pct"`
+	AwayWinProbPct          int            `json:"away_win_prob_pct"`
+	SpecialistConsensusText string         `json:"specialist_consensus_text"`
 }
+
+func (m *MatchupIntel) HasInjuries() bool {
+	return m != nil && (len(m.HomeInjuries) > 0 || len(m.AwayInjuries) > 0)
+}
+
+func (m *MatchupIntel) HasH2H() bool {
+	return m != nil && len(m.HeadToHeadRecent) > 0
+}
+
+func (g *Game) IntelAvailable() bool {
+	return g != nil && g.Intel != nil
+}
+
 
 
 
