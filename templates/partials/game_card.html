@@ -435,9 +435,9 @@
                             <span class="text-zinc-500 text-[10px]">{{.KickoffTime.Format "02/Jan/06"}}</span>
                             <span class="text-zinc-200">{{.AwayTeam.Code}} {{if .AwayScore}}{{.AwayScore}}{{end}} @ {{.HomeTeam.Code}} {{if .HomeScore}}{{.HomeScore}}{{end}}</span>
                             {{if and .HomeScore .AwayScore}}
-                                {{if gt .HomeScore .AwayScore}}
+                                {{if gt .HomeScoreVal .AwayScoreVal}}
                                     <span class="text-emerald-400 font-bold text-[10px]">Ganó {{.HomeTeam.Code}}</span>
-                                {{else if gt .AwayScore .HomeScore}}
+                                {{else if gt .AwayScoreVal .HomeScoreVal}}
                                     <span class="text-emerald-400 font-bold text-[10px]">Ganó {{.AwayTeam.Code}}</span>
                                 {{else}}
                                     <span class="text-zinc-400 text-[10px]">Empate</span>

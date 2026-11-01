@@ -54,6 +54,7 @@
                     </div>
 
                     <div class="flex items-center space-x-2 text-right shrink-0 ml-2">
+                        {{if .User}}
                         <div class="relative shrink-0">
                             {{if .User.AvatarURL}}
                                 <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-8 h-8 rounded-full object-cover border-2 shadow shrink-0" {{if .User.FavoriteTeam}}style="border-color: {{.User.FavoriteTeam.PrimaryColor}};"{{else}}style="border-color: #52525b;"{{end}} crossorigin="anonymous">
@@ -82,6 +83,12 @@
                                 {{.UserWeeklyPoints}} pts <span class="text-zinc-500 font-normal">({{.UserCorrectPicks}}/{{len .Games}})</span>
                             </div>
                         </div>
+                        {{else}}
+                        <div class="text-right">
+                            <div class="text-xs font-bold text-white leading-none mb-1">Quiniela NFL</div>
+                            <div class="text-[10px] font-mono text-amber-400 font-black leading-none">NFL Quiniela 2026</div>
+                        </div>
+                        {{end}}
                     </div>
                 </div>
 

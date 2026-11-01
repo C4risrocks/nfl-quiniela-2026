@@ -770,6 +770,10 @@ func (g *Game) AwayScoreVal() int {
 	return 0
 }
 
+func (g *Game) HasScores() bool {
+	return g != nil && g.HomeScore != nil && g.AwayScore != nil
+}
+
 func (g *Game) IsHomeLeading() bool {
 	if g != nil && g.HomeScore != nil && g.AwayScore != nil {
 		return *g.HomeScore > *g.AwayScore

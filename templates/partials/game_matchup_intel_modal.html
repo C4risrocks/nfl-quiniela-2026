@@ -388,9 +388,9 @@
                         </div>
                         <div>
                             {{if and .HomeScore .AwayScore}}
-                                {{if gt .HomeScore .AwayScore}}
+                                {{if gt .HomeScoreVal .AwayScoreVal}}
                                     <span class="text-[10px] font-mono font-bold text-emerald-400">Ganó {{.HomeTeam.Code}}</span>
-                                {{else if gt .AwayScore .HomeScore}}
+                                {{else if gt .AwayScoreVal .HomeScoreVal}}
                                     <span class="text-[10px] font-mono font-bold text-emerald-400">Ganó {{.AwayTeam.Code}}</span>
                                 {{else}}
                                     <span class="text-[10px] font-mono text-zinc-400">Empate</span>
