@@ -2053,7 +2053,8 @@
             {{range .Games}}
                 {{$p := .UserPick}}
                 {{$g := .}}
-                <div x-show="(activeFilter === 'all' || activeFilter === '{{$g.Status}}') && (activePlatform === 'all' || '{{range $b := $g.MexicoBroadcastOptions}}{{$b.Name}},{{end}}'.toLowerCase().includes(activePlatform))" 
+                <div id="game-{{$g.ID}}"
+                     x-show="(activeFilter === 'all' || activeFilter === '{{$g.Status}}') && (activePlatform === 'all' || '{{range $b := $g.MexicoBroadcastOptions}}{{$b.Name}},{{end}}'.toLowerCase().includes(activePlatform))" 
                      class="vercel-card rounded-2xl relative transition-all shadow-sm {{if eq $g.Status "in_progress"}}ring-1 ring-red-500/30 bg-gradient-to-b from-red-500/5 to-transparent{{else if eq $g.Status "final"}}border-zinc-800/80{{end}}"
                      :class="viewMode === 'compact' ? 'p-2.5 sm:p-3 !rounded-xl' : 'p-3.5 sm:p-4'">
                     
