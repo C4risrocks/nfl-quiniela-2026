@@ -11,6 +11,7 @@ import (
 	"nfl-quiniela-2026/db"
 	"nfl-quiniela-2026/services/auth"
 	"nfl-quiniela-2026/services/espn"
+	"nfl-quiniela-2026/services/scoring"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -81,30 +82,32 @@ type WhatIfPayload struct {
 	Users         []WhatIfUser     `json:"users"`
 	CurrentUserID int64            `json:"current_user_id"`
 	SeasonInfo    WhatIfSeasonInfo `json:"season_info"`
+	PointsPerWin  int              `json:"points_per_win"`
 }
 
 type LiveViewData struct {
-	ActiveNav           string
-	User                *db.User
-	Season              *db.Season
-	Weeks               []*db.Week
-	SelectedWeek        *db.Week
-	ActiveWeek          *db.Week
-	Games               []*db.Game
-	FeaturedGame        *db.Game
-	FeaturedGameLocked  bool
-	FeaturedStats       *db.GameCommunityStats
-	FeaturedPicks       []*db.Pick
-	FeaturedSummary     *db.GameDetailedSummary
-	LiveGamesCount      int
-	FinalGamesCount     int
-	UpcomingGamesCount  int
-	UserConfirmedPoints int
-	UserProvisionalPts  int
-	CurrentTime         time.Time
-	LockMode            string
-	WhatIfJSON          template.JS
-	FeatureFlags        map[string]*db.FeatureFlag
+	ActiveNav             string
+	User                  *db.User
+	Season                *db.Season
+	Weeks                 []*db.Week
+	SelectedWeek          *db.Week
+	ActiveWeek            *db.Week
+	Games                 []*db.Game
+	FeaturedGame          *db.Game
+	FeaturedGameLocked    bool
+	FeaturedStats         *db.GameCommunityStats
+	FeaturedPicks         []*db.Pick
+	FeaturedSummary       *db.GameDetailedSummary
+	LiveGamesCount        int
+	FinalGamesCount       int
+	UpcomingGamesCount    int
+	UserConfirmedPoints   int
+	UserProvisionalPts    int
+	UserLeadingGamesCount int
+	CurrentTime           time.Time
+	LockMode              string
+	WhatIfJSON            template.JS
+	FeatureFlags          map[string]*db.FeatureFlag
 }
 
 func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
@@ -172,7 +175,28 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 	}
 
 	var liveCount, finalCount, upcomingCount int
-	var confirmedPoints, provisionalPoints int
+	var confirmedPoints, provisionalPoints, leadingGamesCount int
+
+	winnerPts := 10
+	exactBonus := 0
+	marginBonus := 0
+	scoringMode := "weighted"
+	if scoringCfg != nil {
+		if scoringCfg.WinnerPoints > 0 {
+			winnerPts = scoringCfg.WinnerPoints
+		}
+		exactBonus = scoringCfg.ExactScoreBonus
+		marginBonus = scoringCfg.ExactMarginBonus
+		if scoringCfg.ScoringMode != "" {
+			scoringMode = scoringCfg.ScoringMode
+		}
+	}
+
+	weekNum := 1
+	if selectedWeek != nil {
+		weekNum = selectedWeek.WeekNumber
+	}
+	mult := scoring.GetPlayoffMultiplier(weekNum)
 
 	var weekCommunityStats map[int64]*db.GameCommunityStats
 	var weekForecasts map[int64]*db.GameForecast
@@ -203,7 +227,16 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 		case "in_progress":
 			liveCount++
 			if g.UserPick != nil && g.UserPick.IsProvisionalWinner(g) {
-				provisionalPoints++
+				leadingGamesCount++
+				provisionalPoints += winnerPts * mult
+				if scoringMode == "weighted" && g.UserPick.PredictedHomeScore != nil && g.UserPick.PredictedAwayScore != nil && g.HomeScore != nil && g.AwayScore != nil {
+					if *g.UserPick.PredictedHomeScore == *g.HomeScore && *g.UserPick.PredictedAwayScore == *g.AwayScore {
+						provisionalPoints += exactBonus * mult
+					}
+					if (*g.UserPick.PredictedHomeScore - *g.UserPick.PredictedAwayScore) == (*g.HomeScore - *g.AwayScore) {
+						provisionalPoints += marginBonus * mult
+					}
+				}
 			}
 		case "final":
 			finalCount++
@@ -479,6 +512,7 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 			IsSeasonActive:       true,
 		}
 
+		ptsPerWin := winnerPts * mult
 		for _, up := range allUserPicks {
 			userSeen[up.UserID] = true
 			isCurrent := up.UserID == currentUserID
@@ -488,11 +522,11 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 
 			for gID, pickedTeamID := range up.Picks {
 				if winTeam, ok := gameFinalWinnerMap[gID]; ok && winTeam == pickedTeamID {
-					basePts++
-					currentPts++
+					basePts += ptsPerWin
+					currentPts += ptsPerWin
 				}
 				if leadTeam, ok := gameLiveLeaderMap[gID]; ok && leadTeam == pickedTeamID {
-					currentPts++
+					currentPts += ptsPerWin
 				}
 				if gameLockedMap[gID] || isCurrent {
 					filteredPicks[gID] = pickedTeamID
@@ -552,6 +586,7 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 		Users:         whatIfUsers,
 		CurrentUserID: currentUserID,
 		SeasonInfo:    seasonInfo,
+		PointsPerWin:  winnerPts * mult,
 	}
 
 	var whatIfJSON template.JS
@@ -562,27 +597,28 @@ func (h *LiveHandler) buildLiveData(r *http.Request) (*LiveViewData, error) {
 	featureFlags, _ := h.repo.GetFeatureFlagsMap()
 
 	return &LiveViewData{
-		ActiveNav:           "live",
-		User:                currentUser,
-		Season:              season,
-		Weeks:               weeks,
-		SelectedWeek:        selectedWeek,
-		ActiveWeek:          activeWeek,
-		Games:               games,
-		FeaturedGame:        featuredGame,
-		FeaturedGameLocked:  featuredGameLocked,
-		FeaturedStats:       featuredStats,
-		FeaturedPicks:       featuredPicks,
-		FeaturedSummary:     featuredSummary,
-		LiveGamesCount:      liveCount,
-		FinalGamesCount:     finalCount,
-		UpcomingGamesCount:  upcomingCount,
-		UserConfirmedPoints: confirmedPoints,
-		UserProvisionalPts:  provisionalPoints,
-		CurrentTime:         now,
-		LockMode:            lockMode,
-		WhatIfJSON:          whatIfJSON,
-		FeatureFlags:        featureFlags,
+		ActiveNav:             "live",
+		User:                  currentUser,
+		Season:                season,
+		Weeks:                 weeks,
+		SelectedWeek:          selectedWeek,
+		ActiveWeek:            activeWeek,
+		Games:                 games,
+		FeaturedGame:          featuredGame,
+		FeaturedGameLocked:    featuredGameLocked,
+		FeaturedStats:         featuredStats,
+		FeaturedPicks:         featuredPicks,
+		FeaturedSummary:       featuredSummary,
+		LiveGamesCount:        liveCount,
+		FinalGamesCount:       finalCount,
+		UpcomingGamesCount:    upcomingCount,
+		UserConfirmedPoints:   confirmedPoints,
+		UserProvisionalPts:    provisionalPoints,
+		UserLeadingGamesCount: leadingGamesCount,
+		CurrentTime:           now,
+		LockMode:              lockMode,
+		WhatIfJSON:            whatIfJSON,
+		FeatureFlags:          featureFlags,
 	}, nil
 }
 
