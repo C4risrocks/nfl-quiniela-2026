@@ -358,7 +358,7 @@
                         </div>
                         <div>
                             <div class="text-[10px] text-purple-400 uppercase tracking-wider font-semibold">+ Simulados</div>
-                            <div class="text-xs sm:text-base font-black text-purple-300" x-text="'+' + spotlightUserSim.sim_hits + ' pts'"></div>
+                            <div class="text-xs sm:text-base font-black text-purple-300" x-text="'+' + (spotlightUserSim.sim_hits_points ?? (spotlightUserSim.sim_hits * (pointsPerWin || 10))) + ' pts'"></div>
                         </div>
                         <div class="pl-2 border-l border-zinc-800">
                             <div class="text-[10px] text-amber-400 uppercase tracking-wider font-bold" x-text="scope === 'season' ? 'Total Año' : 'Proyectado'"></div>
@@ -590,7 +590,7 @@
                             <span class="text-zinc-300" x-text="scope === 'season' ? u.week_sim_points : u.base_points"></span>
                         </div>
                         <div class="text-[10px] text-purple-400">
-                            +<span x-text="u.sim_hits"></span>
+                            +<span x-text="u.sim_hits_points ?? (u.sim_hits * (pointsPerWin || 10))"></span>
                         </div>
                         <div class="text-sm font-black text-white pl-2 border-l border-zinc-800" x-text="u.sim_points + ' pts'">
                         </div>
@@ -1095,6 +1095,7 @@ function whatIfSimulator() {
         games: [],
         users: [],
         currentUserId: 0,
+        pointsPerWin: 10,
         get whatIfModalOpen() {
             return this.isOpen;
         },
@@ -1137,6 +1138,7 @@ function whatIfSimulator() {
                         this.games = data.games || [];
                         this.users = data.users || [];
                         this.currentUserId = data.current_user_id || 0;
+                        this.pointsPerWin = data.points_per_win || 10;
                         if (data.season_info) {
                             this.seasonInfo = Object.assign(this.seasonInfo, data.season_info);
                         }
@@ -1787,13 +1789,15 @@ function whatIfSimulator() {
             const isSeason = (this.scope === 'season');
             const winOddsMap = this.getWinOddsMap();
 
+            const ptsPerWin = this.pointsPerWin || 10;
+
             // Baseline ranking (final games + live current leader in in_progress)
             const baseRankings = this.users.map(u => {
                 let curPts = u.base_points;
                 (this.games || []).forEach(g => {
                     if (g.status === 'in_progress' && g.current_winner_id > 0) {
                         if (u.picks && u.picks[g.id] === g.current_winner_id) {
-                            curPts += 1;
+                            curPts += ptsPerWin;
                         }
                     }
                 });
@@ -1817,7 +1821,8 @@ function whatIfSimulator() {
                         }
                     }
                 });
-                const weekSimPts = u.base_points + simWeekHits;
+                const simHitsPoints = simWeekHits * ptsPerWin;
+                const weekSimPts = u.base_points + simHitsPoints;
                 const totalSimPts = isSeason ? ((u.season_prior_points || 0) + weekSimPts) : weekSimPts;
 
                 return {
@@ -1831,6 +1836,7 @@ function whatIfSimulator() {
                     week_sim_points: weekSimPts,
                     sim_points: totalSimPts,
                     sim_hits: simWeekHits,
+                    sim_hits_points: simHitsPoints,
                     win_prob: winOddsMap[u.user_id] || 0,
                     initial_rank: initialRankMap[u.user_id] || 99,
                     season_rank: u.season_rank || 99

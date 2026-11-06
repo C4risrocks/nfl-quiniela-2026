@@ -172,7 +172,11 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	missingPicksCount := 0
+	liveGamesCount := 0
 	for _, g := range games {
+		if g.Status == "in_progress" {
+			liveGamesCount++
+		}
 		isLocked := g.IsGameOrWeekLocked(now, scoringCfg.LockMode, firstKickoff)
 		if !isLocked && !g.HasPickCompleted() {
 			missingPicksCount++
@@ -203,6 +207,7 @@ func (h *PicksHandler) ShowPicks(w http.ResponseWriter, r *http.Request) {
 		"SelectedWeek":            selectedWeek,
 		"ActiveWeek":              activeWeek,
 		"Games":                   games,
+		"LiveGamesCount":          liveGamesCount,
 		"PicksCount":              picksCount,
 		"UserWeeklyPoints":        userWeeklyPts,
 		"UserCorrectPicks":        userCorrectPicks,

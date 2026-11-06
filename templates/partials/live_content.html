@@ -124,9 +124,9 @@
                     Liderando en Vivo
                 </div>
                 <div class="text-2xl font-bold font-mono text-white mt-1">
-                    +{{.UserProvisionalPts}} <span class="text-xs text-zinc-400 font-normal">provisionales</span>
+                    +{{.UserProvisionalPts}} <span class="text-xs text-zinc-400 font-normal">pts provisionales</span>
                 </div>
-                <div class="text-[10px] text-zinc-400 mt-0.5">{{.LiveGamesCount}} partidos activos</div>
+                <div class="text-[10px] text-zinc-400 mt-0.5">{{.UserLeadingGamesCount}} de {{.LiveGamesCount}} en juego</div>
             </div>
 
             <div class="vercel-card p-4 rounded-xl">
@@ -2054,7 +2054,8 @@
             {{range .Games}}
                 {{$p := .UserPick}}
                 {{$g := .}}
-                <div x-show="(activeFilter === 'all' || activeFilter === '{{$g.Status}}') && (activePlatform === 'all' || '{{range $b := $g.MexicoBroadcastOptions}}{{$b.Name}},{{end}}'.toLowerCase().includes(activePlatform))" 
+                <div id="game-{{$g.ID}}"
+                     x-show="(activeFilter === 'all' || activeFilter === '{{$g.Status}}') && (activePlatform === 'all' || '{{range $b := $g.MexicoBroadcastOptions}}{{$b.Name}},{{end}}'.toLowerCase().includes(activePlatform))" 
                      class="vercel-card rounded-2xl relative transition-all shadow-sm {{if eq $g.Status "in_progress"}}ring-1 ring-red-500/30 bg-gradient-to-b from-red-500/5 to-transparent{{else if eq $g.Status "final"}}border-zinc-800/80{{end}}"
                      :class="viewMode === 'compact' ? 'p-2.5 sm:p-3 !rounded-xl' : 'p-3.5 sm:p-4'">
                     

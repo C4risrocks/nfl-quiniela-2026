@@ -110,11 +110,17 @@
          :class="typeof viewMode !== 'undefined' && viewMode === 'compact' ? '!pb-2 !mb-2' : 'pb-3 mb-3'">
         <div class="flex items-center space-x-2">
             {{if eq .Game.Status "in_progress"}}
-                <span class="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 text-[11px] font-medium animate-pulse">
-                    <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                <a href="/live?week={{.Game.WeekNumber}}&game_id={{.Game.ID}}"
+                   title="Ver partido en directo en el Game Center en Vivo"
+                   class="group inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/25 hover:border-red-400/60 text-[11px] font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-sm hover:shadow-red-500/20">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
                     <span>EN VIVO</span>
-                    {{if .Game.StatusDetail}}<span class="text-red-300 ml-1 font-mono">({{.Game.StatusDetail}})</span>{{end}}
-                </span>
+                    {{if .Game.StatusDetail}}<span class="text-red-300 font-mono">({{.Game.StatusDetail}})</span>{{end}}
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[9px] text-red-400/70 group-hover:text-red-300 transition-colors ml-0.5"></i>
+                </a>
             {{else if eq .Game.Status "final"}}
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-800 text-[11px] font-medium">
                     FINAL {{if .Game.StatusDetail}}• {{.Game.StatusDetail}}{{end}}
@@ -643,7 +649,9 @@
 
     <!-- Game Live In-Progress Status Banner -->
     {{if and (eq .Game.Status "in_progress") $locked}}
-        <div class="mt-3 pt-2 flex items-center justify-between text-xs px-3 py-2 rounded-xl {{if and $pick ($pick.IsProvisionalWinner .Game)}}bg-emerald-950/20 border border-emerald-500/30 text-emerald-300{{else if and $pick ($pick.IsProvisionalLoser .Game)}}bg-amber-950/20 border border-amber-500/30 text-amber-300{{else}}bg-zinc-900/60 border border-zinc-800 text-zinc-400{{end}}">
+        <a href="/live?week={{.Game.WeekNumber}}&game_id={{.Game.ID}}"
+           title="Abrir Game Center en Vivo para este partido"
+           class="group mt-3 pt-2 flex items-center justify-between text-xs px-3 py-2 rounded-xl transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99] {{if and $pick ($pick.IsProvisionalWinner .Game)}}bg-emerald-950/20 hover:bg-emerald-950/40 border border-emerald-500/30 hover:border-emerald-500/50 text-emerald-300{{else if and $pick ($pick.IsProvisionalLoser .Game)}}bg-amber-950/20 hover:bg-amber-950/40 border border-amber-500/30 hover:border-amber-500/50 text-amber-300{{else}}bg-zinc-900/60 hover:bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 text-zinc-400{{end}}">
             <div class="flex items-center space-x-2">
                 <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
                 {{if and $pick ($pick.IsProvisionalWinner .Game)}}
@@ -660,10 +668,13 @@
                     <span class="text-zinc-500">Sin pronóstico registrado</span>
                 {{end}}
             </div>
-            <div class="font-mono font-bold text-xs text-zinc-300">
-                {{if and .Game.AwayScore .Game.HomeScore}}{{.Game.AwayScore}} - {{.Game.HomeScore}}{{end}}
+            <div class="flex items-center space-x-2">
+                <div class="font-mono font-bold text-xs text-zinc-200">
+                    {{if and .Game.AwayScore .Game.HomeScore}}{{.Game.AwayScore}} - {{.Game.HomeScore}}{{end}}
+                </div>
+                <i class="fa-solid fa-chevron-right text-[10px] text-zinc-500 group-hover:text-zinc-300 group-hover:translate-x-0.5 transition-all"></i>
             </div>
-        </div>
+        </a>
     {{end}}
 
     <!-- Game Final Points Banner -->
@@ -697,6 +708,15 @@
     <div x-data="{ openCommunity: false }" class="mt-2.5 pt-2 border-t border-[#1c1c1c] space-y-2">
         <div class="flex items-center justify-between gap-2">
             <div class="flex items-center space-x-1.5">
+                {{if eq .Game.Status "in_progress"}}
+                    <a href="/live?week={{.Game.WeekNumber}}&game_id={{.Game.ID}}"
+                       title="Abrir Game Center en Vivo para este partido"
+                       class="inline-flex items-center space-x-1.5 text-[11px] font-semibold py-1 px-2.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-white border border-red-500/30 hover:border-red-400 transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-sm">
+                        <i class="fa-solid fa-bolt text-red-400 text-xs animate-pulse"></i>
+                        <span>En Vivo</span>
+                    </a>
+                {{end}}
+
                 <!-- Game Stats Modal Button -->
                 <button type="button"
                         hx-get="/games/{{.Game.ID}}/stats"

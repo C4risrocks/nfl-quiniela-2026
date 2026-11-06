@@ -37,7 +37,7 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'picks-semana-{{.SelectedWeek.WeekNumber}}-{{.User.Username}}-' + this.format + '.png';
+                a.download = 'picks-semana-{{.SelectedWeek.WeekNumber}}-{{if .User}}{{.User.Username}}{{else}}usuario{{end}}-' + this.format + '.png';
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -138,6 +138,7 @@
                 <!-- Card Header -->
                 <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3 mb-3 relative z-10">
                     <div class="flex items-center space-x-2.5">
+                        {{if .User}}
                         <div class="relative shrink-0">
                             {{if .User.AvatarURL}}
                                 <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-9 h-9 rounded-full object-cover border-2 shadow shrink-0" {{if .User.FavoriteTeam}}style="border-color: {{.User.FavoriteTeam.PrimaryColor}};"{{else}}style="border-color: #52525b;"{{end}} crossorigin="anonymous">
@@ -164,6 +165,12 @@
                             </div>
                             <div class="text-[10px] font-mono text-zinc-400 uppercase tracking-wider leading-none">NFL Quiniela 2026</div>
                         </div>
+                        {{else}}
+                        <div>
+                            <div class="text-sm font-extrabold text-white tracking-tight leading-none mb-1">Quiniela NFL</div>
+                            <div class="text-[10px] font-mono text-zinc-400 uppercase tracking-wider leading-none">NFL Quiniela 2026</div>
+                        </div>
+                        {{end}}
                     </div>
 
                     <div class="flex flex-col items-end">
@@ -258,6 +265,7 @@
 
                     <div class="flex items-center justify-between mt-2 min-w-0">
                         <div class="flex items-center space-x-2 min-w-0">
+                            {{if .User}}
                             <div class="relative shrink-0">
                                 {{if .User.AvatarURL}}
                                     <img src="{{.User.AvatarURL}}" alt="{{.User.Username}}" class="w-8 h-8 rounded-full object-cover border-2 shadow shrink-0" {{if .User.FavoriteTeam}}style="border-color: {{.User.FavoriteTeam.PrimaryColor}};"{{else}}style="border-color: #52525b;"{{end}} crossorigin="anonymous">
@@ -281,6 +289,9 @@
                                     <span class="text-[9px] leading-none shrink-0" title="{{.User.FeaturedBadgeTitle}}">{{.User.FeaturedBadgeIcon}}</span>
                                 {{end}}
                             </div>
+                            {{else}}
+                            <span class="text-sm font-extrabold text-white truncate">Quiniela NFL</span>
+                            {{end}}
                         </div>
                         <span class="text-[10px] font-mono text-emerald-400 font-bold shrink-0 ml-2">{{.PicksCount}} / {{len .Games}} pronosticados</span>
                     </div>

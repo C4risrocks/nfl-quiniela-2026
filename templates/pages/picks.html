@@ -278,6 +278,18 @@
                 </select>
             </div>
             <div class="flex items-center overflow-x-auto no-scrollbar gap-1.5 py-1 -mx-2 px-2 sm:mx-0 sm:px-0 sm:flex-wrap min-w-0 max-w-full">
+                {{if gt .LiveGamesCount 0}}
+                <a href="/live?week={{.SelectedWeek.WeekNumber}}" 
+                    title="Hay {{.LiveGamesCount}} partidos en directo en esta jornada. Ir al Game Center en Vivo"
+                    class="inline-flex items-center px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 hover:border-red-400 text-red-200 hover:text-white font-semibold text-xs transition-all shadow-sm cursor-pointer shrink-0 animate-pulse hover:animate-none">
+                    <span class="relative flex h-2 w-2 mr-1.5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                    <span>{{.LiveGamesCount}} En Vivo</span>
+                    <i class="fa-solid fa-arrow-right text-[10px] ml-1.5 text-red-400"></i>
+                </a>
+                {{end}}
                 {{if gt .TotalUsersCount 0}}
                 <button type="button" 
                         hx-get="/picks/readiness?week_id={{.SelectedWeek.ID}}"
