@@ -417,10 +417,31 @@ func (s *Syncer) SyncWeek(weekNum int) (count int, err error) {
 
 	// Broadcast real-time SSE updates
 	if s.broker != nil && len(syncedGames) > 0 {
-		for _, g := range syncedGames {
-			s.broker.Broadcast(fmt.Sprintf("game-%d", g.ID), fmt.Sprintf(`{"game_id": %d, "status": "%s"}`, g.ID, g.Status))
+		type gameUpdateInfo struct {
+			ID           int64  `json:"id"`
+			Status       string `json:"status"`
+			StatusDetail string `json:"status_detail"`
+			HomeScore    int    `json:"home_score"`
+			AwayScore    int    `json:"away_score"`
 		}
-		s.broker.Broadcast("week-updated", fmt.Sprintf(`{"week_num": %d}`, weekNum))
+		gameUpdates := make([]gameUpdateInfo, len(syncedGames))
+		for i, g := range syncedGames {
+			homeSc := g.HomeScoreVal()
+			awaySc := g.AwayScoreVal()
+			gameUpdates[i] = gameUpdateInfo{
+				ID:           g.ID,
+				Status:       g.Status,
+				StatusDetail: g.StatusDetail,
+				HomeScore:    homeSc,
+				AwayScore:    awaySc,
+			}
+			s.broker.Broadcast(fmt.Sprintf("game-%d", g.ID), fmt.Sprintf(`{"game_id": %d, "status": "%s", "status_detail": "%s", "home_score": %d, "away_score": %d}`, g.ID, g.Status, g.StatusDetail, homeSc, awaySc))
+		}
+		weekPayload, _ := json.Marshal(map[string]interface{}{
+			"week_num": weekNum,
+			"games":    gameUpdates,
+		})
+		s.broker.Broadcast("week-updated", string(weekPayload))
 		s.broker.BroadcastLeaderboardUpdate()
 	}
 

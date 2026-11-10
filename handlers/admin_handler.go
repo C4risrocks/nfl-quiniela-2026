@@ -366,13 +366,31 @@ func (h *AdminHandler) SaveGameScore(w http.ResponseWriter, r *http.Request) {
 	// Recalculate leaderboard for this week
 	_ = h.calculator.CalculateWeekScores(game.WeekID)
 
-	if h.broker != nil {
-		h.broker.Broadcast(fmt.Sprintf("game-%d", gameID), fmt.Sprintf(`{"game_id": %d, "status": "%s"}`, gameID, status))
-		h.broker.Broadcast("week-updated", fmt.Sprintf(`{"week_id": %d}`, game.WeekID))
+	updatedGame, _ := h.repo.GetGameByID(gameID)
+
+	if h.broker != nil && updatedGame != nil {
+		h.broker.Broadcast(fmt.Sprintf("game-%d", gameID), fmt.Sprintf(`{"game_id": %d, "status": "%s", "status_detail": "%s", "home_score": %d, "away_score": %d}`, gameID, status, updatedGame.StatusDetail, updatedGame.HomeScoreVal(), updatedGame.AwayScoreVal()))
+		week, _ := h.repo.GetWeekByID(game.WeekID)
+		weekNum := 0
+		if week != nil {
+			weekNum = week.WeekNumber
+		}
+		weekPayload, _ := json.Marshal(map[string]interface{}{
+			"week_id":  game.WeekID,
+			"week_num": weekNum,
+			"games": []map[string]interface{}{
+				{
+					"id":            updatedGame.ID,
+					"status":        updatedGame.Status,
+					"status_detail": updatedGame.StatusDetail,
+					"home_score":    updatedGame.HomeScoreVal(),
+					"away_score":    updatedGame.AwayScoreVal(),
+				},
+			},
+		})
+		h.broker.Broadcast("week-updated", string(weekPayload))
 		h.broker.BroadcastLeaderboardUpdate()
 	}
-
-	updatedGame, _ := h.repo.GetGameByID(gameID)
 	w.Header().Set("HX-Trigger", `{"show-toast": {"message": "¡Marcador y estado actualizados!", "type": "success"}}`)
 	h.renderer.RenderPartial(w, h.gameTemplate(r), map[string]interface{}{
 		"Game":             updatedGame,

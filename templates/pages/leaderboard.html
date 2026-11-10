@@ -142,7 +142,7 @@
          hx-ext="sse"
          sse-connect="/events/live"
          hx-get="/leaderboard/table?mode={{.ViewMode}}&week={{.SelectedWeek.WeekNumber}}"
-         hx-trigger="sse:leaderboard-updated, every 60s"
+         hx-trigger="sse:leaderboard-updated, nfl-leaderboard-updated from:window, every 60s"
          hx-swap="innerHTML">
         {{template "leaderboard_table.html" (dict "Leaderboard" .Leaderboard "CurrentUser" .User "SelectedWeek" .SelectedWeek "ViewMode" .ViewMode)}}
     </div>

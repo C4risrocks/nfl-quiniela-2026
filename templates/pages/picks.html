@@ -699,6 +699,13 @@
             </div>
 
             <div id="games-grid" 
+                 {{if .IsFullWeekLocked}}
+                 hx-get="/picks?week={{.SelectedWeek.WeekNumber}}"
+                 hx-select="#games-grid"
+                 hx-target="#games-grid"
+                 hx-swap="outerHTML"
+                 hx-trigger="nfl-week-updated from:window [!window.__modalOpen], every 45s [!window.__modalOpen]"
+                 {{end}}
                  class="grid gap-3.5 transition-all pb-24 sm:pb-0"
                  :class="viewMode === 'compact' ? 'grid-cols-1 !gap-2 max-w-3xl mx-auto' : (viewMode === 'focus' ? 'grid-cols-1 max-w-2xl mx-auto' : 'grid-cols-1 lg:grid-cols-2')">
                 {{range $idx, $game := .Games}}
@@ -988,5 +995,20 @@ function updatePicksCounter() {
     }
 }
 document.addEventListener('DOMContentLoaded', updatePicksCounter);
+
+// Real-time live score and status updater for ongoing games
+window.addEventListener('nfl-week-updated', function(e) {
+    if (!e.detail || !e.detail.games || !Array.isArray(e.detail.games)) return;
+    e.detail.games.forEach(function(g) {
+        const awayEl = document.querySelector('[data-score-away="' + g.id + '"]');
+        if (awayEl) awayEl.textContent = g.away_score;
+        const homeEl = document.querySelector('[data-score-home="' + g.id + '"]');
+        if (homeEl) homeEl.textContent = g.home_score;
+        const detailEl = document.querySelector('[data-status-detail="' + g.id + '"]');
+        if (detailEl && g.status_detail) {
+            detailEl.textContent = (g.status === 'final' ? '• ' : '(') + g.status_detail + (g.status === 'final' ? '' : ')');
+        }
+    });
+});
 </script>
 {{end}}

@@ -116,12 +116,12 @@
                         <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
                     </span>
                     <span>EN VIVO</span>
-                    {{if .Game.StatusDetail}}<span class="text-red-300 font-mono">({{.Game.StatusDetail}})</span>{{end}}
+                    <span data-status-detail="{{.Game.ID}}" class="text-red-300 font-mono">{{if .Game.StatusDetail}}({{.Game.StatusDetail}}){{end}}</span>
                     <i class="fa-solid fa-arrow-up-right-from-square text-[9px] text-red-400/70 group-hover:text-red-300 transition-colors ml-0.5"></i>
                 </a>
             {{else if eq .Game.Status "final"}}
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-zinc-900 text-zinc-300 border border-zinc-800 text-[11px] font-medium">
-                    FINAL {{if .Game.StatusDetail}}• {{.Game.StatusDetail}}{{end}}
+                    FINAL <span data-status-detail="{{.Game.ID}}">{{if .Game.StatusDetail}}• {{.Game.StatusDetail}}{{end}}</span>
                 </span>
             {{else}}
                 <span class="text-zinc-400 font-mono text-[11px] flex items-center">
@@ -233,7 +233,7 @@
                 {{if or (eq .Game.Status "in_progress") (eq .Game.Status "final")}}
                     <div class="mt-2 pt-1.5 border-t border-zinc-800/80 flex items-center justify-between text-xs w-full">
                         <span class="text-zinc-500 font-medium">Marcador</span>
-                        <span class="font-mono font-bold text-sm text-white">{{if .Game.AwayScore}}{{.Game.AwayScore}}{{else}}0{{end}}</span>
+                        <span data-score-away="{{.Game.ID}}" class="font-mono font-bold text-sm text-white">{{if .Game.AwayScore}}{{.Game.AwayScore}}{{else}}0{{end}}</span>
                     </div>
                 {{end}}
             </button>
@@ -287,7 +287,7 @@
 
                 {{if or (eq .Game.Status "in_progress") (eq .Game.Status "final")}}
                     <div class="mt-2 pt-1.5 border-t border-zinc-800/80 flex items-center justify-between text-xs w-full">
-                        <span class="font-mono font-bold text-sm text-white">{{if .Game.HomeScore}}{{.Game.HomeScore}}{{else}}0{{end}}</span>
+                        <span data-score-home="{{.Game.ID}}" class="font-mono font-bold text-sm text-white">{{if .Game.HomeScore}}{{.Game.HomeScore}}{{else}}0{{end}}</span>
                         <span class="text-zinc-500 font-medium">Marcador</span>
                     </div>
                 {{end}}

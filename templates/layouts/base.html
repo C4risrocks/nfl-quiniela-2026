@@ -589,6 +589,24 @@
                         console.debug('Failed to parse live alert:', err);
                     }
                 });
+
+                liveSource.addEventListener('week-updated', (e) => {
+                    try {
+                        const data = e.data ? JSON.parse(e.data) : {};
+                        window.dispatchEvent(new CustomEvent('nfl-week-updated', { detail: data }));
+                    } catch(err) {
+                        window.dispatchEvent(new CustomEvent('nfl-week-updated', { detail: {} }));
+                    }
+                });
+
+                liveSource.addEventListener('leaderboard-updated', (e) => {
+                    try {
+                        const data = e.data ? JSON.parse(e.data) : {};
+                        window.dispatchEvent(new CustomEvent('nfl-leaderboard-updated', { detail: data }));
+                    } catch(err) {
+                        window.dispatchEvent(new CustomEvent('nfl-leaderboard-updated', { detail: {} }));
+                    }
+                });
             }
          "
          x-show="visible"
@@ -769,8 +787,21 @@
                 if (window.__rivalsOpen) return true;
                 if (window.__openDrawers && window.__openDrawers.size > 0) return true;
                 const rivalsModal = document.getElementById('rivals-modal');
-                if (rivalsModal && rivalsModal.style.display !== 'none' && !rivalsModal.classList.contains('hidden')) return true;
-                const activeDrawers = document.querySelectorAll('[id^="live-community-"]:not(:empty)');
+                if (rivalsModal && rivalsModal.style.display !== 'none' && !rivalsModal.classList.contains('hidden') && !rivalsModal.hasAttribute('x-cloak')) {
+                    const style = window.getComputedStyle(rivalsModal);
+                    if (style.display !== 'none' && style.visibility !== 'hidden' && (rivalsModal.offsetWidth > 0 || rivalsModal.offsetHeight > 0)) {
+                        return true;
+                    }
+                }
+                const activeDrawers = Array.from(document.querySelectorAll('[id^="live-community-"]')).filter(function(el) {
+                    const parent = el.closest('[x-show="openCommunity"]');
+                    if (parent) {
+                        if (parent.hasAttribute('x-cloak')) return false;
+                        const style = window.getComputedStyle(parent);
+                        return style.display !== 'none' && style.visibility !== 'hidden' && (parent.offsetWidth > 0 || parent.offsetHeight > 0);
+                    }
+                    return false;
+                });
                 if (activeDrawers.length > 0) return true;
                 return false;
             };
@@ -827,6 +858,7 @@
                     document.body.classList.remove('overflow-hidden');
                     window.__modalOpen = false;
                     window.__rivalsOpen = false;
+                    if (window.__openDrawers) window.__openDrawers.clear();
                 }
             }
 
@@ -963,6 +995,7 @@
                     window.dispatchEvent(new CustomEvent('close-whatif'));
                     window.dispatchEvent(new CustomEvent('close-rivals'));
                     window.__rivalsOpen = false;
+                    if (window.__openDrawers) window.__openDrawers.clear();
                     setTimeout(cleanupModalState, 30);
                 }
             }, true);
@@ -980,6 +1013,7 @@
                     window.dispatchEvent(new CustomEvent('close-whatif'));
                     window.dispatchEvent(new CustomEvent('close-rivals'));
                     window.__rivalsOpen = false;
+                    if (window.__openDrawers) window.__openDrawers.clear();
                     setTimeout(cleanupModalState, 30);
                 }
             });

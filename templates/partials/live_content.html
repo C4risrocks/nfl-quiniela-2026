@@ -1,17 +1,21 @@
 <div id="live-content-container" 
      hx-get="/live/content?week={{.SelectedWeek.WeekNumber}}{{if .FeaturedGame}}&game_id={{.FeaturedGame.ID}}{{end}}" 
-     hx-trigger="every 25s [!window.__modalOpen && !window.__whatIfOpen && !window.__rivalsOpen && !window.__hasRivalsOpen()]" 
+     hx-trigger="nfl-week-updated from:window [!window.__modalOpen && !window.__whatIfOpen && !window.__rivalsOpen && !window.__hasRivalsOpen()], every 25s [!window.__modalOpen && !window.__whatIfOpen && !window.__rivalsOpen && !window.__hasRivalsOpen()]" 
      hx-swap="outerHTML ignoreTitle:true show:none scroll:none"
      class="space-y-6"
      x-data="{ 
-        activeFilter: 'all', 
-        activePlatform: 'all', 
+        activeFilter: (function() { try { return sessionStorage.getItem('nfl_live_filter') || 'all'; } catch(e) { return 'all'; } })(), 
+        activePlatform: (function() { try { return sessionStorage.getItem('nfl_live_platform') || 'all'; } catch(e) { return 'all'; } })(), 
         viewMode: localStorage.getItem('nfl_live_view_mode') || 'grid',
         setViewMode(mode) {
             this.viewMode = mode;
             try { localStorage.setItem('nfl_live_view_mode', mode); } catch(e) {}
         }
-     }">
+     }"
+     x-init="
+        $watch('activeFilter', val => { try { sessionStorage.setItem('nfl_live_filter', val); } catch(e){} });
+        $watch('activePlatform', val => { try { sessionStorage.setItem('nfl_live_platform', val); } catch(e){} });
+     ">
 
     <!-- Top Week Switcher & Live Stats Strip -->
     <div class="vercel-card p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
