@@ -286,6 +286,7 @@ func main() {
 
 	// Advanced Analytics & Trends
 	r.Get("/stats", statsHandler.ShowStats)
+	r.Get("/stats/user", statsHandler.UserStatsPartial)
 	r.Get("/stats/user/{id}", statsHandler.UserStatsPartial)
 
 	// Web Push VAPID Public Key (Client registration)

@@ -1,6 +1,47 @@
 <!-- Player Deep Analytics View Partial -->
 <div class="space-y-6">
 
+    <!-- Player Profile Strip -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 vercel-card p-4 sm:p-5 rounded-2xl border border-zinc-800 bg-zinc-950/80 shadow-sm">
+        <div class="flex items-center space-x-3.5">
+            <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-500/20 via-zinc-900 to-zinc-950 border border-cyan-500/30 flex items-center justify-center overflow-hidden shrink-0">
+                {{if .Analytics.AvatarURL}}
+                    <img src="{{.Analytics.AvatarURL}}" alt="{{.Analytics.Username}}" class="w-full h-full object-cover">
+                {{else if eq .Analytics.Username "ia_quiniela"}}
+                    <i class="fa-solid fa-robot text-purple-400 text-lg"></i>
+                {{else}}
+                    <i class="fa-solid fa-user text-cyan-400 text-base"></i>
+                {{end}}
+            </div>
+            <div>
+                <div class="flex items-center space-x-2">
+                    <h3 class="text-base font-black text-white">{{.Analytics.Username}}</h3>
+                    {{if eq .Analytics.Username "ia_quiniela"}}
+                        <span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">IA OFICIAL</span>
+                    {{else}}
+                        <span class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">Quinielero</span>
+                    {{end}}
+                </div>
+                <p class="text-xs text-zinc-400 font-mono mt-0.5">
+                    {{.Analytics.TotalCorrect}} aciertos en {{.Analytics.TotalPicks}} partidos evaluados · Temporada {{.Analytics.SeasonYear}}
+                </p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2 text-xs font-mono self-end sm:self-center">
+            <span class="px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300">
+                Precisión: <strong class="text-cyan-400">{{.Analytics.OverallAccuracy}}%</strong>
+            </span>
+        </div>
+    </div>
+
+    <!-- Empty State Alert if No Evaluated Picks -->
+    {{if eq .Analytics.TotalPicks 0}}
+    <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs flex items-center space-x-3">
+        <i class="fa-solid fa-circle-info text-amber-400 text-base shrink-0"></i>
+        <span>Este participante aún no tiene pronósticos evaluados en partidos finalizados de la temporada {{.Analytics.SeasonYear}}. Las métricas avanzadas (talismán, némesis, horarios) se generarán automáticamente a medida que concluyan los partidos.</span>
+    </div>
+    {{end}}
+
     <!-- Overview Stat Cards -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Card 1: Precision Global -->

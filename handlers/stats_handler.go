@@ -89,6 +89,14 @@ func (h *StatsHandler) UserStatsPartial(w http.ResponseWriter, r *http.Request) 
 	if idStr == "" {
 		idStr = r.URL.Query().Get("id")
 	}
+	if idStr == "" {
+		idStr = r.URL.Query().Get("user")
+	}
+	if idStr == "" {
+		if currentUser := auth.GetUserFromContext(r.Context()); currentUser != nil {
+			idStr = strconv.FormatInt(currentUser.ID, 10)
+		}
+	}
 	userID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -77,5 +78,73 @@ func TestPlayoffsAndStatsHandlers(t *testing.T) {
 		r.ServeHTTP(intelRR, intelReq)
 		// Template may not exist yet, but status shouldn't be panic
 		_ = intelRR
+	}
+
+	// 3. Test ShowStats
+	statsReq := httptest.NewRequest("GET", "/stats", nil)
+	statsReq = statsReq.WithContext(ctx)
+	statsRR := httptest.NewRecorder()
+	statsHandler.ShowStats(statsRR, statsReq)
+	if statsRR.Code != http.StatusOK {
+		t.Fatalf("ShowStats failed with status %d: %s", statsRR.Code, statsRR.Body.String())
+	}
+	if !strings.Contains(statsRR.Body.String(), "Curva de Evolución en el Leaderboard") {
+		t.Errorf("Expected ShowStats body to contain 'Curva de Evolución en el Leaderboard'")
+	}
+
+	// 3b. Test ShowStats with ?user=1 and ?tab=teams_ats
+	statsUserReq := httptest.NewRequest("GET", "/stats?user=1&tab=teams_ats", nil)
+	statsUserReq = statsUserReq.WithContext(ctx)
+	statsUserRR := httptest.NewRecorder()
+	statsHandler.ShowStats(statsUserRR, statsUserReq)
+	if statsUserRR.Code != http.StatusOK {
+		t.Fatalf("ShowStats with ?user=1 failed with status %d: %s", statsUserRR.Code, statsUserRR.Body.String())
+	}
+
+	// 4. Test UserStatsPartial with chi router and path param
+	r := chi.NewRouter()
+	r.Get("/stats/user/{id}", statsHandler.UserStatsPartial)
+	r.Get("/stats/user", statsHandler.UserStatsPartial)
+
+	uReq := httptest.NewRequest("GET", "/stats/user/1", nil)
+	uRR := httptest.NewRecorder()
+	r.ServeHTTP(uRR, uReq)
+	if uRR.Code != http.StatusOK {
+		t.Fatalf("UserStatsPartial /stats/user/1 failed with status %d: %s", uRR.Code, uRR.Body.String())
+	}
+	if !strings.Contains(uRR.Body.String(), "Precisión Global") {
+		t.Errorf("Expected UserStatsPartial body to contain 'Precisión Global'")
+	}
+
+	// 5. Test UserStatsPartial with query param /stats/user?id=1
+	uReqQuery := httptest.NewRequest("GET", "/stats/user?id=1", nil)
+	uRRQuery := httptest.NewRecorder()
+	r.ServeHTTP(uRRQuery, uReqQuery)
+	if uRRQuery.Code != http.StatusOK {
+		t.Fatalf("UserStatsPartial /stats/user?id=1 failed with status %d: %s", uRRQuery.Code, uRRQuery.Body.String())
+	}
+
+	// 6. Test UserStatsPartial with ?user=1 query param
+	uReqUser := httptest.NewRequest("GET", "/stats/user?user=1", nil)
+	uRRUser := httptest.NewRecorder()
+	r.ServeHTTP(uRRUser, uReqUser)
+	if uRRUser.Code != http.StatusOK {
+		t.Fatalf("UserStatsPartial /stats/user?user=1 failed with status %d: %s", uRRUser.Code, uRRUser.Body.String())
+	}
+
+	// 7. Test UserStatsPartial for newly created user without picks (empty state)
+	emptyUser, err := repo.CreateUser("newbie_player", "newbie@test.com", "pass123", "player")
+	if err == nil && emptyUser != nil {
+		uReqEmpty := httptest.NewRequest("GET", fmt.Sprintf("/stats/user?id=%d", emptyUser.ID), nil)
+		uRREmpty := httptest.NewRecorder()
+		r.ServeHTTP(uRREmpty, uReqEmpty)
+		if uRREmpty.Code == http.StatusOK {
+			if !strings.Contains(uRREmpty.Body.String(), "newbie_player") {
+				t.Errorf("Expected empty user partial to contain username 'newbie_player'")
+			}
+			if !strings.Contains(uRREmpty.Body.String(), "aún no tiene pronósticos evaluados") {
+				t.Errorf("Expected empty state notice in user partial")
+			}
+		}
 	}
 }
